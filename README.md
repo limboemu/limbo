@@ -1,4 +1,4 @@
-# limbo
+# Limbo PC EMulator (QEMU)
 
 Limbo is back!
 
