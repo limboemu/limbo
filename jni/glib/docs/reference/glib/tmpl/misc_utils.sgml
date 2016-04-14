@@ -1,0 +1,458 @@
+<!-- ##### SECTION Title ##### -->
+Miscellaneous Utility Functions
+
+<!-- ##### SECTION Short_Description ##### -->
+a selection of portable utility functions
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+These are portable utility functions.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### FUNCTION g_get_application_name ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_set_application_name ##### -->
+<para>
+
+</para>
+
+@application_name: 
+
+
+<!-- ##### FUNCTION g_get_prgname ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_set_prgname ##### -->
+<para>
+
+</para>
+
+@prgname: 
+
+
+<!-- ##### FUNCTION g_getenv ##### -->
+<para>
+
+</para>
+
+@variable: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_setenv ##### -->
+<para>
+
+</para>
+
+@variable: 
+@value: 
+@overwrite: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_unsetenv ##### -->
+<para>
+
+</para>
+
+@variable: 
+
+
+<!-- ##### FUNCTION g_listenv ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_user_name ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_real_name ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_user_cache_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_user_data_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_user_config_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### ENUM GUserDirectory ##### -->
+<para>
+
+</para>
+
+@G_USER_DIRECTORY_DESKTOP: 
+@G_USER_DIRECTORY_DOCUMENTS: 
+@G_USER_DIRECTORY_DOWNLOAD: 
+@G_USER_DIRECTORY_MUSIC: 
+@G_USER_DIRECTORY_PICTURES: 
+@G_USER_DIRECTORY_PUBLIC_SHARE: 
+@G_USER_DIRECTORY_TEMPLATES: 
+@G_USER_DIRECTORY_VIDEOS: 
+@G_USER_N_DIRECTORIES: 
+
+<!-- ##### FUNCTION g_get_user_special_dir ##### -->
+<para>
+
+</para>
+
+@directory: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_system_data_dirs ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_system_config_dirs ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_reload_user_special_dirs_cache ##### -->
+<para>
+
+</para>
+
+@void: 
+
+
+<!-- ##### FUNCTION g_get_host_name ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_home_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_tmp_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_current_dir ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_basename ##### -->
+
+
+@file_name: 
+@Returns: 
+
+
+<!-- ##### MACRO g_dirname ##### -->
+<para>
+This function is deprecated and will be removed in the next major
+release of GLib. Use g_path_get_dirname() instead.
+</para>
+
+<para>
+Gets the directory components of a file name.
+If the file name has no directory components "." is returned.
+The returned string should be freed when no longer needed.
+</para>
+
+@Returns: the directory components of the file.
+
+
+<!-- ##### FUNCTION g_path_is_absolute ##### -->
+<para>
+
+</para>
+
+@file_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_path_skip_root ##### -->
+<para>
+
+</para>
+
+@file_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_path_get_basename ##### -->
+<para>
+
+</para>
+
+@file_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_path_get_dirname ##### -->
+<para>
+
+</para>
+
+@file_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_build_filename ##### -->
+<para>
+
+</para>
+
+@first_element: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_build_filenamev ##### -->
+<para>
+
+</para>
+
+@args: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_build_path ##### -->
+<para>
+
+</para>
+
+@separator: 
+@first_element: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_build_pathv ##### -->
+<para>
+
+</para>
+
+@separator: 
+@args: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_format_size_for_display ##### -->
+<para>
+
+</para>
+
+@size: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_find_program_in_path ##### -->
+<para>
+
+</para>
+
+@program: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_bit_nth_lsf ##### -->
+<para>
+Find the position of the first bit set in @mask, searching from (but not
+including) @nth_bit upwards. Bits are numbered from 0 (least significant)
+to sizeof(#gulong) * 8 - 1 (31 or 63, usually). To start searching from the
+0th bit, set @nth_bit to -1.
+</para>
+
+@mask: a #gulong containing flags.
+@nth_bit: the index of the bit to start the search from.
+@Returns: the index of the first bit set which is higher than @nth_bit.
+
+
+<!-- ##### FUNCTION g_bit_nth_msf ##### -->
+<para>
+Find the position of the first bit set in @mask, searching from (but not
+including) @nth_bit downwards. Bits are numbered from 0 (least significant)
+to sizeof(#gulong) * 8 - 1 (31 or 63, usually). To start searching from the
+last bit, set @nth_bit to -1 or GLIB_SIZEOF_LONG * 8.
+</para>
+
+@mask: a #gulong containing flags.
+@nth_bit: the index of the bit to start the search from.
+@Returns: the index of the first bit set which is lower than @nth_bit.
+
+
+<!-- ##### FUNCTION g_bit_storage ##### -->
+<para>
+Gets the number of bits used to hold @number,
+e.g. if @number is 4, 3 bits are needed.
+</para>
+
+@number: a guint.
+@Returns: the number of bits used to hold @number.
+
+
+<!-- ##### FUNCTION g_spaced_primes_closest ##### -->
+<para>
+Gets the smallest prime number from a built-in array of primes which
+is larger than @num. This is used within GLib to calculate the optimum
+size of a #GHashTable.
+</para>
+<para>
+The built-in array of primes ranges from 11 to 13845163 such that
+each prime is approximately 1.5-2 times the previous prime.
+</para>
+
+@num: a #guint.
+@Returns: the smallest prime number from a built-in array of primes which is
+larger than @num.
+
+
+<!-- ##### FUNCTION g_atexit ##### -->
+<para>
+
+</para>
+
+@func: 
+
+
+<!-- ##### FUNCTION g_parse_debug_string ##### -->
+<para>
+
+</para>
+
+@string: 
+@keys: 
+@nkeys: 
+@Returns: 
+
+
+<!-- ##### STRUCT GDebugKey ##### -->
+<para>
+Associates a string with a bit flag.
+Used in g_parse_debug_string().
+</para>
+
+@key: the string
+@value: the flag
+
+<!-- ##### USER_FUNCTION GVoidFunc ##### -->
+<para>
+Declares a type of function which takes no arguments and has no return value.
+It is used to specify the type function passed to g_atexit().
+</para>
+
+@void: 
+
+
+<!-- ##### USER_FUNCTION GFreeFunc ##### -->
+<para>
+Declares a type of function which takes an arbitrary data pointer argument
+and has no return value. It is not currently used in GLib or GTK+.
+</para>
+
+@data: a data pointer.
+
+
+<!-- ##### FUNCTION g_qsort_with_data ##### -->
+<para>
+
+</para>
+
+@pbase: 
+@total_elems: 
+@size: 
+@compare_func: 
+@user_data: 
+
+
+<!-- ##### FUNCTION g_nullify_pointer ##### -->
+<para>
+
+</para>
+
+@nullify_location: 
+
+

@@ -1,0 +1,436 @@
+  Hello folks!
+
+
+This is libmikmod, version 3.1.12, a portable sound library for Unix
+and other systems. Check out the file 'NEWS' for more history information.
+
+
+>> BUILDING LIBMIKMOD
+---------------------
+
+- If you're building libmikmod under MacOS, please refer to the 'README'
+  file located in the 'macintosh' subdirectory.
+
+- If you're building libmikmod under OS/2, please refer to the 'README'
+  file located in the 'os2' subdirectory.
+
+- If you're building libmikmod under Windows, please refer to the
+  'README' file located in the 'win32' subdirectory.
+
+- If you're building libmikmod under any other system which is not a
+  Unix flavour, then be warned that this your platform is not supported
+  and that libmikmod will probably not build out of the box; don't
+  hesitate to drop me a note, and I'll see what I can do for this situation.
+
+So you're on a good old Unix workstation, aren't you ?
+
+You'll need an ANSI C compiler to build libmikmod. If your system does not
+come with an ANSI C compiler, you might want to try the GUN C compiler, gcc.
+If you're building on a 32 bit architecture, your compiler must provide a
+64 bit integer type (usually 'long long').
+
+To prevent clobbering the sources, I recommend building libmikmod in an
+alternate directory, for example 'build':
+
+  mkdir build
+  cd build
+
+In this directory, run libmikmod's configure script:
+
+  ../configure
+
+The configure script will attempt to guess correct values for various
+system-dependent variables used during the build process, and will
+create appropriate Makefiles for proper compilation.
+
+If you're not familiar with configure scripts and their standard
+options, you can find more general information about them in the file
+INSTALL.
+
+The default behaviour of the configure script is to create both a static
+and a shared library, with as many drivers as possible, which are
+dynamically loaded whenever possible. However, it can be given several
+options to tweak your configuration of libmikmod:
+
+The --enable-af, --enable-alsa, --enable-esd, --enable-oss,
+--enable-sam9407 and --enable-ultra options will compile respectively
+the Digital AudioFile, Advanced Linux Sound Architecture (ALSA),
+Enlightened Sound Daemon, Open Sound System (OSS), sam9407 and Linux
+Ultrasound drivers.
+
+Since the configure script will search for the appropriate include files
+and libraries, to compile as much drivers as possible, these options are
+mostly useful in their negative form:
+  ../configure --disable-esd
+will configure libmikmod without the Enlightened Sound Daemon driver,
+even if all the necessary files for compiling are present on the
+system.
+
+The --enable-dl option enables the dynamic load of the alsa, esd and
+ultra drivers at runtime, if your systems support it. This option is
+enabled by default if the build system supports it, so it is more useful
+in its negative form:
+  ../configure --disable-dl
+will configure libmikmod without the dynamic loading facility.
+
+The --enable-threads option enables the creation of a thread-safe
+libmikmod library, if your system provides POSIX threads. This option is
+enabled by default, so it is more useful in its negative form:
+  ../configure --disable-threads
+will configure for a non thread-safe version of libmikmod.
+
+The --enable-shared and --enable-static options control whether a static
+library, a shared library or both should be built.
+
+The --enable-debug option creates a debug version of libmikmod.
+
+After you've successfully run configure, simply run
+
+  make
+
+to get all things build. Then, run
+
+  make install
+
+to have the library installed. Depending on where you choose to install
+it (using the --prefix= option to configure), you may need root
+privileges for this operation.
+
+
+>> DRIVER PARAMETERS
+--------------------
+
+Until a good place to put this information is found, here is the list of
+parameters recognized by the drivers, as well as the driver alias list.
+When specifying multiple parameters, use a comma (,) to separate the
+different parameters, for example: somevalue=1,someothervalue=2
+
+- AudioFile (alias "audiofile")
+  machine=  same syntax as the AUDIOFILE environment variable.
+
+- AIX ("AIX") [AIX only]
+  buffer=   logarithmic size of the buffer, in the range 12-19. Default
+            is 15.
+
+- ALSA ("alsa") [Linux only]
+  card=     card number. Default is first pcm-capable card. Replaces the
+            ALSA_CARD environment variable, which is now deprecated.
+  pcm=      pcm interface number. Default is first adequate interface.
+            Replaces the ALSA_PCM environment variable, which is now
+            deprecated.
+  buffer=   logarithmic fragment size, in the range 2-16. Default is 4.
+            Replaces the MM_NUMFRAGS environment variable, which is now
+            deprecated.
+
+- DART ("dart") [OS/2 only]
+  buffer=   logarithmic fragment size, in the range 12-16. Default is
+            computed to a bit more than 1/4" of playback.
+  count=    fragment count, in the range 2-8. Default is 2.
+  device=   waveaudio device number, in the range 0-8. Default is 0 (use
+            default waveaudio device).
+
+- DirectX ("ds") [Win32 only]
+  buffer=   logarithmic size of the buffer, in the range 12-19. Default
+            is 16.
+  globalfocus
+            always play music, even if the application has not the
+            focus. Required for full-screen applications.
+
+- EsounD ("esd") [Unix only]
+  machine=  same syntax as the ESPEAKER environment variable.
+
+- HP ("hp") [HP-UX only]
+  buffer=   logarithmic size of the buffer, in the range 12-19. Default
+            is 15.
+  headphone redirects the output to the headphone port.
+
+- MacOS ("mac") [MacOS only]
+  buffer=   logarithmic size of the buffer, in the range 10-16. Default
+            is 12.
+
+- OS/2 MMPM ("os2") [OS/2 only]
+  buffer=   logarithmic size of the buffer, in the range 12-16. Default
+            is computed to a bit more than 1/4" of playback.
+  device=   waveaudio device number, in the range 0-8. Default is 0 (use
+            default waveaudio device).
+
+- OSS ("oss") [Unix only]
+  card=     card number. Default is the card whose driver was loaded
+            first.
+  buffer=   logarithmic fragment size, in the range 7-17. Default is 14.
+            Replaces the MM_FRAGSIZE environment variable, which is now
+            deprecated.
+  count=    fragment count, in the range 2-255. Default is 16.
+            Replaces the MM_NUMFRAGS environment variable, which is now
+            deprecated.
+
+- Piped output ("pipe") [Unix only]
+  pipe=     Pipe command (mandatory).
+ 
+- SGI audio library ("sgi") [IRIX only]
+  fragsize= buffer size for libmikmod internal use.
+            Replaces the MM_SGI_FRAGSIZE environment variable, which is
+            now deprecated.
+  bufsize=  buffer size for the audio library.
+            Replaces the MM_SGI_BUFSIZE environment variable, which is
+            now deprecated.
+
+- Disk writers in raw and wav formats ("raw" and "wav")
+  file=     Output file name. Default is music.raw for the raw driver
+            and music.wav for the wav driver.
+
+- Sun/Solaris/NetBSD/OpenBSD audio ("audio")
+  [SunOS, Solaris, NetBSD, OpenBSD only]
+  buffer=   logarithmic fragment size, in the range 7-17. Default is 12.
+            Replaces the MM_FRAGSIZE environment variable, which is now
+            deprecated.
+  headphone on SunOS/Solaris only, redirects the output to the headphone
+            port.
+  speaker   on SunOS/Solaris only, redirects the output to the speaker.
+  
+- Linux sam9407-based soundcards ("sam9407") [Linux only]
+  card=     card number. Default is first card.
+
+- NoSound ("nosound"), Standard output ("stdout"), Ultrasound ("ultra"),
+  Windows Multimedia ("winmm")
+  These driver have no options.
+
+
+>> ALSA DRIVER SPECIFIC INFORMATION (Linux specific)
+-----------------------------------
+
+The Advanced Linux Sound Architecture (ALSA) project aims to provide
+better sound facilities than the current OSS drivers. Although it is
+still in beta, it appears to be very stable and very easy to program
+compared to the OSS.
+Besides, it works much better than OSS for Gravis-type soundcards.
+
+You can find more information on ALSA, including an HOWTO, on the web:
+  http://www.alsa-project.org
+
+The Advanced Linux Sound Architecture (ALSA) is still in beta, but its
+API is stable, so this libmikmod version should work with future
+versions of ALSA.
+
+This version of the libmikmod ALSA driver works with either ALSA
+versions 0.3.x (for Linux kernels 2.0.x) and 0.4.x (for Linux kernels
+2.2.x and later).
+The latest versions, 0.5.x and 0.9.x, are currently not supported natively,
+although you can use the OSS emulation without problems.
+
+If the sound comes out jerky, you can pass the "buffer=xx" option to the
+driver, to tweak the ALSA settings. The default value (if this option is
+not used) is 4; the slower your machine is, the greater this value has
+to be, but the allowed range is 2 to 16. However, the ALSA generally
+finds good settings for your configuration, so I doubt you'll have to
+use this option.
+
+
+>> ENLIGHTENED SOUND DAEMON SPECIFIC INFORMATION (Unix specific)
+------------------------------------------------
+
+The Enlightened Sound Daemon (EsounD) is still experimental and may
+change a lot until it reaches the 1.0 release. Thus, this libmikmod
+version might not work with future versions of EsounD.
+
+You can find more information on EsounD on the web:
+  http://www.tux.org/~ricdude/EsounD.html
+However, this page is getting very out of date. Recent EsounD work can
+be found on the GNOME project:
+  http://www.gnome.org/applist/view.php3?name=esound
+which not kept up-to-date either...
+
+The version of the libmikmod EsounD driver coincides with the latest
+EsounD release available when this version of libmikmod was released;
+for the 3.1.10 release, this is EsounD v0.2.23, but libmikmod should
+work with any version starting from 0.2.6, although the latest version
+is recommended.
+
+Please note that between 0.2.8 and 0.2.12 the server port and the
+protocol have changed, thus clients compiled with libesd from 0.2.8 can
+not communicate with 0.2.12 (and later) esd, and vice versa.
+
+If the esd daemon dies, libmikmod will try to reconnect every 5 seconds
+and every new module, if a module ends. So, you can safely restart esd
+and wait 5 seconds, and voila! Sound is back...
+
+If you run esd and a libmikmod application on the same machine,
+everything should work fine. However, if there is a real network
+connection, synchronization problems can occur.
+
+If sound clicks or gets chopped, then you've likely got a
+synchronization problem. Pausing the player for a second should cause
+the problem to disappear.  If there's still problems, perhaps your
+network is not fast enough. Lowering the playback rate will hopefully
+solve the problem.
+
+Also, the performance of the esd is really abominable if the esd
+playback frequency can't be divided by the libmikmod playback rate. For
+example, runinng a libmikmod application at 42000 Hz with esd at 44100
+Hz will sound horrible, and take a lot of CPU time due to resampling.
+
+
+>> SGI DRIVER SPECIFIC INFORMATION (IRIX specific)
+----------------------------------
+
+The SGI audio driver was written by Stephan Kanthak in 1996 and its
+author grants to distribute it with the libmikmod package under the same
+restrictions as the library.
+
+If you encounter any problems concerning crackles or short stops while
+playing, feel free to experiment with the values of the fragsize and
+bufsize options of the driver. The default values are 20000 for fragsize
+and 40000 for bufsize. Increasing bufsize might result in nonstop sound
+on slow machines, but increases latency of interactive applications. The
+value of fragsize should be set to about half of bufsize in most cases
+and needs to be increased only if you own a very slow SGI.
+
+Common problems
+
+- libmikmod does not compile on my SGI?
+  First check out whether you have the SGI audio library (libaudio) or
+  not. If the audio library is missing you should upgrade to IRIX 5.3 or
+  newer and you will obtain the media development package automatically
+  with it. If you have the audio library installed, check out if it is
+  in the linker path.
+
+  Also, the audio API has been extended in recent IRIX releases (6.4 and
+  later). The older API used by libmikmod is supposed to be still supported,
+  please drop me a note if it is not on your IRIX release.
+
+- Sound is _very_ noisy?
+  Change sample size to 16 bits.
+
+- Sound crackles or stops temporarily?
+  Try to increase the value of the fragsize driver option (default value
+  is 20000). Switch to mono mode if necessary.
+
+- libmikmod applications only react very slowly?
+  This is a typical effect on SGI machines because the audio library
+  sets up an internal buffer that seems to be quite large on many
+  installations. Try to decrease the bufsize driver option (default
+  value is 40000).
+
+How to contact the driver author:
+Stephan Kanthak <kanthak@i6.informatik.rwth-aachen.de>
+Please cc: me (miod), just in case.
+
+
+>> SUNOS, SOLARIS, NETBSD AND OPENBSD DRIVER SPECIFIC INFORMATION
+-----------------------------------------------------------------
+
+The above mentioned systems use the same interface to the audio device.
+The libmikmod driver for this interface is the Sun driver. It was coded
+by Valtteri Vuorikoski <vuori@sci.fi> and updated to libmikmod 3 by Tor
+Norbye <tor@cs.stanford.edu>, and has been modified to work under NetBSD
+and OpenBSD by the current maintainer.
+
+This driver works with old sound hardware using 8 KHz mono ulaw, and
+with modern hardware using pcm mono or stereo at any frequency. If your
+settings aren't supported by the audio device, sound initialization will
+fail. Refer to the audio(7) man page under SunOS/Solaris and the
+audio(4) man page under NetBSD/OpenBSD for more details on your audio
+hardware and its capabilities.
+
+On Sun workstations, you might be interested in passing the "headphone"
+option to the driver to force output on the headphones, since plugging
+the headphones is not enough.
+
+If you run NetBSD or OpenBSD, the driver does not support the headphone
+and speaker parameters, but you can achieve the same effect with
+audioctl(1), for example:
+  audioctl -w play.port=1
+will select the speaker, while a value of 2 would have selected the
+headphone.
+
+If sound is jerky, you can pass the "buffer=xx" option to the driver to
+increase its internal buffer size. The default value (when this option
+is not used) is 12; the slower your machine, the greater this value has
+to be, in the range 7-17.
+
+If you can't get libmikmod to work with your hardware, you can use its
+raw disk writer driver, in 8 bit mono 8 kHz, and send the music.raw file
+to /dev/audio with sox, using the following command line:
+    sox -t raw -c 1 -r 8000 -u -b music.raw -t raw -U -r 8000 \
+        -c 1 -b /dev/audio
+(or use the piped output driver with this command line)
+
+Or if you played in 16 bit stereo, you can convert the file to a .au
+file:
+  audioconvert -o music.au -f sun \
+               -i rate=44.1k,channels=stereo,encoding=linear16 music.raw
+and play the file:
+    audioplay -p headphone -v 10 music.au
+
+
+>> SAM9407 DRIVER SPECIFIC INFORMATION (Linux specific)
+--------------------------------------
+
+The SAM9407 driver provides an OSS-compatible driver for the soundcards
+based on the sam9407 audio chip (MaxiSound 64 and Terratec EWS, among
+others), and provides advanced features such as hardware module
+playback.
+
+You can find more information on this driver on the web:
+  http://www.anime.net/~sam9407
+
+The version of the libmikmod sam9407 driver coincides with the latest sam9407
+driver release available when this version of libmikmod was released; for the
+3.1.10 release, this is sam9407 driver v1.0.0.
+
+
+>> THANKS
+---------
+
+I would like to thank everyone who contributed to libmikmod. Their names
+are in the AUTHORS file for the significative contributions, but some
+other names can be found in the NEWS file. Thanks a lot! Keeping
+libmikmod alive wouldn't be much fun without you.
+
+
+>> LICENSE
+----------
+
+The libmikmod sound library is covered by the GNU Library General Public
+License as published by the Free Software Fundation (you'll find it in
+the file COPYING.LIB); either version 2 of the licence, or (at your
+option) any later version.
+
+The GNU Lesser General Public License, version 2.1, in file
+COPYING.LESSER, can be considered as a later version of the LGPL, and is
+strongly recommended for people who will embed libmikmod in their
+application as a shared library.
+
+Parts of the library (in playercode/mdulaw.c) are derived from the files
+libst.h and raw.c from an old version of the sox (SOund eXchange)
+package written by Lance Norskog and Jef Poskanzer. The following
+copyright notice applies to these parts:
+
+   Copyright (C) 1989 by Jef Poskanzer.
+
+   Permission to use, copy, modify, and distribute this software and its
+   documentation for any purpose and without fee is hereby granted, provided
+   that the above copyright notice appear in all copies and that both that
+   copyright notice and this permission notice appear in supporting
+   documentation.  This software is provided "as is" without express or
+   implied warranty.
+
+
+>> CONTACT AND DOWNLOAD INFO
+----------------------------
+
+* email:
+  Please send all your libmikmod related e-mail to me, at:
+    mikmod@raphnet.net
+
+* web:
+  libmikmod home page is located at:
+    http://mikmod.raphnet.net
+
+* ftp:
+  Latest releases of libmikmod can be found:
+  - on the web site
+    htp://mikmod.raphnet.net
+
+
+

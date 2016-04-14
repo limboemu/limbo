@@ -1,0 +1,12 @@
+*.o
+*.d
+*.a
+*.so
+*~
+*.tab.[ch]
+lex.yy.c
+*.lex.c
+/dtc
+/ftdump
+/convert-dtsv0
+/version_gen.h

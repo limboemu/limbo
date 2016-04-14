@@ -1,0 +1,126 @@
+Limbo PC Emulator (QEMU x86) for Android    
+
+================================================================================
+
+1. What is Limbo?
+
+Limbo is a QEMU-based emulator for Android. It currently supports PC emulation 
+for Intel x86 architecture.
+For more information visit:
+https://github.com/limboemu/limbo
+    
+
+===============================================================================
+
+2. Requirements:
+
+    Android SDK
+    Android NDK r8+ (Recommended: 10e + GCC 4.9)
+    Eclipse + Eclipse Android plugin or Netbeans + Android plugin
+    An Android device (most stock/custom roms should be compatible)
+    Cygwin (if you compile for Windows)
+    flex, bison, libtool (optional)
+    
+
+===============================================================================
+
+3. Known Issues:
+	https://github.com/limboemu/limbo/issues
+	
+===============================================================================
+4. Setup Environment
+
+    a. Update variables for paths to NDK directories for your Build Environment
+     in jni/android-config.mak.
+     
+    b. Configure your PATH variable add the NDK Directory so makefile can find ndk-build
+    Examples:
+    For bash:
+    export PATH=$PATH:/home/dev/tools/android/android-ndk-r10e
+    
+    c. For linux/MacOSX make sure the configure script under ..../qemu/configure is executable 
+    chmod u+x qemu/configure 
+    
+    
+
+===============================================================================
+5. Build
+
+    To build the NDK part of the app make sure you're under the jni directory:
+    
+    WARNING! If you use Windows/Cygwin Make sure your project is in a directory ONLY under the C: drive!
+    
+    If you use Windows use Cygwin Prompt otherwise use your terminal (Linux/Macos)
+        > cd /cygdrive/c/users/youraccount/.../limbo-android/jni
+        
+        or if you use linux:
+        > cd /home/youraccount/.../limbo-android/jni
+        
+         
+	If you build on Windows platform make sure you update the android-config.mak file with:
+    NDK_ROOT = /cygdrive/d/pathtoyourproject (the NDK_ROOT needs to start with = /cygdrive/)
+    
+    a. Build the static and shared libraries :
+        > make release
+        	
+    b. Build the Android APK (Limbo.apk) from Eclipse or Netbeans.
+    		 
+    	** Make sure the *.so libraries are zipped in the final .apk
+    	(Eclipse should do that automatically) 
+    	
+   	c. Build the debugging version:
+   		i. Modify debuggable flag in AndroidManifest.xml to true
+   		ii. Modify android-config.mak and point to a configuration 
+   			with no optimization: 
+   			ie android-generic-armv5te-softfp-noopt.mak
+   		ii. From the command line type:
+   			> make config-debug
+   			> make debug    
+    
+    d. For ARMv7 phones (hard floating point):
+        i. Update android-config.mak and include file android-generic-armv7a-hard.mak
+        ii. > make release
+
+    e. For x86 phones:
+        i. Update android-config.mak and include file android-ndkr8-x86.mak 
+        ii. > make release
+   
+    f. If you want to build the ARM Emulator update android-qemu-config.mak file with:
+    TARGET_LIST = arm-softmmu    
+    
+    h. To clean up type:
+    	> make clean
+    	
+    i. From Eclipse Build the project and check that all the .so libraries are included in your APK file.
+===============================================================================
+6. Development
+	a. Changes pertinent to compatibility with Android/bionic are tagged in C as #ifdef __ANDROID__
+	b. Other changes pertinent to LIMBO are tagged in C as #ifdef __LIMBO__ 
+	c. Important configuration makefiles:
+		android-config.mak (for setting up Toolchain variables)
+		android-qemu-config.mak (for configuring QEMU options)
+	d. Android Makefiles can be found as Android.mk and Application.mk
+	e. Device specific flags can be found under directory android-device-config/
+	f. Frontend options configuration see: Config.java
+    	
+===============================================================================
+7. Run
+	a. Installing a full Qwerty keyboard for Android (ie Hacker's keyboard 
+		from the Google Android store) is recommended 
+	b. Start the Limbo app and choose CPU, Memory (~8-64MB),etc..
+	c. Choose a bootable disk image(s) for CDRom, Floppy, and a HDD image
+	d. Start the virtual machine.
+    e. Have fun!
+    	
+===============================================================================
+8. License
+
+Limbo PC Emulator is release unders GPL v2 License.
+All icons unders /res are from Gnome Project (GPL v2 License)
+See file COPYING
+
+Other source included are released under their own license please view Licenses under each subdirectory
+
+===============================================================================
+
+Endofdoc

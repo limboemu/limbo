@@ -1,0 +1,45 @@
+TODO list for future versions (or ROADMAP if you prefer)
+=============================
+
+**** for the next major release, libmikmod 3.2:
+
+- bugfixes
+- ability to have several modules in memory (it doesn't work in all cases in
+  the current version)
+- integration of the LINA (LINA Is Not A3D) companion library written by
+  David Banz.
+- total module length computation
+- ability to seek in modules in smaller chunks than patterns
+
+**** during 3.2.x maintenance releases:
+
+- a NAS (Network Audio System) driver
+- DMF and PSM loaders
+- loading of stereo and ADPCM wave files
+
+**** hopefully in 3.x.x releases:
+
+- bugfixes
+- use of glib or Pth for better thread support (i.e. more portability)
+- LIQ loader (see with Claudio Matsuoka)
+- MED improvements (at least I hope so)
+- software mixer improvements
+- an OSS sequencer driver
+- an ALSA sequencer driver
+
+**** Will hopefully occur in 4.x
+
+- bugfixes
+- a TFMX loader (see with Claudio, too)
+  
+**** Plans for the 4.x series and later:
+
+- bugfixes
+- a well-defined module loader interface, allowing both libmikmod and xmp to
+  share the same loader code (in cooperation with Claudio, of course)
+- extending the feature list, at the request of the users: midi support ?
+  mp3 support ? cdda support ? suggestions welcome.
+  
+  
+Want something else ? Drop me a note at <miod@mikmod.org> and I'll
+see what I can do for you...

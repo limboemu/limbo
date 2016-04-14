@@ -1,0 +1,38 @@
+ =============== LICENSE ===============
+ <br><br>
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+<br><br>
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+<br><br>
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <<a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a>>.
+<br> <br>
+
+ =============== THANKS ===============
+ <br><br>
+ "And so, I captured this fancy, where all that we see, or seem, 
+ is but a dream within a dream."   -- Edgar Allan Poe
+<br><br>
+<font color="red"> Thanks To:</font><br>
+    Fabrice Bellard <a href="http://bellard.org">http://bellard.org</a><br>
+	Qemu team <a href="http://wiki.qemu.org/Main_Page">http://wiki.qemu.org/Main_Page></a><br>
+	Glib team <a href="http://developer.gnome.org">http://developer.gnome.org/glib></a><br>
+	Iconv team <a href="http://www.gnu.org/software/libiconv">http://www.gnu.org/software/libiconv></a><br>
+	Libsdl team <a href="http://www.libsdl.org">http://www.libsdl.org></a><br>
+	Libjpeg team <a href="http://libjpeg.sourceforge.net">http://libjpeg.sourceforge.net></a><br>
+	Libpng team <a href="http://www.libpng.org">http://www.libpng.org></a><br>
+	Mikmod team <a href="http://mikmod.shlomifish.org">http://mikmod.shlomifish.org></a><br>
+	Libtremor team <a href="http://xiph.org/vorbis">http://xiph.org/vorbis></a><br>
+	Freetype team <a href="http://www.freetype.org">http://www.freetype.org></a><br>
+	Android-vnc-viewer team <a href="http://code.google.com/p/android-vnc-viewer">http://code.google.com/p/android-vnc-viewer></a><br>
+<br>
+ =============== SOURCE CODE ===============
+<br><br>
+ Source Code, Wiki, and Other information can be found at:<br>
+ <a href="https://code.google.com/p/limbo-android/">https://code.google.com/p/limbo-android/</a><br>

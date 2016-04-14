@@ -1,0 +1,112 @@
+<refentry id="gobject-query" lang="en">
+
+<refmeta>
+<refentrytitle>gobject-query</refentrytitle>
+<manvolnum>1</manvolnum>
+<refmiscinfo class="manual">User Commands</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>gobject-query</refname>
+<refpurpose>display a tree of types</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+<cmdsynopsis>
+<command>gobject-query</command>
+<arg choice="plain">froots</arg>
+<arg choice="opt" rep="repeat">options</arg>
+</cmdsynopsis>
+<cmdsynopsis>
+<command>gobject-query</command>
+<arg choice="plain">tree</arg>
+<arg choice="opt" rep="repeat">options</arg>
+</cmdsynopsis>
+</refsynopsisdiv>
+
+<refsect1><title>Description</title>
+<para>
+<command>gobject-query</command> is a small utility that draws a tree of 
+types.
+</para>
+</refsect1>
+
+<refsect1><title>Invocation</title>
+<para>
+<command>gobject-query</command> takes a mandatory argument that specifies
+whether it should iterate over the fundamental types or print a type tree.
+</para>
+
+<refsect2><title>Options</title>
+<variablelist>
+
+<varlistentry>
+<term><option>froots</option></term>
+<listitem><para>
+iterate over fundamental roots
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>tree</option></term>
+<listitem><para>
+print type tree
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-r</option> <replaceable>type</replaceable></term>
+<listitem><para>
+specify the root type
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-n</option></term>
+<listitem><para>
+don't descend type tree
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-b</option> <replaceable>string</replaceable></term>
+<listitem><para>
+specify indent string
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-i</option> <replaceable>string</replaceable></term>
+<listitem><para>
+specify incremental indent string
+</para></listitem>
+</varlistentry>
+
+
+<varlistentry>
+<term><option>-s</option> <replaceable>number</replaceable></term>
+<listitem><para>
+specify line spacing
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-h</option>, <option>--help</option></term>
+<listitem><para>
+Print brief help and exit.
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-v</option>, <option>--version</option></term>
+<listitem><para>
+Print version and exit.
+</para></listitem>
+</varlistentry>
+
+</variablelist>
+</refsect2>
+</refsect1>
+</refentry>
+
+

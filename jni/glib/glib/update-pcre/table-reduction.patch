@@ -1,0 +1,269 @@
+--- pcre_compile.c	2006-10-10 12:00:00.000000000 +0200
++++ pcre_compile.c	2006-10-10 12:00:00.000000000 +0200
+@@ -129,10 +129,21 @@
+ terminated by a zero length entry. The first three must be alpha, lower, upper,
+ as this is assumed for handling case independence. */
+ 
+-static const char *const posix_names[] = {
+-  "alpha", "lower", "upper",
+-  "alnum", "ascii", "blank", "cntrl", "digit", "graph",
+-  "print", "punct", "space", "word",  "xdigit" };
++static const char posix_names[] =
++  "alpha\0" 
++  "lower\0" 
++  "upper\0"
++  "alnum\0" 
++  "ascii\0" 
++  "blank\0" 
++  "cntrl\0" 
++  "digit\0" 
++  "graph\0"
++  "print\0" 
++  "punct\0" 
++  "space\0" 
++  "word\0"  
++  "xdigit";
+ 
+ static const uschar posix_name_lengths[] = {
+   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 6, 0 };
+@@ -173,76 +184,138 @@
+ they are documented. Always add a new error instead. Messages marked DEAD below
+ are no longer used. */
+ 
+-static const char *error_texts[] = {
+-  "no error",
+-  "\\ at end of pattern",
+-  "\\c at end of pattern",
+-  "unrecognized character follows \\",
+-  "numbers out of order in {} quantifier",
++#define DEAD(s) "\0"
++
++static const char error_texts[] =
++  "no error\0"
++  "\\ at end of pattern\0"
++  "\\c at end of pattern\0"
++  "unrecognized character follows \\\0"
++  "numbers out of order in {} quantifier\0"
+   /* 5 */
+-  "number too big in {} quantifier",
+-  "missing terminating ] for character class",
+-  "invalid escape sequence in character class",
+-  "range out of order in character class",
+-  "nothing to repeat",
++  "number too big in {} quantifier\0"
++  "missing terminating ] for character class\0"
++  "invalid escape sequence in character class\0"
++  "range out of order in character class\0"
++  "nothing to repeat\0"
+   /* 10 */
+-  "operand of unlimited repeat could match the empty string",  /** DEAD **/
+-  "internal error: unexpected repeat",
+-  "unrecognized character after (?",
+-  "POSIX named classes are supported only within a class",
+-  "missing )",
++  DEAD("operand of unlimited repeat could match the empty string")
++  "internal error: unexpected repeat\0"
++  "unrecognized character after (?\0"
++  "POSIX named classes are supported only within a class\0"
++  "missing )\0"
+   /* 15 */
+-  "reference to non-existent subpattern",
+-  "erroffset passed as NULL",
+-  "unknown option bit(s) set",
+-  "missing ) after comment",
+-  "parentheses nested too deeply",  /** DEAD **/
++  "reference to non-existent subpattern\0"
++  "erroffset passed as NULL\0"
++  "unknown option bit(s) set\0"
++  "missing ) after comment\0"
++  DEAD("parentheses nested too deeply")
+   /* 20 */
+-  "regular expression too large",
+-  "failed to get memory",
+-  "unmatched parentheses",
+-  "internal error: code overflow",
+-  "unrecognized character after (?<",
++  "regular expression too large\0"
++  "failed to get memory\0"
++  "unmatched parentheses\0"
++  "internal error: code overflow\0"
++  "unrecognized character after (?<\0"
+   /* 25 */
+-  "lookbehind assertion is not fixed length",
+-  "malformed number or name after (?(",
+-  "conditional group contains more than two branches",
+-  "assertion expected after (?(",
+-  "(?R or (?digits must be followed by )",
++  "lookbehind assertion is not fixed length\0"
++  "malformed number or name after (?(\0"
++  "conditional group contains more than two branches\0"
++  "assertion expected after (?(\0"
++  "(?R or (?digits must be followed by )\0"
+   /* 30 */
+-  "unknown POSIX class name",
+-  "POSIX collating elements are not supported",
+-  "this version of PCRE is not compiled with PCRE_UTF8 support",
+-  "spare error",  /** DEAD **/
+-  "character value in \\x{...} sequence is too large",
++  "unknown POSIX class name\0"
++  "POSIX collating elements are not supported\0"
++  "this version of PCRE is not compiled with PCRE_UTF8 support\0"
++  DEAD("spare error")
++  "character value in \\x{...} sequence is too large\0"
+   /* 35 */
+-  "invalid condition (?(0)",
+-  "\\C not allowed in lookbehind assertion",
+-  "PCRE does not support \\L, \\l, \\N, \\U, or \\u",
+-  "number after (?C is > 255",
+-  "closing ) for (?C expected",
++  "invalid condition (?(0)\0"
++  "\\C not allowed in lookbehind assertion\0"
++  "PCRE does not support \\L, \\l, \\N, \\U, or \\u\0"
++  "number after (?C is > 255\0"
++  "closing ) for (?C expected\0"
+   /* 40 */
+-  "recursive call could loop indefinitely",
+-  "unrecognized character after (?P",
+-  "syntax error in subpattern name (missing terminator)",
+-  "two named subpatterns have the same name",
+-  "invalid UTF-8 string",
++  "recursive call could loop indefinitely\0"
++  "unrecognized character after (?P\0"
++  "syntax error in subpattern name (missing terminator)\0"
++  "two named subpatterns have the same name\0"
++  "invalid UTF-8 string\0"
+   /* 45 */
+-  "support for \\P, \\p, and \\X has not been compiled",
+-  "malformed \\P or \\p sequence",
+-  "unknown property name after \\P or \\p",
+-  "subpattern name is too long (maximum " XSTRING(MAX_NAME_SIZE) " characters)",
+-  "too many named subpatterns (maximum " XSTRING(MAX_NAME_COUNT) ")",
++  "support for \\P, \\p, and \\X has not been compiled\0"
++  "malformed \\P or \\p sequence\0"
++  "unknown property name after \\P or \\p\0"
++  "subpattern name is too long (maximum " XSTRING(MAX_NAME_SIZE) " characters)\0"
++  "too many named subpatterns (maximum " XSTRING(MAX_NAME_COUNT) ")\0"
+   /* 50 */
+-  "repeated subpattern is too long",
+-  "octal value is greater than \\377 (not in UTF-8 mode)",
+-  "internal error: overran compiling workspace",
+-  "internal error: previously-checked referenced subpattern not found",
+-  "DEFINE group contains more than one branch",
++  "repeated subpattern is too long\0"
++  "octal value is greater than \\377 (not in UTF-8 mode)\0"
++  "internal error: overran compiling workspace\0"
++  "internal error: previously-checked referenced subpattern not found\0"
++  "DEFINE group contains more than one branch\0"
+   /* 55 */
+-  "repeating a DEFINE group is not allowed",
+-  "inconsistent NEWLINE options",
+-  "\\g is not followed by an (optionally braced) non-zero number"
++  "repeating a DEFINE group is not allowed\0"
++  "inconsistent NEWLINE options\0"
++  "\\g is not followed by an (optionally braced) non-zero number";
++
++static const int error_texts_offsets[] = {
++  0,
++  9,
++  29,
++  50,
++  83,
++  121,
++  153,
++  195,
++  238,
++  276,
++  294,
++  295,
++  329,
++  361,
++  415,
++  425,
++  462,
++  487,
++  513,
++  537,
++  538,
++  567,
++  588,
++  610,
++  640,
++  673,
++  714,
++  749,
++  799,
++  828,
++  866,
++  891,
++  934,
++  994,
++  995,
++  1044,
++  1068,
++  1107,
++  1151,
++  1177,
++  1204,
++  1243,
++  1276,
++  1329,
++  1370,
++  1391,
++  1440,
++  1468,
++  1505,
++  1557,
++  1600,
++  1632,
++  1685,
++  1729,
++  1796,
++  1839,
++  1879,
++  1908
+ };
+ 
+ 
+@@ -1453,14 +1526,16 @@
+ static int
+ check_posix_name(const uschar *ptr, int len)
+ {
+-register int yield = 0;
+-while (posix_name_lengths[yield] != 0)
+-  {
+-  if (len == posix_name_lengths[yield] &&
+-    strncmp((const char *)ptr, posix_names[yield], len) == 0) return yield;
+-  yield++;
+-  }
+-return -1;
++  int offset = 0;
++  int yield = 0;
++  while (posix_name_lengths[yield] != 0)
++    {
++      if (len == posix_name_lengths[yield] &&
++	  strcmp((const char *)ptr, posix_names + offset) == 0) return yield;
++      offset += posix_name_lengths[yield] + 1;
++      yield++;
++    }
++  return -1;
+ }
+ 
+ 
+@@ -5200,7 +5275,7 @@
+ #ifdef SUPPORT_UTF8
+   PCRE_UTF8_ERROR_RETURN:
+ #endif
+-  *errorptr = error_texts[errorcode];
++  *errorptr = error_texts + error_texts_offsets[errorcode];
+   if (errorcodeptr != NULL) *errorcodeptr = errorcode;
+   return NULL;
+   }
+@@ -5297,7 +5372,7 @@
+ if (code - codestart > length)
+   {
+   (pcre_free)(re);
+-  *errorptr = error_texts[ERR23];
++  *errorptr = error_texts + error_texts_offsets[ERR23];
+   *erroroffset = ptr - (uschar *)pattern;
+   if (errorcodeptr != NULL) *errorcodeptr = ERR23;
+   return NULL;

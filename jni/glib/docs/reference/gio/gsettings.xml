@@ -1,0 +1,137 @@
+<refentry id="gsettings" lang="en">
+
+<refmeta>
+  <refentrytitle>gsettings</refentrytitle>
+  <manvolnum>1</manvolnum>
+  <refmiscinfo class="manual">User Commands</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+  <refname>gsettings</refname>
+  <refpurpose>GSettings configuration tool</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+  <cmdsynopsis>
+    <command>gsettings</command>
+    <arg choice="plain">get</arg>
+    <arg choice="opt" rep="repeat">option</arg>
+    <arg choice="req"><replaceable>schema</replaceable></arg>
+    <arg choice="req"><replaceable>key</replaceable></arg>
+  </cmdsynopsis>
+  <cmdsynopsis>
+    <command>gsettings</command>
+    <arg choice="plain">monitor</arg>
+    <arg choice="opt" rep="repeat">option</arg>
+    <arg choice="req"><replaceable>schema</replaceable></arg>
+    <arg choice="req"><replaceable>key</replaceable></arg>
+  </cmdsynopsis>
+  <cmdsynopsis>
+    <command>gsettings</command>
+    <arg choice="plain">writable</arg>
+    <arg choice="opt" rep="repeat">option</arg>
+    <arg choice="req"><replaceable>schema</replaceable></arg>
+    <arg choice="req"><replaceable>key</replaceable></arg>
+  </cmdsynopsis>
+  <cmdsynopsis>
+    <command>gsettings</command>
+    <arg choice="plain">set</arg>
+    <arg choice="opt" rep="repeat">option</arg>
+    <arg choice="req"><replaceable>schema</replaceable></arg>
+    <arg choice="req"><replaceable>key</replaceable></arg>
+    <arg choice="req"><replaceable>value</replaceable></arg>
+  </cmdsynopsis>
+  <cmdsynopsis>
+    <command>gsettings</command>
+    <arg choice="plain">help</arg>
+  </cmdsynopsis>
+</refsynopsisdiv>
+
+<refsect1><title>Description</title>
+<para><command>gsettings</command> offers a simple commandline
+interface to <link linkend="GSettings"><type>GSettings</type></link>.
+It lets you get, set or monitor an individual key for changes.
+</para>
+<para>
+The <replaceable>schema</replaceable> and <replaceable>key</replaceable>
+arguments are required to specify the schema id and the name of the key
+to operate on.
+</para>
+<para>
+When setting a key, you also need specify a <replaceable>value</replaceable>
+The format for the value is that of a serialized
+<link linkend="GVariant"><type>GVariant</type></link>,
+so e.g. a string
+must include explicit quotes: "'foo'". This format is also used when printing
+out values.
+</para>
+
+<refsect2><title>Commands</title>
+<variablelist>
+
+<varlistentry>
+<term><option>get</option></term>
+<listitem><para>
+Get the value of <replaceable>key</replaceable>. The value is printed out
+as a serialised
+<link linkend="GVariant"><type>GVariant</type></link>.
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>monitor</option></term>
+<listitem><para>
+Monitor <replaceable>key</replaceable> for changes and print the changed
+values. Monitoring will continue until the process is terminated.
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>writable</option></term>
+<listitem><para>
+Find out whether <replaceable>key</replaceable> is writable.
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>set</option></term>
+<listitem><para>
+Set the value of <replaceable>key</replaceable> to <replaceable>value</replaceable>.
+The value is specified as a serialised
+<link linkend="GVariant"><type>GVariant</type></link>.
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>help</option></term>
+<listitem><para>
+Print help and exit
+</para></listitem>
+</varlistentry>
+
+</variablelist>
+</refsect2>
+
+
+<refsect2><title>Options</title>
+<variablelist>
+<varlistentry>
+<term><option>-h</option>, <option>--help</option></term>
+<listitem><para>
+Print help for the command and exit
+</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-p <replaceable>path</replaceable></option>, <option>--path=<replaceable>path</replaceable></option></term>
+<listitem><para>
+The path for the schema. This option is only needed if the schema
+does not have a fixed path.
+</para></listitem>
+</varlistentry>
+</variablelist>
+</refsect2>
+
+</refsect1>
+</refentry>
+

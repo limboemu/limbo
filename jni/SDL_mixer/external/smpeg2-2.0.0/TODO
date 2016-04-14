@@ -1,0 +1,5 @@
+
+* Add fast stream skip support - being worked on by Damien Chavarria
+* Rewrite the stream code to use condition variables
+* Add ATI hardware MPEG decoding acceleration
+* Add MMX versions of pixel-doubled dither routines

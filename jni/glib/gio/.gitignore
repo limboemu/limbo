@@ -1,0 +1,7 @@
+gschema-compile
+gio-querymodules
+gio-marshal.[ch]
+gioenumtypes.[ch]
+glib-compile-schemas
+gdbus
+gsettings

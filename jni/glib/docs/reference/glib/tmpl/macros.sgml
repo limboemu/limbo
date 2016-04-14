@@ -1,0 +1,231 @@
+<!-- ##### SECTION Title ##### -->
+Standard Macros
+
+<!-- ##### SECTION Short_Description ##### -->
+commonly-used macros.
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+These macros provide a few commonly-used features.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### MACRO G_OS_WIN32 ##### -->
+<para>
+This macro is defined only on Windows. So you can bracket
+Windows-specific code in "&num;ifdef G_OS_WIN32".
+</para>
+
+
+
+<!-- ##### MACRO G_OS_BEOS ##### -->
+<para>
+This macro is defined only on BeOS. So you can bracket
+BeOS-specific code in "&num;ifdef G_OS_BEOS".
+</para>
+
+
+
+<!-- ##### MACRO G_OS_UNIX ##### -->
+<para>
+This macro is defined only on UNIX. So you can bracket
+UNIX-specific code in "&num;ifdef G_OS_UNIX".
+</para>
+
+
+
+<!-- ##### MACRO G_DIR_SEPARATOR ##### -->
+<para>
+The directory separator character.
+This is '/' on UNIX machines and '\' under Windows.
+</para>
+
+
+
+<!-- ##### MACRO G_DIR_SEPARATOR_S ##### -->
+<para>
+The directory separator as a string.
+This is "/" on UNIX machines and "\" under Windows.
+</para>
+
+
+
+<!-- ##### MACRO G_IS_DIR_SEPARATOR ##### -->
+<para>
+Checks whether a character is a directory 
+separator. It returns %TRUE for '/' on UNIX
+machines and for '\' or '/' under Windows.
+</para>
+
+@c: a character
+@Since: 2.6
+
+
+<!-- ##### MACRO G_SEARCHPATH_SEPARATOR ##### -->
+<para>
+The search path separator character.
+This is ':' on UNIX machines and ';' under Windows.
+</para>
+
+
+
+<!-- ##### MACRO G_SEARCHPATH_SEPARATOR_S ##### -->
+<para>
+The search path separator as a string.
+This is ":" on UNIX machines and ";" under Windows.
+</para>
+
+
+
+<!-- ##### MACRO TRUE ##### -->
+<para>
+Defines the %TRUE value for the #gboolean type.
+</para>
+
+
+
+<!-- ##### MACRO FALSE ##### -->
+<para>
+Defines the %FALSE value for the #gboolean type.
+</para>
+
+
+
+<!-- ##### MACRO NULL ##### -->
+<para>
+Defines the standard %NULL pointer.
+</para>
+
+
+
+<!-- ##### MACRO MIN ##### -->
+<para>
+Calculates the minimum of @a and @b.
+</para>
+
+@a: a numeric value.
+@b: a numeric value.
+@Returns: the minimum of @a and @b.
+
+
+<!-- ##### MACRO MAX ##### -->
+<para>
+Calculates the maximum of @a and @b.
+</para>
+
+@a: a numeric value.
+@b: a numeric value.
+@Returns: the maximum of @a and @b.
+
+
+<!-- ##### MACRO ABS ##### -->
+<para>
+Calculates the absolute value of @a.
+The absolute value is simply the number with any negative sign taken away.
+</para>
+<para>
+For example,
+<itemizedlist>
+<listitem><para>
+ABS(-10) is 10.
+</para></listitem>
+<listitem><para>
+ABS(10) is also 10.
+</para></listitem>
+</itemizedlist>
+</para>
+
+@a: a numeric value.
+@Returns: the absolute value of @a.
+
+
+<!-- ##### MACRO CLAMP ##### -->
+<para>
+Ensures that @x is between the limits set by @low and @high. If @low is
+greater than @high the result is undefined.
+</para>
+<para>
+For example,
+<itemizedlist>
+<listitem><para>
+CLAMP(5, 10, 15) is 10.
+</para></listitem>
+<listitem><para>
+CLAMP(15, 5, 10) is 10.
+</para></listitem>
+<listitem><para>
+CLAMP(20, 15, 25) is 20.
+</para></listitem>
+</itemizedlist>
+</para>
+
+@x: the value to clamp.
+@low: the minimum value allowed.
+@high: the maximum value allowed.
+@Returns: the value of @x clamped to the range between @low and @high.
+
+
+<!-- ##### MACRO G_STRUCT_MEMBER ##### -->
+<para>
+Returns a member of a structure at a given offset, using the given type.
+</para>
+
+@member_type: the type of the struct field.
+@struct_p: a pointer to a struct.
+@struct_offset: the offset of the field from the start of the struct, in bytes.
+@Returns: the struct member.
+
+
+<!-- ##### MACRO G_STRUCT_MEMBER_P ##### -->
+<para>
+Returns an untyped pointer to a given offset of a struct.
+</para>
+
+@struct_p: a pointer to a struct.
+@struct_offset: the offset from the start of the struct, in bytes.
+@Returns: an untyped pointer to @struct_p plus @struct_offset bytes.
+
+
+<!-- ##### MACRO G_STRUCT_OFFSET ##### -->
+<para>
+Returns the offset, in bytes, of a member of a struct.
+</para>
+
+@struct_type: a structure type, e.g. <structname>GtkWidget</structname>.
+@member: a field in the structure, e.g. <structfield>window</structfield>.
+@Returns: the offset of @member from the start of @struct_type.
+
+
+<!-- ##### MACRO G_MEM_ALIGN ##### -->
+<para>
+Indicates the number of bytes to which memory will be aligned on the
+current platform.
+</para>
+
+
+
+<!-- ##### MACRO G_CONST_RETURN ##### -->
+<para>
+If %G_DISABLE_CONST_RETURNS is defined, this macro expands to nothing.
+By default, the macro expands to <literal>const</literal>. The macro 
+should be used in place of <literal>const</literal> for functions that 
+return a value that should not be modified. The purpose of this macro is 
+to allow us to turn on <literal>const</literal> for returned constant 
+strings by default, while allowing programmers who find that annoying to 
+turn it off. This macro should only be used for return values and for
+<emphasis>out</emphasis> parameters, it doesn't make sense for 
+<emphasis>in</emphasis> parameters. 
+</para>
+
+
+

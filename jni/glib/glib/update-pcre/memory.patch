@@ -1,0 +1,86 @@
+diff -r 0f4042339eb5 pcre/pcre.h
+--- pcre/pcre.h	Tue Jul 25 22:39:16 2006 +0200
++++ pcre/pcre.h	Tue Jul 25 22:52:10 2006 +0200
+@@ -233,25 +233,13 @@ typedef struct pcre_callout_block {
+   /* ------------------------------------------------------------------ */
+ } pcre_callout_block;
+ 
+-/* Indirection for store get and free functions. These can be set to
+-alternative malloc/free functions if required. Special ones are used in the
+-non-recursive case for "frames". There is also an optional callout function
+-that is triggered by the (?) regex item. For Virtual Pascal, these definitions
+-have to take another form. */
+-
+-#ifndef VPCOMPAT
+-PCRE_DATA_SCOPE void *(*pcre_malloc)(size_t);
+-PCRE_DATA_SCOPE void  (*pcre_free)(void *);
+-PCRE_DATA_SCOPE void *(*pcre_stack_malloc)(size_t);
+-PCRE_DATA_SCOPE void  (*pcre_stack_free)(void *);
++#include "glib.h"
++
++#define pcre_malloc g_try_malloc
++#define pcre_free g_free
++#define pcre_stack_malloc g_try_malloc
++
+ PCRE_DATA_SCOPE int   (*pcre_callout)(pcre_callout_block *);
+-#else   /* VPCOMPAT */
+-PCRE_DATA_SCOPE void *pcre_malloc(size_t);
+-PCRE_DATA_SCOPE void  pcre_free(void *);
+-PCRE_DATA_SCOPE void *pcre_stack_malloc(size_t);
+-PCRE_DATA_SCOPE void  pcre_stack_free(void *);
+-PCRE_DATA_SCOPE int   pcre_callout(pcre_callout_block *);
+-#endif  /* VPCOMPAT */
+ 
+ /* Exported PCRE functions */
+ 
+diff -r 0f4042339eb5 pcre/pcre_globals.c
+--- pcre/pcre_globals.c	Tue Jul 25 22:39:16 2006 +0200
++++ pcre/pcre_globals.c	Tue Jul 25 22:52:10 2006 +0200
+@@ -50,32 +50,9 @@ differently, and global variables are no
+ #include "pcre_internal.h"
+ 
+ 
+-#ifndef VPCOMPAT
+-
+-/**************************************************************************
+-This code used to be here for use when compiling as a C++ library. However,
+-according to Dair Grant it is not needed: "
+-
+- Including 'extern "C"' in the declaration generates an "initialized and
+- declared `extern'" warning from gcc 4.0.1. Since we include pcre_internal.h,
+- which includes pcre.h, which declares these prototypes within an extern "C" {}
+- block, we shouldn't need the prefix here.
+-
+-So, from Release 7.0 I have cut this out.
+-
+ #ifdef __cplusplus
+-extern "C" void *(*pcre_malloc)(size_t) = malloc;
+-extern "C" void  (*pcre_free)(void *) = free;
+-extern "C" void *(*pcre_stack_malloc)(size_t) = malloc;
+-extern "C" void  (*pcre_stack_free)(void *) = free;
+ extern "C" int   (*pcre_callout)(pcre_callout_block *) = NULL;
+ #else
+-**************************************************************************/
+-
+-void *(*pcre_malloc)(size_t) = malloc;
+-void  (*pcre_free)(void *) = free;
+-void *(*pcre_stack_malloc)(size_t) = malloc;
+-void  (*pcre_stack_free)(void *) = free;
+ int   (*pcre_callout)(pcre_callout_block *) = NULL;
+ #endif
+ 
+diff -r 0f4042339eb5 pcre/pcre_internal.h
+--- pcre/pcre_internal.h	Tue Jul 25 22:39:16 2006 +0200
++++ pcre/pcre_internal.h	Tue Jul 25 22:52:10 2006 +0200
+@@ -480,10 +480,7 @@ variable-length repeat, or a anything ot
+ 
+ /* Miscellaneous definitions */
+ 
+-typedef int BOOL;
+-
+-#define FALSE   0
+-#define TRUE    1
++typedef gboolean BOOL;
+ 
+ /* Escape items that are just an encoding of a particular data value. */
+

@@ -1,0 +1,91 @@
+# Note that this is NOT a relocatable package
+%define ver      @VERSION@
+%define rel      1
+%define prefix   /usr
+
+Summary:   SDL MPEG Library
+Name:      smpeg
+Version:   %ver
+Release:   %rel
+License:   LGPL
+Group:     System Environment/Libraries
+Source0:   @PACKAGE@-%{ver}.tar.gz
+URL:       http://www.lokigames.com/development/smpeg.php3
+BuildRoot: /tmp/@PACKAGE@-%{ver}-root
+Packager:  Sam Lantinga <hercules@lokigames.com>
+Docdir: %{prefix}/doc
+
+%description
+SMPEG is based on UC Berkeley's mpeg_play software MPEG decoder
+and SPLAY, an mpeg audio decoder created by Woo-jae Jung. We have
+completed the initial work to wed these two projects in order to 
+create a general purpose MPEG video/audio player for the Linux OS. 
+
+%package devel
+Summary: Libraries, includes and more to develop SMPEG applications.
+Group: Development/Libraries
+Requires: %{name}
+
+%description devel
+SMPEG is based on UC Berkeley's mpeg_play software MPEG decoder
+and SPLAY, an mpeg audio decoder created by Woo-jae Jung. We have
+completed the initial work to wed these two projects in order to 
+create a general purpose MPEG video/audio player for the Linux OS. 
+
+This is the libraries, include files and other resources you can use
+to develop SMPEG applications.
+
+%prep
+rm -rf ${RPM_BUILD_ROOT}
+
+%setup -q
+
+%build
+# Needed for snapshot releases.
+if [ ! -f configure ]; then
+  CFLAGS="$RPM_OPT_FLAGS" ./autogen.sh --prefix=%prefix --disable-debug --disable-opengl-player
+else
+  CFLAGS="$RPM_OPT_FLAGS" ./configure --prefix=%prefix --disable-debug --disable-opengl-player
+fi
+
+if [ "$SMP" != "" ]; then
+  (make "MAKE=make -k -j $SMP"; exit 0)
+  make
+else
+  make
+fi
+
+%install
+rm -rf $RPM_BUILD_ROOT
+
+make prefix=$RPM_BUILD_ROOT%{prefix} install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%post
+/sbin/ldconfig
+
+%postun
+/sbin/ldconfig
+
+%files
+%defattr(-, root, root)
+%doc CHANGES COPYING README
+%{prefix}/lib/lib*.so.*
+%{prefix}/bin/*
+%{prefix}/share/man/*
+
+%files devel
+%defattr(-, root, root)
+%doc CHANGES COPYING README
+%{prefix}/bin/@PACKAGE@-config
+%{prefix}/include/*
+%{prefix}/lib/lib*.a
+%{prefix}/lib/lib*.la
+%{prefix}/lib/lib*.so
+%{prefix}/share/aclocal/*.m4
+
+%changelog
+* Fri Mar  3 2000 Sam Lantinga <hercules@lokigames.com>
+- Split package into development and runtime packages

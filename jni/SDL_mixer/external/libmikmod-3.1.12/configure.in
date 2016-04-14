@@ -1,0 +1,731 @@
+dnl Process this file with autoconf to produce a configure script.
+dnl
+dnl $Id: configure.in,v 1.1.1.1 2004/06/01 12:16:16 raph Exp $
+
+AC_INIT(include/mikmod.h.in)
+
+LIBMIKMOD_MAJOR_VERSION=3
+LIBMIKMOD_MINOR_VERSION=1
+LIBMIKMOD_MICRO_VERSION=10
+
+BETA=
+
+LIBMIKMOD_VERSION=$LIBMIKMOD_MAJOR_VERSION.$LIBMIKMOD_MINOR_VERSION.$LIBMIKMOD_MICRO_VERSION$BETA
+
+AM_INIT_AUTOMAKE(libmikmod,$LIBMIKMOD_VERSION)
+AC_CONFIG_HEADERS(config.h)
+AM_MAINTAINER_MODE
+
+# ==============================================================
+# libmikmod specific control variables and their default values.
+# ==============================================================
+
+libmikmod_driver_af=yes
+libmikmod_driver_aix=no
+libmikmod_driver_alsa=yes
+libmikmod_driver_esd=yes
+libmikmod_driver_hp=no
+libmikmod_driver_oss=yes
+libmikmod_driver_sam9407=yes
+libmikmod_driver_sgi=no
+libmikmod_driver_sun=no
+libmikmod_driver_ultra=yes
+
+libmikmod_driverlist=
+libmikmod_dynload=yes
+libmikmod_dynload_underscores=no
+libmikmod_debug=no
+libmikmod_threads=yes
+
+DLOBJS=""
+
+# =========================
+# Configure script options.
+# =========================
+
+AC_ARG_ENABLE(af,
+[  --enable-af             include AudioFile driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_af=yes
+else
+  libmikmod_driver_af=no
+fi])
+
+AC_ARG_ENABLE(alsa,
+[  --enable-alsa           Linux only: include Advanced Linux Sound Architecture
+                          driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_alsa=yes
+else
+  libmikmod_driver_alsa=no
+fi])
+
+AC_ARG_ENABLE(esd,
+[  --enable-esd            include Enlightened sound daemon driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_esd=yes
+else
+  libmikmod_driver_esd=no
+fi])
+
+AC_ARG_ENABLE(oss,
+[  --enable-oss            include OSS driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_oss=yes
+else
+  libmikmod_driver_oss=no
+fi])
+
+AC_ARG_ENABLE(sam9407,
+[  --enable-sam9407        Linux only: include sam9407 driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_sam9407=yes
+else
+  libmikmod_driver_sam9407=no
+fi])
+
+AC_ARG_ENABLE(ultra,
+[  --enable-ultra          Linux only: include Ultra driver [guessed]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_ultra=yes
+else
+  libmikmod_driver_ultra=no
+fi])
+
+AC_ARG_ENABLE(dl,
+[  --enable-dl             load alsa, esound and ultra drivers at runtime
+                          [default=yes]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_dynload=yes
+else
+  libmikmod_dynload=no
+fi])
+
+AC_ARG_ENABLE(debug,
+[  --enable-debug          build a debug version of libmikmod [default=no]],
+[if test "$enableval" = "yes"
+then
+  libmikmod_debug=yes
+else
+  libmikmod_debug=no
+fi])
+
+AC_ARG_ENABLE(threads,
+[  --enable-threads        build a thread-safe version of libmikmod [default=guessed]],
+[if test "$enableval" = "yes"
+then
+	libmikmod_threads=yes
+else
+	libmikmod_threads=no
+fi])
+
+# ===================
+# Check for programs.
+# ===================
+
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AM_PROG_LIBTOOL
+AC_PROG_MAKE_SET
+AC_PROG_RANLIB
+
+# Check if makeinfo support html output. If it doesn't, pretend it's missing
+# rather than failing rebuilding the documentation.
+AC_CACHE_CHECK([if makeinfo supports html output],libmikmod_cv_makeinfo_html,
+if (makeinfo --help 2>&1 | grep html > /dev/null) 2>/dev/null
+then
+	libmikmod_cv_makeinfo_html=yes
+else
+	libmikmod_cv_makeinfo_html=no
+fi)
+if test $libmikmod_cv_makeinfo_html = no
+then
+	MAKEINFO="$missing_dir/missing makeinfo"
+else
+	MAKEINFO="$MAKEINFO --no-split"
+fi
+
+# ====================
+# Check for libraries.
+# ====================
+
+# dl functions
+# ------------
+if test $libmikmod_dynload = yes
+then
+	libmikmod_dynload=no
+	libmikmod_dllib=
+	# SunOS-style shared libraries
+	AC_CHECK_HEADERS(dlfcn.h)
+	if test $ac_cv_header_dlfcn_h = yes
+	then
+		AC_CHECK_LIB(c,dlopen,libmikmod_dynload=sun,
+		             [AC_CHECK_LIB(dl,dlopen,[libmikmod_dynload=sun
+		                                      libmikmod_dllib="-ldl"],libmikmod_dynload=no)])
+	else
+		# HP-UX-style shared libraries
+		AC_CHECK_HEADERS(dl.h)
+		if test $ac_cv_header_dl_h = yes
+		then
+			AC_CHECK_LIB(dld,shl_load,[libmikmod_dynload=hp
+			                           libmikmod_dllib="-ldld"
+			                           DLOBJS="dl_hpux.lo"
+			                           CFLAGS="${CFLAGS} -I${srcdir}/dlapi"],libmikmod_dynload=no)
+		fi
+	fi
+fi
+
+if test $libmikmod_dynload = sun
+then
+	AC_CACHE_CHECK(
+		[wherever dynamically loaded symbols need underscores],
+		libmikmod_cv_dynload_underscores,
+		libmikmod_oldlibs=$LIBS
+		LIBS="$LIBS $libmikmod_dllib"
+		AC_LANG_SAVE
+		AC_LANG_C
+		AC_TRY_RUN([#include <dlfcn.h>
+#ifndef	RTLD_GLOBAL
+#define	RTLD_GLOBAL 0
+#endif
+
+int main(void)
+{
+	void *libc, *printfptr;
+	libc = dlopen("libc.so", RTLD_LAZY | RTLD_GLOBAL);
+	if (!libc)
+		exit(1);
+	
+	printfptr = dlsym(libc, "_printf");
+	dlclose(libc);
+	exit(!printfptr);
+}],
+			libmikmod_cv_dynload_underscores=yes,
+			libmikmod_cv_dynload_underscores=no,
+			libmikmod_cv_dynload_underscores=no)
+		AC_LANG_RESTORE
+		LIBS=$libmikmod_oldlibs
+	)
+	if test $libmikmod_cv_dynload_underscores = yes
+	then
+		AC_DEFINE(DLSYM_NEEDS_UNDERSCORE)
+	fi
+fi
+
+# POSIX.4 threads
+# ---------------
+if test $libmikmod_threads = yes
+then
+	libmikmod_threads=no
+	AC_CACHE_CHECK(
+		[if compiler recognizes -pthread],
+		libmikmod_cv_gcc_pthread,
+		ac_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -pthread"
+		AC_LANG_SAVE
+		AC_LANG_C
+		AC_TRY_LINK([#include <pthread.h>],
+			[int p = pthread_create(NULL,NULL,NULL,NULL);],
+			libmikmod_cv_gcc_pthread=yes,
+			libmikmod_cv_gcc_pthread=no
+		)
+		AC_LANG_RESTORE
+		CFLAGS=$ac_save_CFLAGS
+	)
+	if test $libmikmod_cv_gcc_pthread = yes
+	then
+		libmikmod_threads=""
+		CFLAGS="$CFLAGS -pthread"
+	else
+		dnl AC_CHECK_HEADERS(pthread.h) unreliable
+		AC_CHECK_LIB(pthread,pthread_create,libmikmod_threads=-lpthread,
+	             [AC_CHECK_LIB(c_r,pthread_create,libmikmod_threads=-lc_r)])
+	fi
+fi
+
+# ALSA - Linux only
+# -----------------
+if test "`uname`" = "Linux" && test $libmikmod_driver_alsa = yes
+then
+	libmikmod_driver_alsa=no
+	AC_CHECK_HEADERS(sys/asoundlib.h)
+	if test $ac_cv_header_sys_asoundlib_h = yes
+	then
+		AC_CHECK_LIB(asound,snd_cards,libmikmod_driver_alsa=yes)
+	fi
+else
+	libmikmod_driver_alsa=no
+fi
+
+# esd
+# ---
+if test $libmikmod_driver_esd = yes
+then
+	libmikmod_driver_esd=no
+	AM_PATH_ESD(0.2.6,libmikmod_driver_esd=yes)
+# We also need to know if esd is compiled with alsa support
+	if test $libmikmod_driver_esd = yes
+	then
+		AC_CACHE_CHECK([if esd requires alsa],libmikmod_cv_esd_needs_alsa,
+		if (esd-config --libs 2>&1 |grep asound >/dev/null) 2>/dev/null
+		then
+			libmikmod_cv_esd_needs_alsa=yes
+		else
+			libmikmod_cv_esd_needs_alsa=no
+		fi)
+	else
+		libmikmod_cv_esd_needs_alsa=no
+	fi
+fi
+
+# sgi audio - IRIX only
+# ---------------------
+case `uname` in
+	IRIX*)
+		AC_CHECK_HEADERS(dmedia/audio.h)
+		if test $ac_cv_header_dmedia_audio_h = yes
+		then
+			AC_CHECK_LIB(audio,ALseterrorhandler,libmikmod_driver_sgi=yes)
+		fi
+	;;
+esac
+
+# audiofile
+# ---------
+if test $libmikmod_driver_af = yes
+then
+	libmikmod_driver_af=no
+	AC_CHECK_HEADERS(AF/AFlib.h)
+	if test $ac_cv_header_AF_AFlib_h = yes
+	then
+		AC_CHECK_LIB(AF,AFOpenAudioConn,libmikmod_driver_af=yes)
+	fi
+fi
+
+# libgus - Linux only
+# -------------------
+if test "`uname`" = "Linux" && test $libmikmod_driver_ultra = yes
+then
+	libmikmod_driver_ultra=no
+	AC_CHECK_HEADERS(libgus.h)
+	if test $ac_cv_header_libgus_h = yes
+	then
+		AC_CHECK_LIB(gus,gus_cards,libmikmod_driver_ultra=yes)
+	fi
+else
+	libmikmod_driver_ultra=no
+fi
+
+# sam9407 - Linux only
+# --------------------
+if test "`uname`" = "Linux" && test $libmikmod_driver_sam9407 = yes
+then
+	libmikmod_driver_sam9407=no
+	AC_CHECK_HEADERS(sys/sam9407.h)
+	if test $ac_cv_header_sys_sam9407_h = yes
+	then
+		libmikmod_driver_sam9407=yes
+	fi
+else
+	libmikmod_driver_sam9407=no
+fi
+
+# =======================
+# Check for header files.
+# =======================
+
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(fcntl.h malloc.h memory.h strings.h sys/ioctl.h unistd.h)
+
+# =============================================================
+# Check for typedefs, structures, and compiler characteristics.
+# =============================================================
+
+AC_PROG_GCC_TRADITIONAL
+AC_C_CONST
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+
+AC_CACHE_CHECK([if compiler understands the signed keyword],
+	libmikmod_cv_gcc_signed,
+	AC_LANG_SAVE
+	AC_LANG_C
+	AC_TRY_COMPILE(,[signed int t = 0;],
+		libmikmod_cv_gcc_signed=yes,libmikmod_cv_gcc_signed=no)
+	AC_LANG_RESTORE)
+if test $libmikmod_cv_gcc_signed = yes
+then
+	DOES_NOT_HAVE_SIGNED=""
+else
+	DOES_NOT_HAVE_SIGNED="#define signed"
+fi
+
+# ============================
+# Check for library functions.
+# ============================
+
+AC_CHECK_FUNCS(setenv snprintf srandom)
+AC_REPLACE_FUNCS(strcasecmp strdup strstr)
+# Change extension, as we use libtool
+LIBOBJS="`echo $LIBOBJS|sed -e 's/\.o/\.lo/g'`"
+
+AC_HEADER_EGREP(srandom,math.h,AC_DEFINE(SRANDOM_IN_MATH_H))
+
+# ================
+# Choose settings.
+# ================
+
+#AC_DEFINE(DRV_PIPE)
+
+# If we can guess the drivers needed from the system, no need to ask the user
+# to specify it manually
+case `uname` in
+	AIX)
+		AC_DEFINE(AIX)
+		AC_CHECK_HEADERS(sys/audio.h sys/acpa.h)
+		if test $ac_cv_header_sys_audio_h = yes && \
+		   test $ac_cv_header_sys_acpa_h = yes
+		then
+			libmikmod_driver_aix=yes
+		fi
+	;;
+	HP-UX)
+		AC_CHECK_HEADERS(sys/audio.h)
+		if test $ac_cv_header_sys_audio_h = yes
+		then
+			libmikmod_driver_hp=yes
+		fi
+	;;
+	NetBSD|OpenBSD)
+		AC_CHECK_HEADERS(sys/audioio.h)
+		if test $ac_cv_header_sys_audioio_h = yes
+		then
+			libmikmod_driver_sun=yes
+			if test "`uname`" = "NetBSD"
+			then
+				libmikmod_driverlist="netbsd $libmikmod_driverlist"
+			else
+				libmikmod_driverlist="openbsd $libmikmod_driverlist"
+			fi
+		fi
+	;;
+	SunOS)
+		AC_CHECK_HEADERS(sun/audioio.h sys/audioio.h)
+		if test $ac_cv_header_sun_audioio_h = yes || \
+		   test $ac_cv_header_sys_audioio_h = yes
+		then
+			libmikmod_driver_sun=yes
+			libmikmod_driverlist="sun $libmikmod_driverlist"
+			case `uname -r` in
+				4*) AC_DEFINE(SUNOS) ;;
+			esac
+		fi
+	;;
+esac
+			
+if test $libmikmod_driver_af = yes
+then
+	libmikmod_driverlist="$libmikmod_driverlist audiofile"
+	AC_DEFINE(DRV_AF)
+	LIBRARY_LIB="-lAF $LIBRARY_LIB"
+fi
+
+if test $libmikmod_driver_aix = yes
+then
+	libmikmod_driverlist="aix $libmikmod_driverlist"
+	AC_DEFINE(DRV_AIX)
+fi
+
+if test $libmikmod_driver_alsa = yes
+then
+	libmikmod_driverlist="alsa $libmikmod_driverlist"
+ 	AC_DEFINE(DRV_ALSA)
+	if test $libmikmod_dynload = no
+	then
+ 		LIBRARY_LIB="-lasound $LIBRARY_LIB"
+	fi
+fi
+
+if test $libmikmod_driver_esd = yes
+then
+	libmikmod_driverlist="$libmikmod_driverlist esd"
+	AC_DEFINE(DRV_ESD)
+	CFLAGS="$CFLAGS $ESD_CFLAGS"
+
+	# Under Solaris and perhaps other systems, we have to forward esd
+	# dependencies to libmikmod's dependency list.
+	# However, no need to keep libraries we won't require (libossaudio on BSD
+	# systems, libaudiofile, libasound on Linux)
+	if test $libmikmod_dynload != no
+	then
+		ESD_LIBS="`echo $ESD_LIBS|sed -e 's/-lesd//'|sed -e 's/-lasound//'|sed -e 's/-laudiofile//'|sed -e 's/-lossaudio//'`"
+	fi
+	LIBRARY_LIB="$ESD_LIBS $LIBRARY_LIB"
+fi
+
+if test $libmikmod_driver_hp = yes
+then
+	libmikmod_driverlist="hp $libmikmod_driverlist"
+	AC_DEFINE(DRV_HP)
+fi
+
+if test $libmikmod_driver_oss = yes
+then
+	# under Linux, /dev/sndstat is deprecated, never check for OSS as the
+	# headers are always found.
+	if test "`uname`" != "Linux"
+	then
+		AC_CACHE_CHECK([for OSS (/dev/sndstat)],libmikmod_cv_oss_dev_sndstat,
+		if test -c /dev/sndstat
+		then
+			libmikmod_cv_oss_dev_sndstat=yes
+		else
+			libmikmod_cv_oss_dev_sndstat=no
+		fi)
+	else
+		libmikmod_cv_oss_dev_sndstat=yes
+	fi
+	if test $libmikmod_cv_oss_dev_sndstat = yes
+	then
+		AC_CHECK_HEADERS(machine/soundcard.h)
+		AC_CHECK_HEADERS(sys/soundcard.h)
+		if test $ac_cv_header_machine_soundcard_h = yes || \
+		   test $ac_cv_header_sys_soundcard_h = yes
+		then
+			libmikmod_driverlist="oss $libmikmod_driverlist"
+			AC_DEFINE(DRV_OSS)
+		fi
+	fi
+fi
+
+if test $libmikmod_driver_sam9407 = yes
+then
+	libmikmod_driverlist="sam9407 $libmikmod_driverlist"
+	AC_DEFINE(DRV_SAM9407)
+fi
+
+if test $libmikmod_driver_sgi = yes
+then
+	libmikmod_driverlist="sgi $libmikmod_driverlist"
+	AC_DEFINE(DRV_SGI)
+	LIBRARY_LIB="-laudio $LIBRARY_LIB"
+fi
+
+if test $libmikmod_driver_sun = yes
+then
+	AC_DEFINE(DRV_SUN)
+fi
+
+if test $libmikmod_driver_ultra = yes
+then
+	libmikmod_driverlist="ultra $libmikmod_driverlist"
+	AC_DEFINE(DRV_ULTRA)
+	if test $libmikmod_dynload = no
+	then
+		LIBRARY_LIB="-lgus $LIBRARY_LIB"
+	fi
+fi
+
+if test $libmikmod_debug = yes
+then
+	AC_DEFINE(MIKMOD_DEBUG)
+	CC="$CC -g"
+fi
+
+if test $libmikmod_dynload != no
+then
+	AC_DEFINE(MIKMOD_DYNAMIC)
+	if test "`uname`" = "Linux" && \
+	   test $libmikmod_cv_esd_needs_alsa = yes && \
+	   test $libmikmod_driver_esd = yes
+	then
+		# @#!$ libmikmod_dynloading esd requires us to define and make visible
+		# extra symbols (at least for 0.2.6 to 0.2.8)
+		AC_CACHE_CHECK([if libmikmod_dynloading esd causes problems],
+		libmikmod_cv_esd_broken,
+		libmikmod_oldlibs=$LIBS
+		LIBS="$LIBS $ESD_LIBS"
+		AC_TRY_LINK([
+#include <esd.h>
+extern void *handle;],
+		[void *p = handle;],
+		libmikmod_cv_esd_broken=no,libmikmod_cv_esd_broken=yes)
+		LIBS=$libmikmod_oldlibs)
+		if test $libmikmod_cv_esd_broken = yes
+		then
+			AC_DEFINE(MIKMOD_DYNAMIC_ESD_NEEDS_ALSA)
+			LIB_LDADD="$LIB_LDADD -rdynamic"
+			echo "
+*** This means your version of EsounD defines some public symbols,
+*** which should have been defined static or weak. The compiled
+*** libmikmod will try to take care of the problem, but you'll have to
+*** use the '-rdynamic' option when linking an application which uses
+*** libmikmod with gcc. If you use another compiler, or -rdynamic is not
+*** available on your platform, you might not be able to use libmikmod's
+*** EsounD driver.
+*** In this case, consider recompiling libmikmod specifying
+*** '--disable-dl' in the configure script options.
+" >&2
+		fi
+	fi
+
+	LIBRARY_LIB="$libmikmod_dllib $LIBRARY_LIB"
+	if test $libmikmod_dynload = sun
+	then
+		# RTLD_GLOBAL is not defined under every system
+		AC_CACHE_CHECK([if RTLD_GLOBAL is defined],libmikmod_cv_decl_rtld_global,
+		AC_TRY_COMPILE([#include <dlfcn.h>],[int flag=RTLD_GLOBAL;],
+			libmikmod_cv_decl_rtld_global=yes,
+			libmikmod_cv_decl_rtld_global=no))
+		if test $libmikmod_cv_decl_rtld_global = yes
+		then
+			AC_DEFINE(HAVE_RTLD_GLOBAL)
+		fi
+	fi
+fi
+
+# If compiling with gcc, use adequate optimization flags
+if test $ac_cv_prog_gcc = yes
+then
+	# On at least x86 platforms, gcc 2.7.2.1 and earlier won't work if -O3 (or
+	# -finline-functions) are used. Versions 2.7.2.3, 2.8.x and egcs are ok
+	# (didn't test 2.7.2.2).
+	# Until there's an easy way to catch broken inlining, we choose flags known
+	# to work correctly depending of the compiler version.
+	AC_CACHE_CHECK([if inlining functions is safe],
+	libmikmod_cv_gcc_inline_safe,
+	AC_TRY_RUN([
+int main()
+{
+#if defined __GNUC__ && (__GNUC__ > 2 || __GNUC__ == 2 && __GNUC_MINOR__ > 7)
+	exit(0);
+#else
+	exit(1);
+#endif
+}],
+	libmikmod_cv_gcc_inline_safe=yes,
+	libmikmod_cv_gcc_inline_safe=no,
+	libmikmod_cv_gcc_inline_safe=no))
+	if test $libmikmod_cv_gcc_inline_safe = yes
+	then
+		CFLAGS="$CFLAGS -finline-functions"
+	else
+		CFLAGS="$CFLAGS -fno-strength-reduce"
+	fi
+	CFLAGS="$CFLAGS -funroll-loops -ffast-math"
+	if test $libmikmod_debug = yes
+	then
+		CFLAGS="$CFLAGS -Wall -Werror"
+	else
+		CFLAGS="$CFLAGS -Wall"
+	fi
+
+	# pgcc 2.95.2 appears not to be able to compile libmikmod, although regular
+	# gcc works fine. Issue a warning if the compiler is pgcc, until a reliable
+	# way to detect flawed version (or, better, a reliable workaround) is
+	# found.
+dnl do not cache this test - better rechecking every time
+	AC_MSG_CHECKING(if compiler is pgcc)
+	if ($CC -v 2>&1 | grep ^pgcc > /dev/null) 2>/dev/null
+	then
+		libmikmod_gcc_is_pgcc=yes
+	else
+		libmikmod_gcc_is_pgcc=no
+	fi
+	AC_MSG_RESULT($libmikmod_gcc_is_pgcc)
+	if test $libmikmod_gcc_is_pgcc = yes
+	then
+		echo "
+*** Version 2.95.2 of this compiler, and perhaps others, are unable to
+*** compile libmikmod. If compilation fails for playercode/virtch.c
+*** around line 650, with the error ``internal error--insn does not
+*** satisfy its constraints'', then you'll have to use another compiler.
+" >&2
+	fi
+fi
+
+if test x$libmikmod_threads != xno
+then
+	AC_DEFINE(HAVE_PTHREAD)
+	CFLAGS="$CFLAGS -D_REENTRANT"
+	LIBRARY_LIB="$libmikmod_threads $LIBRARY_LIB"
+	REENTRANT="-D_REENTRANT"
+	if test $libmikmod_cv_gcc_pthread = yes
+	then
+		REENTRANT="-pthread $REENTRANT"
+		LIB_LDADD="-pthread"
+	fi
+fi
+
+CFLAGS="$CFLAGS -D_DLL -DDLL_EXPORTS"
+		
+# =================
+# Create Makefiles.
+# =================
+
+AC_SUBST(REENTRANT)
+AC_SUBST(DOES_NOT_HAVE_SIGNED)
+
+AC_SUBST(DLOBJS)
+AC_SUBST(LIBRARY_LIB)
+AC_SUBST(PLAYER_LIB)
+
+AC_SUBST(LIBMIKMOD_MAJOR_VERSION)
+AC_SUBST(LIBMIKMOD_MINOR_VERSION)
+AC_SUBST(LIBMIKMOD_MICRO_VERSION)
+AC_SUBST(LIBMIKMOD_VERSION)
+
+AC_SUBST(LIB_LDADD)
+
+AC_OUTPUT(
+libmikmod-config
+Makefile
+docs/Makefile
+docs/libmikmod-config.1
+dlapi/Makefile
+drivers/Makefile
+include/Makefile
+include/mikmod.h
+include/mikmod_build.h:include/mikmod.h.in
+libmikmod/Makefile
+loaders/Makefile
+mmio/Makefile
+playercode/Makefile
+posix/Makefile
+macintosh/Makefile
+os2/Makefile
+win32/Makefile,chmod +x libmikmod-config)
+
+# ====================
+# Print configuration.
+# ====================
+
+#libmikmod_driverlist=`echo $libmikmod_driverlist raw wav pipe stdout nosound|sed -e 's,  , ,g'`
+libmikmod_driverlist=`echo $libmikmod_driverlist raw wav stdout nosound|sed -e 's,  , ,g'`
+if test $libmikmod_dynload != no
+then
+	libmikmod_dynload="yes, ${libmikmod_dynload} style"
+fi
+
+echo "
+Library configuration:
+
+  Source code location: $srcdir
+  Compiler: $CC
+  Compiler flags: $CFLAGS
+  Debug version: $libmikmod_debug
+  Dynamically loaded drivers whenever possible: $libmikmod_dynload
+  Drivers to be compiled: $libmikmod_driverlist
+  Install path: $prefix/lib, $prefix/include
+"
+

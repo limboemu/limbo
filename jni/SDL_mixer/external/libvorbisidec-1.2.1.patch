@@ -1,0 +1,11 @@
+diff -ruN libvorbisidec-1.2.1/misc.h libvorbisidec-1.2.1.new/misc.h
+--- libvorbisidec-1.2.1/misc.h	2013-06-01 21:02:13.000000000 -0700
++++ libvorbisidec-1.2.1.new/misc.h	2013-06-01 21:02:00.000000000 -0700
+@@ -30,6 +30,7 @@
+ 
+ #include "asm_arm.h"
+ #include <stdlib.h> /* for abs() */
++#include <endian.h>
+   
+ #ifndef _V_WIDE_MATH
+ #define _V_WIDE_MATH

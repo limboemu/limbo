@@ -1,0 +1,125 @@
+<!-- ##### SECTION Title ##### -->
+Type Conversion Macros
+
+<!-- ##### SECTION Short_Description ##### -->
+portably storing integers in pointer variables
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+Many times GLib, GTK+, and other libraries allow you to pass "user
+data" to a callback, in the form of a void pointer. From time to time
+you want to pass an integer instead of a pointer. You could allocate
+an integer, with something like:
+<informalexample><programlisting>
+ int *ip = g_new (int, 1);
+ *ip = 42;
+</programlisting></informalexample>
+But this is inconvenient, and it's annoying to have to free the 
+memory at some later time.
+</para>
+<para>
+Pointers are always at least 32 bits in size (on all platforms GLib
+intends to support). Thus you can store at least 32-bit integer values
+in a pointer value. Naively, you might try this, but it's incorrect:
+<informalexample><programlisting>
+ gpointer p;
+ int i;
+ p = (void*) 42;
+ i = (int) p;
+</programlisting></informalexample>
+Again, that example was <emphasis>not</emphasis> correct, don't copy it. 
+The problem is that on some systems you need to do this:
+<informalexample><programlisting>
+ gpointer p;
+ int i;
+ p = (void*) (long) 42;
+ i = (int) (long) p;
+</programlisting></informalexample>
+So GPOINTER_TO_INT(), GINT_TO_POINTER(), etc. do the right thing
+on the current platform.
+</para>
+<para>
+<warning>
+<para>
+YOU MAY NOT STORE POINTERS IN INTEGERS. THIS IS NOT PORTABLE IN ANY
+WAY SHAPE OR FORM. These macros <emphasis>ONLY</emphasis> allow
+storing integers in pointers, and only preserve 32 bits of the
+integer; values outside the range of a 32-bit integer will be mangled.
+</para>
+</warning>
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### MACRO GINT_TO_POINTER ##### -->
+<para>
+Stuffs an integer into a pointer type.
+</para>
+<para>
+Remember, YOU MAY NOT STORE POINTERS IN INTEGERS. THIS IS NOT PORTABLE
+IN ANY WAY SHAPE OR FORM. These macros <emphasis>ONLY</emphasis> allow
+storing integers in pointers, and only preserve 32 bits of the
+integer; values outside the range of a 32-bit integer will be mangled.
+</para>
+
+@i: integer to stuff into a pointer.
+
+
+<!-- ##### MACRO GPOINTER_TO_INT ##### -->
+<para>
+Extracts an integer from a pointer. The integer must have
+been stored in the pointer with GINT_TO_POINTER().
+</para>
+<para>
+Remember, YOU MAY NOT STORE POINTERS IN INTEGERS. THIS IS NOT PORTABLE
+IN ANY WAY SHAPE OR FORM. These macros <emphasis>ONLY</emphasis> allow
+storing integers in pointers, and only preserve 32 bits of the
+integer; values outside the range of a 32-bit integer will be mangled.
+</para>
+
+@p: pointer containing an integer.
+
+
+<!-- ##### MACRO GUINT_TO_POINTER ##### -->
+<para>
+Stuffs an unsigned integer into a pointer type.
+</para>
+
+@u: unsigned integer to stuff into the pointer.
+
+
+<!-- ##### MACRO GPOINTER_TO_UINT ##### -->
+<para>
+Extracts an unsigned integer from a pointer. The integer must have
+been stored in the pointer with GUINT_TO_POINTER().
+</para>
+
+@p: pointer to extract an unsigned integer from.
+
+
+<!-- ##### MACRO GSIZE_TO_POINTER ##### -->
+<para>
+Stuffs a #gsize into a pointer type.
+</para>
+
+@s: #gsize to stuff into the pointer.
+
+
+<!-- ##### MACRO GPOINTER_TO_SIZE ##### -->
+<para>
+Extracts a #gsize from a pointer. The #gsize must have
+been stored in the pointer with GSIZE_TO_POINTER().
+</para>
+
+@p: pointer to extract a #gsize from.
+
+

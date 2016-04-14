@@ -1,0 +1,134 @@
+  Hello folks !
+
+
+This is libmikmod, version 3.1.10, a portable sound library for Unix.
+Check out the file 'NEWS' for more history information.
+
+
+>> BUILDING LIBMIKMOD
+---------------------
+
+- If you're not building libmikmod for OS/2, then you're lost in the
+  sources. Go up one directory, and read the main README file.
+
+So you're on a good old OS/2 system, aren't you ? With a customized
+Object Desktop or some equivalent tool collection ?
+
+I hope you've installed REXX support during the system installation. If
+you didn't, you lose. Run 'selective install' from the system setup
+folder, install REXX support, check it works, and come back here.
+
+Currently, libmikmod can be build under OS/2 only with the emx compiler
+or the Watcom compiler. Borland C lacks a 64-bit integer type and can't
+be used.  You'll need the MMPM/2 toolkit (included in all the Warp
+toolkits) to compile the MMPM/2 driver. The Warp 4 toolkit is required
+if you want to build the DART driver, too.
+
+Oh, I almost forgot: you need long filenames to compile libmikmod, so
+you'll have to compile it on an HPFS drive, or an ext2fs drive, or a
+network drive where you can use decent-size filenames.
+
+In this directory, run
+
+  configure
+
+You will then be asked some questions.
+First, you'll have to choose your compiler. 
+
+If you choose emx, you can either build a static library, or a DLL with
+an import library.
+
+Then, you will be asked if you want to build a debug version; this
+option is mainly intended for the libmikmod developers, so you should
+answer "N" here.
+
+The next step is the driver selection. You'll be asked if you want the
+MMPM/2 and DART drivers. Since DART is not available on OS/2 older than
+Warp 4, the MMPM/2 driver is recommended for pre-Warp 4 systems.
+Otherwise, the DART driver is preferable, but you can include both to be
+sure your libmikmod library will work on every 32 bit version of OS/2.
+
+After the configuration has finished and the Makefiles are created, just
+run
+
+	make
+
+and you'll get your libmikmod library in the libmikmod directory.
+If the build fails, I'd like to hear from you to correct the problem.
+
+To make you library ready to use, copy the file '..\include\mikmod.h' to
+your compiler include directory, and '..\libmikmod\mikmod.lib` to your
+compiler library directory. If you built a DLL, put the DLL
+(..\libmikmod\mikmod.dll) in a directory which appears in your LIBPATH.
+
+HTML documentation of the library, for programmers, is located in the
+doc directory.
+
+
+>> THANKS
+---------
+
+I would like to thank everyone who contributed to libmikmod. Their names
+are in the AUTHORS file for the significative contributions, but some
+other names can be found in the NEWS file. Thanks a lot ! Keeping
+libmikmod alive wouldn't be much fun without you.
+
+
+>> LICENSE
+----------
+
+The libmikmod sound library is covered by the GNU Library General Public
+License as published by the Free Software Fundation (you'll find it in
+the file COPYING.LIB); either version 2 of the licence, or (at your
+option) any later version.
+
+The GNU Lesser General Public License, version 2.1, in file
+COPYING.LESSER, can be considered as a later version of the LGPL, and is
+strongly recommended for people who will embed libmikmod in their
+application as a shared library.
+
+Parts of the library (in playercode/mdulaw.c) are derived from the files
+libst.h and raw.c from an old version of the sox (SOund eXchange)
+package written by Lance Norskog and Jef Poskanzer. The following
+copyright notice applies to these parts:
+
+  Copyright (C) 1989 by Jef Poskanzer.
+   
+  Permission to use, copy, modify, and distribute this software and its
+  documentation for any purpose and without fee is hereby granted, provided
+  that the above copyright notice appear in all copies and that both that
+  copyright notice and this permission notice appear in supporting
+  documentation.  This software is provided "as is" without express or
+  implied warranty.
+
+Note that none of these parts are used in the OS/2 version of the
+libmikmod library.
+
+
+>> CONTACT AND DOWNLOAD INFO
+----------------------------
+
+* email:
+  Please send all your libmikmod related e-mail to me, at:
+  miod@mikmod.org
+
+* web:
+  libmikmod home page is located at:
+    http://www.mikmod.org
+
+* ftp:
+  Latest releases of libmikmod can be found:
+  - on the web site
+    htp://www.mikmod.org/files
+  - on ibiblio (formerly known as metalab, formerly sunsite) and its mirrors
+    ftp://metalab.unc.edu/pub/Linux/apps/sound/libs
+
+
+>> LAST NOTES
+-------------
+
+I hope you'll enjoy using this version of libmikmod as well as I enjoyed
+debugging and improving it.
+
+-- Miod Vallat, 01/24/2002
+   miod@mikmod.org
