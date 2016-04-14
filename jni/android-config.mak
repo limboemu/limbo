@@ -39,7 +39,7 @@ NDK_ENV = windows-x86_64
 # Chooce ONLY ONE:
 
 # ARMv7 Hard Float Generic Hard float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 # ARMv7 Hard Float Generic Hard float No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard-noopt.mak
@@ -54,7 +54,7 @@ NDK_ENV = windows-x86_64
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # x86 Phones (ie Zenfone)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 ################ No modifications below this line are necessary #####################
 TARGET_ARCH = 
