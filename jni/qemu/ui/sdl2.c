@@ -91,7 +91,14 @@ void sdl2_window_create(struct sdl2_console *scon)
                                          surface_width(scon->surface),
                                          surface_height(scon->surface),
                                          flags);
+#if defined(__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__)
+    //LIMBO: Need to force SOFTWARE rendering because some devices don't like it
+    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_SOFTWARE);
+#elif defined(__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
+    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_ACCELERATED);
+#else
     scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
+#endif //__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__
     sdl_update_caption(scon);
 }
 

@@ -19,17 +19,18 @@ LOCAL_C_INCLUDES :=			\
 	$(LIMBO_JNI_ROOT_INC)/qemu/include \
 	$(LIMBO_JNI_ROOT_INC)/compat
 
-LOCAL_STATIC_LIBRARIES := spice
-LOCAL_SHARED_LIBRARIES := png jpeg 
+LOCAL_STATIC_LIBRARIES := spice png
 
 LOCAL_LDLIBS :=				\
 	-ldl -llog
 
 #LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
 LOCAL_STATIC_LIBRARIES += liblimbocompat
 LOCAL_ARM_MODE := $(ARM_MODE)
 
 include $(BUILD_SHARED_LIBRARY)
 
+#Uncomment to build SDL
 include $(LOCAL_PATH)/sdl_main/Android.mk

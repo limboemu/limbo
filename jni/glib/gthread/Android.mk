@@ -27,8 +27,11 @@ LOCAL_CFLAGS += $(ARCH_CFLAGS)
 
 #LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
+#FIXME: Need to find out why this is failing
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
 LOCAL_STATIC_LIBRARIES += liblimbocompat
 LOCAL_ARM_MODE := $(ARM_MODE)
+LOCAL_LDLIBS +=	-ldl -llog
 
 ifeq ($(GLIB_BUILD_STATIC),true)
 include $(BUILD_STATIC_LIBRARY)

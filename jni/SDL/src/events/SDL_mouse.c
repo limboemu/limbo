@@ -228,6 +228,7 @@ SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relativ
         yrel = y - mouse->last_y;
     }
 
+#ifndef __ANDROID__
     /* Drop events that don't change state */
     if (!xrel && !yrel) {
 #ifdef DEBUG_MOUSE
@@ -235,6 +236,7 @@ SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relativ
 #endif
         return 0;
     }
+#endif //__ANDROID__
 
     /* Update internal mouse coordinates */
     if (!mouse->relative_mode) {
@@ -518,6 +520,10 @@ SDL_GetGlobalMouseState(int *x, int *y)
 void
 SDL_WarpMouseInWindow(SDL_Window * window, int x, int y)
 {
+#ifdef __LIMBO__
+	return;
+#endif //__LIMBO__
+
     SDL_Mouse *mouse = SDL_GetMouse();
 
     if (window == NULL) {

@@ -1,11 +1,11 @@
 package com.max2idea.android.limbo.main;
 
-import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLActivityCommon;
 
-public class LimboSDLActivityCompat extends SDLActivity 
+public class LimboSDLActivityCompat extends SDLActivityCommon
 {
 //	@Override
-//	public SDL2Surface getSDLSurface() {
+//	public SDLSurface getSDLSurface() {
 //		// TODO Auto-generated method stub
 //		mSurface = new LimboSDLSurfaceCompat(getApplication());
 //		mSurface.activity = this;

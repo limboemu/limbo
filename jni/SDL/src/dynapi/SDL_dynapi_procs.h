@@ -32,6 +32,7 @@
 /* direct jump magic can use these, the rest needs special code. */
 #if !SDL_DYNAPI_PROC_NO_VARARGS
 SDL_DYNAPI_PROC(int,SDL_SetError,(SDL_PRINTF_FORMAT_STRING const char *a, ...),(a),return)
+#ifndef __LIMBO__
 SDL_DYNAPI_PROC(void,SDL_Log,(SDL_PRINTF_FORMAT_STRING const char *a, ...),(a),)
 SDL_DYNAPI_PROC(void,SDL_LogVerbose,(int a, SDL_PRINTF_FORMAT_STRING const char *b, ...),(a,b),)
 SDL_DYNAPI_PROC(void,SDL_LogDebug,(int a, SDL_PRINTF_FORMAT_STRING const char *b, ...),(a,b),)
@@ -40,6 +41,7 @@ SDL_DYNAPI_PROC(void,SDL_LogWarn,(int a, SDL_PRINTF_FORMAT_STRING const char *b,
 SDL_DYNAPI_PROC(void,SDL_LogError,(int a, SDL_PRINTF_FORMAT_STRING const char *b, ...),(a,b),)
 SDL_DYNAPI_PROC(void,SDL_LogCritical,(int a, SDL_PRINTF_FORMAT_STRING const char *b, ...),(a,b),)
 SDL_DYNAPI_PROC(void,SDL_LogMessage,(int a, SDL_LogPriority b, SDL_PRINTF_FORMAT_STRING const char *c, ...),(a,b,c),)
+#endif //__LIMBO__
 SDL_DYNAPI_PROC(int,SDL_sscanf,(const char *a, SDL_SCANF_FORMAT_STRING const char *b, ...),(a,b),return)
 SDL_DYNAPI_PROC(int,SDL_snprintf,(SDL_OUT_Z_CAP(b) char *a, size_t b, SDL_PRINTF_FORMAT_STRING const char *c, ...),(a,b,c),return)
 #endif

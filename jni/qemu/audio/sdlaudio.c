@@ -195,6 +195,7 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
     }
     err = pthread_sigmask (SIG_BLOCK, &new, &old);
     if (err) {
+    	LOGE("sdl_open: pthread_sigmask failed: %s\n", strerror (err));
         dolog ("sdl_open: pthread_sigmask failed: %s\n", strerror (err));
         return -1;
     }
@@ -208,6 +209,8 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
 #ifndef _WIN32
     err = pthread_sigmask (SIG_SETMASK, &old, NULL);
     if (err) {
+    	LOGE("sdl_open: pthread_sigmask (restore) failed: %s\n",
+               strerror (errno));
         dolog ("sdl_open: pthread_sigmask (restore) failed: %s\n",
                strerror (errno));
         /* We have failed to restore original signal mask, all bets are off,

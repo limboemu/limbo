@@ -1,2 +1,7 @@
 /spice/
 /spice-protocol/
+/openssl/
+/jpeg/
+/png/
+/sdl_latest/
+/android-spice-config.mak

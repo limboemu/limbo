@@ -80,7 +80,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_togglef
 	return (*env)->NewStringUTF(env, res_msg);
 }
 
-//FIXME: Hanging, for now we use QMP Monitor console
+//FIXME: Snapshots Hanging, for now we use QMP Monitor console
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_save(
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
@@ -107,6 +107,43 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_save(
 
 	limbo_savevm(snapshot_name_str);
 	sprintf(res_msg, "VM State Saved");
+	LOGV(res_msg);
+
+	return (*env)->NewStringUTF(env, res_msg);
+}
+
+//Save only VM no snapshot is faster
+JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_pausevm(
+		JNIEnv* env, jobject thiz, jstring juri) {
+	char res_msg[MSG_BUFSIZE + 1] = { 0 };
+	char error [MSG_BUFSIZE + 1] = { 0 };
+	const char * uri_str = NULL;
+	if (juri != NULL)
+		uri_str = (*env)->GetStringUTFChars(env, juri, 0);
+
+	if (handle == NULL)
+		return (*env)->NewStringUTF(env, "VM not running");
+
+	jclass c = (*env)->GetObjectClass(env, thiz);
+
+	typedef int (*pause_vm_t)();
+	dlerror();
+	pause_vm_t limbo_migrate = (pause_vm_t) dlsym(handle, "limbo_migrate");
+	const char *dlsym_error = dlerror();
+	if (dlsym_error) {
+		sprintf(res_msg, "Cannot load symbol 'limbo_migrate': %s\n", dlsym_error);
+		LOGE(res_msg);
+		return (*env)->NewStringUTF(env, res_msg);
+	}
+
+	int res = limbo_migrate(uri_str, error);
+
+	if(res){
+		LOGE(error);
+		sprintf(res_msg, error);
+	}else
+		sprintf(res_msg, "VM State Saving Started");
+
 	LOGV(res_msg);
 
 	return (*env)->NewStringUTF(env, res_msg);
@@ -446,6 +483,9 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	fid = (*env)->GetFieldID(env, c, "enablevnc", "I");
 	int enablevnc = (*env)->GetIntField(env, thiz, fid);
+
+	fid = (*env)->GetFieldID(env, c, "enablespice", "I");
+	int enablespice = (*env)->GetIntField(env, thiz, fid);
 
 	fid = (*env)->GetFieldID(env, c, "vnc_allow_external", "I");
 	int vnc_allow_external = (*env)->GetIntField(env, thiz, fid);
@@ -845,6 +885,20 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 			// Use with x509 auth and TLS for encryption
 		} else
 			strcpy(argv[param++], "localhost:1"); // Allow only connections from localhost without password
+	} else if (enablespice) {
+		LOGV("Enable SPICE server");
+		strcpy(argv[param++], "-spice");
+		strcpy(argv[param], "port=5902");
+
+		if (vnc_allow_external && vnc_passwd_str != NULL) {
+			strcat(argv[param], ",password=");
+			strcat(argv[param], vnc_passwd_str);
+		} else
+			strcat(argv[param], ",addr=localhost"); // Allow only connections from localhost without password
+
+		strcat(argv[param++], ",disable-ticketing");
+		//strcpy(argv[param++], "-chardev");
+		//strcpy(argv[param++], "spicevm");
 	} else {
 		LOGV("Disabling VNC server, using SDL instead");
 		//SDL needs explicit keyboard layout

@@ -104,6 +104,7 @@ public class VMExecutor {
 	private static Context context;
 	public String name;
 	private String save_dir;
+	public int enablespice = 0;
 
 	/**
 	 */
@@ -111,7 +112,7 @@ public class VMExecutor {
 
 		name = machine.machinename;
 		save_dir = Config.machinedir + name;
-		save_state_name = save_dir + "/vm.state";
+		save_state_name = save_dir + "/" + Config.state_filename;
 		this.context = context;
 		this.memory = machine.memory;
 		this.cpuNum = machine.cpuNum;
@@ -123,6 +124,7 @@ public class VMExecutor {
 		this.disablefdbootchk = machine.disablefdbootchk;
 		this.enableqmp = machine.enableqmp;
 		this.enablevnc = machine.enablevnc;
+		this.enablevnc = machine.enablespice;
 		if (!machine.soundcard.equals("none"))
 			this.sound_card = machine.soundcard;
 		this.kernel = machine.kernel;
@@ -302,6 +304,8 @@ public class VMExecutor {
 	protected native String getsavestate();
 
 	protected native String getpausestate();
+	
+	public native String pausevm(String uri);
 
 	protected native void resize();
 

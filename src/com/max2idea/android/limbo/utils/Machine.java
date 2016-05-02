@@ -81,6 +81,8 @@ public class Machine {
 
 	public int paused;
 
+	public int enablespice;
+
 	   public Machine(String machinename) {
 		   this.machinename = machinename;
 	   }

@@ -26,12 +26,16 @@ LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/../SDL/src \
 	$(LOCAL_PATH)/../SDL/include
 
+#LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(LOGUTILS)
+LOCAL_ARM_MODE := $(ARM_MODE)
 
 #No optimization for memmove
 LOCAL_CFLAGS += -O0
 
 LOCAL_SHARED_LIBRARIES := 
+LOCAL_STATIC_LIBRARIES := 
 
 LOCAL_LDLIBS :=				\
 	-ldl -llog

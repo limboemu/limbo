@@ -1,10 +1,10 @@
 package com.max2idea.android.limbo.main;
 
-import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLActivityCommon;
 
 import android.os.Bundle;
 
-public class LimboSDLActivity extends SDLActivity {
+public class LimboSDLActivity extends SDLActivityCommon {
 
 	@Override
 	public void onCreate(Bundle b) {

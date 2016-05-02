@@ -45,9 +45,10 @@
 #define LOG_TAG "SDL_android"
 /* #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__) */
 /* #define LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__) */
+#ifndef __LIMBO__
 #define LOGI(...) do {} while (0)
 #define LOGE(...) do {} while (0)
-
+#endif //__LIMBO__
 /* Uncomment this to log messages entering and exiting methods in this file */
 /* #define DEBUG_JNI */
 
@@ -76,6 +77,9 @@ static jmethodID midAudioWriteShortBuffer;
 static jmethodID midAudioWriteByteBuffer;
 static jmethodID midAudioQuit;
 static jmethodID midPollInputDevices;
+#ifdef __LIMBO__
+static jmethodID midSetSDLResolution;
+#endif // __LIMBO__
 
 /* Accelerometer data storage */
 static float fLastAccelerometer[3];
@@ -128,6 +132,10 @@ JNIEXPORT void JNICALL SDL_Android_Init(JNIEnv* mEnv, jclass cls)
                                 "audioQuit", "()V");
     midPollInputDevices = (*mEnv)->GetStaticMethodID(mEnv, mActivityClass,
                                 "pollInputDevices", "()V");
+#ifdef __LIMBO__
+    midSetSDLResolution = (*mEnv)->GetStaticMethodID(mEnv, mActivityClass,
+                                        "setSDLResolution","(II)V");
+#endif
 
     bHasNewData = SDL_FALSE;
 
@@ -469,6 +477,15 @@ ANativeWindow* Android_JNI_GetNativeWindow(void)
   
     return anw;
 }
+#ifdef __LIMBO__
+void Android_JNI_SetSDLResolution(int width, int height)
+{
+	JNIEnv *env = Android_JNI_GetEnv();
+    (*env)->CallStaticVoidMethod(env, mActivityClass, midSetSDLResolution, width, height);
+
+}
+#endif //__LIMBO__
+
 
 void Android_JNI_SetActivityTitle(const char *title)
 {

@@ -19,18 +19,26 @@ LOCAL_CFLAGS :=				\
 	-DG_LOG_DOMAIN=\"GModule\"	\
 	-DG_DISABLE_DEPRECATED 
 
+ifeq ($(GLIB_BUILD_STATIC),true)
+
 #LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
+#FIXME: Need to find out why this is failing
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
 LOCAL_STATIC_LIBRARIES += liblimbocompat
 LOCAL_ARM_MODE := $(ARM_MODE)
 
-ifeq ($(GLIB_BUILD_STATIC),true)
 include $(BUILD_STATIC_LIBRARY)
 else
 LOCAL_SHARED_LIBRARIES := libglib-2.0
 
-LOCAL_LDLIBS :=				\
-	-ldl 
+LOCAL_LDLIBS +=	-ldl -llog
 
+#LIMBO
+LOCAL_CFLAGS += $(ARCH_CFLAGS)
+#FIXME: Need to find out why this is failing
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+LOCAL_STATIC_LIBRARIES += limbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
 include $(BUILD_SHARED_LIBRARY)
 endif

@@ -184,10 +184,13 @@ $(QEMU_PROG_BUILD): config-devices.mak
 #	$(call LINK, $(filter-out %.mak, $^))
 
 # Need this only if we enable png/jpeg encoding for VNC
-#piclibs=../../../obj/local/$(APP_ABI)/libpng.a \
-	../../../obj/local/$(APP_ABI)/libjpeg.a \
+#pnglib=../../../obj/local/$(APP_ABI)/libpng.a
+#jpeglib=../../../obj/local/$(APP_ABI)/libjpeg.a
 
-sdllibs=$(piclibs) \
+#spicelib=../../../obj/local/$(APP_ABI)/libspice.so
+
+
+sdllibs=\
 	../../../obj/local/$(APP_ABI)/libSDL2.so \
 	../../../obj/local/$(APP_ABI)/libSDL2_image.so \
 	../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
@@ -197,13 +200,15 @@ glibs=../../../obj/local/$(APP_ABI)/libglib-2.0.so \
 	../../../obj/local/$(APP_ABI)/libgmodule-2.0.so \
 	../../../obj/local/$(APP_ABI)/libgobject-2.0.so
 
+#openssllib=../../../obj/local/$(APP_ABI)/libssl.so
+
+#cryptolib=../../../obj/local/$(APP_ABI)/libcrypto.so  
+
 pixmanlib=../../../obj/local/$(APP_ABI)/libpixman.so
 
 compatlib=../../../obj/local/$(APP_ABI)/liblimbocompat.a
 
 fdtlib=../../qemu/dtc/libfdt/libfdt.a
-
-#iconvlib=../../../obj/local/$(APP_ABI)/libiconv.so
 
 $(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(LNK)     \
@@ -218,6 +223,9 @@ $(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(sort $(all-obj-y)) \
 	../libqemuutil.a ../libqemustub.a \
 	$(compatlib) \
+	$(pnglib) \
+	$(jpeglib) \
+	$(spicelib) \
 	$(fixlib) \
 	$(fdtlib) \
 	$(GCC_STATIC) \

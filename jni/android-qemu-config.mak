@@ -24,7 +24,23 @@ COROUTINE_POOL = --enable-coroutine-pool
 SDL = --enable-sdl 
 #SDL += --with-sdlabi=1.2
 SDL += --with-sdlabi=2.0
-#SDL = --disable-sdl 
+#SDL = --disable-sdl
+
+# Set SDL Software rendering (issue with pause/resume)
+#SDL_RENDERING = -D__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__
+
+# Or SDL Hardware Acceleration (faster though needs whole screen redraw)
+SDL_RENDERING = -D__LIMBO_SDL_FORCE_HARDWARE_RENDERING__ 
+
+#ENABLE SOUND VIA SDL 
+# Currently hanging QEMU anyway too high latency so we disable for now
+#AUDIO += --audio-drv-list=sdl 
+# DISABLE
+AUDIO += --audio-drv-list=
+
+# NOT USED
+#AUDIO += --audio-card-list= --audio-drv-list=
+#--enable-mixemu
 
 #USB redir
 #USB_REDIR = --enable-usb-redir
@@ -58,14 +74,6 @@ VNC += --disable-vnc-ws --disable-vnc-sasl --disable-vnc-tls
 # NEEDS ABOVE ENCODING
 #INCLUDE_ENC += -I$(LIMBO_JNI_ROOT_INC)/png -I$(LIMBO_JNI_ROOT_INC)/jpeg
 
-#ENABLE SOUND VIA SDL
-AUDIO += --audio-drv-list=sdl 
-# DISABLE
-#AUDIO += --audio-card-list= --audio-drv-list=
-#AUDIO += --audio-drv-list=
-# NOT USED
-#--enable-mixemu
-
 #SMART CARD
 #SMARTCARD =	--disable-smartcard --disable-smartcard-nss
 SMARTCARD =	--disable-smartcard-nss
@@ -77,9 +85,6 @@ FDT_INC = -I$(LIMBO_JNI_ROOT_INC)/qemu/dtc/libfdt
 
 #Disable nptl
 #NPTL += --disable-nptl 
-
-#DISABLE TSC PENTIUM FEATURE
-#LIMBO_DISABLE_TSC=-DLIMBO_DISABLE_TSC
 
 #For 2.3.0
 #Misc
@@ -189,6 +194,8 @@ config:
 	-I$(LIMBO_JNI_ROOT_INC)/glib/android \
 	-I$(LIMBO_JNI_ROOT_INC)/pixman \
 	-I$(LIMBO_JNI_ROOT_INC)/scsi \
+	-I$(LIMBO_JNI_ROOT_INC)/png \
+	-I$(LIMBO_JNI_ROOT_INC)/jpeg \
 	-I$(LIMBO_JNI_ROOT_INC) \
 	-I$(LIMBO_JNI_ROOT_INC)/SDL/include  \
 	-I$(LIMBO_JNI_ROOT_INC)/compat  \
@@ -197,6 +204,7 @@ config:
 	$(FDT_INC) \
 	$(INCLUDE_ENC) \
 	$(LIMBO_DISABLE_TSC) \
+	$(SDL_RENDERING) \
 	$(ENV_EXTRA) \
 	$(ARCH_CFLAGS) \
 	" \

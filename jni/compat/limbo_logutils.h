@@ -39,39 +39,29 @@ extern "C" {
 #define STR(x) STR1(x)
 #define TAG __FILE__ ":" STR(__LINE__)
 
-//We declare this as static to prevent from getting undefined behaviour during link time
-//FIXME: Shouldn't be returning a local addr we should fix this in the future
-//static inline char * limbo_get_tag(const char * file, const char * func,
-//		int line) {
-//
-//	int MAX_LENGTH = 24;
-//	char tag[1024];
-//	char buf[1024];
-//	if(strlen(file) > MAX_LENGTH)
-//		strcpy(tag, file+strlen(file) - MAX_LENGTH);
-//	else
-//		strcpy(tag, file);
-//	strcat(tag, " : ");
-//	strcat(tag, func);
-//	strcat(tag, "() : ");
-//	sprintf(buf, "%d", line);
-//	strcat(tag, buf);
-//	return tag;
-//
-//}
-
 #ifdef DEBUG_OUTPUT
 
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG ,__VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG,__VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARNING, TAG,__VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG,__VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG,__VA_ARGS__)
-#define printf(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-#define fprintf(stdout, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define printf(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define fprintf(stdout, ...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define vfprintf(stdout, ...)  __android_log_vprint(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define perror(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
 //FIXME: logging for SDL
-//#define dolog(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define SDL_Log_REAL(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define SDL_LogVerbose_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define SDL_LogDebug_REAL(category, ...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
+#define SDL_LogInfo_REAL(category, ...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define SDL_LogWarn_REAL(category, ...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
+#define SDL_LogError_REAL(category, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define SDL_LogCritical_REAL(category, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define SDL_LogMessage_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+
+#define g_error(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define sdl_logerr(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_report(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_printf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
@@ -87,6 +77,7 @@ extern "C" {
 #define LOGI(...) ((void)0)
 #define printf(...) ((void)0)
 #define fprintf(stdout, ...) ((void)0)
+#define vprintf(stdout, ...) ((void)0)
 #define perror(...) ((void)0)
 #define sdl_logerr(...) ((void)0)
 #define dolog(...) ((void)0)

@@ -52,9 +52,11 @@ ifeq ($(strip $(TARGET_ARCH)),arm)
 #		pixman-arm-neon-asm-bilinear.S
 endif
 
+#LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
-
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
 LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
 
 LOCAL_LDLIBS :=				\
 	-ldl -llog

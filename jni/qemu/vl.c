@@ -4389,6 +4389,7 @@ int get_state(void) {
     return runstate_is_running();
 }
 
+#ifdef CONFIG_SDL
 extern void toggle_full_screen1();
 
 void toggleFullScreen(){
@@ -4402,11 +4403,13 @@ void toggleFullScreen(){
 	toggle_full_screen1();
 }
 
+
 extern void sdl_scale1(int width, int height);
 
 extern void scale(int width, int height){
 	sdl_scale1(width, height);
 }
+#endif //CONFIG_SDL
 
 
 #endif //__LIMBO__

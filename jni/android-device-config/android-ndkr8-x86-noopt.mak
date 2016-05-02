@@ -2,44 +2,24 @@
 #NDK_TOOLCHAIN_VERSION := 4.4.3
 #NDK_TOOLCHAIN_VERSION=4.6
 #NDK_TOOLCHAIN_VERSION=4.7
-#NDK_TOOLCHAIN_VERSION=4.8
 NDK_TOOLCHAIN_VERSION=4.9
 
 #TARGET ARCH
-#APP_ABI := armeabi-v7a
-APP_ABI := armeabi-v7a-hard
+APP_ABI := x86
 
-#FLOAT
-#FLOAT_FLAG := -mfloat-abi=softfp
-FLOAT_FLAG := -mfloat-abi=hard -mhard-float -D_NDK_MATH_NO_SOFTFP=1
-#FLOAT_FLAG += -mfpu=vfpv3-d16
+ARCH_CFLAGS := \
+    -std=gnu99 \
+    -ffunction-sections
 
-#LM
-#LM := -lm
-LM := -lm_hard
+ANDROID_OPTIM_FLAGS := -O1
 
-#FLOAT WARNINGS (NEEDED!)
-LIMBO_LD_FLAGS +=  -Wl,--no-warn-mismatch
+#ANDROID_OPTIM_FLAGS :=  -O0 \
+                              -fomit-frame-pointer \
+                              -fstrict-aliasing    \
+                              -funswitch-loops     \
+                              -finline-limit=30000
 
-### CONFIGURATION
-ARCH_CFLAGS = \
--std=gnu99 \
--march=armv7-a \
- $(FLOAT_FLAG)
-
-# Tuning
--mtune=arm7
-
-# Possible values: arm, thumb
-ARM_MODE=arm
-
-# Suppress some warnings
-ARCH_CFLAGS += -Wno-psabi
-
-# Optimization
-#ANDROID_OPTIM_FLAGS = -O0
-ANDROID_OPTIM_FLAGS = -O0   
-
+#ARCH_CFLAGS += -O0
 ARCH_CFLAGS += $(ANDROID_OPTIM_FLAGS)
 
 ifeq ($(NDK_DEBUG),1)
@@ -56,17 +36,14 @@ endif
 ARCH_CFLAGS += -fpic 
 
 # Reduce executable size
-ARCH_CFLAGS += -ffunction-sections
+#ARCH_CFLAGS += -ffunction-sections
 
 # Don't keep the frame pointer in a register for functions that don't need one
 # Anyway enabled for -O2
-ARCH_CFLAGS += -fomit-frame-pointer
-
-# Unwanted optimization, might be dangerous 
-#ARCH_CFLAGS += -funswitch-loops 
+#ARCH_CFLAGS += -fomit-frame-pointer 
 
 # prevent unwanted optimizations for Qemu
-ARCH_CFLAGS += -fno-strict-aliasing
+#ARCH_CFLAGS += -fno-strict-aliasing
 
 # Loop optimization might be safe
 #ARCH_CFLAGS += -fstrength-reduce 
@@ -93,17 +70,10 @@ ARCH_CFLAGS += -finline-limit=99999
 # To suppress looking in stadnard includes for the toolchain
 #ARCH_CFLAGS += -nostdinc
 
- 
-
 # SLows down but needed for some devices
 # where stack corruption is more probable
-ARCH_CFLAGS += -fstack-protector
-#ARCH_CFLAGS += -fno-stack-protector
+#ARCH_CFLAGS += -fstack-protector
+ARCH_CFLAGS += -fno-stack-protector
 
-# ORIGINAL CFLAGS FROM ANDROID NDK
-#-D__ARM_ARCH_5__ -D__ARM_ARCH_5T__ -D__ARM_ARCH_5E__ -D__ARM_ARCH_5TE__  \
-#-march=armv5te -mtune=xscale -msoft-float -mthumb \
-#-Os
-#-fpic -ffunction-sections -funwind-tables -fstack-protector \
-#-Wno-psabi 
-#-fomit-frame-pointer -fno-strict-aliasing -finline-limit=64 
+#LITTLE ENDIAN ONLY
+ARCH_CFLAGS += -DANDROID_X86

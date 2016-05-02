@@ -48,13 +48,16 @@ QString *qstring_from_substr(const char *str, int start, int end)
 {
     QString *qstring;
 
+//    LOGV("str = %s, start=%d, end=%d", str, start,end);
     qstring = g_malloc(sizeof(*qstring));
 
     qstring->length = end - start + 1;
     qstring->capacity = qstring->length;
 
+    //FIXME: LIMBO: need to see this is failing with -O0 noopt device config
     qstring->string = g_malloc(qstring->capacity + 1);
     memcpy(qstring->string, str + start, qstring->length);
+//    LOGV("qstring->string = %s, qstring->length=%d", qstring->string,qstring->length);
     qstring->string[qstring->length] = 0;
 
     QOBJECT_INIT(qstring, &qstring_type);

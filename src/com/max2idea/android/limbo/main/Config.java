@@ -34,6 +34,7 @@ public class Config {
 	public static final int MAX_AIO_THREADS = 64;
 	public static final int UI_VNC = 0;
 	public static final int UI_SDL = 1;
+	public static final int UI_SPICE = 2;
 	public static final int SDL_MOUSE_LEFT = 1;
 	public static final int SDL_MOUSE_MIDDLE = 2;
 	public static final int SDL_MOUSE_RIGHT = 3;
@@ -79,13 +80,19 @@ public class Config {
 	};
 
 	// GUI Options
-	public static final boolean enable_SDL_menu = false; //Option for GUI
+	public static final boolean enable_SDL_menu = true; //Option for GUI
 	public static final boolean enable_SDL_libs = true; //Enable always if you build QEMU with SDL Support
+	public static final boolean enable_SPICE_menu = false;
+	public static final boolean enable_SPICE = false;
 	public static final boolean enable_sound_menu = false; //Option for GUI
-	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
+	public static final boolean enable_sound_libs = false; //Enable always if you build QEMU with Audio Support
 	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
 	public static final boolean disableTitleBar = true;
 	public static final boolean enable_qemu_fullScreen = true;
+	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
+	public static boolean enableSDLAlwaysFullscreen = true;
+	
+	
 	
 	// App config
 	public static final String APP_NAME = "Limbo PC Emulator (QEMU)";
@@ -95,6 +102,7 @@ public class Config {
 	public static final boolean enableHDCache = false;
 	public static final String defaultDNSServer = "8.8.8.8";
 	public static final String defaultUI = "VNC";
+	public static String state_filename = "vm.state";
 	
 	// App Config
 	public static final String downloadLink = "http://limboemulator.weebly.com/downloads";
@@ -119,5 +127,7 @@ public class Config {
 	// Debug
 	public static final boolean debug = true;
 	public static final DebugMode debugMode = DebugMode.X86;
+	
+	
 
 }

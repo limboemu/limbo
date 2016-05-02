@@ -43,6 +43,8 @@ public class LimboService extends Service {
 		
 		if (action.equals(Config.ACTION_START)) {
 			Log.d(TAG, "Received ACTION_URL");
+			if(LimboActivity.currMachine == null)
+				return START_NOT_STICKY;
 			
 			setUpAsForeground(this, LimboActivity.currMachine.machinename,
 					1000);

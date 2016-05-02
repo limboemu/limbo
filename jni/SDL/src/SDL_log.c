@@ -168,7 +168,7 @@ SDL_LogResetPriorities(void)
     SDL_application_priority = DEFAULT_APPLICATION_PRIORITY;
     SDL_test_priority = DEFAULT_TEST_PRIORITY;
 }
-
+#ifndef __LIMBO__
 void
 SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
@@ -228,7 +228,6 @@ SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     SDL_LogMessageV(category, SDL_LOG_PRIORITY_ERROR, fmt, ap);
     va_end(ap);
 }
-
 void
 SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
@@ -248,6 +247,7 @@ SDL_LogMessage(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING 
     SDL_LogMessageV(category, priority, fmt, ap);
     va_end(ap);
 }
+#endif //__LIMBO__
 
 #ifdef __ANDROID__
 static const char *

@@ -38,6 +38,7 @@ extern int limbo_savevm(char * limbo_snapshot_name);
 
 extern int get_save_state();
 
+extern int limbo_migrate(const char * uri, char * error);
 extern int get_migration_status ();
 extern int set_dns_addr_str(const char *dns_addr_str1);
 

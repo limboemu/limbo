@@ -38,9 +38,8 @@ ARCH_CFLAGS += -Wno-psabi
 
 # Optimization
 #ANDROID_OPTIM_FLAGS = -O0
-ANDROID_OPTIM_FLAGS = -O4 -fomit-frame-pointer \
-                              -fstrict-aliasing    \
-                              -funswitch-loops     
+ANDROID_OPTIM_FLAGS = -O4
+                                   
 
 ARCH_CFLAGS += $(ANDROID_OPTIM_FLAGS)
 
@@ -60,11 +59,14 @@ ARCH_CFLAGS += -fpic
 # Reduce executable size
 ARCH_CFLAGS += -ffunction-sections
 
+# Unwanted optimization, might be dangerous 
+#ARCH_CFLAGS += -funswitch-loops
+
 # Don't keep the frame pointer in a register for functions that don't need one
 # Anyway enabled for -O2
 ARCH_CFLAGS += -fomit-frame-pointer 
 
-# prevent unwanted optimizations for Qemu
+# prevent further unwanted optimizations for Qemu
 #ARCH_CFLAGS += -fno-strict-aliasing
 
 # Loop optimization might be safe

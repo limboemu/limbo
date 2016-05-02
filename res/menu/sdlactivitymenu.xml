@@ -46,6 +46,10 @@
         android:icon="@android:drawable/ic_menu_share"
         android:title="@string/ctrl_alt_del"/>
     <item
+        android:id="@+id/itemReset"
+        android:icon="@android:drawable/ic_menu_share"
+        android:title="@string/reset"/>
+    <item
         android:id="@+id/itemShutdown"
         android:icon="@android:drawable/ic_menu_share"
         android:title="@string/shutdown"/>

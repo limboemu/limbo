@@ -3,7 +3,7 @@
 
 ####### GLOBAL CONFIGURATION
 # Faster Builds with multiple threads
-BUILD_THREADS=4
+BUILD_THREADS=3
 
 #PLATFORM CONFIG
 APP_PLATFORM = android-19
@@ -38,23 +38,35 @@ NDK_ENV = windows-x86_64
 ############## ANDROID DEVICE CONFIGURATION
 # Chooce ONLY ONE:
 
+
+######### ARMv7 Hard Float (SDL interface not working)
 # ARMv7 Hard Float Generic Hard float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 # ARMv7 Hard Float Generic Hard float No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard-noopt.mak
 
+
+######### ARMv7 Soft Float  (Supports VNC and SDL)
+# ARMv7 Generic soft float
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+
+# ARMv7 Generic soft float No Optimization
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
+
+######### ARMv5 Soft Float  (Supports VNC and SDL for old devices)
 # ARMv5 Generic soft float
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv5te-softfp.mak
 
 # ARMv5 Generic No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv5te-softfp-noopt.mak
 
-# ARMv7 Generic soft float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
-
+######### x86
 # x86 Phones (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+
+# x86 Phones Debug No optimization (ie Zenfone)
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
 
 ################ No modifications below this line are necessary #####################
 TARGET_ARCH = 
@@ -115,7 +127,9 @@ USR_LIB = \
 -L$(TOOLCHAIN_DIR)//lib
 
 ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) 
-ARCH_CFLAGS := $(ARCH_CFLAGS) -include $(FIXUTILS_MEM) --include $(LOGUTILS)
+
+# logging macros
+ARCH_CFLAGS := $(ARCH_CFLAGS)
 
 # INCLUDE_FIXED
 SYSTEM_INCLUDE = \

@@ -6,12 +6,12 @@ LOCAL_MODULE := SDL2_image
 
 # Enable this if you want to support loading JPEG images
 # The library path should be a relative path to this directory.
-SUPPORT_JPG ?= true
+SUPPORT_JPG ?= false
 JPG_LIBRARY_PATH := external/jpeg-9
 
 # Enable this if you want to support loading PNG images
 # The library path should be a relative path to this directory.
-SUPPORT_PNG ?= true
+SUPPORT_PNG ?= false
 PNG_LIBRARY_PATH := external/libpng-1.6.2
 
 # Enable this if you want to support loading WebP images
@@ -87,11 +87,11 @@ ifeq ($(SUPPORT_JPG),true)
         $(JPG_LIBRARY_PATH)/jmem-android.c
 
     # assembler support is available for arm
-    ifeq ($(TARGET_ARCH),arm)
-        LOCAL_SRC_FILES += $(JPG_LIBRARY_PATH)/jidctfst.S
-    else
+    #ifeq ($(TARGET_ARCH),arm)
+    #    LOCAL_SRC_FILES += $(JPG_LIBRARY_PATH)/jidctfst.S
+    #else
         LOCAL_SRC_FILES += $(JPG_LIBRARY_PATH)/jidctfst.c
-    endif
+    #endif
 endif
 
 ifeq ($(SUPPORT_PNG),true)
@@ -125,5 +125,14 @@ ifeq ($(SUPPORT_WEBP),true)
 endif
 
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_C_INCLUDES)
+
+#LIMBO
+LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
+
+LOCAL_LDLIBS +=	-llog
+
 
 include $(BUILD_SHARED_LIBRARY)

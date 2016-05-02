@@ -40,3 +40,5 @@ libs/
 /.project
 /.classpath
 /obj/
+/extra/
+/sh.exe.stackdump

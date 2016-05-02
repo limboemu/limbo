@@ -157,6 +157,9 @@ public class LimboActivity extends Activity {
 	protected boolean userPressedBluetoothMouse = false;
 	protected boolean userPressedSnapshot = false;
 	protected boolean userPressedVNC = false;
+	
+	private boolean userPressedHDCacheCfg;
+	private boolean userPressedSoundcardCfg;
 
 	// Static
 	private static final int HELP = 0;
@@ -226,8 +229,7 @@ public class LimboActivity extends Activity {
 
 		mMachine.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				// your code here
-				// Log.v(TAG, "Position " + position);
+
 				if (position == 0) {
 					enableNonRemovableDeviceOptions(false);
 					enableRemovableDeviceOptions(false);
@@ -237,10 +239,10 @@ public class LimboActivity extends Activity {
 					mMachine.setSelection(0);
 					promptMachineName(activity);
 					mVNCAllowExternal.setEnabled(true);
-					// Log.v(TAG, "Promtp for Machine createion");
+
 				} else {
-					String machine = (String) ((ArrayAdapter) mMachine.getAdapter()).getItem(position);
-					// Log.v(TAG, "Machine selected: " + machine);
+					String machine = (String) ((ArrayAdapter<?>) mMachine.getAdapter()).getItem(position);
+
 					loadMachine(machine, "");
 					populateSnapshot();
 					mVNCAllowExternal.setEnabled(true);
@@ -249,8 +251,7 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
@@ -259,8 +260,7 @@ public class LimboActivity extends Activity {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				// your code here
 
-				String arch = (String) ((ArrayAdapter) mArch.getAdapter()).getItem(position);
-				Log.v(TAG, "Position " + position + " Arch = " + arch + " userPressed = " + userPressedArch);
+				String arch = (String) ((ArrayAdapter<?>) mArch.getAdapter()).getItem(position);
 
 				if (userPressedArch) {
 					currMachine.arch = arch;
@@ -303,18 +303,12 @@ public class LimboActivity extends Activity {
 					}
 				machineLoaded = false;
 				userPressedArch = true;
-
-				Log.v("setOnItemSelectedListener", "set userPressed = " + userPressedArch);
-
-				// Log.v("CPU List", "reset userPressed = " + userPressedCPU);
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
 				// your code here
 
 				userPressedArch = true;
-				Log.v("setOnItemSelectedListener2", "set userPressed = " + userPressedArch);
-				// Log.v("CPU none", "reset userPressed = " + userPressedCPU);
 			}
 		});
 
@@ -322,61 +316,34 @@ public class LimboActivity extends Activity {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				// your code here
 
-				String cpu = (String) ((ArrayAdapter) mCPU.getAdapter()).getItem(position);
-				Log.v(TAG, "Position " + position + " CPU = " + cpu + " userPressed = " + userPressedCPU);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String cpu = (String) ((ArrayAdapter<?>) mCPU.getAdapter()).getItem(position);
+
 				if (userPressedCPU) {
 					currMachine.cpu = cpu;
 					int ret = machineDB.update(currMachine, MachineOpenHelper.CPU, cpu);
-					// if (currMachine.cpu.endsWith("(arm)")) {
-					// // mKernel.setEnabled(true);
-					// // mInitrd.setEnabled(true);
-					// // mAppend.setEnabled(true);
-					// mMachineType.setEnabled(true);
-					// } else {
-					// // mKernel.setEnabled(false);
-					// // mInitrd.setEnabled(false);
-					// // mAppend.setEnabled(false);
-					// mMachineType.setEnabled(false);
-					// }
 				}
 				userPressedCPU = true;
-				Log.v("setOnItemSelectedListener", "set userPressed = " + userPressedCPU);
 
-				// Log.v("CPU List", "reset userPressed = " + userPressedCPU);
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
 				// your code here
-
 				userPressedCPU = true;
-				Log.v("setOnItemSelectedListener2", "set userPressed = " + userPressedCPU);
-				// Log.v("CPU none", "reset userPressed = " + userPressedCPU);
 			}
 		});
 
 		mMachineType.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				// your code here
-
-				String machineType = (String) ((ArrayAdapter) mMachineType.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " CPU = " + cpu
-				// + " userPressed = " + userPressedCPU);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String machineType = (String) ((ArrayAdapter<?>) mMachineType.getAdapter()).getItem(position);
 				if (userPressedMachineType) {
 					currMachine.machine_type = machineType;
 					int ret = machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, machineType);
 				}
 				userPressedMachineType = true;
-
-				// Log.v("CPU List", "reset userPressed = " + userPressedCPU);
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 				userPressedMachineType = true;
-				// Log.v("CPU none", "reset userPressed = " + userPressedCPU);
 			}
 		});
 
@@ -384,12 +351,8 @@ public class LimboActivity extends Activity {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				// your code here
 
-				String ui = (String) ((ArrayAdapter) mUI.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " CPU = " + cpu
-				// + " userPressed = " + userPressedCPU);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String ui = (String) ((ArrayAdapter<?>) mUI.getAdapter()).getItem(position);
 				if (userPressedUI) {
-					// save UI fav
 					LimboSettingsManager.setLastUI(activity, ui);
 
 				}
@@ -403,68 +366,48 @@ public class LimboActivity extends Activity {
 						mSoundCardConfig.setEnabled(true);
 				}
 				userPressedUI = true;
-				// Log.v("CPU List", "reset userPressed = " + userPressedCPU);
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 				userPressedUI = true;
-				// Log.v("CPU none", "reset userPressed = " + userPressedCPU);
 			}
 		});
 
 		mCPUNum.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String cpuNum = (String) ((ArrayAdapter) mCPUNum.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " RAM = " + ram
-				// + " userPressed = " + userPressedRAM);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String cpuNum = (String) ((ArrayAdapter<?>) mCPUNum.getAdapter()).getItem(position);
 				if (userPressedCPUNum) {
 					currMachine.cpuNum = Integer.parseInt(cpuNum);
 					int ret = machineDB.update(currMachine, MachineOpenHelper.CPUNUM, cpuNum);
 				}
 
 				userPressedCPUNum = true;
-				// Log.v("Ram list", "reset userPressed = " + userPressedRAM);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 				userPressedCPUNum = true;
-				// Log.v("Ram none", "reset userPressed = " + userPressedRAM);
 			}
 		});
 
 		mRamSize.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String ram = (String) ((ArrayAdapter) mRamSize.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " RAM = " + ram
-				// + " userPressed = " + userPressedRAM);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String ram = (String) ((ArrayAdapter<?>) mRamSize.getAdapter()).getItem(position);
 				if (userPressedRAM) {
 					currMachine.memory = Integer.parseInt(ram);
 					int ret = machineDB.update(currMachine, MachineOpenHelper.MEMORY, ram);
 				}
-
 				userPressedRAM = true;
-				// Log.v("Ram list", "reset userPressed = " + userPressedRAM);
 
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 				userPressedRAM = true;
-				// Log.v("Ram none", "reset userPressed = " + userPressedRAM);
 			}
 		});
 
 		mKernel.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String kernel = (String) ((ArrayAdapter) mKernel.getAdapter()).getItem(position);
+				String kernel = (String) ((ArrayAdapter<?>) mKernel.getAdapter()).getItem(position);
 				if (userPressedKernel && position == 0) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.KERNEL, null);
 					currMachine.kernel = null;
@@ -480,14 +423,12 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		mInitrd.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String initrd = (String) ((ArrayAdapter) mInitrd.getAdapter()).getItem(position);
+				String initrd = (String) ((ArrayAdapter<?>) mInitrd.getAdapter()).getItem(position);
 				if (userPressedInitrd && position == 0) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.INITRD, null);
 					currMachine.initrd = null;
@@ -503,14 +444,13 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+				
 			}
 		});
 
 		mHDA.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hda = (String) ((ArrayAdapter) mHDA.getAdapter()).getItem(position);
+				String hda = (String) ((ArrayAdapter<?>) mHDA.getAdapter()).getItem(position);
 				if (userPressedHDA && position == 0 && mHDAenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDA, "");
 					currMachine.hda_img_path = "";
@@ -519,7 +459,7 @@ public class LimboActivity extends Activity {
 					currMachine.hda_img_path = null;
 				} else if (userPressedHDA && position == 1 && mHDAenable.isChecked()) {
 					promptImageName(activity, "hda");
-					Log.v(TAG, "Promtp for Image createion");
+					
 				} else if (userPressedHDA && position == 2 && mHDAenable.isChecked()) {
 					browse("hda");
 					mHDA.setSelection(0);
@@ -527,25 +467,20 @@ public class LimboActivity extends Activity {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDA, hda);
 					currMachine.hda_img_path = hda;
 				}
-				// if (userPressedHDA && currStatus.equals("RUNNING")) {
-				// vmexecutor.change_dev("ide0-hd0", currMachine.hda_img_path);
-				// }
+
 				userPressedHDA = true;
-				// Log.v("HDA List", "reset userPressed = " + userPressedHDA);
+
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mHDB.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdb = (String) ((ArrayAdapter) mHDB.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " HDB = " + hdb
-				// + " userPressed = " + userPressedHDB);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String hdb = (String) ((ArrayAdapter<?>) mHDB.getAdapter()).getItem(position);
+
 				if (userPressedHDB && position == 0 && mHDBenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDB, "");
 					currMachine.hdb_img_path = "";
@@ -554,7 +489,7 @@ public class LimboActivity extends Activity {
 					currMachine.hdb_img_path = null;
 				} else if (userPressedHDB && position == 1 && mHDBenable.isChecked()) {
 					promptImageName(activity, "hdb");
-					// Log.v(TAG, "Promtp for Image createion");
+
 
 				} else if (userPressedHDB && position == 2 && mHDBenable.isChecked()) {
 					browse("hdb");
@@ -563,25 +498,19 @@ public class LimboActivity extends Activity {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDB, hdb);
 					currMachine.hdb_img_path = hdb;
 				}
-				// if (userPressedHDB && currStatus.equals("RUNNING")) {
-				// vmexecutor.change_dev("ide0-hd1", currMachine.hdb_img_path);
-				// }
 
 				userPressedHDB = true;
-				// Log.v("HDB List", "reset userPressed = " + userPressedHDB);
+
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mHDC.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdc = (String) ((ArrayAdapter) mHDC.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " HDC = " + hdc
-				// + " userPressed = " + userPressedHDC);
+				String hdc = (String) ((ArrayAdapter<?>) mHDC.getAdapter()).getItem(position);
 				if (userPressedHDC && position == 0 && mHDCenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDC, "");
 					currMachine.hdc_img_path = "";
@@ -590,7 +519,7 @@ public class LimboActivity extends Activity {
 					currMachine.hdc_img_path = null;
 				} else if (userPressedHDC && position == 1 && mHDCenable.isChecked()) {
 					promptImageName(activity, "hdc");
-					// Log.v(TAG, "Promtp for Image createion");
+
 
 				} else if (userPressedHDC && position == 2 && mHDCenable.isChecked()) {
 					browse("hdc");
@@ -599,25 +528,19 @@ public class LimboActivity extends Activity {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDC, hdc);
 					currMachine.hdc_img_path = hdc;
 				}
-				// if (userPressedHDB && currStatus.equals("RUNNING")) {
-				// vmexecutor.change_dev("ide0-hd1", currMachine.hdb_img_path);
-				// }
 
 				userPressedHDC = true;
-				// Log.v("HDB List", "reset userPressed = " + userPressedHDB);
+
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mHDD.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdd = (String) ((ArrayAdapter) mHDD.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " HDD = " + hdd
-				// + " userPressed = " + userPressedHDD);
+				String hdd = (String) ((ArrayAdapter<?>) mHDD.getAdapter()).getItem(position);
 				if (userPressedHDD && position == 0 && mHDDenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDD, "");
 					currMachine.hdd_img_path = "";
@@ -626,8 +549,6 @@ public class LimboActivity extends Activity {
 					currMachine.hdd_img_path = null;
 				} else if (userPressedHDD && position == 1 && mHDDenable.isChecked()) {
 					promptImageName(activity, "hdd");
-					// Log.v(TAG, "Promtp for Image createion");
-
 				} else if (userPressedHDD && position == 2 && mHDDenable.isChecked()) {
 					browse("hdd");
 					mHDD.setSelection(0);
@@ -635,34 +556,28 @@ public class LimboActivity extends Activity {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDD, hdd);
 					currMachine.hdd_img_path = hdd;
 				}
-				// if (userPressedHDB && currStatus.equals("RUNNING")) {
-				// vmexecutor.change_dev("ide0-hd1", currMachine.hdb_img_path);
-				// }
 
 				userPressedHDD = true;
-				// Log.v("HDB List", "reset userPressed = " + userPressedHDB);
+
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mSnapshot.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String snapshot_name = (String) ((ArrayAdapter) mSnapshot.getAdapter()).getItem(position);
+				String snapshot_name = (String) ((ArrayAdapter<?>) mSnapshot.getAdapter()).getItem(position);
 				if (userPressedSnapshot && position == 0) {
 					currMachine.snapshot_name = "";
 					userPressedSnapshot = false;
 					loadMachine(currMachine.machinename, currMachine.snapshot_name);
-					// mStart.setText("Start");
 					mStart.setImageResource(R.drawable.play);
 				} else if (userPressedSnapshot && position > 0) {
 					currMachine.snapshot_name = snapshot_name;
 					userPressedSnapshot = false;
 					loadMachine(currMachine.machinename, currMachine.snapshot_name);
-					// mStart.setText("Resume");
 					mStart.setImageResource(R.drawable.play);
 					enableNonRemovableDeviceOptions(false);
 					enableRemovableDeviceOptions(false);
@@ -671,20 +586,16 @@ public class LimboActivity extends Activity {
 					userPressedSnapshot = true;
 				}
 
-				// Log.v("Snapshot List", "reset userPressed = " +
-				// userPressedSnapshot);
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mCD.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				Log.v(TAG, "CD selection changed to " + position);
-				String cd = (String) ((ArrayAdapter) mCD.getAdapter()).getItem(position);
+				String cd = (String) ((ArrayAdapter<?>) mCD.getAdapter()).getItem(position);
 				if (userPressedCDROM && position == 0 && mCDenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.CDROM, "");
 					currMachine.cd_iso_path = "";
@@ -697,7 +608,6 @@ public class LimboActivity extends Activity {
 				} else if (userPressedCDROM && position > 1 && mCDenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.CDROM, cd);
 					currMachine.cd_iso_path = cd;
-					// TODO: If Machine is running eject and set floppy img
 				}
 				if (userPressedCDROM && currStatus.equals("RUNNING") && position > 1 && mCDenable.isChecked()) {
 					vmexecutor.change_dev("ide1-cd0", currMachine.cd_iso_path);
@@ -708,14 +618,13 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mFDA.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fda = (String) ((ArrayAdapter) mFDA.getAdapter()).getItem(position);
+				String fda = (String) ((ArrayAdapter<?>) mFDA.getAdapter()).getItem(position);
 				if (userPressedFDA && position == 0 && mFDAenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.FDA, "");
 					currMachine.fda_img_path = "";
@@ -740,14 +649,13 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mFDB.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fdb = (String) ((ArrayAdapter) mFDB.getAdapter()).getItem(position);
+				String fdb = (String) ((ArrayAdapter<?>) mFDB.getAdapter()).getItem(position);
 				if (userPressedFDB && position == 0 && mFDBenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.FDB, "");
 					currMachine.fdb_img_path = "";
@@ -771,14 +679,13 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+				
 			}
 		});
 
 		mSD.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sd = (String) ((ArrayAdapter) mSD.getAdapter()).getItem(position);
+				String sd = (String) ((ArrayAdapter<?>) mSD.getAdapter()).getItem(position);
 				if (userPressedSD && position == 0 && mSDenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SD, "");
 					currMachine.sd_img_path = "";
@@ -804,8 +711,7 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
@@ -947,38 +853,23 @@ public class LimboActivity extends Activity {
 
 		mBootDevices.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String bootDev = (String) ((ArrayAdapter) mBootDevices.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " bootDev = " + bootDev
-				// + " userPressed = " + userPressedBootDev);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String bootDev = (String) ((ArrayAdapter<?>) mBootDevices.getAdapter()).getItem(position);
 				if (userPressedBootDev) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.BOOT_CONFIG, bootDev);
-
 					currMachine.bootdevice = bootDev;
-
 				}
-
 				userPressedBootDev = true;
-				// Log.v("BootDev List", "reset userPressed = "
-				// + userPressedBootDev);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		this.mNetConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String netfcg = (String) ((ArrayAdapter) mNetConfig.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " netfcg = " + netfcg
-				// + " userPressed = " + userPressedNetCfg);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String netfcg = (String) ((ArrayAdapter<?>) mNetConfig.getAdapter()).getItem(position);
 				if (userPressedNetCfg) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, netfcg);
-
 					currMachine.net_cfg = netfcg;
 				}
 				if (position > 0) {
@@ -993,180 +884,111 @@ public class LimboActivity extends Activity {
 				ApplicationInfo pInfo = null;
 
 				if (netfcg.equals("TAP")) {
-
 					onTap();
 				}
-				// Log.v("Net CFG List", "reset userPressed = "
-				// + userPressedNetCfg);
 
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		this.mNetDevices.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 
-				// Log.v(TAG, "Position " + position + " nicfcg = "
-				// + niccfg + " userPressed = "
-				// + userPressedNicCfg);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
 				if (position < 0 || position >= mNetDevices.getCount()) {
-					// Toast.makeText(getApplicationContext(), "Not a valid
-					// card, using ne2k_pci instead",
-					// Toast.LENGTH_LONG).show();
 					userPressedNicCfg = true;
 					mNetDevices.setSelection(0);
 					return;
 				}
-				String niccfg = (String) ((ArrayAdapter) mNetDevices.getAdapter()).getItem(position);
+				String niccfg = (String) ((ArrayAdapter<?>) mNetDevices.getAdapter()).getItem(position);
 				if (userPressedNicCfg) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, niccfg);
 					currMachine.nic_driver = niccfg;
 				}
 
 				userPressedNicCfg = true;
-				// Log.v("BootDev List", "reset userPressed = "
-				// + userPressedNicCfg);
 
 			}
 
 			public void onNothingSelected(final AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mVGAConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				// your code here
-				String vgacfg = (String) ((ArrayAdapter) mVGAConfig.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " vgafcg = " + vgacfg
-				// + " userPressed = " + userPressedVGACfg);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String vgacfg = (String) ((ArrayAdapter<?>) mVGAConfig.getAdapter()).getItem(position);
 				if (userPressedVGACfg) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.VGA, vgacfg);
-
 					currMachine.vga_type = vgacfg;
-
 				}
 
 				userPressedVGACfg = true;
-				// Log.v("BootDev List", "reset userPressed = "
-				// + userPressedVGACfg);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		this.mSoundCardConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sndcfg = (String) ((ArrayAdapter) mSoundCardConfig.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " sndfcg = "
-				// + sndcfg + " userPressed = "
-				// + userPressedSndCfg);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String sndcfg = (String) ((ArrayAdapter<?>) mSoundCardConfig.getAdapter()).getItem(position);
 				if (userPressedSndCfg) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SOUNDCARD_CONFIG, sndcfg);
-
 					currMachine.soundcard = sndcfg;
-
 				}
-
 				userPressedSndCfg = true;
-				// Log.v("Snd List", "reset userPressed = "
-				// + userPressedSndCfg);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		mHDCacheConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdcfg = (String) ((ArrayAdapter) mHDCacheConfig.getAdapter()).getItem(position);
-				// Log.v(TAG, "Position " + position + " sndfcg = " + hdcfg
-				// + " userPressed = " + userPressedHDCfg);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
+				String hdcfg = (String) ((ArrayAdapter<?>) mHDCacheConfig.getAdapter()).getItem(position);
 				if (userPressedHDCfg) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.HDCACHE_CONFIG, hdcfg);
-
 					currMachine.hd_cache = hdcfg;
-
 				}
-
 				userPressedHDCfg = true;
-				// Log.v("HDCache List", "reset userPressed = " +
-				// userPressedHDCfg);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		mACPI.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				// Log.v(TAG, "ACPI checked: " + isChecked + " userPressed = " +
-				// userPressedACPI);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
 				if (userPressedACPI) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.DISABLE_ACPI, ((isChecked ? 1 : 0) + ""));
 					currMachine.disableacpi = (isChecked ? 1 : 0);
 				}
-
 				userPressedACPI = true;
-				// Log.v("ACPI ", "reset userPressed = " + userPressedACPI);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
+
 			}
 		});
 
 		mHPET.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				// Log.v(TAG, "ACPI checked: " + isChecked + " userPressed = " +
-				// userPressedHPET);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
 				if (userPressedHPET) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.DISABLE_HPET, ((isChecked ? 1 : 0) + ""));
 					currMachine.disablehpet = (isChecked ? 1 : 0);
 				}
-
 				userPressedHPET = true;
-				// Log.v("ACPI ", "reset userPressed = " + userPressedHPET);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 		mFDBOOTCHK.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				// Log.v(TAG, "ACPI checked: " + isChecked + " userPressed = " +
-				// userPressedFDBOOTCHK);
-				// LimboSettingsManager.setLastCPU(activity,cpu);
 				if (userPressedFDBOOTCHK) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.DISABLE_FD_BOOT_CHK,
 							((isChecked ? 1 : 0) + ""));
@@ -1174,14 +996,9 @@ public class LimboActivity extends Activity {
 				}
 
 				userPressedFDBOOTCHK = true;
-				// Log.v("ACPI ", "reset userPressed = " +
-				// userPressedFDBOOTCHK);
-
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
@@ -1193,11 +1010,9 @@ public class LimboActivity extends Activity {
 				}
 
 				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-					// Log.d("seachScreen", "beforeTextChanged");
 				}
 
 				public void onTextChanged(CharSequence s, int start, int before, int count) {
-					// Log.d("seachScreen", "onTextChanged");
 				}
 			};
 
@@ -1212,16 +1027,16 @@ public class LimboActivity extends Activity {
 				}
 
 				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-					// Log.d("seachScreen", "beforeTextChanged");
+
 				}
 
 				public void onTextChanged(CharSequence s, int start, int before, int count) {
-					// Log.d("seachScreen", "onTextChanged");
+
 				}
 			};
 		mAppend.addTextChangedListener(appendChangeListener);
 
-		//
+
 		mVNCAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 
@@ -1230,15 +1045,11 @@ public class LimboActivity extends Activity {
 				} else {
 					vnc_passwd = null;
 					vnc_allow_external = 0;
-					// LimboSettingsManager.setVNCAllowExternal(activity,
-					// false);
 				}
 
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
@@ -1253,8 +1064,6 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
@@ -1264,15 +1073,13 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				// your code here
-				// Log.v(TAG, "Nothing selected");
 			}
 		});
 
 	}
 
 	private void disableListeners() {
-		// TODO Auto-generated method stub
+
 
 		mMachine.setOnItemSelectedListener(null);
 
@@ -1444,6 +1251,12 @@ public class LimboActivity extends Activity {
 		System.loadLibrary("gmodule-2.0");
 		System.loadLibrary("pixman");
 
+		if (Config.enable_SPICE) {
+			System.loadLibrary("crypto");
+			System.loadLibrary("ssl");
+			System.loadLibrary("spice");
+		}
+
 		// //Load SDL libraries
 		if (Config.enable_SDL_libs) {
 			System.loadLibrary("SDL2");
@@ -1476,7 +1289,7 @@ public class LimboActivity extends Activity {
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					// e.printStackTrace();
-				} 
+				}
 			}
 		});
 		tsdl.start();
@@ -1660,44 +1473,6 @@ public class LimboActivity extends Activity {
 		a.execute();
 	}
 
-	private static final String WAKELOCK_KEY = "LIMBO";
-
-	private void releaseLocks() {
-		if (mWakeLock != null && mWakeLock.isHeld()) {
-			Log.v(TAG, "Release wake lock...");
-			mWakeLock.release();
-		}
-		if (wlock != null && wlock.isHeld()) {
-			Log.v(TAG, "Release wifi lock...");
-			wlock.release();
-		}
-	}
-
-	private void acquireLocks() {
-		if (mWakeLock == null) {
-			PowerManager pm = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
-			mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, WAKELOCK_KEY);
-			mWakeLock.setReferenceCounted(false);
-
-		}
-
-		// Creates a new WifiLock by getting the WifiManager as a service.
-		// This object creates a lock tagged "lock".
-		if (wlock == null) {
-			WifiManager wmanager = (WifiManager) activity.getSystemService(Context.WIFI_SERVICE);
-			wlock = wmanager.createWifiLock("lock");
-			wlock.setReferenceCounted(false);
-		}
-		if (!mWakeLock.isHeld()) {
-			Log.v(TAG, "Acquire wake lock...");
-			mWakeLock.acquire();
-		}
-		if (!wlock.isHeld()) {
-			Log.v(TAG, "Acquire wifi lock...");
-			wlock.acquire();
-		}
-	}
-
 	private static class Installer extends AsyncTask<Void, Void, Void> {
 
 		@Override
@@ -1714,16 +1489,10 @@ public class LimboActivity extends Activity {
 
 		@Override
 		protected void onPostExecute(Void test) {
-			// Toast.makeText(activity,
-			// "Setting Google DNS servers in /sdcard/limbo/etc/resolv.conf.\n
-			// You can modify resolv.conf to use your own DNS server if you
-			// wish.",
-			// Toast.LENGTH_LONG).show();
+			
 		}
 	}
 
-	// Define the Handler that receives messages from the thread and update the
-	// progress
 	public Handler handler = new Handler() {
 		@Override
 		public synchronized void handleMessage(Message msg) {
@@ -1731,7 +1500,6 @@ public class LimboActivity extends Activity {
 			Integer messageType = (Integer) b.get("message_type");
 
 			if (messageType != null && messageType == Config.VM_PAUSED) {
-				// Show a progress while saving
 				Toast.makeText(activity, "VM Paused", Toast.LENGTH_LONG).show();
 
 			}
@@ -1802,8 +1570,6 @@ public class LimboActivity extends Activity {
 				populateMachines();
 				setMachine(machineValue);
 				if (LimboActivity.currMachine != null && currMachine.cpu != null && currMachine.cpu.endsWith("(arm)")) {
-					// mKernel.setEnabled(true); // Disabled for now
-					// mInitrd.setEnabled(true); // Disabled for now
 					mMachineType.setEnabled(true); // Disabled for now
 				}
 				enableNonRemovableDeviceOptions(true);
@@ -1887,7 +1653,7 @@ public class LimboActivity extends Activity {
 		webview.loadData("<font color=\"FFFFFF\">" + html + " </font>", "text/html", "UTF-8");
 		alertDialog.setView(webview);
 
-		alertDialog.setButton("I Acknowledge", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "I Acknowledge", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				if (isFirstLaunch()) {
 					install();
@@ -1922,7 +1688,7 @@ public class LimboActivity extends Activity {
 		// webview.setBackgroundColor(Color.BLACK);
 		webview.loadData(html, "text/html", "UTF-8");
 		alertDialog.setView(webview);
-		alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				return;
 			}
@@ -2006,14 +1772,12 @@ public class LimboActivity extends Activity {
 						+ "Step 3: Press \"OK\".\n");
 
 		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(imageNameView, searchViewParams);
 		alertDialog.setView(mLayout);
 
-		final Handler handler = this.handler;
-
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				// For each line create a Machine
 				progDialog = ProgressDialog.show(activity, "Please Wait", "Importing Machines...", true);
@@ -2022,7 +1786,7 @@ public class LimboActivity extends Activity {
 				importer.execute();
 			}
 		});
-		alertDialog.setButton2("Cancel", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
 				return;
@@ -2174,12 +1938,10 @@ public class LimboActivity extends Activity {
 		this.mCPU.setEnabled(flag);
 		this.mCPUNum.setEnabled(flag);
 		this.mRamSize.setEnabled(flag);
-		// if (this.currMachine != null && currMachine.arch.endsWith("ARM")) {
-		this.mKernel.setEnabled(flag); // Disabled for now
-		this.mInitrd.setEnabled(flag); // Disabled for now
-		this.mAppend.setEnabled(flag); // Disabled for now
-		this.mMachineType.setEnabled(flag); // Disabled for now
-		// }
+		this.mKernel.setEnabled(flag); 
+		this.mInitrd.setEnabled(flag); 
+		this.mAppend.setEnabled(flag); 
+		this.mMachineType.setEnabled(flag); 
 
 		this.mBootDevices.setEnabled(flag);
 		this.mNetConfig.setEnabled(flag);
@@ -2193,8 +1955,7 @@ public class LimboActivity extends Activity {
 
 		this.mPrio.setEnabled(flag);
 
-		if (Config.enable_SDL_menu || !flag)
-			this.mUI.setEnabled(flag);
+		this.mUI.setEnabled(flag);
 
 		if (Config.enableHDCache || !flag)
 			this.mHDCacheConfig.setEnabled(flag);
@@ -2236,35 +1997,33 @@ public class LimboActivity extends Activity {
 	}
 
 	public AutoScrollView mLyricsScroll;
-	private ArrayAdapter cpuAdapter;
-	private ArrayAdapter archAdapter;
-	private ArrayAdapter machineTypeAdapter;
-	private ArrayAdapter cpuNumAdapter;
-	private ArrayAdapter uiAdapter;
-	private ArrayAdapter machineAdapter;
-	private ArrayAdapter ramAdapter;
-	private ArrayAdapter cdromAdapter;
-	private ArrayAdapter vgaAdapter;
-	private ArrayAdapter netAdapter;
-	private ArrayAdapter bootDevAdapter;
-	private ArrayAdapter hdCacheAdapter;
-	private ArrayAdapter sndAdapter;
-	private ArrayAdapter nicCfgAdapter;
-	private boolean userPressedHDCacheCfg;
-	private boolean userPressedSoundcardCfg;
-	private ArrayAdapter fdaAdapter;
-	private ArrayAdapter fdbAdapter;
-	private ArrayAdapter sdAdapter;
+	private ArrayAdapter<String> cpuAdapter;
+	private ArrayAdapter<String> archAdapter;
+	private ArrayAdapter<String> machineTypeAdapter;
+	private ArrayAdapter<String> cpuNumAdapter;
+	private ArrayAdapter<String> uiAdapter;
+	private ArrayAdapter<String> machineAdapter;
+	private ArrayAdapter<String> ramAdapter;
+	private ArrayAdapter<String> cdromAdapter;
+	private ArrayAdapter<String> vgaAdapter;
+	private ArrayAdapter<String> netAdapter;
+	private ArrayAdapter<String> bootDevAdapter;
+	private ArrayAdapter<String> hdCacheAdapter;
+	private ArrayAdapter<String> sndAdapter;
+	private ArrayAdapter<String> nicCfgAdapter;
+	private ArrayAdapter<String> fdaAdapter;
+	private ArrayAdapter<String> fdbAdapter;
+	private ArrayAdapter<String> sdAdapter;
 
 	// HDD
-	private ArrayAdapter hdaAdapter;
-	private ArrayAdapter hdbAdapter;
-	private ArrayAdapter hdcAdapter;
-	private ArrayAdapter hddAdapter;
+	private ArrayAdapter<String> hdaAdapter;
+	private ArrayAdapter<String> hdbAdapter;
+	private ArrayAdapter<String> hdcAdapter;
+	private ArrayAdapter<String> hddAdapter;
 
-	private ArrayAdapter kernelAdapter;
-	private ArrayAdapter initrdAdapter;
-	private ArrayAdapter snapshotAdapter;
+	private ArrayAdapter<String> kernelAdapter;
+	private ArrayAdapter<String> initrdAdapter;
+	private ArrayAdapter<String> snapshotAdapter;
 
 	// Main event function
 	// Retrives values from saved preferences
@@ -2338,10 +2097,12 @@ public class LimboActivity extends Activity {
 		else
 			sendHandlerMessage(handler, Config.VM_STARTED);
 
-		if (mUI.getSelectedItemPosition() == 1) { // SDL
-			startSDL();
-		} else { // VNC
+		if (mUI.getSelectedItemPosition() == 0) { // VNC
 			startVNC();
+		} else if (mUI.getSelectedItemPosition() == 1) { // SDL
+			startSDL();
+		} else if (mUI.getSelectedItemPosition() == 2) { //SPICE
+			startSPICE();
 		}
 		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 			@Override
@@ -2387,13 +2148,23 @@ public class LimboActivity extends Activity {
 
 		}, 2000);
 
-		// MK setting DNS via command line options
-		// Thread tdns = new Thread(new Runnable() {
-		// public void run() {
-		// setDNSaddr();
-		// }
-		// });
-		// tdns.start();
+
+	}
+	
+	private void startSPICE() {
+		// TODO Auto-generated method stub
+
+		if (!vmStarted) {
+
+			Thread tvm = new Thread(new Runnable() {
+				public void run() {
+					startvm(LimboActivity.this, Config.UI_SPICE);
+				}
+			});
+			if (mPrio.isChecked())
+				tvm.setPriority(Thread.MAX_PRIORITY);
+			tvm.start();
+		}
 
 	}
 
@@ -2448,7 +2219,6 @@ public class LimboActivity extends Activity {
 			public void run() {
 				String dns_addr = mDNS.getText().toString();
 				if (dns_addr != null && !dns_addr.equals("")) {
-					// Log.v("LimboDNS", "Setting DNS: " + dns_addr);
 					vmexecutor.change_dns_addr();
 				}
 			}
@@ -2465,7 +2235,6 @@ public class LimboActivity extends Activity {
 	private void onRestartButton() {
 
 		if (vmexecutor == null) {
-			Log.v(TAG, "Not running VM...");
 			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
 			return;
 		}
@@ -2617,7 +2386,6 @@ public class LimboActivity extends Activity {
 		mStop = (ImageButton) findViewById(R.id.stopvm);
 		mStop.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				Log.v(TAG, "Stopping VM...");
 				onStopButton(false);
 
 			}
@@ -2626,7 +2394,7 @@ public class LimboActivity extends Activity {
 		mRestart = (ImageButton) findViewById(R.id.restartvm);
 		mRestart.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				Log.v(TAG, "Restarting VM...");
+
 				onRestartButton();
 
 			}
@@ -2640,13 +2408,11 @@ public class LimboActivity extends Activity {
 		// TODO Auto-generated method stub
 		// trigger a change in the spinner
 		final int position = (int) spinner.getSelectedItemId();
-		Log.v(TAG, "Setting Spinner: 0");
 		spinner.setSelection(0);
 
 		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 			@Override
 			public void run() {
-				Log.v(TAG, "Setting Spinner: " + position);
 				spinner.setSelection(position);
 			}
 		}, 100);
@@ -2673,13 +2439,12 @@ public class LimboActivity extends Activity {
 				for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
 					InetAddress inetAddress = enumIpAddr.nextElement();
 					if (!inetAddress.isLoopbackAddress() && inetAddress.getHostAddress().toString().contains(".")) {
-						Log.v("Internal ip", inetAddress.getHostAddress().toString());
 						return inetAddress.getHostAddress().toString();
 					}
 				}
 			}
 		} catch (SocketException ex) {
-			Log.e("Internal IP", ex.toString());
+			ex.printStackTrace();
 		}
 		return null;
 	}
@@ -2808,7 +2573,6 @@ public class LimboActivity extends Activity {
 		// TODO Auto-generated method stub
 
 		machineLoaded = true;
-		Log.v(TAG, "Loading attribs for machine: " + machine + ":" + snapshot);
 
 		this.setUserPressed(false);
 
@@ -3006,7 +2770,7 @@ public class LimboActivity extends Activity {
 		arraySpinner[5] = "10 GB";
 		arraySpinner[6] = "20 GB";
 
-		ArrayAdapter sizeAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		sizeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		size.setAdapter(sizeAdapter);
 		setPlusParams.addRule(RelativeLayout.BELOW, imageNameView.getId());
@@ -3201,7 +2965,7 @@ public class LimboActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		// Log.v(TAG, "RET CODE: " + resultCode);
+
 		if (resultCode == Config.FILEMAN_RETURN_CODE) {
 			// Read from activity
 			String currDir = LimboSettingsManager.getLastDir(this);
@@ -3211,9 +2975,6 @@ public class LimboActivity extends Activity {
 			fileType = b.getString("fileType");
 			file = b.getString("file");
 			currDir = b.getString("currDir");
-			// Log.v(TAG, "Got New Dir: " + currDir);
-			// Log.v(TAG, "Got File Type: " + fileType);
-			// Log.v(TAG, "Got New File: " + file);
 			if (currDir != null && !currDir.trim().equals("")) {
 				LimboSettingsManager.setLastDir(this, currDir);
 			}
@@ -3226,14 +2987,14 @@ public class LimboActivity extends Activity {
 			this.startvnc();
 
 		} else if (resultCode == Config.SDL_QUIT_RESULT_CODE) {
-			Log.v("Limbo", "SDL Quit");
+
 			Toast.makeText(getApplicationContext(), "SDL Quit", Toast.LENGTH_SHORT).show();
 			if (LimboActivity.vmexecutor != null) {
 				LimboActivity.vmexecutor.stopvm(0);
 			} else if (activity.getParent() != null) {
 				activity.getParent().finish();
 			}
-			Log.v("Limbo", "Limbo Finish");
+
 			activity.finish();
 
 		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
@@ -3391,8 +3152,6 @@ public class LimboActivity extends Activity {
 
 	@Override
 	public void onDestroy() {
-		Log.v("Limbo", "OnDestroy");
-		// this.releaseLocks();
 		super.onDestroy();
 		this.stopTimeListener();
 
@@ -3453,7 +3212,7 @@ public class LimboActivity extends Activity {
 	}
 
 	private void startsdl() {
-		Log.v("LimboSDL", "Starting SDL");
+
 		Intent intent = null;
 		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			intent = new Intent(this, LimboSDLActivityCompat.class);
@@ -3468,24 +3227,31 @@ public class LimboActivity extends Activity {
 	public static void startvm(Activity activity, int UI) {
 		if (UI == Config.UI_VNC) {
 			// disable sound card with VNC
+			vmexecutor.enablevnc = 1;
+			vmexecutor.enablespice = 0;
 			vmexecutor.sound_card = null;
-
 			vmexecutor.vnc_allow_external = vnc_allow_external;
 			vmexecutor.vnc_passwd = vnc_passwd;
 		} else if (UI == Config.UI_SDL) {
 			vmexecutor.enablevnc = 0;
-		}
+			vmexecutor.enablespice = 0;
+		} else if (UI == Config.UI_SPICE) {
+			vmexecutor.vnc_allow_external = vnc_allow_external;
+			vmexecutor.vnc_passwd = vnc_passwd;
+			vmexecutor.enablevnc = 0;
+			vmexecutor.enablespice = 1;
+		} 
 		vmexecutor.startvm(activity);
 
 	}
 
 	public void restartvm() {
 		if (vmexecutor != null) {
-			Log.v(TAG, "Restarting the VM...");
+
 			output = vmexecutor.stopvm(1);
 			sendHandlerMessage(handler, Config.VM_RESTARTED);
 		} else {
-			Log.v(TAG, "Not running VM...");
+
 			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
 		}
 
@@ -3500,12 +3266,12 @@ public class LimboActivity extends Activity {
 					&& (currMachine.hdd_img_path == null || currMachine.hdd_img_path.equals(""))) {
 				sendHandlerMessage(handler, Config.VM_NO_QCOW2);
 			} else {
-				Log.v(TAG, "Saving State of the VM...");
+
 				output = vmexecutor.savevm("test_snapshot");
 				sendHandlerMessage(handler, Config.VM_SAVED);
 			}
 		} else {
-			Log.v(TAG, "Not running VM...");
+
 			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
 		}
 
@@ -3513,11 +3279,10 @@ public class LimboActivity extends Activity {
 
 	public void resumevm() {
 		if (vmexecutor != null) {
-			Log.v(TAG, "Resuming the VM...");
 			output = vmexecutor.resumevm();
 			sendHandlerMessage(handler, Config.VM_RESTARTED);
 		} else {
-			Log.v(TAG, "Not running VM...");
+
 			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
 		}
 
@@ -3534,7 +3299,7 @@ public class LimboActivity extends Activity {
 		}
 		;
 
-		ramAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		ramAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		ramAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mRamSize.setAdapter(ramAdapter);
 		this.userPressedRAM = false;
@@ -3551,7 +3316,7 @@ public class LimboActivity extends Activity {
 		}
 		;
 
-		cpuNumAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		cpuNumAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		cpuNumAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mCPUNum.setAdapter(cpuNumAdapter);
 		this.userPressedCPUNum = false;
@@ -3561,27 +3326,21 @@ public class LimboActivity extends Activity {
 	// Set Hard Disk
 	private void setRAM(int ram, boolean userPressed) {
 		this.userPressedRAM = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedRAM + " RAM=" + ram);
 		if (ram != 0) {
 			int pos = ramAdapter.getPosition(ram + "");
-			// Log.v("DB", "Got pos: " + pos + " for RAM=" + ram);
 			mRamSize.setSelection(pos);
 		} else {
 			this.userPressedRAM = true;
-			// Log.v("RAM", "reset userPressed = " + userPressedRAM);
 		}
 	}
 
 	private void setCPUNum(int cpuNum, boolean userPressed) {
 		this.userPressedCPUNum = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedRAM + " RAM=" + ram);
 		if (cpuNum != 0) {
 			int pos = cpuNumAdapter.getPosition(cpuNum + "");
-			// Log.v("DB", "Got pos: " + pos + " for RAM=" + ram);
 			mCPUNum.setSelection(pos);
 		} else {
 			this.userPressedCPUNum = true;
-			// Log.v("RAM", "reset userPressed = " + userPressedRAM);
 		}
 	}
 
@@ -3590,7 +3349,7 @@ public class LimboActivity extends Activity {
 
 		String[] arraySpinner = { "Default", "CD Rom", "Floppy", "Hard Disk" };
 
-		bootDevAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		bootDevAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		bootDevAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mBootDevices.setAdapter(bootDevAdapter);
 		this.mBootDevices.invalidate();
@@ -3599,7 +3358,7 @@ public class LimboActivity extends Activity {
 	// Set Net Cfg
 	private void populateNet() {
 		String[] arraySpinner = { "None", "User", "TAP" };
-		netAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		netAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		netAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mNetConfig.setAdapter(netAdapter);
 		this.mNetConfig.invalidate();
@@ -3608,9 +3367,22 @@ public class LimboActivity extends Activity {
 	// Set VGA Cfg
 	private void populateVGA() {
 
-		String[] arraySpinner = { "std", "cirrus", "vmware", "qxl", "xenfb", "none" };
+		String[] arraySpinner = {};
 
-		vgaAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+		arrList.add("std");
+		arrList.add("cirrus");
+		arrList.add("vmware");
+		
+		if(Config.enable_SPICE_menu)
+			arrList.add("qxl");
+
+		// Add XEN
+		// "xenfb",
+		// None for console only
+		// "none"
+
+		vgaAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 		vgaAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mVGAConfig.setAdapter(vgaAdapter);
 		this.mVGAConfig.invalidate();
@@ -3618,9 +3390,9 @@ public class LimboActivity extends Activity {
 
 	private void populateSoundcardConfig() {
 
-		String[] arraySpinner = { "None", "sb16", "ac97", "es1370", "hda", "all" };
+		String[] arraySpinner = { "None", "sb16", "ac97", "adlib","cs4231a", "gus", "es1370", "hda", "pcspk", "all" };
 
-		sndAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		sndAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		sndAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mSoundCardConfig.setAdapter(sndAdapter);
 		this.mSoundCardConfig.invalidate();
@@ -3631,7 +3403,7 @@ public class LimboActivity extends Activity {
 
 		String[] arraySpinner = { "default", "none", "writeback", "writethrough" };
 
-		hdCacheAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		hdCacheAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		hdCacheAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mHDCacheConfig.setAdapter(hdCacheAdapter);
 		this.mHDCacheConfig.invalidate();
@@ -3658,7 +3430,7 @@ public class LimboActivity extends Activity {
 		}
 
 		if (nicCfgAdapter == null) {
-			nicCfgAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arrList);
+			nicCfgAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 			nicCfgAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			this.mNetDevices.setAdapter(nicCfgAdapter);
 		} else {
@@ -3683,22 +3455,17 @@ public class LimboActivity extends Activity {
 			this.mMachine.setSelection(pos);
 		} else {
 			userPressedMachine = true;
-			// Log.v("Mach", "reset userPressed = " + userPressedMachine);
 		}
-		// mStart.requestFocus();
 	}
 
 	// Set Hard Disk
 	private void populateMachines() {
 		this.userPressedMachine = false;
-		// Add from History
 		ArrayList<String> machines = machineDB.getMachines();
 		int length = 0;
 		if (machines == null || machines.size() == 0) {
-			// Log.v(TAG, "No machine in DB");
 			length = 0;
 		} else {
-			// Log.v("PopMachines", "Found " + length + " machines in DB");
 			length = machines.size();
 		}
 
@@ -3706,7 +3473,7 @@ public class LimboActivity extends Activity {
 		arraySpinner[0] = "None";
 		arraySpinner[1] = "New";
 		int index = 2;
-		Iterator i = machines.iterator();
+		Iterator<String> i = machines.iterator();
 		while (i.hasNext()) {
 			String file = (String) i.next();
 			if (file != null) {
@@ -3714,7 +3481,7 @@ public class LimboActivity extends Activity {
 			}
 		}
 
-		machineAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		machineAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		machineAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mMachine.setAdapter(machineAdapter);
 		this.mMachine.invalidate();
@@ -3724,50 +3491,49 @@ public class LimboActivity extends Activity {
 	// Set Hard Disk
 	private void setCPU(String cpu, boolean userPressed) {
 		this.userPressedCPU = userPressed;
-		Log.v("setCPU", "UserPressed: " + userPressedCPU + " CPU=" + cpu);
+
 		if (cpu != null) {
 			int pos = cpuAdapter.getPosition(cpu);
-			// Log.v("DB", "Got pos: " + pos + " for CPU=" + cpu);
+
 			mCPU.setSelection(pos);
 		} else {
 			this.userPressedCPU = true;
-			Log.v("setCPU", "reset userPressed = " + this.userPressedCPU);
+
 		}
 	}
 
 	private void setArch(String arch, boolean userPressed) {
 		this.userPressedArch = userPressed;
-		Log.v("setCPU", "UserPressed: " + userPressedArch + " Arch=" + arch);
+
 		if (arch != null) {
 			int pos = archAdapter.getPosition(arch);
-			// Log.v("DB", "Got pos: " + pos + " for CPU=" + cpu);
+
 			mArch.setSelection(pos);
 		} else {
 			this.userPressedArch = true;
-			Log.v("setCPU", "reset userPressed = " + this.userPressedArch);
+
 		}
 	}
 
 	private void setMachineType(String machineType, boolean userPressed) {
 		this.userPressedMachineType = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedCPU + " CPU=" + cpu);
+
 		if (machineType != null) {
 			int pos = machineTypeAdapter.getPosition(machineType);
-			// Log.v("DB", "Got pos: " + pos + " for CPU=" + cpu);
 			mMachineType.setSelection(pos);
 		} else {
 			this.userPressedMachineType = true;
-			// Log.v("CPU", "reset userPressed = " + this.userPressedCPU);
+
 		}
 	}
 
 	private void setCDROM(String cdrom, boolean userPressed) {
 		this.userPressedCDROM = userPressed;
 		this.currMachine.cd_iso_path = cdrom;
-		// Log.v("DB", "UserPressed: " + userPressedCDROM + " CDROM=" + cdrom);
+
 		if (cdrom != null) {
 			int pos = cdromAdapter.getPosition(cdrom);
-			// Log.v("DB", "Got pos: " + pos + " for CDROM=" + cdrom);
+
 			if (pos > 1) {
 				mCD.setSelection(pos);
 			} else {
@@ -3775,18 +3541,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mCD.setSelection(0);
-			// Log.v("CDROM", "reset userPressed = " + this.userPressedCDROM);
+
 		}
 	}
 
 	private void setKernel(String kernel, boolean userPressed) {
 		this.userPressedKernel = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedKernel + " Kernel=" +
-		// kernel);
+
 		currMachine.kernel = kernel;
 		if (kernel != null) {
 			int pos = kernelAdapter.getPosition(kernel);
-			// Log.v("DB", "Got pos: " + pos + " for Kernel=" + kernel);
+
 			if (pos >= 0) {
 				mKernel.setSelection(pos);
 			} else {
@@ -3794,18 +3559,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mKernel.setSelection(0);
-			// Log.v("Kernel", "reset userPressed = " + this.userPressedKernel);
+
 		}
 	}
 
 	private void setInitrd(String initrd, boolean userPressed) {
 		this.userPressedInitrd = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedInitrd + " Initrd=" +
-		// Initrd);
+
 		currMachine.initrd = initrd;
 		if (initrd != null) {
 			int pos = initrdAdapter.getPosition(initrd);
-			// Log.v("DB", "Got pos: " + pos + " for Initrd=" + Initrd);
+
 			if (pos >= 0) {
 				mInitrd.setSelection(pos);
 			} else {
@@ -3813,17 +3577,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mInitrd.setSelection(0);
-			// Log.v("Initrd", "reset userPressed = " + this.userPressedInitrd);
+
 		}
 	}
 
 	private void setHDA(String hda, boolean userPressed) {
 		this.userPressedHDA = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedHDA + " HDA=" + hda);
 		currMachine.hda_img_path = hda;
 		if (hda != null) {
 			int pos = hdaAdapter.getPosition(hda);
-			// Log.v("DB", "Got pos: " + pos + " for HDA=" + hda);
+
 			if (pos >= 0) {
 				mHDA.setSelection(pos);
 			} else {
@@ -3831,17 +3594,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mHDA.setSelection(0);
-			// Log.v("HDA", "reset userPressed = " + this.userPressedHDA);
+
 		}
 	}
 
 	private void setHDB(String hdb, boolean userPressed) {
 		this.userPressedHDB = userPressed;
 		this.currMachine.hdb_img_path = hdb;
-		// Log.v("DB", "UserPressed: " + userPressedHDB + " HDB=" + hdb);
+
 		if (hdb != null) {
 			int pos = hdbAdapter.getPosition(hdb);
-			// Log.v("DB", "Got pos: " + pos + " for HDB=" + hdb);
+
 			if (pos >= 0) {
 				mHDB.setSelection(pos);
 			} else {
@@ -3849,17 +3612,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mHDB.setSelection(0);
-			// Log.v("HDB", "reset userPressed = " + this.userPressedHDB);
+
 		}
 	}
 
 	private void setHDC(String hdc, boolean userPressed) {
 		this.userPressedHDC = userPressed;
 		this.currMachine.hdc_img_path = hdc;
-		// Log.v("DB", "UserPressed: " + userPressedHDC + " HDC=" + hdc);
+
 		if (hdc != null) {
 			int pos = hdcAdapter.getPosition(hdc);
-			// Log.v("DB", "Got pos: " + pos + " for HDC=" + hdc);
+
 			if (pos >= 0) {
 				mHDC.setSelection(pos);
 			} else {
@@ -3867,17 +3630,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mHDC.setSelection(0);
-			// Log.v("HDC", "reset userPressed = " + this.userPressedHDC);
+
 		}
 	}
 
 	private void setHDD(String hdd, boolean userPressed) {
 		this.userPressedHDD = userPressed;
 		this.currMachine.hdd_img_path = hdd;
-		// Log.v("DB", "UserPressed: " + userPressedHDD + " HDD=" + hdd);
+
 		if (hdd != null) {
 			int pos = hddAdapter.getPosition(hdd);
-			// Log.v("DB", "Got pos: " + pos + " for HDD=" + hdd);
+
 			if (pos >= 0) {
 				mHDD.setSelection(pos);
 			} else {
@@ -3885,17 +3648,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mHDD.setSelection(0);
-			// Log.v("HDD", "reset userPressed = " + this.userPressedHDD);
+
 		}
 	}
 
 	private void setFDA(String fda, boolean userPressed) {
 		this.userPressedFDA = userPressed;
 		this.currMachine.fda_img_path = fda;
-		// Log.v("DB", "UserPressed: " + userPressedFDA + " FDA=" + fda);
+
 		if (fda != null) {
 			int pos = fdaAdapter.getPosition(fda);
-			// Log.v("DB", "Got pos: " + pos + " for FDA=" + fda);
+
 			if (pos >= 0) {
 				mFDA.setSelection(pos);
 			} else {
@@ -3903,17 +3666,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mFDA.setSelection(0);
-			// Log.v("FDA", "reset userPressed = " + this.userPressedFDA);
+
 		}
 	}
 
 	private void setFDB(String fdb, boolean userPressed) {
 		this.userPressedFDB = userPressed;
 		this.currMachine.fdb_img_path = fdb;
-		// Log.v("DB", "UserPressed: " + userPressedFDB + " FDB=" + fdb);
+
 		if (fdb != null) {
 			int pos = fdbAdapter.getPosition(fdb);
-			// Log.v("DB", "Got pos: " + pos + " for FDB=" + fdb);
+
 			if (pos >= 0) {
 				mFDB.setSelection(pos);
 			} else {
@@ -3921,17 +3684,17 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mFDB.setSelection(0);
-			// Log.v("FDB", "reset userPressed = " + this.userPressedFDB);
+
 		}
 	}
 
 	private void setSD(String sd, boolean userPressed) {
 		this.userPressedFDB = userPressed;
 		this.currMachine.sd_img_path = sd;
-		// Log.v("DB", "UserPressed: " + userPressedFDB + " FDB=" + fdb);
+
 		if (sd != null) {
 			int pos = sdAdapter.getPosition(sd);
-			// Log.v("DB", "Got pos: " + pos + " for FDB=" + fdb);
+
 			if (pos >= 0) {
 				mSD.setSelection(pos);
 			} else {
@@ -3939,17 +3702,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mSD.setSelection(0);
-			// Log.v("FDB", "reset userPressed = " + this.userPressedFDB);
+
 		}
 	}
 
 	private void setHDCache(String hdcache, boolean userPressed) {
 		this.userPressedHDCacheCfg = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedHDCacheCfg + " HDCache="
-		// + hdcache);
+
 		if (hdcache != null) {
 			int pos = this.hdCacheAdapter.getPosition(hdcache);
-			// Log.v("DB", "Got pos: " + pos + " for HDCache=" + hdcache);
+
 			if (pos >= 0) {
 				this.mHDCacheConfig.setSelection(pos);
 			} else {
@@ -3957,18 +3719,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mHDCacheConfig.setSelection(0);
-			// Log.v("VGA", "reset userPressed = " +
-			// this.userPressedHDCacheCfg);
+
 		}
 	}
 
 	private void setSoundcard(String soundcard, boolean userPressed) {
 		this.userPressedSoundcardCfg = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedSoundcardCfg + " Soundcard="
-		// + soundcard);
+
 		if (soundcard != null) {
 			int pos = this.sndAdapter.getPosition(soundcard);
-			// Log.v("DB", "Got pos: " + pos + " for Soundcard=" + soundcard);
+
 			if (pos >= 0) {
 				this.mSoundCardConfig.setSelection(pos);
 			} else {
@@ -3976,18 +3736,15 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mSoundCardConfig.setSelection(0);
-			// Log.v("VGA", "reset userPressed = " +
-			// this.userPressedSoundcardCfg);
 		}
 	}
 
 	private void setUI(String ui, boolean userPressed) {
 		this.userPressedUI = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedSoundcardCfg + " Soundcard="
-		// + soundcard);
+
 		if (ui != null) {
 			int pos = this.uiAdapter.getPosition(ui);
-			// Log.v("DB", "Got pos: " + pos + " for Soundcard=" + soundcard);
+
 			if (pos >= 0) {
 				this.mUI.setSelection(pos);
 			} else {
@@ -3995,17 +3752,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mUI.setSelection(0);
-			// Log.v("VGA", "reset userPressed = " +
-			// this.userPressedSoundcardCfg);
+
 		}
 	}
 
 	private void setVGA(String vga, boolean userPressed) {
 		this.userPressedVGACfg = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedVGACfg + " VGA=" + vga);
+
 		if (vga != null) {
 			int pos = vgaAdapter.getPosition(vga);
-			// Log.v("DB", "Got pos: " + pos + " for VGA=" + vga);
+
 			if (pos >= 0) {
 				this.mVGAConfig.setSelection(pos);
 			} else {
@@ -4013,16 +3769,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mVGAConfig.setSelection(0);
-			// Log.v("VGA", "reset userPressed = " + this.userPressedVGACfg);
+
 		}
 	}
 
 	private void setNetCfg(String net, boolean userPressed) {
 		this.userPressedNetCfg = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedNetCfg + " Net=" + net);
+
 		if (net != null) {
 			int pos = this.netAdapter.getPosition(net);
-			// Log.v("DB", "Got pos: " + pos + " for Net=" + net);
+
 			if (pos >= 0) {
 				this.mNetConfig.setSelection(pos);
 			} else {
@@ -4030,17 +3786,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mNetConfig.setSelection(0);
-			// Log.v("NET", "reset userPressed = " + this.userPressedNetCfg);
+
 		}
 	}
 
 	private void setBootDevice(String bootDevice, boolean userPressed) {
 		this.userPressedBootDev = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedBootDev + " Boot Dev=" +
-		// bootDevice);
+
 		if (bootDevice != null) {
 			int pos = this.bootDevAdapter.getPosition(bootDevice);
-			// Log.v("DB", "Got pos: " + pos + " for BootDev=" + bootDevice);
+
 			if (pos >= 0) {
 				this.mBootDevices.setSelection(pos);
 			} else {
@@ -4048,17 +3803,15 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mBootDevices.setSelection(0);
-			// Log.v("NET", "reset userPressed = " + this.userPressedBootDev);
+
 		}
 	}
 
 	private void setSnapshot(String snapshot, boolean userPressed) {
 		this.userPressedSnapshot = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedBootDev + " Boot Dev=" +
-		// snapshot);
 		if (snapshot != null && !snapshot.equals("")) {
 			int pos = this.snapshotAdapter.getPosition(snapshot);
-			// Log.v("DB", "Got pos: " + pos + " for BootDev=" + snapshot);
+
 			if (pos >= 0) {
 				this.mSnapshot.setSelection(pos);
 				this.mSnapshot.invalidate();
@@ -4067,17 +3820,16 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mSnapshot.setSelection(0);
-			// Log.v("NET", "reset userPressed = " + this.userPressedBootDev);
+
 		}
-		// mStart.requestFocus();
+
 	}
 
 	private void setNicDevice(String nic, boolean userPressed) {
 		this.userPressedNicCfg = userPressed;
-		// Log.v("DB", "UserPressed: " + userPressedNicCfg + " Nic=" + nic);
 		if (nic != null) {
 			int pos = this.nicCfgAdapter.getPosition(nic);
-			// Log.v("DB", "Got pos: " + pos + " for Nic=" + nic);
+
 			if (pos >= 0) {
 				this.mNetDevices.setSelection(pos);
 			} else {
@@ -4085,13 +3837,13 @@ public class LimboActivity extends Activity {
 			}
 		} else {
 			mNetDevices.setSelection(3);
-			// Log.v("NIC", "reset userPressed = " + this.userPressedNicCfg);
+
 		}
 	}
 
 	private void populateCPUs(String cpu) {
 		this.userPressedCPU = false;
-		Log.v("populateCPUs", "set userPressed = " + this.userPressedCPU);
+
 
 		String[] arraySpinner = {};
 
@@ -4154,7 +3906,7 @@ public class LimboActivity extends Activity {
 		}
 
 		if (cpuAdapter == null) {
-			cpuAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arrList);
+			cpuAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 			cpuAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			this.mCPU.setAdapter(cpuAdapter);
 		} else {
@@ -4176,7 +3928,7 @@ public class LimboActivity extends Activity {
 
 	private void populateArch() {
 		this.userPressedArch = false;
-		Log.v("populateArch", "set userPressed = " + this.userPressedArch);
+		
 
 		String[] arraySpinner = { "x86", "x64" };
 
@@ -4185,7 +3937,7 @@ public class LimboActivity extends Activity {
 		if (Config.enable_ARM)
 			arrList.add("ARM");
 
-		archAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arrList);
+		archAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 
 		archAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mArch.setAdapter(archAdapter);
@@ -4278,7 +4030,7 @@ public class LimboActivity extends Activity {
 		}
 
 		if (machineTypeAdapter == null) {
-			machineTypeAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arrList);
+			machineTypeAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 			machineTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			this.mMachineType.setAdapter(machineTypeAdapter);
 		} else {
@@ -4300,9 +4052,15 @@ public class LimboActivity extends Activity {
 	private void populateUI() {
 		this.userPressedUI = false;
 
-		String[] arraySpinner = { "VNC", "SDL" };
+		String[] arraySpinner = { "VNC" };
 
-		uiAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+		if (Config.enable_SDL_menu)
+			arrList.add("SDL");
+		if (Config.enable_SPICE_menu)
+			arrList.add("SPICE");
+
+		uiAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 		uiAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mUI.setAdapter(uiAdapter);
 		this.mUI.invalidate();
@@ -4321,7 +4079,7 @@ public class LimboActivity extends Activity {
 		ArrayList<String> arraySpinner = new ArrayList<String>();
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
-		Iterator i = kernels.iterator();
+		Iterator<String> i = kernels.iterator();
 		while (i.hasNext()) {
 			String file = (String) i.next();
 			if (file != null) {
@@ -4329,7 +4087,7 @@ public class LimboActivity extends Activity {
 			}
 		}
 
-		kernelAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+		kernelAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 		kernelAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		this.mKernel.setAdapter(kernelAdapter);
 		this.mKernel.invalidate();
@@ -4349,7 +4107,7 @@ public class LimboActivity extends Activity {
 		ArrayList<String> arraySpinner = new ArrayList<String>();
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
-		Iterator i = initrds.iterator();
+		Iterator<String> i = initrds.iterator();
 		while (i.hasNext()) {
 			String file = (String) i.next();
 			if (file != null) {
@@ -4357,7 +4115,7 @@ public class LimboActivity extends Activity {
 			}
 		}
 
-		initrdAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+		initrdAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 		initrdAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		this.mInitrd.setAdapter(initrdAdapter);
 		this.mInitrd.invalidate();
@@ -4379,7 +4137,7 @@ public class LimboActivity extends Activity {
 		arraySpinner.add("None");
 		arraySpinner.add("New");
 		arraySpinner.add("Open");
-		Iterator i = oldHDs.iterator();
+		Iterator<String> i = oldHDs.iterator();
 		while (i.hasNext()) {
 			String file = (String) i.next();
 			if (file != null) {
@@ -4389,22 +4147,22 @@ public class LimboActivity extends Activity {
 
 		if (fileType.equals("hda")) {
 
-			hdaAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			hdaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			hdaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mHDA.setAdapter(hdaAdapter);
 			this.mHDA.invalidate();
 		} else if (fileType.equals("hdb")) {
-			hdbAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			hdbAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			hdbAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mHDB.setAdapter(hdbAdapter);
 			this.mHDB.invalidate();
 		} else if (fileType.equals("hdc")) {
-			hdcAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			hdcAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			hdcAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mHDC.setAdapter(hdcAdapter);
 			this.mHDC.invalidate();
 		} else if (fileType.equals("hdd")) {
-			hddAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			hddAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			hddAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mHDD.setAdapter(hddAdapter);
 			this.mHDD.invalidate();
@@ -4428,7 +4186,7 @@ public class LimboActivity extends Activity {
 		ArrayList<String> arraySpinner = new ArrayList<String>();
 		arraySpinner.add("None");
 		if (oldSnapshots != null) {
-			Iterator i = oldSnapshots.iterator();
+			Iterator<String> i = oldSnapshots.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -4438,7 +4196,7 @@ public class LimboActivity extends Activity {
 		}
 		this.userPressedSnapshot = false;
 
-		snapshotAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, arraySpinner);
+		snapshotAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		snapshotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		this.mSnapshot.setAdapter(snapshotAdapter);
 		this.mSnapshot.invalidate();
@@ -4467,7 +4225,7 @@ public class LimboActivity extends Activity {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldCDs != null) {
-			Iterator i = oldCDs.iterator();
+			Iterator<String> i = oldCDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -4475,7 +4233,7 @@ public class LimboActivity extends Activity {
 				}
 			}
 		}
-		cdromAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+		cdromAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 		cdromAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		this.mCD.setAdapter(cdromAdapter);
 		this.mCD.invalidate();
@@ -4496,7 +4254,7 @@ public class LimboActivity extends Activity {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldFDs != null) {
-			Iterator i = oldFDs.iterator();
+			Iterator<String> i = oldFDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -4506,12 +4264,12 @@ public class LimboActivity extends Activity {
 		}
 
 		if (fileType.equals("fda")) {
-			fdaAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			fdaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			fdaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mFDA.setAdapter(fdaAdapter);
 			this.mFDA.invalidate();
 		} else if (fileType.equals("fdb")) {
-			fdbAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			fdbAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			fdbAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mFDB.setAdapter(fdbAdapter);
 			this.mFDB.invalidate();
@@ -4532,7 +4290,7 @@ public class LimboActivity extends Activity {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldSDs != null) {
-			Iterator i = oldSDs.iterator();
+			Iterator<String> i = oldSDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -4542,7 +4300,7 @@ public class LimboActivity extends Activity {
 		}
 
 		if (fileType.equals("sd")) {
-			sdAdapter = new ArrayAdapter(this, R.layout.custom_spinner_item, arraySpinner);
+			sdAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 			sdAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			this.mSD.setAdapter(sdAdapter);
 			this.mSD.invalidate();
@@ -4551,7 +4309,6 @@ public class LimboActivity extends Activity {
 
 	public void browse(String fileType) {
 		// Check if SD card is mounted
-		// Log.v(TAG, "Browsing: " + fileType);
 		String state = Environment.getExternalStorageState();
 		if (!Environment.MEDIA_MOUNTED.equals(state)) {
 			Toast.makeText(getApplicationContext(), "Error: SD card is not mounted", Toast.LENGTH_LONG).show();
@@ -4570,12 +4327,10 @@ public class LimboActivity extends Activity {
 				b.putString("lastDir", lastDir);
 				b.putString("fileType", fileType);
 				i.putExtras(b);
-				// Log.v("**PASS** ", lastDir);
 				startActivityForResult(i, Config.FILEMAN_REQUEST_CODE);
 
 			} catch (Exception e) {
-				// Log.v(TAG, "Error while starting Filemanager: " +
-				// e.getMessage());
+				e.printStackTrace();
 			}
 		} else {
 			this.filetype = fileType;
@@ -4592,8 +4347,7 @@ public class LimboActivity extends Activity {
 	}
 
 	private void addDriveToList(String file, String type) {
-		// Check if exists
-		// Log.v(TAG, "Adding To list: " + type + ":" + file);
+
 		if (file == null)
 			return;
 
@@ -4682,7 +4436,6 @@ public class LimboActivity extends Activity {
 						}).show();
 				return;
 			} else {
-				Log.v(TAG, "Not running VM...");
 				sendHandlerMessage(handler, Config.VM_NOTRUNNING);
 				return;
 			}
@@ -4722,7 +4475,7 @@ public class LimboActivity extends Activity {
 	}
 
 	public void stopTimeListener() {
-		// Log.v("Limbo", "Stopping Listener");
+
 		synchronized (this.lockTime) {
 			this.timeQuit = true;
 			this.lockTime.notifyAll();
@@ -4731,13 +4484,13 @@ public class LimboActivity extends Activity {
 
 	public void onPause() {
 		super.onPause();
-		Log.v("Limbo", "Limbo Console Pause");
+
 		this.stopTimeListener();
 	}
 
 	public void onResume() {
 		super.onResume();
-		Log.v("Limbo", "Limbo Console Resume");
+
 		execTimeListener();
 	}
 
@@ -4747,23 +4500,22 @@ public class LimboActivity extends Activity {
 				String status = checkStatus();
 				if (!status.equals(currStatus)) {
 					currStatus = status;
-					Log.v("Inside", "Status changed: " + status);
 					sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", status);
 				}
 			}
-			// Log.v("Inside", "Status: " + currStatus);
+
 			try {
 				Thread.sleep(3000);
 			} catch (InterruptedException ex) {
-				Log.v("Limbo", "Could not sleep");
+				ex.printStackTrace();
 			}
 		}
-		// Log.v("Limbo", "Limbo Stopped");
+
 
 	}
 
 	void execTimeListener() {
-		// Log.v("Limbo", "ExecTImeListener");
+
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				startTimeListener();
@@ -4777,7 +4529,7 @@ public class LimboActivity extends Activity {
 
 		timeQuit = false;
 		try {
-			// Log.v("Listener", "Time Listener Started...");
+
 			timeListener();
 			synchronized (lockTime) {
 				while (timeQuit == false) {
@@ -4787,9 +4539,9 @@ public class LimboActivity extends Activity {
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
-			Log.v("Limbo", "Time listener thread error: " + ex.getMessage());
+
 		}
-		// Log.v("Listener", "Time listener thread exited...");
+
 
 	}
 
@@ -4800,8 +4552,7 @@ public class LimboActivity extends Activity {
 		} else if (vmexecutor != null) {
 			String save_state = vmexecutor.get_save_state();
 			String pause_state = vmexecutor.get_pause_state();
-			// Log.v("Listener", "Save State: " + save_state);
-			// Log.v("Listener", "Pause State: " + pause_state);
+
 			// Shutdown if paused done
 			if (pause_state.equals("SAVING")) {
 				return pause_state;
@@ -4822,7 +4573,6 @@ public class LimboActivity extends Activity {
 	}
 
 	public static int get_fd(String path) {
-		// TODO Auto-generated method stub
 		int fd = 0;
 		if (path == null)
 			return 0;
@@ -4831,17 +4581,9 @@ public class LimboActivity extends Activity {
 			path = path.replaceFirst("/content", "content:");
 
 			try {
-				// if(pathfds.containsKey(path)){
-				// fd = pathfds.get(path);
-				// Log.i(TAG, "Found cached fd: " + fd);
-				// return fd;
-				// }
 				ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(Uri.parse(path), "rw");
 				fd = pfd.getFd();
-				// Log.i(TAG, "Got new fd: " + path + " : " + fd);
-				// /pathfds.put(path, fd);
 				fds.put(fd, pfd);
-				// pfd.detachFd();
 			} catch (final FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -4859,7 +4601,6 @@ public class LimboActivity extends Activity {
 					file.createNewFile();
 				ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY);
 				fd = pfd.getFd();
-				// pfd.close();
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -4872,17 +4613,14 @@ public class LimboActivity extends Activity {
 	static HashMap<Integer, ParcelFileDescriptor> fds = new HashMap<Integer, ParcelFileDescriptor>();
 
 	public static int close_fd(int fd) {
-		// TODO Auto-generated method stub
+
 		if (fds.containsKey(fd)) {
 			ParcelFileDescriptor pfd = fds.get(fd);
 			try {
-				Log.d(TAG, "Closing: " + fd);
 				pfd.close();
 				fds.remove(fd);
-				// Log.d(TAG, "Removed: " + fd);
 				return 0; // success for Native side
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 

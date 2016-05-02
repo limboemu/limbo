@@ -111,13 +111,12 @@ static void do_sdl_resize(int width, int height, int bpp)
         flags |= SDL_NOFRAME;
     }
 
-    #ifdef __ANDROID__
-    	//TODO: Need to send the resolution to Java
-        //Android_JNI_SetSDLResolution(width, height);
-    #endif //__ANDROID__
-
-
     tmp_screen = SDL_SetVideoMode(width, height, bpp, flags);
+
+#ifdef __LIMBO__
+   	//TODO: Need to send the resolution to Java
+    Android_JNI_SetSDLResolution(width, height);
+#endif //__LIMBO__
 
 
     if (!real_screen) {
@@ -673,6 +672,8 @@ static void handle_keydown(SDL_Event *ev)
     int mod_state;
     int keycode;
 
+    LOGV("Pressed keycode=%d", keycode);
+
     if (alt_grab) {
         mod_state = (SDL_GetModState() & (gui_grab_code | KMOD_LSHIFT)) ==
                     (gui_grab_code | KMOD_LSHIFT);
@@ -965,6 +966,7 @@ static void handle_activation(SDL_Event *ev)
 static void sdl_refresh(DisplayChangeListener *dcl)
 {
     SDL_Event ev1, *ev = &ev1;
+    LOGV("refresh");
 
     if (last_vm_running != runstate_is_running()) {
         last_vm_running = runstate_is_running();
@@ -975,6 +977,7 @@ static void sdl_refresh(DisplayChangeListener *dcl)
     SDL_EnableUNICODE(!qemu_console_is_graphic(NULL));
 
     while (SDL_PollEvent(ev)) {
+    	LOGV("SDL_PollEvent ev->type=%d"ev->type);
         switch (ev->type) {
         case SDL_VIDEOEXPOSE:
             sdl_update(dcl, 0, 0, real_screen->w, real_screen->h);

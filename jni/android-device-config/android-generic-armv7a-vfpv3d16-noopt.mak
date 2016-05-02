@@ -6,19 +6,14 @@
 NDK_TOOLCHAIN_VERSION=4.9
 
 #TARGET ARCH
-#APP_ABI := armeabi-v7a
-APP_ABI := armeabi-v7a-hard
+APP_ABI := armeabi-v7a
 
 #FLOAT
-#FLOAT_FLAG := -mfloat-abi=softfp
-FLOAT_FLAG := -mfloat-abi=hard -mhard-float -D_NDK_MATH_NO_SOFTFP=1
-#FLOAT_FLAG += -mfpu=vfpv3-d16
+FLOAT_FLAG := -mfloat-abi=softfp -mfpu=vfpv3-d16 
 
 #LM
-#LM := -lm
-LM := -lm_hard
+LM := -lm
 
-#FLOAT WARNINGS (NEEDED!)
 LIMBO_LD_FLAGS +=  -Wl,--no-warn-mismatch
 
 ### CONFIGURATION
@@ -38,7 +33,7 @@ ARCH_CFLAGS += -Wno-psabi
 
 # Optimization
 #ANDROID_OPTIM_FLAGS = -O0
-ANDROID_OPTIM_FLAGS = -O0   
+ANDROID_OPTIM_FLAGS = -O0
 
 ARCH_CFLAGS += $(ANDROID_OPTIM_FLAGS)
 
@@ -60,13 +55,15 @@ ARCH_CFLAGS += -ffunction-sections
 
 # Don't keep the frame pointer in a register for functions that don't need one
 # Anyway enabled for -O2
-ARCH_CFLAGS += -fomit-frame-pointer
-
-# Unwanted optimization, might be dangerous 
-#ARCH_CFLAGS += -funswitch-loops 
+ARCH_CFLAGS += -fomit-frame-pointer 
 
 # prevent unwanted optimizations for Qemu
 ARCH_CFLAGS += -fno-strict-aliasing
+
+ARCH_CFLAGS += -ffunction-sections 	
+
+#Unswitch loops
+ARCH_CFLAGS += -funswitch-loops
 
 # Loop optimization might be safe
 #ARCH_CFLAGS += -fstrength-reduce 

@@ -96,11 +96,13 @@ void Android_OnTouch(int touch_device_id_in, int pointer_finger_id_in, int actio
     static SDL_FingerID pointerFingerID = 0;
 
     if (!Android_Window) {
+    	LOGE("No Android Window!");
         return;
     }
 
     touchDeviceId = (SDL_TouchID)touch_device_id_in;
     if (SDL_AddTouch(touchDeviceId, "") < 0) {
+    	LOGE("error: can't add touch %s, %d", __FILE__, __LINE__);
         SDL_Log("error: can't add touch %s, %d", __FILE__, __LINE__);
     }
 
@@ -110,38 +112,67 @@ void Android_OnTouch(int touch_device_id_in, int pointer_finger_id_in, int actio
             /* Primary pointer down */
             if (!separate_mouse_and_touch) {
                 Android_GetWindowCoordinates(x, y, &window_x, &window_y);
+#ifndef __LIMBO__
+                //XXX: Limbo currently we use only touch screen so we don't move the mouse just press the button
                 /* send moved event */
                 SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 0, window_x, window_y);
+#endif
+#ifdef __LIMBO__
+                //XXX: we emulate left, middle, or right click
+                SDL_SendMouseButton(Android_Window, SDL_TOUCH_MOUSEID, SDL_PRESSED, pointer_finger_id_in);
+#else
                 /* send mouse down event */
                 SDL_SendMouseButton(Android_Window, SDL_TOUCH_MOUSEID, SDL_PRESSED, SDL_BUTTON_LEFT);
+#endif //__LIMBO__
+
             }
             pointerFingerID = fingerId;
         case ACTION_POINTER_DOWN:
+#ifndef __LIMBO__
             /* Non primary pointer down */
             SDL_SendTouch(touchDeviceId, fingerId, SDL_TRUE, x, y, p);
+#endif // __LIMBO__
             break;
 
         case ACTION_MOVE:
-            if (!pointerFingerID) {
+#ifndef __LIMBO__
+        	if (!pointerFingerID) {
                 if (!separate_mouse_and_touch) {
                     Android_GetWindowCoordinates(x, y, &window_x, &window_y);
+#else
                     /* send moved event */
+
+                    //XXX: Limbo: we send a relative position
+                    //TODO: We should enable also non-relative position for bluetooth mouse connected to Android
+                    SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 1, (int) x, (int) y);
+#endif
+#ifndef __LIMBO__
                     SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 0, window_x, window_y);
                 }
-            }
+        	}
+#endif // __LIMBO__
+
+#ifndef __LIMBO__
             SDL_SendTouchMotion(touchDeviceId, fingerId, x, y, p);
+#endif //__LIMBO__
             break;
 
         case ACTION_UP:
             /* Primary pointer up */
             if (!separate_mouse_and_touch) {
                 /* send mouse up */
+#ifdef __LIMBO__
+            	SDL_SendMouseButton(Android_Window, SDL_TOUCH_MOUSEID, SDL_RELEASED, pointer_finger_id_in);
+#else
                 SDL_SendMouseButton(Android_Window, SDL_TOUCH_MOUSEID, SDL_RELEASED, SDL_BUTTON_LEFT);
+#endif // __LIMBO__
             }
             pointerFingerID = (SDL_FingerID) 0;
         case ACTION_POINTER_UP:
+#ifndef __LIMBO__
             /* Non primary pointer up */
             SDL_SendTouch(touchDeviceId, fingerId, SDL_FALSE, x, y, p);
+#endif __LIMBO__
             break;
 
         default:

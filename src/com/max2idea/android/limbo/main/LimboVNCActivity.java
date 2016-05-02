@@ -85,7 +85,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_LONG);
+		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_SHORT);
 		toast.setGravity(Gravity.TOP | Gravity.CENTER, 0, 0);
 		toast.show();
 		this.vncCanvas.setFocusableInTouchMode(true);
@@ -230,6 +230,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	public void pausedVM() {
 
+		LimboActivity.vmexecutor.paused = 1;
+		((LimboActivity) LimboActivity.activity).saveStateVMDB();
+		
 		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
 				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
@@ -503,6 +506,56 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
+//	private void onPauseVM() {
+//		Thread t = new Thread(new Runnable() {
+//			public void run() {
+//				// Delete any previous state file
+//				if (LimboActivity.vmexecutor.save_state_name != null) {
+//					File file = new File(LimboActivity.vmexecutor.save_state_name);
+//					if (file.exists()) {
+//						file.delete();
+//					}
+//				}
+//
+//				LimboActivity.vmexecutor.paused = 1;
+//				((LimboActivity) LimboActivity.activity).saveStateVMDB();
+//
+//				onQMP();
+//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//					@Override
+//					public void run() {
+//						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_LONG)
+//								.show();
+//					}
+//				}, 500);
+//				try {
+//					Thread.sleep(500);
+//				} catch (InterruptedException ex) {
+//					Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
+//				}
+//
+//				String commandStop = "stop\n";
+//				for (int i = 0; i < commandStop.length(); i++)
+//					vncCanvas.sendText(commandStop.charAt(i) + "");
+//				
+//				String commandMigrate = "migrate fd:"
+//						+ LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name) + "\n";
+//				for (int i = 0; i < commandMigrate.length(); i++)
+//					vncCanvas.sendText(commandMigrate.charAt(i) + "");
+//
+//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//					@Override
+//					public void run() {
+//						VMListener a = new VMListener();
+//						a.execute();
+//					}
+//				}, 0);
+//			}
+//		});
+//		t.start();
+//
+//	}
+	
 	private void onPauseVM() {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
@@ -514,35 +567,24 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					}
 				}
 
-				LimboActivity.vmexecutor.paused = 1;
-				((LimboActivity) LimboActivity.activity).saveStateVMDB();
+				
 
-				onQMP();
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
-						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_LONG)
+						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_SHORT)
 								.show();
 					}
-				}, 500);
-				try {
-					Thread.sleep(500);
-				} catch (InterruptedException ex) {
-					Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-				}
-
-				String commandStop = "stop\n";
-				for (int i = 0; i < commandStop.length(); i++)
-					vncCanvas.sendText(commandStop.charAt(i) + "");
+				}, 0);
 				
-				String commandMigrate = "migrate fd:"
-						+ LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name) + "\n";
-				for (int i = 0; i < commandMigrate.length(); i++)
-					vncCanvas.sendText(commandMigrate.charAt(i) + "");
+				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
+				final String msg = LimboActivity.vmexecutor.pausevm(uri);
+				Log.i(TAG, msg);
 
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
+						Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
 						VMListener a = new VMListener();
 						a.execute();
 					}

@@ -2,9 +2,11 @@
 
 include android-config.mak
 	
-ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build V=1 NDK_DEBUG=$(NDK_DEBUG) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) -j $(BUILD_THREADS)
-ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build clean V=1 NDK_DEBUG=$(NDK_DEBUG) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build -j $(BUILD_THREADS) NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 ndkcleanobj=rm -rf $(NDK_PROJECT_PATH)/obj/
+
+ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb
 
 CREATE_OBJDIR=mkdir -p $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/
 CREATE_LIBSDIR=mkdir -p $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/
@@ -17,7 +19,16 @@ INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
 #RENAME_PARPROUTED=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/parprouted \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libparprouted.so
-
+	
+#GDB needs the gdb.setup under ./libs & ./obj/local/armeabi
+COPY_GDB_SETUP_LIBS=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
+	$(NDK_PROJECT_PATH)/libs/gdb.setup
+CREATE_OBJDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/libs/armeabi
+COPY_GDB_SETUP_LIBS_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
+	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
+APPEND_GDB_CMD_EXTRA=cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
+	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
+	
 ifneq ($(NDK_DEBUG),1)
 	STRIP_LIBS=$(STRIP) --strip-unneeded  $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
 endif
@@ -33,41 +44,48 @@ createdirs:
 	$(CREATE_LIBSDIR)
 
 ndk:
-	$(ndkbuild)
+	$(ndkbuild) 
 
 ndkclean:
 	$(ndkclean)
-	$(ndkcleanobj)
+	$(ndkcleanobj) 
 	
-qemu: 
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) -j $(BUILD_THREADS)
+qemu:
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) -j $(BUILD_THREADS)
 	
 #limbo: ndk config qemu
 #	$(MAKE) -f $(LIMBO_JNI_ROOT)/limbo.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 
 config-debug:
-	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak NDK_DEBUG=1 V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak NDK_DEBUG=1 V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 	
 config:
-	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak  V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 
 debug:
-	$(MAKE) ndk NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
-	$(MAKE) qemu NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
+	$(MAKE) ndk NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
+	$(MAKE) qemu NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
 	
 release: config
-	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
-	$(MAKE) qemu LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
+	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
+	$(MAKE) qemu LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
 	$(STRIP_LIBS)
-
+	
+ndk-gdb:
+	$(COPY_GDB_SETUP_LIBS)
+	$(CREATE_OBJDIR_ARMEABI)
+	$(COPY_GDB_SETUP_LIBS_ARMEABI)
+	$(APPEND_GDB_CMD_EXTRA)
+	$(ndkgdb)  
+	
 distclean: 
 	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 

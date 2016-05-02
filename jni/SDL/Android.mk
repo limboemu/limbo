@@ -47,7 +47,13 @@ LOCAL_SRC_FILES := \
 	$(wildcard $(LOCAL_PATH)/src/test/*.c))
 
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES
-LOCAL_LDLIBS := -ldl -lGLESv1_CM -lGLESv2 -llog -landroid
+LOCAL_LDLIBS := -ldl -lGLESv1_CM -lGLESv2 -llog -landroid -lEGL
+
+#LIMBO
+LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -65,5 +71,11 @@ LOCAL_SRC_FILES += $(subst $(LOCAL_PATH)/,,$(LOCAL_PATH)/src/main/android/SDL_an
 
 LOCAL_LDLIBS := 
 LOCAL_EXPORT_LDLIBS := -Wl,--undefined=Java_org_libsdl_app_SDLActivity_nativeInit -ldl -lGLESv1_CM -lGLESv2 -llog -landroid
+
+#LIMBO
+LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
 
 include $(BUILD_STATIC_LIBRARY)

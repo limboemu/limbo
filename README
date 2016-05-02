@@ -75,7 +75,9 @@ https://github.com/limboemu/limbo
    			ie android-generic-armv5te-softfp-noopt.mak
    		ii. From the command line type:
    			> make config-debug
-   			> make debug    
+   			> make debug
+   		iii. To start debugging type:
+   			> make ndk-gdb
     
     d. For ARMv7 phones (hard floating point):
         i. Update android-config.mak and include file android-generic-armv7a-hard.mak
@@ -94,14 +96,14 @@ https://github.com/limboemu/limbo
     i. From Eclipse Build the project and check that all the .so libraries are included in your APK file.
 ===============================================================================
 6. Development
-	a. Changes pertinent to compatibility with Android/bionic are tagged in C as #ifdef __ANDROID__
-	b. Other changes pertinent to LIMBO are tagged in C as #ifdef __LIMBO__ 
+	a. Changes pertinent to compatibility with Android/bionic are tagged in C as preprocessor define __ANDROID__
+	b. Similarly other changes pertinent to LIMBO are tagged with __LIMBO__
 	c. Important configuration makefiles:
-		android-config.mak (for setting up Toolchain variables)
+		android-config.mak (for setting up toolchain variables)
 		android-qemu-config.mak (for configuring QEMU options)
 	d. Android Makefiles can be found as Android.mk and Application.mk
 	e. Device specific flags can be found under directory android-device-config/
-	f. Frontend options configuration see: Config.java
+	f. Frontend UI options configuration see: Config.java
     	
 ===============================================================================
 7. Run

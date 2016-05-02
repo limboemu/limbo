@@ -6,28 +6,28 @@ LOCAL_MODULE := SDL2_mixer
 
 # Enable this if you want to support loading MOD music via modplug
 # The library path should be a relative path to this directory.
-SUPPORT_MOD_MODPLUG ?= true
+SUPPORT_MOD_MODPLUG ?= false
 MODPLUG_LIBRARY_PATH := external/libmodplug-0.8.8.4
 
 # Enable this if you want to support loading MOD music via mikmod
 # The library path should be a relative path to this directory.
-SUPPORT_MOD_MIKMOD ?= true
+SUPPORT_MOD_MIKMOD ?= false
 MIKMOD_LIBRARY_PATH := external/libmikmod-3.1.12
 
 # Enable this if you want to support loading MP3 music via SMPEG
 # The library path should be a relative path to this directory.
-SUPPORT_MP3_SMPEG ?= true
+SUPPORT_MP3_SMPEG ?= false
 SMPEG_LIBRARY_PATH := external/smpeg2-2.0.0
 
 # Enable this if you want to support loading OGG Vorbis music via Tremor
 # The library path should be a relative path to this directory.
-SUPPORT_OGG ?= true
+SUPPORT_OGG ?= false
 OGG_LIBRARY_PATH := external/libogg-1.3.1
 VORBIS_LIBRARY_PATH := external/libvorbisidec-1.2.1
 
 
 # Enable this if you want to support TiMidity
-SUPPORT_TIMIDITY ?= true
+SUPPORT_TIMIDITY ?= false
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) 
 LOCAL_CFLAGS := -DWAV_MUSIC 
@@ -126,6 +126,15 @@ endif
 
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_C_INCLUDES)
 
-LOCAL_ARM_MODE := arm
+#LOCAL_ARM_MODE := arm
+
+#LIMBO
+LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_ARM_MODE := $(ARM_MODE)
+
+LOCAL_LDLIBS :=				\
+	-ldl -llog -lz
 
 include $(BUILD_SHARED_LIBRARY)

@@ -1,6 +1,6 @@
 package com.max2idea.android.limbo.main;
 
-public class LimboSDLSurfaceCompat //extends SDL2Surface
+public class LimboSDLSurfaceCompat //extends SDLSurface
 //implements View.OnGenericMotionListener
 {
 //	public LimboSDLSurfaceCompat(Context context) {
