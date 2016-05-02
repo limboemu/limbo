@@ -1,0 +1,123 @@
+  Hello folks !
+
+
+This is libmikmod, version 3.1.10, a portable sound library for Unix.
+Check out the file 'NEWS' for more history information.
+
+
+>> BUILDING LIBMIKMOD
+---------------------
+
+- If you're not building libmikmod for Windows, then you're lost in the
+  sources. Go up one directory, and read the main README file.
+
+So, you're on an angry fruit salad Windows system, aren't you ? With
+those so cute icons and an overflowed system tray ?
+
+Currently, libmikmod can be build under Windows only with the Microsoft
+compiler (but I suppose that the Watcom compiler and Metrowerks
+Codewarrior could be used as well).
+You'll need the DirectX SDK (if not included with the compiler) to
+compile the DirectSound driver; version 5 or better is required. The
+standard Win32 SDK is enough for the winmm driver.
+
+Oh, I almost forgot: you need long filenames to compile libmikmod, but
+that should not be a problem nowadays.
+
+You might want to edit one of the files 'Makefile.dynamic' and
+'Makefile.static' located in the 'win32' directory to suit your
+particular compiler setup. Then, in the 'win32' directory, run
+
+	nmake -f Makefile.static
+
+to build a static library, or
+
+	nmake -f Makefile.dynamic
+
+to build a DLL with its import library. 
+If the build fails, I'd like to hear from you to correct the problem.
+
+Be warned that both Makefiles put their object files in the same
+directory. If you want to switch between the two makefiles, don't forget
+to do a make clean first:
+  
+	nmake -f Makefile.dynamic clean
+	
+(or the same command with Makefile.static).
+
+To make your library ready to use, copy the file '..\include\mikmod.h'
+to your compiler include directory, and 'mikmod.lib` to your compiler
+library directory. If you built a DLL, you'll also have to put
+'mikmod.dll' somewhere in your PATH.
+
+HTML documentation of the library, for programmers, is located in the
+doc directory.
+
+
+>> THANKS
+---------
+
+I would like to thank everyone who contributed to libmikmod. Their names
+are in the AUTHORS file for the significative contributions, but some
+other names can be found in the NEWS file. Thanks a lot ! Keeping
+libmikmod alive wouldn't be much fun without you.
+
+
+>> LICENSE
+----------
+
+The libmikmod sound library is covered by the GNU Library General Public
+License as published by the Free Software Fundation (you'll find it in
+the file COPYING.LIB); either version 2 of the licence, or (at your
+option) any later version.
+
+The GNU Lesser General Public License, version 2.1, in file
+COPYING.LESSER, can be considered as a later version of the LGPL, and is
+strongly recommended for people who will embed libmikmod in their
+application as a shared library.
+
+Parts of the library (in playercode/mdulaw.c) are derived from the files
+libst.h and raw.c from an old version of the sox (SOund eXchange)
+package written by Lance Norskog and Jef Poskanzer. The following
+copyright notice applies to these parts:
+
+  Copyright (C) 1989 by Jef Poskanzer.
+   
+  Permission to use, copy, modify, and distribute this software and its
+  documentation for any purpose and without fee is hereby granted, provided
+  that the above copyright notice appear in all copies and that both that
+  copyright notice and this permission notice appear in supporting
+  documentation.  This software is provided "as is" without express or
+  implied warranty.
+
+Note that none of these parts are used in the Win32 version of the
+libmikmod library.
+
+
+>> CONTACT AND DOWNLOAD INFO
+----------------------------
+
+* email:
+  Please send all your libmikmod related e-mail to me, at:
+  miod@mikmod.org
+
+* web:
+  libmikmod home page is located at:
+    http://www.mikmod.org
+
+* ftp:
+  Latest releases of libmikmod can be found:
+  - on the web site
+    htp://www.mikmod.org/files
+  - on ibiblio (formerly known as metalab, formerly sunsite) and its mirrors
+    ftp://metalab.unc.edu/pub/Linux/apps/sound/libs
+
+
+>> LAST NOTES
+-------------
+
+I hope you'll enjoy using this version of libmikmod as well as I enjoyed
+debugging and improving it.
+
+-- Miod Vallat, 01/24/2002
+   miod@mikmod.org

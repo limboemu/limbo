@@ -1,0 +1,320 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00A06D7812FFBFD5009F1A11 /* SDL_image.h in Headers */ = {isa = PBXBuildFile; fileRef = 1014BAEA010A4B677F000001 /* SDL_image.h */; };
+		AA126A9A1617A4A4005ABC8F /* IMG_bmp.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A891617A4A4005ABC8F /* IMG_bmp.c */; };
+		AA126A9B1617A4A4005ABC8F /* IMG_gif.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8A1617A4A4005ABC8F /* IMG_gif.c */; };
+		AA126A9C1617A4A4005ABC8F /* IMG_ImageIO.m in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8B1617A4A4005ABC8F /* IMG_ImageIO.m */; };
+		AA126A9D1617A4A4005ABC8F /* IMG_jpg.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8C1617A4A4005ABC8F /* IMG_jpg.c */; };
+		AA126A9E1617A4A4005ABC8F /* IMG_lbm.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8D1617A4A4005ABC8F /* IMG_lbm.c */; };
+		AA126A9F1617A4A4005ABC8F /* IMG_pcx.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8E1617A4A4005ABC8F /* IMG_pcx.c */; };
+		AA126AA01617A4A4005ABC8F /* IMG_png.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A8F1617A4A4005ABC8F /* IMG_png.c */; };
+		AA126AA11617A4A4005ABC8F /* IMG_pnm.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A901617A4A4005ABC8F /* IMG_pnm.c */; };
+		AA126AA21617A4A4005ABC8F /* IMG_tga.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A911617A4A4005ABC8F /* IMG_tga.c */; };
+		AA126AA31617A4A4005ABC8F /* IMG_tif.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A921617A4A4005ABC8F /* IMG_tif.c */; };
+		AA126AA51617A4A4005ABC8F /* IMG_webp.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A941617A4A4005ABC8F /* IMG_webp.c */; };
+		AA126AA61617A4A4005ABC8F /* IMG_xcf.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A951617A4A4005ABC8F /* IMG_xcf.c */; };
+		AA126AA71617A4A4005ABC8F /* IMG_xpm.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A961617A4A4005ABC8F /* IMG_xpm.c */; };
+		AA126AA81617A4A4005ABC8F /* IMG_xv.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A971617A4A4005ABC8F /* IMG_xv.c */; };
+		AA126AA91617A4A4005ABC8F /* IMG_xxx.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A981617A4A4005ABC8F /* IMG_xxx.c */; };
+		AA126AAA1617A4A4005ABC8F /* IMG.c in Sources */ = {isa = PBXBuildFile; fileRef = AA126A991617A4A4005ABC8F /* IMG.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1014BAEA010A4B677F000001 /* SDL_image.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SDL_image.h; path = ../SDL_image.h; sourceTree = SOURCE_ROOT; };
+		AA126A891617A4A4005ABC8F /* IMG_bmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_bmp.c; path = ../IMG_bmp.c; sourceTree = "<group>"; };
+		AA126A8A1617A4A4005ABC8F /* IMG_gif.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_gif.c; path = ../IMG_gif.c; sourceTree = "<group>"; };
+		AA126A8B1617A4A4005ABC8F /* IMG_ImageIO.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = IMG_ImageIO.m; path = ../IMG_ImageIO.m; sourceTree = "<group>"; };
+		AA126A8C1617A4A4005ABC8F /* IMG_jpg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_jpg.c; path = ../IMG_jpg.c; sourceTree = "<group>"; };
+		AA126A8D1617A4A4005ABC8F /* IMG_lbm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_lbm.c; path = ../IMG_lbm.c; sourceTree = "<group>"; };
+		AA126A8E1617A4A4005ABC8F /* IMG_pcx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_pcx.c; path = ../IMG_pcx.c; sourceTree = "<group>"; };
+		AA126A8F1617A4A4005ABC8F /* IMG_png.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_png.c; path = ../IMG_png.c; sourceTree = "<group>"; };
+		AA126A901617A4A4005ABC8F /* IMG_pnm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_pnm.c; path = ../IMG_pnm.c; sourceTree = "<group>"; };
+		AA126A911617A4A4005ABC8F /* IMG_tga.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_tga.c; path = ../IMG_tga.c; sourceTree = "<group>"; };
+		AA126A921617A4A4005ABC8F /* IMG_tif.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_tif.c; path = ../IMG_tif.c; sourceTree = "<group>"; };
+		AA126A941617A4A4005ABC8F /* IMG_webp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_webp.c; path = ../IMG_webp.c; sourceTree = "<group>"; };
+		AA126A951617A4A4005ABC8F /* IMG_xcf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_xcf.c; path = ../IMG_xcf.c; sourceTree = "<group>"; };
+		AA126A961617A4A4005ABC8F /* IMG_xpm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_xpm.c; path = ../IMG_xpm.c; sourceTree = "<group>"; };
+		AA126A971617A4A4005ABC8F /* IMG_xv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_xv.c; path = ../IMG_xv.c; sourceTree = "<group>"; };
+		AA126A981617A4A4005ABC8F /* IMG_xxx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG_xxx.c; path = ../IMG_xxx.c; sourceTree = "<group>"; };
+		AA126A991617A4A4005ABC8F /* IMG.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IMG.c; path = ../IMG.c; sourceTree = "<group>"; };
+		BE1FA74107AF4C45004B6283 /* libSDL2_image.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSDL2_image.a; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BE1FA73F07AF4C45004B6283 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0153844A006D81B07F000001 /* Public Headers */ = {
+			isa = PBXGroup;
+			children = (
+				1014BAEA010A4B677F000001 /* SDL_image.h */,
+			);
+			name = "Public Headers";
+			sourceTree = "<group>";
+		};
+		034768DDFF38A45A11DB9C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				089C1665FE841158C02AAC07 /* Resources */,
+				BE1FA74107AF4C45004B6283 /* libSDL2_image.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0867D691FE84028FC02AAC07 /* SDL_imageFramework */ = {
+			isa = PBXGroup;
+			children = (
+				0153844A006D81B07F000001 /* Public Headers */,
+				08FB77ACFE841707C02AAC07 /* Library Source */,
+				034768DDFF38A45A11DB9C8B /* Products */,
+			);
+			name = SDL_imageFramework;
+			sourceTree = "<group>";
+		};
+		089C1665FE841158C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		08FB77ACFE841707C02AAC07 /* Library Source */ = {
+			isa = PBXGroup;
+			children = (
+				AA126A991617A4A4005ABC8F /* IMG.c */,
+				AA126A8B1617A4A4005ABC8F /* IMG_ImageIO.m */,
+				AA126A891617A4A4005ABC8F /* IMG_bmp.c */,
+				AA126A8A1617A4A4005ABC8F /* IMG_gif.c */,
+				AA126A8C1617A4A4005ABC8F /* IMG_jpg.c */,
+				AA126A8D1617A4A4005ABC8F /* IMG_lbm.c */,
+				AA126A8E1617A4A4005ABC8F /* IMG_pcx.c */,
+				AA126A8F1617A4A4005ABC8F /* IMG_png.c */,
+				AA126A901617A4A4005ABC8F /* IMG_pnm.c */,
+				AA126A911617A4A4005ABC8F /* IMG_tga.c */,
+				AA126A921617A4A4005ABC8F /* IMG_tif.c */,
+				AA126A941617A4A4005ABC8F /* IMG_webp.c */,
+				AA126A951617A4A4005ABC8F /* IMG_xcf.c */,
+				AA126A961617A4A4005ABC8F /* IMG_xpm.c */,
+				AA126A971617A4A4005ABC8F /* IMG_xv.c */,
+				AA126A981617A4A4005ABC8F /* IMG_xxx.c */,
+			);
+			name = "Library Source";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		BE1FA73007AF4C45004B6283 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00A06D7812FFBFD5009F1A11 /* SDL_image.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		BE1FA72F07AF4C45004B6283 /* libSDL_image */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00B7E3AE097EB73D00826121 /* Build configuration list for PBXNativeTarget "libSDL_image" */;
+			buildPhases = (
+				BE1FA73007AF4C45004B6283 /* Headers */,
+				BE1FA73107AF4C45004B6283 /* Sources */,
+				BE1FA73F07AF4C45004B6283 /* Frameworks */,
+				BE1FA74007AF4C45004B6283 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libSDL_image;
+			productInstallPath = /usr/local/lib;
+			productName = "Static Library";
+			productReference = BE1FA74107AF4C45004B6283 /* libSDL2_image.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0867D690FE84028FC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0630;
+			};
+			buildConfigurationList = 00B7E3B6097EB73D00826121 /* Build configuration list for PBXProject "SDL_image" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 0867D691FE84028FC02AAC07 /* SDL_imageFramework */;
+			productRefGroup = 034768DDFF38A45A11DB9C8B /* Products */;
+			projectDirPath = "";
+			projectRoot = ..;
+			targets = (
+				BE1FA72F07AF4C45004B6283 /* libSDL_image */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		BE1FA74007AF4C45004B6283 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BE1FA73107AF4C45004B6283 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA126A9A1617A4A4005ABC8F /* IMG_bmp.c in Sources */,
+				AA126A9B1617A4A4005ABC8F /* IMG_gif.c in Sources */,
+				AA126A9C1617A4A4005ABC8F /* IMG_ImageIO.m in Sources */,
+				AA126A9D1617A4A4005ABC8F /* IMG_jpg.c in Sources */,
+				AA126A9E1617A4A4005ABC8F /* IMG_lbm.c in Sources */,
+				AA126A9F1617A4A4005ABC8F /* IMG_pcx.c in Sources */,
+				AA126AA01617A4A4005ABC8F /* IMG_png.c in Sources */,
+				AA126AA11617A4A4005ABC8F /* IMG_pnm.c in Sources */,
+				AA126AA21617A4A4005ABC8F /* IMG_tga.c in Sources */,
+				AA126AA31617A4A4005ABC8F /* IMG_tif.c in Sources */,
+				AA126AA51617A4A4005ABC8F /* IMG_webp.c in Sources */,
+				AA126AA61617A4A4005ABC8F /* IMG_xcf.c in Sources */,
+				AA126AA71617A4A4005ABC8F /* IMG_xpm.c in Sources */,
+				AA126AA81617A4A4005ABC8F /* IMG_xv.c in Sources */,
+				AA126AA91617A4A4005ABC8F /* IMG_xxx.c in Sources */,
+				AA126AAA1617A4A4005ABC8F /* IMG.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		007288110F0DA5BA00C302A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					LOAD_BMP,
+					LOAD_GIF,
+					LOAD_JPG,
+					LOAD_LBM,
+					LOAD_PCX,
+					LOAD_PNG,
+					LOAD_PNM,
+					LOAD_TGA,
+					LOAD_TIF,
+					LOAD_XPM,
+					LOAD_XV,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../../SDL/include";
+				IPHONEOS_DEPLOYMENT_TARGET = 3.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		007288130F0DA5BA00C302A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1.1.0;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = SDL2_image;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		007288150F0DA5C400C302A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					LOAD_BMP,
+					LOAD_GIF,
+					LOAD_JPG,
+					LOAD_LBM,
+					LOAD_PCX,
+					LOAD_PNG,
+					LOAD_PNM,
+					LOAD_TGA,
+					LOAD_TIF,
+					LOAD_XPM,
+					LOAD_XV,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../../SDL/include";
+				IPHONEOS_DEPLOYMENT_TARGET = 3.0;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		007288170F0DA5C400C302A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1.1.0;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = SDL2_image;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00B7E3AE097EB73D00826121 /* Build configuration list for PBXNativeTarget "libSDL_image" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				007288130F0DA5BA00C302A9 /* Debug */,
+				007288170F0DA5C400C302A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00B7E3B6097EB73D00826121 /* Build configuration list for PBXProject "SDL_image" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				007288110F0DA5BA00C302A9 /* Debug */,
+				007288150F0DA5C400C302A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0867D690FE84028FC02AAC07 /* Project object */;
+}

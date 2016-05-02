@@ -1,0 +1,584 @@
+Summary of changes between libmikmod 3.1.11-a and libmikmod 3.1.12
+========================================================================
+libmikmod-3.1.12 was released on 15/12/2007
+
+This is bugfix release by denis111(keygenmusic).
+
+BUGFIXES
+- libmikmod no more hangs on loading XM modules with incorrect number of
+  instrumens.
+- modules with more then 255 orders are now supported
+
+
+Summary of changes between libmikmod 3.1.11 and libmikmod 3.1.11-a
+========================================================================
+libmikmod-3.1.11-a was released on 05/03/2004
+
+Most of my work and attention goes on the 3.2.x series, but I still receive
+occasional bug reports and patchs for the 3.1.11 version. There are not enough
+changes to make a full release, but many people may find this patch useful.
+
+BUGFIXES
+- libmikmod playback now works correcly on amd64 (type size problem)
+- fixed warning issued by automake >= 1.8
+- config.sub and config.guess updated
+
+
+Summary of changes between libmikmod 3.1.10 and libmikmod 3.1.11 (Thiers):
+==========================================================================
+
+libmikmod 3.1.11 was released on 01/21/2004.
+
+This is a small maintenance release. I know there are not many changes,
+but since it has been a very long time since the last one, and meanwhile
+libmikmod changed maintaner, I think it is justified.
+
+THANKS
+
+- Ingo Saitz, the maintainer of the mikmod packages for debian, for
+  bugfixes.
+- Frank Loemker, for the lcc-win32 stuff and fixes for the direct sound
+  driver.
+
+BUGFIXES
+
+- Playback problems in MODs of length >128. This fixes the file beatwave.mod. Thanks
+  to Emmanuel Coirier for pointing this out.
+- Applied debian patches:
+  - Fix for broken volume fadeouts of IT instruments
+  - Fixed configure test for pthread
+  - devfs support for Linux OSS
+
+- Makefile for lcc-win32. To compile libmikmod with lcc-win32 a rather new
+    version is needed. I currently use version 3.7 compiled on Jan 20 2002.
+    A version half a year old did not work.
+    To compile
+      - check that you have the lcc bin directory in the PATH
+        (and no other compiler bin dirs),
+      - change to libmikmod-3.1.11/win32,
+      - check Makefile.lcc for any needed changes, and
+      - use make -f Makefile.lcc.
+
+  - Different fixes for the direct sound driver:
+    - Pausing did only work for half of the buffer.
+    - Restarting the player did not work as the output thread was removed
+      in DS_PlayStop().
+    - Removed busy waiting for end of thread.
+    - Sound output is started immediately on the first call to DS_Update()
+      to be consistent with other non threaded drivers.
+    - Different small clean ups.
+
+  - In MikMod_Reset() the raw output driver driver did not use the
+    filename set via the cmdline.
+
+
+Summary of changes between libmikmod 3.1.9 and libmikmod 3.1.10 (Arlanc):
+=========================================================================
+
+libmikmod 3.1.10 was released on 01/24/2002.
+
+This version is yet another bugfix release. I have more contributions coming,
+especially a native MacOS X driver, that will not be present in 3.1.10 but
+will be in 3.1.11.
+
+
+THANKS
+
+- Most of the bugs mentioned below have been squished by ``UFO'',
+  Holger Jakob, Thomas Neumann, Mark Page and Juan Linietsky.
+
+
+BUGFIXES
+
+- Systematic coredumps on library initialization and calls to
+  MikMod_InfoDriver have been eliminated. Sorry, and thanks to Shlomi
+  Fish for the best fix.
+
+- The fix for spurious effect memory for portamentos in MOD files shouldn't
+  have been applied to the ``porta to note'' (effect 3) effect. Fixed in this
+  release. In the process, the aforementioned fix was perfected, as it
+  broke a few modules by accident.
+
+- IT Panbrello effect with random wave did not work.
+
+- IT Tempo slide (T0x, T1x) was not updated accurately, and the effect memory
+  was not implemented. The only tempo slide command which worked accurately
+  was T10, which is a no-op (-:
+
+- IT effect SC0 (cut note with no delay) is now correctly interpreted as SC1.
+
+- XM effect 6 (porta + volume slide) didn't have memory.
+
+- ProTracker effect F (change speed or bpm) should now be correctly handled
+  when its value is 32, depending on the module type (some formats will use
+  it as a speed value, others as a bpm value).
+  
+- XM playback stopped when reaching pattern 255 in the order list.
+
+- Corrupted envelopes in XM instruments are detected and some repair is
+  attempted.
+
+- Some valid AMF, IMF and IT modules refused to load.
+
+- Fine volume slide effects in volume column of IT modules, when using the
+  effect memory (i.e. A0 and B0) were misinterpreted as AF and BF, thus
+  causing unwanted large slides.
+
+- Portamento to note effect in volume column of IT modules was not rendered
+  correctly.
+
+- S3M files marked as created by ScreamTracker will honour the limit of 64000
+  bytes (not 64KB!) for sample length and sample offset effect position.
+
+- Loops in instrument envelopes were processed one tick too fast.
+
+- In-song message in FAR modules were not displayed correctly.
+
+- ProTracker effect E9 (Retrig) was not played correctly.
+
+
+NEW FEATURES
+
+- Modules which are not panning-aware (not using any panning effects and
+  with the tracker's default panning) use a recentered panning, so as to
+  sound better with headphones. Suggested by Urpo Lankinen.
+
+- Retrigger and panning effects are now recognized in FAR modules.
+
+- All arpeggio effects are now played in OKT modules.
+
+- FLT8 modules (8 channel StarTrekker) are now recognized and played.
+
+
+PLATFORM SPECIFIC
+
+- The Windows DirectSound driver has been improved and will use less
+  resources during playback.
+
+- The native audio driver for NetBSD and OpenBSD should work better with
+  recent versions of these systems, as well as with old sound cards such
+  as the SoundBlaster Pro.
+
+- Mac OS X is supported, although no native sound driver is available for
+  it yet, thanks to Juha Kaunisto.
+
+- Dynamically loading drivers is now supported on HP-PA systems running
+  under HP-UX, as well on systems using the a.out binary file format.
+
+
+
+Summary of changes between libmikmod 3.1.8 and libmikmod 3.1.9 (Vorey):
+=======================================================================
+
+libmikmod 3.1.9 was released on 02/14/2000.
+
+This version is a bugfix release, and was primarily considered as a public
+patch for 3.1.8 (namely, version 3.1.8-a). However, due to the very important
+bug fix in XM playback, among other things, it's worth being 3.1.9...
+
+
+THANKS
+
+- Many thanks to ``UFO'', Thomas Neumann, James Kehl and Vito Caputo for their
+  help, code and feedback.
+  
+- Special thanks to Gerd Rausch, for writing both the Linux sam9407 driver and
+  the associated Mikmod driver. Nice work !
+  
+- Thanks to Bastien Nocera for letting me do some tests under Linux/PPC.
+
+
+BUGFIXES
+
+- Envelopes weren't loaded correctly for IMF and XM modules. In the average
+  case, the first envelope point was correct, the remaining half points were
+  bogus, and the other half completely random. This fix is definitely worth
+  the upgrade.
+ 
+- In MOD files, effect 0xc (set channel volume) with effect parameter 0xff was
+  misplayed as a note cut.
+  
+- In MOD files too, effects 0x1, 0x2 and 0x3 (portamentos) with effect
+  parameter 0x00 were using the command memory, but these commands do not have
+  effect memory for MOD files.
+  
+- The Wuzamod check for STM modules wasn't present in 3.1.8, despite what the
+  release notes said )-:
+ 
+- Enabling the envelope (with an effect) for a sample with no associated
+  envelope would cause immediate coredumps. Now fixed.
+  
+- Panning was ignored in GDM modules.
+
+- Sample rate was incorrect for STM and STX modules.
+
+- Arpeggio memory (for IT modules) was ignored.
+
+- Tempo slide for IT modules was not processed correctly.
+
+- Toggling surround sound didn't have effect until the driver was reset.
+
+
+NEW FEATURES
+
+- New loader for Amiga Oktalyzer (.OKT) modules.
+
+- UNI loader recognizes recent APlayer modules (.APUN format level 0x104).
+
+- Due to popular request, the function Player_LoadTitleFP() has been added to
+  the library.
+  
+- Under Unix systems, make targets "check" and "uninstall" have been added.
+  However, due to a bug in automake, "make uninstall" will only work correctly
+  with the next release of automake (or the current CVS tree).
+  
+- New output driver for sam9407-based soundcards under Linux, featuring
+  hardware playback.
+
+
+PLATFORM SPECIFIC
+
+- Support for the latest Linux Ultra driver development versions (2.99) has
+  been added. Also, a few bugs in this driver have been fixed.
+
+- The DirectSound driver (win32) shipped with the previous release didn't
+  compile. It should now - at least things are better !
+
+- The OSS driver from 3.1.8 didn't work very well with some versions of the
+  Linux kernel, as well as under Linux/PPC. The problems should be gone now.
+  Also, the OSS driver now handles multi-soundcard configurations.
+
+
+
+Summary of changes between libmikmod 3.1.7 and libmikmod 3.1.8 (Tence):
+=======================================================================
+
+libmikmod 3.1.8 was released on 10/25/1999.
+
+
+THANKS
+
+- Many thanks (in no particular order) to Frank Loemker, Bjornar Henden, Joshua
+  Shagam, Vito Caputo, Thomas Neumann, Zach Metzinger, and Kevin Langman for
+  their help, code and feedback.
+
+- Special thanks to Andrew Zabolotny for his huge work on the OS/2 drivers.
+  The rest of your code is not lost, it will go into 3.2...
+
+
+BUGFIXES (more details can be found in file ``PROBLEMS'')
+
+- IT global volume slide effect was played too fast.
+
+- IT effect S6x (pattern delay for x ticks) was misunderstood as SEx (pattern
+  delay for x rows).
+
+- Finetune effect was not handled correctly for some XM modules.
+
+- Software mixer incorrectly produced extra clicks in interpolated mode (fix by
+  Frank Loemker).
+
+- Under Unix systems, the piped output driver (drv_pipe), as well as the output
+  to file drivers (drv_raw, drv_wav) had security issues if the libmikmod
+  application is setuid root.
+
+- Trying to read data from a file, with the data not located at offset 0,
+  didn't work correctly since 3.1.5.
+
+- Almost any text file beginning with "if" was considered as a valid module by
+  Player_LoadTitle(), yet hopefully rejected when trying to load it.
+
+- AMF effect 4 and variants lacked memory.
+
+- IT modules featuring patterns with less than 32 rows could not be loaded.
+
+- Some samples and effects in APlayer converted modules (.apun) were not played
+  correctly.
+
+- Linefeeds in the song message in IT modules weren't loaded correctly.
+
+
+NEW FEATURES
+
+- IMF effect XE (ignore envelope) implemented.
+
+- Support for uLaw output with the OSS driver, for Linux/sparc.
+
+- Started to modularize semaphore usage when possible. The Player_LoadTitle()
+  function can be used while a module is playing without causing a short pause
+  in playback.
+
+- STM modules with the Wuzamod signature can now be loaded.
+
+- More ``slightly corrupted'' XM modules can be loaded.
+
+
+PLATFORM SPECIFIC
+
+- libmikmod 3.1.7 didn't compile out of the box under IRIX (sorry !)
+
+- The EsounD driver didn't compile under Solaris
+
+- Solaris driver forced playback to either headphone or speaker, instead of
+  using the current output setting as default. This is now fixed.
+
+- Under SunOS 4, libmikmod should compile with the non-ansi C compiler bundled
+  by default.
+
+- The ALSA driver now works with ALSA 0.4.
+
+- The OSS driver should now work with Linux/ppc.
+
+- Under OS/2, the MMPM/2 and DART driver have been almost rewritten by Andrew
+  Zabolotny and work much better. And they are now somewhat configurable, too.
+
+- libmikmod 3.1.8 should work as a DLL under win32 environments. And the
+  non-directX driver is now registered in MikMod_RegisterAllDrivers().
+
+
+Summary of changes between libmikmod 3.1.6 and libmikmod 3.1.7 (Sauxillanges):
+==============================================================================
+
+libmikmod 3.1.7 was released on 06/28/1999.
+
+
+THANKS
+
+- Anders Bjoerklund did a terrific job of creating a Macintosh driver !
+  I'm proud to add the MacOS to the list of supported systems.
+
+- Bjornar Henden provided a non-directX driver for Windows NT users. This
+  makes libmikmod more portable than ever. Thanks a lot !
+
+- Simon Hosie contributed speed optimizations and bug fixes to the software
+  mixer. Thanks for your work !
+
+- Timo Taipalus pointed out several severe problems and helped me to get rid
+  of them. Thanks for your efforts !
+
+
+BUGFIXES (more details can be found in file ``PROBLEMS'')
+
+- Very long samples were truncated when played with the normal software
+  mixer.
+
+- Invalid notes using non-existent instruments caused the current note to
+  be retrigged instead of being ignored.
+
+- Porta to note effects did not restart the sample envelopes.
+
+- Note cut with non empty volume column on the same row resulted in the note
+  cut being ignored.
+
+- Disabling/enabling envelopes had no effect.
+
+- 15 instrument modules embedding a ``Music Channel BBS'' ad were rejected.
+
+- Huge (>64Kb) sample offsets were ignored with the hiqh quality mixer.
+
+- Delay note effect was incorrectly converted to pattern jump, and porta to
+  note was incorrectly converted to tremor, for GDM modules.
+
+- Dual effect Lxx in S3M and IT was misconverted to L00 (this bug was
+  introduced in 3.1.5-beta2, thanks to Timo Taipalus for noticing it)
+
+- Pitch envelope was not played accurately (IT).
+
+- XM modules in format 1.03 couldn't be loaded.
+
+- XM modules with the tracker name empty made the library coredump on some
+  platforms.
+
+- Set finetune effect (E5x) wasn't handled correctly for XM modules.
+
+- Fine slides (X1x,X2x) didn't play correctly for XM modules (thanks to Frank
+  Loemker for reporting it).
+
+- If the MikMod_InitThreads() function was called more than once, the library
+  did not behave correctly.
+
+- Sample loops were not computed correctly for Oktalyzer modules.
+
+
+NEW FEATURES
+
+- Modules can be played with a speed shift (suggested by Roope Anttinnen).
+
+- MikMod_Init() and MikMod_Reset() have been extended to pass specific
+  parameters to the drivers. This makes libmikmod 3.1.7 incompatible with the
+  previous versions, but updated libmikmod-based players will be released soon.
+  The shared library version has increased (now 2.0). This number scheme is
+  going to be as crazy as ncurses' one... 
+
+
+PLATFORM SPECIFIC
+
+- It was not possible to create a multithreaded library on FreeBSD (fix by
+  Roope Anttinnen).
+
+- HP-UX driver used to reset mixer settings at initialization.
+
+- Added MacOS support, thanks to Anders Bjoerklund.
+
+- Solaris driver now works on Solaris/Intel edition.
+
+
+
+Summary of changes between libmikmod 3.1.5 and libmikmod 3.1.6 (Romegier):
+==========================================================================
+
+libmikmod 3.1.6 was released on 03/24/1999.
+
+
+BUGFIXES
+
+- When the library was built thread-safe, calls to Player_SetPosition
+  resulted in a deadlock.
+
+- The OSS driver was too strict and didn't allow OSS to select a different
+  playback frequency.
+
+- A volume bug has been removed from the module player (thanks to Thomas
+  Neumann for the report).
+
+
+NEW FEATURES
+
+- Volume ramping has been ported from the high quality mixer to the regular
+  mixer, and is enabled when interpolated mixing is requested. You should hear
+  less clicks in interpolated mode from now ! (Suggested by Bjornar Henden)
+
+- The UNI loader recognizes APlayer format 1.3 modules.
+
+
+PLATFORM SPECIFIC
+
+- The NetBSD and OpenBSD driver should work with recent NetBSD and OpenBSD
+  versions.
+
+- Some Windows code has been merged. Feedback will be appreciated. Note that,
+  as I don't have a windows development system (and no plan to have one in the
+  near future), I can't test or debug the Windows part myself.
+
+
+
+Summary of changes between libmikmod 3.1.2 and libmikmod 3.1.5 (Pradelles):
+===========================================================================
+
+libmikmod 3.1.5 was released on 03/01/1999.
+
+
+THANKS
+
+- Many thanks to Lutz Roeder and Uwe Thoma, who send me the description of
+  the Imago Orpheus file format (IMF), as well as some of Imago's code, which
+  made the creation of the IMF loader a pure C exercise (-:
+
+- Many thanks to Claudio Matsuoka, Tobias Gloth, C. Ray C. and Ben Collver for
+  their contributions and bug reports.
+
+- Also big thanks to Jan Havelka for his help in tracking and fixing bugs.
+
+- I almost forgot to thank Cedric Hebert for pointing out the gcc 2.x
+  optimization options bug !
+
+- And as a last-minute add-on, Kev Vance submitted a GDM loader.
+
+
+BUGFIXES
+
+- The OSS driver used much more memory than necessary without reason.
+
+- Samples longer than 1 Mb were not played correctly. However, the fix now
+  requires that your C compiler provides a 64 bit integer type. As a result,
+  libmikmod will not compile anymore on AIX with old versions of xlC.
+
+- Samples with ping pong loops could make the library segfault on some rare
+  conditions. This bug was also present in MikIT and in the module plugin
+  of winamp, which are also based on old MikMod 3 sources...
+
+- The sample loaders will now load samples with extra information blocks in
+  them, and has been made more robust.
+
+- More checks to detect empty song messages.
+
+- The song message loading routine was bugged and could make the library
+  coredump.
+
+- AMF modules in formats 1.0, 1.2 and 1.3 couldn't be loaded.
+
+- MED loader now loads instrument names and song message if they exist.
+
+- More check have been added to the 15 instrument MOD loader to prevent it
+  from hanging on non-mod files ; let me know if you still experience
+  problems with it.
+
+- STM loader rejected STM created by MOD2STM ; the last pattern was never
+  played ; also, in some STM modules the samples were not loaded correctly.
+
+- XM modules in format 1.02 couldn't be loaded.
+
+- Envelope sustain loops in XM modules were not processed correctly.
+
+- Porta to note using the command memory used sometimes an incorrect value
+  when playing AMF, IT, S3M and ULT modules.
+
+- Volume slides for IT (Dxx) and XM (Axx) modules didn't continue in the
+  background.
+
+- Porta down effect in the volume column of IT modules was not played
+  correctly.
+
+- Problems occuring when compiling libmikmod when an older version of libmikmod
+  is installed are now fixed.
+
+
+DOCUMENTATION FIXES
+
+- The documentation incorrectly referred to PAN_MIDDLE instead of PAN_CENTER.
+
+
+NEW FEATURES
+
+- On platforms that support POSIX.4 threads, the library is now thread-safe.
+
+- Depending on your system's capabilities, ALSA and EsounD driver can now
+  be dynamically loaded when a libmikmod application is run, so if you built
+  your binary with the shared ALSA or EsounD libraries (which is the default),
+  it will run on other systems lacking those libraries.
+
+- New loaders for GDM (General Digital Music), IMF (Imago Orpheus) and STX
+  (STMIK 0.2) modules.
+
+- UNI loader is back, for those who need to play the ``Acid Tetris'' songs.
+
+- S3M loader correctly identifies S3M modules created by Impulse Tracker
+  an Imago Orpheus.
+
+- IT effect T (slide tempo) is now implemented.
+
+- The driver for the Linux Ultrasound project (the ancestor of ALSA) is back,
+  too.
+
+- The selection of the standard or high-quality software mixer is now made at
+  runtime.
+
+- New interfaces Voice_Get{Frequency,Panning,Volume} and
+  Player_GetChannelPeriod (this one is for x11amp's MikMod plugin).
+
+- Due to the addition of the new driver and loaders, library version has
+  increased.
+
+
+PLATFORM SPECIFIC
+
+- Compiling with gcc 2.x under Linux on x86 platforms performed aggressive
+  optimizations which had nasty interferences with the channel volumes on
+  some modules. Hopefully this is now fixed, so gcc users will get the same
+  sound quality as egcs users.
+  I apologize to everyone told me of this volume problem for the time it took
+  me to figure out where it came from.
+
+
+Previous versions of libmikmod were bundled with the MikMod player ; refer to
+its ``NEWS'' file for older changes information.

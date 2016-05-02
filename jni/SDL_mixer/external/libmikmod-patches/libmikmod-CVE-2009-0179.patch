@@ -1,0 +1,33 @@
+diff -ur libmikmod-3.1.11.orig/loaders/load_xm.c libmikmod-3.1.11/loaders/load_xm.c
+--- libmikmod-3.1.11.orig/loaders/load_xm.c	2004-01-21 18:43:53.000000000 +0100
++++ libmikmod-3.1.11/loaders/load_xm.c	2008-04-16 04:30:45.000000000 +0200
+@@ -622,7 +622,8 @@
+ 				/* read the remainder of the header */
+ 				for(u=headend-_mm_ftell(modreader);u;u--) _mm_read_UBYTE(modreader);
+ 
+-				if(_mm_eof(modreader)) {
++				/* last instrument is at the end of file in version 0x0104 */
++				if(_mm_eof(modreader) && (mh->version<0x0104 || t<of.numins-1)) {
+ 					free(nextwav);free(wh);
+ 					nextwav=NULL;wh=NULL;
+ 					_mm_errno = MMERR_LOADING_SAMPLEINFO;
+diff -ur libmikmod-3.1.11.orig/playercode/mloader.c libmikmod-3.1.11/playercode/mloader.c
+--- libmikmod-3.1.11.orig/playercode/mloader.c	2004-01-21 18:43:53.000000000 +0100
++++ libmikmod-3.1.11/playercode/mloader.c	2008-04-16 04:30:45.000000000 +0200
+@@ -450,10 +450,12 @@
+ 	if (!l->Init || l->Init()) {
+ 		_mm_rewind(modreader);
+ 		ok = l->Load(curious);
+-		/* propagate inflags=flags for in-module samples */
+-		for (t = 0; t < of.numsmp; t++)
+-			if (of.samples[t].inflags == 0)
+-				of.samples[t].inflags = of.samples[t].flags;
++		if (ok) {
++			/* propagate inflags=flags for in-module samples */
++			for (t = 0; t < of.numsmp; t++)
++				if (of.samples[t].inflags == 0)
++					of.samples[t].inflags = of.samples[t].flags;
++		}
+ 	} else
+ 		ok = 0;
+ 
