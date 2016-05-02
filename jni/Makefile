@@ -8,7 +8,7 @@ ndkcleanobj=rm -rf $(NDK_PROJECT_PATH)/obj/
 
 prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
 	&& chmod u+x $(LIMBO_JNI_ROOT)/qemu/configure \
-	&& dos2unix -R $(LIMBO_JNI_ROOT)/qemu/scripts \
+	&& dos2unix $(LIMBO_JNI_ROOT)/qemu/scripts/* \
 	&& chmod u+x -R $(LIMBO_JNI_ROOT)/qemu/scripts
 
 ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb
