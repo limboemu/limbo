@@ -23,7 +23,11 @@
 #define QEMU_CAPS_LOCK_LED   (1 << 2)
 
 /* in ms */
+#ifdef __LIMBO__
+#define GUI_REFRESH_INTERVAL_DEFAULT   50
+#else
 #define GUI_REFRESH_INTERVAL_DEFAULT   100
+#endif //__LIMBO__
 #define GUI_REFRESH_INTERVAL_IDLE     3000
 
 typedef void QEMUPutKBDEvent(void *opaque, int keycode);
