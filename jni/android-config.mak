@@ -3,7 +3,7 @@
 
 ####### GLOBAL CONFIGURATION
 # Faster Builds with multiple threads
-BUILD_THREADS=3
+BUILD_THREADS=4
 
 #PLATFORM CONFIG
 APP_PLATFORM = android-19
