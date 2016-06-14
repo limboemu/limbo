@@ -119,12 +119,11 @@ public class SDLActivityCommon extends SDLActivity {
 	private static EGLDisplay mEGLDisplay;
 	private static EGLConfig mEGLConfig;
 	private static int mGLMajor, mGLMinor;
-	
+
 	public static int width;
 	public static int height;
 	public static int screen_width;
 	public static int screen_height;
-
 
 	private static Activity activity1;
 
@@ -403,7 +402,6 @@ public class SDLActivityCommon extends SDLActivity {
 
 	}
 
-	
 	public void startTimeListener() {
 		this.stopTimeListener();
 		timeQuit = false;
@@ -435,9 +433,9 @@ public class SDLActivityCommon extends SDLActivity {
 			drives = new DrivesDialogBox(activity1, R.style.Transparent, this, LimboActivity.enableCDROM,
 					LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
 			drives.show();
-		}else if (item.getItemId() == R.id.itemReset) {
+		} else if (item.getItemId() == R.id.itemReset) {
 			resetVM();
-		}  else if (item.getItemId() == R.id.itemShutdown) {
+		} else if (item.getItemId() == R.id.itemShutdown) {
 			stopVM(false);
 		} else if (item.getItemId() == R.id.itemMouse) {
 			promptMouse();
@@ -602,7 +600,7 @@ public class SDLActivityCommon extends SDLActivity {
 					}
 				}).show();
 	}
-	
+
 	public void stopVM(boolean exit) {
 
 		new AlertDialog.Builder(this).setTitle("Shutdown VM")
@@ -716,19 +714,20 @@ public class SDLActivityCommon extends SDLActivity {
 		// menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
 		// }
 
-		//Remove snapshots for now
-		 menu.removeItem(menu.findItem(R.id.itemSaveSnapshot).getItemId());
-		 
-		 //Remove Monitor console for SDL2 it creates 2 SDL windows and SDL for android supports only 1
-		 menu.removeItem(menu.findItem(R.id.itemMonitor).getItemId());
-		 
-//		 if (this.monitorMode) {
-//		 menu.findItem(R.id.itemMonitor).setTitle("VM Console");
-//		
-//		 } else {
-//		 menu.findItem(R.id.itemMonitor).setTitle("Monitor Console");
-//		
-//		 }
+		// Remove snapshots for now
+		menu.removeItem(menu.findItem(R.id.itemSaveSnapshot).getItemId());
+
+		// Remove Monitor console for SDL2 it creates 2 SDL windows and SDL for
+		// android supports only 1
+		menu.removeItem(menu.findItem(R.id.itemMonitor).getItemId());
+
+		// if (this.monitorMode) {
+		// menu.findItem(R.id.itemMonitor).setTitle("VM Console");
+		//
+		// } else {
+		// menu.findItem(R.id.itemMonitor).setTitle("Monitor Console");
+		//
+		// }
 		//
 		// // Menu inputMenu = menu.findItem(R.id.itemInputMode).getSubMenu();
 		//
@@ -749,10 +748,11 @@ public class SDLActivityCommon extends SDLActivity {
 		new Thread(new Runnable() {
 			public void run() {
 				monitorMode = true;
-//				final KeyEvent altDown = new KeyEvent(downTime, eventTime, KeyEvent.ACTION_DOWN,
-//                        KeyEvent.KEYCODE_2, 1, KeyEvent.META_ALT_LEFT_ON);
+				// final KeyEvent altDown = new KeyEvent(downTime, eventTime,
+				// KeyEvent.ACTION_DOWN,
+				// KeyEvent.KEYCODE_2, 1, KeyEvent.META_ALT_LEFT_ON);
 				sendCtrlAtlKey(KeyEvent.KEYCODE_2);
-//				sendCtrlAtlKey(altDown);
+				// sendCtrlAtlKey(altDown);
 				Log.v("Limbo", "Monitor On");
 			}
 		}).start();
@@ -924,11 +924,12 @@ public class SDLActivityCommon extends SDLActivity {
 		alertDialog.show();
 
 	}
+
 	public void pausedVM() {
 
 		LimboActivity.vmexecutor.paused = 1;
 		((LimboActivity) LimboActivity.activity).saveStateVMDB();
-		
+
 		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
 				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
@@ -942,6 +943,7 @@ public class SDLActivityCommon extends SDLActivity {
 					}
 				}).show();
 	}
+
 	private String checkCompletion() {
 		String save_state = "";
 		String pause_state = "";
@@ -1006,19 +1008,17 @@ public class SDLActivityCommon extends SDLActivity {
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 
-	
 		if (Config.disableTitleBar || android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.LOLLIPOP) {
 			requestWindowFeature(Window.FEATURE_NO_TITLE);
 		}
-		if(Config.enable_qemu_fullScreen)
-			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-		
+		if (Config.enable_qemu_fullScreen)
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
 		if (LimboSettingsManager.getOrientationReverse(this))
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
 
-		
 		createUI(0, 0);
-
 
 		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_SHORT);
 		toast.setGravity(Gravity.TOP | Gravity.CENTER, 0, 0);
@@ -1027,7 +1027,7 @@ public class SDLActivityCommon extends SDLActivity {
 
 	public SDLSurface getSDLSurface() {
 		// TODO Auto-generated method stub
-		if(mSurface == null)
+		if (mSurface == null)
 			mSurface = new SDLSurface(getApplication());
 		return mSurface;
 	}
@@ -1050,7 +1050,7 @@ public class SDLActivityCommon extends SDLActivity {
 
 		// mSurface.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 		// setContentView(mSurface);
-		
+
 		int width = w;
 		int height = h;
 		if (width == 0) {
@@ -1067,7 +1067,7 @@ public class SDLActivityCommon extends SDLActivity {
 		surfaceParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 
 		mLayout.addView(mSurface, surfaceParams);
-		
+
 		SurfaceHolder holder = mSurface.getHolder();
 		setScreenSize();
 	}
@@ -1106,10 +1106,8 @@ public class SDLActivityCommon extends SDLActivity {
 	static int COMMAND_CHANGE_TITLE = 1;
 	static int COMMAND_SAVEVM = 2;
 
-	
-
 	public void loadLibraries() {
-		//No loading of .so we do it outside
+		// No loading of .so we do it outside
 	}
 
 	public void onRestartVM() {
@@ -1126,7 +1124,7 @@ public class SDLActivityCommon extends SDLActivity {
 		});
 		t.start();
 	}
-	
+
 	public void promptPause(final Activity activity) {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
@@ -1152,7 +1150,7 @@ public class SDLActivityCommon extends SDLActivity {
 		alertDialog.show();
 
 	}
-	
+
 	public void startSaveVMListener() {
 		this.stopTimeListener();
 		timeQuit = false;
@@ -1179,61 +1177,66 @@ public class SDLActivityCommon extends SDLActivity {
 		Log.v("Listener", "Time listener thread exited...");
 
 	}
+
 	private void onQMP() {
 		monitorMode = true;
 		sendCtrlAtlKey(KeyEvent.KEYCODE_2);
 
 	}
-//	private void onPauseVM() {
-//		Thread t = new Thread(new Runnable() {
-//			public void run() {
-//				// Delete any previous state file
-//				if (LimboActivity.vmexecutor.save_state_name != null) {
-//					File file = new File(LimboActivity.vmexecutor.save_state_name);
-//					if (file.exists()) {
-//						file.delete();
-//					}
-//				}
-//
-//				LimboActivity.vmexecutor.paused = 1;
-//				((LimboActivity) LimboActivity.activity).saveStateVMDB();
-//
-//				onQMP();
-//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//					@Override
-//					public void run() {
-//						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_LONG)
-//								.show();
-//					}
-//				}, 500);
-//				try {
-//					Thread.sleep(500);
-//				} catch (InterruptedException ex) {
-//					Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-//				}
-//
-//				String commandStop = "stop\n";
-//				for (int i = 0; i < commandStop.length(); i++)
-//					sendText(commandStop.charAt(i) + "");
-//				
-//				String commandMigrate = "migrate fd:"
-//						+ LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name) + "\n";
-//				for (int i = 0; i < commandMigrate.length(); i++)
-//					sendText(commandMigrate.charAt(i) + "");
-//
-//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//					@Override
-//					public void run() {
-//						VMListener a = new VMListener();
-//						a.execute();
-//					}
-//				}, 0);
-//			}
-//		});
-//		t.start();
-//
-//	}
-	
+	// private void onPauseVM() {
+	// Thread t = new Thread(new Runnable() {
+	// public void run() {
+	// // Delete any previous state file
+	// if (LimboActivity.vmexecutor.save_state_name != null) {
+	// File file = new File(LimboActivity.vmexecutor.save_state_name);
+	// if (file.exists()) {
+	// file.delete();
+	// }
+	// }
+	//
+	// LimboActivity.vmexecutor.paused = 1;
+	// ((LimboActivity) LimboActivity.activity).saveStateVMDB();
+	//
+	// onQMP();
+	// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+	// @Override
+	// public void run() {
+	// Toast.makeText(getApplicationContext(), "Please wait while saving VM
+	// State", Toast.LENGTH_LONG)
+	// .show();
+	// }
+	// }, 500);
+	// try {
+	// Thread.sleep(500);
+	// } catch (InterruptedException ex) {
+	// Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE,
+	// null, ex);
+	// }
+	//
+	// String commandStop = "stop\n";
+	// for (int i = 0; i < commandStop.length(); i++)
+	// sendText(commandStop.charAt(i) + "");
+	//
+	// String commandMigrate = "migrate fd:"
+	// +
+	// LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name)
+	// + "\n";
+	// for (int i = 0; i < commandMigrate.length(); i++)
+	// sendText(commandMigrate.charAt(i) + "");
+	//
+	// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+	// @Override
+	// public void run() {
+	// VMListener a = new VMListener();
+	// a.execute();
+	// }
+	// }, 0);
+	// }
+	// });
+	// t.start();
+	//
+	// }
+
 	private void onPauseVM() {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
@@ -1245,8 +1248,6 @@ public class SDLActivityCommon extends SDLActivity {
 					}
 				}
 
-
-
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
@@ -1254,7 +1255,7 @@ public class SDLActivityCommon extends SDLActivity {
 								.show();
 					}
 				}, 0);
-				
+
 				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
 				String command = QmpClient.stop();
 				String msg = QmpClient.sendCommand(command);
@@ -1271,25 +1272,27 @@ public class SDLActivityCommon extends SDLActivity {
 						pausedVM();
 					}
 				}, 1000);
-				
-//				final String msg = LimboActivity.vmexecutor.pausevm(uri);
-//				Log.i(TAG, msg);
-//				
-//
-//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//					@Override
-//					public void run() {
-//						Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-//						VMListener a = new VMListener();
-//						a.execute();
-//					}
-//				}, 0);
+
+				// final String msg = LimboActivity.vmexecutor.pausevm(uri);
+				// Log.i(TAG, msg);
+				//
+				//
+				// new Handler(Looper.getMainLooper()).postDelayed(new
+				// Runnable() {
+				// @Override
+				// public void run() {
+				// Toast.makeText(getApplicationContext(), msg,
+				// Toast.LENGTH_SHORT).show();
+				// VMListener a = new VMListener();
+				// a.execute();
+				// }
+				// }, 0);
 			}
 		});
 		t.start();
 
 	}
-	
+
 	private class VMListener extends AsyncTask<Void, Void, Void> {
 
 		@Override
@@ -1306,5 +1309,12 @@ public class SDLActivityCommon extends SDLActivity {
 
 		}
 	}
-	
+
+	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+		this.mSurface.onTouch(this.mSurface, event);
+		this.mSurface.onTouchEvent(event);
+		return true;
+	}
+
 }
