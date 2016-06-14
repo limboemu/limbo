@@ -19,11 +19,6 @@
 package com.max2idea.android.limbo.jni;
 
 import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.util.HashMap;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
@@ -34,13 +29,8 @@ import com.max2idea.android.limbo.utils.Machine;
 import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import android.widget.Toast;
 
 public class VMExecutor {
 
@@ -105,6 +95,8 @@ public class VMExecutor {
 	public String name;
 	private String save_dir;
 	public int enablespice = 0;
+	private String qmp_server;
+	private int qmp_port;
 
 	/**
 	 */
@@ -123,6 +115,8 @@ public class VMExecutor {
 		this.disablehpet = machine.disablehpet;
 		this.disablefdbootchk = machine.disablefdbootchk;
 		this.enableqmp = machine.enableqmp;
+		this.qmp_server = Config.QMPServer;
+		this.qmp_port = Config.QMPPort;
 		this.enablevnc = machine.enablevnc;
 		this.enablevnc = machine.enablespice;
 		if (!machine.soundcard.equals("none"))

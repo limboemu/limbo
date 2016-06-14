@@ -103,6 +103,8 @@ public class Config {
 	public static final String defaultDNSServer = "8.8.8.8";
 	public static final String defaultUI = "VNC";
 	public static String state_filename = "vm.state";
+	public static String QMPServer = "localhost"; 
+	public static int QMPPort = 4444;
 	
 	// App Config
 	public static final String downloadLink = "http://limboemulator.weebly.com/downloads";

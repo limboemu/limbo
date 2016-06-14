@@ -69,7 +69,7 @@ public class Machine {
 	
 	public int bluetoothmouse = 0;
 	
-        public int enableqmp = 0;
+        public int enableqmp = 1;
         public int enablevnc = 1;
 	public int status = Config.STATUS_NULL;
 

@@ -17,7 +17,6 @@
  *
  */
 #include <jni.h>
-//#include <stdlib.h>
 #include <stdio.h>
 #include "limbo_logutils.h"
 #include "vm-executor-jni.h"
@@ -607,6 +606,14 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jsave_state_name != NULL)
 		save_state_name_str = (*env)->GetStringUTFChars(env, jsave_state_name, 0);
 
+	fid = (*env)->GetFieldID(env, c, "qmp_port", "I");
+	int qmp_port = (*env)->GetIntField(env, thiz, fid);
+
+	fid = (*env)->GetFieldID(env, c, "qmp_server", "Ljava/lang/String;");
+	jstring jqmp_server = (*env)->GetObjectField(env, thiz, fid);
+	const char * qmp_server_str = NULL;
+	if (jqmp_server != NULL)
+		qmp_server_str  = (*env)->GetStringUTFChars(env, jqmp_server, 0);
 
 	fid = (*env)->GetFieldID(env, c, "vnc_passwd", "Ljava/lang/String;");
 	jstring jvnc_passwd = (*env)->GetObjectField(env, thiz, fid);
@@ -829,15 +836,10 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 		strcpy(argv[param++], "-incoming");
 
-		//FIXME: filename not working for now we use fd number
-//		strcpy(argv[param], "fd:<");
-//		strcat(argv[param++], save_state_name_str);
-
 		char fd[5];
 		sprintf(fd,"%d",fd_save_state);
 		strcpy(argv[param], "fd:");
 		strcat(argv[param++], fd);
-
 
 	}
 
@@ -861,11 +863,20 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], "-no-fd-bootchk"); //        disable FD Boot Check
 	}
 
-	if (enableqmp) { //Not working
+	if (enableqmp) {
+		char port_num_str[MAX_STRING_LEN] = "";
+		sprintf(port_num_str, "%d", qmp_port);
+
 		LOGV("Enable qmp server");
-		strcpy(argv[param++], "-qmp tcp:0:4444,server");
+		strcpy(argv[param++], "-qmp");
+		strcpy(argv[param], "tcp:");
+		strcat(argv[param], qmp_server_str);
+		strcat(argv[param], ":");
+		strcat(argv[param], port_num_str);
+		strcat(argv[param++], ",server,nowait");
 	}
 
+	//XXX: Extra options
 	//    strcpy(argv[param++], "-D");
 	//    strcpy(argv[param++], "/sdcard/limbo/log.txt");
 	//    strcpy(argv[param++], "-win2k-hack");     //use it when installing Windows 2000 to avoid a disk full bug
@@ -886,6 +897,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		} else
 			strcpy(argv[param++], "localhost:1"); // Allow only connections from localhost without password
 	} else if (enablespice) {
+		//Not working right now
 		LOGV("Enable SPICE server");
 		strcpy(argv[param++], "-spice");
 		strcpy(argv[param], "port=5902");
@@ -928,16 +940,13 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	//XXX: Usb redir not working under User mode
 	//Redirect ports (SSH)
-//	strcpy(argv[param++], "-redir");
-//	strcpy(argv[param++], "5555::22");
+	//	strcpy(argv[param++], "-redir");
+	//	strcpy(argv[param++], "5555::22");
 
 	LOGV("Preparing args param=%d", param);
 	param++;
 	argv[param] = NULL;
 	int argc = param - 1;
-//	for (i = 0; i < argc; i++) {
-//		LOGV("Arg(%d): %s", i, argv[i]);
-//	}
 
 	int k = 0;
 	char ** argvs = (char **) malloc(param * sizeof(*argvs));
@@ -947,7 +956,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 	argvs[param] = NULL;
 
-	// XXX: install our handler
+	// XXX: install our debug handler
 	//signal(SIGSEGV, print_stack_trace);
 
 	LOGV("***************** INIT QEMU ************************");
@@ -965,6 +974,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		return (*env)->NewStringUTF(env, res_msg);
 	}
 
+	//FIXME: below option should use the QMP Client instead from java
 	//Set DNS Workaround
 	typedef void (*set_dns_addr_str_t)();
 	dlerror();

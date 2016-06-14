@@ -17,6 +17,7 @@ import com.max2idea.android.limbo.main.LimboSettingsManager;
 import com.max2idea.android.limbo.main.LimboVNCActivity;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.Machine;
+import com.max2idea.android.limbo.utils.QmpClient;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -1255,18 +1256,32 @@ public class SDLActivityCommon extends SDLActivity {
 				}, 0);
 				
 				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
-				final String msg = LimboActivity.vmexecutor.pausevm(uri);
-				Log.i(TAG, msg);
 				
+				String command = "{\"execute\":\"migrate\",\"arguments\":{\"detach\":true,\"blk\":true,\"inc\":false,\"uri\":\""
+						+ uri + "\"},\"id\":\"limbo\"}";
+				final String msg = QmpClient.sendCommand(command);
+				if (msg != null)
+					Log.i(TAG, msg);
 
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
-						Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-						VMListener a = new VMListener();
-						a.execute();
+						pausedVM();
 					}
-				}, 0);
+				}, 100);
+				
+//				final String msg = LimboActivity.vmexecutor.pausevm(uri);
+//				Log.i(TAG, msg);
+//				
+//
+//				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//					@Override
+//					public void run() {
+//						Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+//						VMListener a = new VMListener();
+//						a.execute();
+//					}
+//				}, 0);
 			}
 		});
 		t.start();
