@@ -1,4 +1,16 @@
 <br>
+Limbo v2.2<br>
+-Fixed several Issues with SDL<br> 
+-Enabled QMP Server for saving vm state<br>
+<br>
+
+<br>
+Limbo v2.1 alpha<br>
+-Added SDL interface<br>
+-Misc Performance Enhancements<br>
+<br>
+
+<br>
 Limbo v2.0<br>
 -Rebase with Qemu 2.3.0<br>
 -Hard FP support<br>
