@@ -1267,7 +1267,7 @@ public class SDLActivityCommon extends SDLActivity {
 					public void run() {
 						pausedVM();
 					}
-				}, 100);
+				}, 1000);
 				
 //				final String msg = LimboActivity.vmexecutor.pausevm(uri);
 //				Log.i(TAG, msg);
