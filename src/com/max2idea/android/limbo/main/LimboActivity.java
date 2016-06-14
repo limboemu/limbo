@@ -1323,7 +1323,7 @@ public class LimboActivity extends Activity {
 		PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
 				PackageManager.GET_META_DATA);
 
-		if (version * 100 > pInfo.versionCode) {
+		if ((int) (version * 100) > pInfo.versionCode) {
 			new Handler(Looper.getMainLooper()).post(new Runnable() {
 				@Override
 				public void run() {
