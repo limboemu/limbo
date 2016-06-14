@@ -65,7 +65,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public static final int KEYBOARD = 10000;
 	public static final int QUIT = 10001;
 	public static final int HELP = 10002;
-	private boolean qmpMode = false;
+	private boolean monitorMode = false;
 	private boolean mouseOn = false;
 	private Object lockTime = new Object();
 	private boolean timeQuit = false;
@@ -311,7 +311,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
 			drives.show();
 		} else if (item.getItemId() == R.id.itemMonitor) {
-			if (this.qmpMode) {
+			if (this.monitorMode) {
 				this.onVNC();
 			} else {
 				this.onQMP();
@@ -401,7 +401,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
 		}
 
-		if (this.qmpMode) {
+		if (this.monitorMode) {
 			menu.findItem(R.id.itemMonitor).setTitle("VM Display");
 
 		} else {
@@ -456,13 +456,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	private void onQMP() {
-		qmpMode = true;
+		monitorMode = true;
 		vncCanvas.sendMetaKey1(50, 6);
 
 	}
 
 	private void onVNC() {
-		qmpMode = false;
+		monitorMode = false;
 		vncCanvas.sendMetaKey1(49, 6);
 	}
 
@@ -585,8 +585,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				// LimboActivity.vmexecutor.save_state_name;
 				// final String msg = LimboActivity.vmexecutor.pausevm(uri);
 
-				String command = "{\"execute\":\"migrate\",\"arguments\":{\"detach\":true,\"blk\":true,\"inc\":false,\"uri\":\""
-						+ uri + "\"},\"id\":\"limbo\"}";
+				String command = QmpClient.migrate(true, false, false, uri);
 				final String msg = QmpClient.sendCommand(command);
 				if (msg != null)
 					Log.i(TAG, msg);
@@ -596,7 +595,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					public void run() {
 						pausedVM();
 					}
-				}, 100);
+				}, 1000);
 				
 				// new Handler(Looper.getMainLooper()).postDelayed(new
 				// Runnable() {
