@@ -38,7 +38,7 @@ ARCH_CFLAGS += -Wno-psabi
 
 # Optimization
 #ANDROID_OPTIM_FLAGS = -O0
-ANDROID_OPTIM_FLAGS = -O4
+ANDROID_OPTIM_FLAGS = -O5
                                    
 
 ARCH_CFLAGS += $(ANDROID_OPTIM_FLAGS)
