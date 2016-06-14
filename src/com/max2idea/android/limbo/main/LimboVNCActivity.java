@@ -584,9 +584,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				// String uri = "exec:cat>" +
 				// LimboActivity.vmexecutor.save_state_name;
 				// final String msg = LimboActivity.vmexecutor.pausevm(uri);
+				String command = QmpClient.stop();
+				String msg = QmpClient.sendCommand(command);
+				if (msg != null)
+					Log.i(TAG, msg);
 
-				String command = QmpClient.migrate(true, false, false, uri);
-				final String msg = QmpClient.sendCommand(command);
+				command = QmpClient.migrate(false, false, uri);
+				msg = QmpClient.sendCommand(command);
 				if (msg != null)
 					Log.i(TAG, msg);
 

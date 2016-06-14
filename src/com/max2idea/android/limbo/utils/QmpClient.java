@@ -34,10 +34,6 @@ public class QmpClient {
 			response = getResponse(in);
 			sendRequest(out, command);
 			response = getResponse(in);
-			response = getResponse(in);
-			if (response.equals("STOP")) {
-
-			}
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -81,16 +77,6 @@ public class QmpClient {
 
 				}
 
-				try {
-
-					String event = object.getString("event");
-					if (event != null) {
-						return event;
-					}
-				} catch (Exception ex) {
-
-				}
-
 				stringBuilder.append(line);
 			} else
 				break;
@@ -98,11 +84,22 @@ public class QmpClient {
 		return stringBuilder.toString();
 	}
 
-	public static String migrate(boolean detach, boolean block, boolean inc, String uri) {
+	public static String migrate(boolean block, boolean inc, String uri) {
 		// TODO Auto-generated method stub
-		return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach + ",\"blk\":" + block + ",\"inc\":" + inc
+		//XXX: Detach should not be used in QMP according to docs
+//		return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach + ",\"blk\":" + block + ",\"inc\":" + inc
+//				+ ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";
+		
+		//its better not to use block (full disk copy) cause its slow (though safer)
+		// see qmp-commands.hx for more info
+		return "{\"execute\":\"migrate\",\"arguments\":{\"blk\":" + block + ",\"inc\":" + inc
 				+ ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";
 
 	}
 
+	public static String stop() {
+		return "{ \"execute\": \"stop\" }";
+
+	}
+	
 }

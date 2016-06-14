@@ -1256,9 +1256,12 @@ public class SDLActivityCommon extends SDLActivity {
 				}, 0);
 				
 				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
-				
-				String command = QmpClient.migrate(true, false, false, uri);
-				final String msg = QmpClient.sendCommand(command);
+				String command = QmpClient.stop();
+				String msg = QmpClient.sendCommand(command);
+				if (msg != null)
+					Log.i(TAG, msg);
+				command = QmpClient.migrate(false, false, uri);
+				msg = QmpClient.sendCommand(command);
 				if (msg != null)
 					Log.i(TAG, msg);
 
