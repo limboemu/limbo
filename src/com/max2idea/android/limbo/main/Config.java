@@ -80,8 +80,8 @@ public class Config {
 	};
 
 	// GUI Options
-	public static final boolean enable_SDL_menu = true; //Option for GUI
-	public static final boolean enable_SDL_libs = true; //Enable always if you build QEMU with SDL Support
+	public static final boolean enable_SDL_menu = false; //Option for GUI
+	public static final boolean enable_SDL_libs = false; //Enable always if you build QEMU with SDL Support
 	public static final boolean enable_SPICE_menu = false;
 	public static final boolean enable_SPICE = false;
 	public static final boolean enable_sound_menu = false; //Option for GUI
@@ -127,7 +127,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = true;
+	public static final boolean debug = false;
 	public static final DebugMode debugMode = DebugMode.X86;
 	
 	

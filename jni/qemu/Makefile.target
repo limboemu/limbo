@@ -189,11 +189,14 @@ $(QEMU_PROG_BUILD): config-devices.mak
 
 #spicelib=../../../obj/local/$(APP_ABI)/libspice.so
 
+ifeq ($(USE_SDL),true)
+	sdllibs = ../../../obj/local/$(APP_ABI)/libSDL2.so ../../../obj/local/$(APP_ABI)/libSDL2_image.so
+endif
 
-sdllibs=\
-	../../../obj/local/$(APP_ABI)/libSDL2.so \
-	../../../obj/local/$(APP_ABI)/libSDL2_image.so \
-	../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
+ifeq ($(USE_SDL_AUDIO),true)
+	sdlaudiolibs = ../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
+endif
+
 
 glibs=../../../obj/local/$(APP_ABI)/libglib-2.0.so \
 	../../../obj/local/$(APP_ABI)/libgthread-2.0.so \
@@ -233,6 +236,7 @@ $(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(pixmanlib) \
 	$(iconvlib) \
 	$(sdllibs) \
+	$(sdlaudiolibs) \
 	$(USR_LIB) \
 	-llog $(LM) -lz -lstdc++ -lc -dl \
 	$(LIMBO_LD_FLAGS) \

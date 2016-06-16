@@ -3,7 +3,7 @@
 
 ####### GLOBAL CONFIGURATION
 # Faster Builds with multiple threads
-BUILD_THREADS=6
+BUILD_THREADS=4
 
 #PLATFORM CONFIG
 APP_PLATFORM = android-19
@@ -11,6 +11,12 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # Uncomment if you use NDK11 and above
 #USE_NDK11 = -D__NDK11_FUNC_MISSING__
+
+# If you want to use SDL
+USE_SDL ?= false
+
+# If you want to use SDL Audio (currently not working)
+USE_SDL_AUDIO ?= false
 
 ################## ENVIRONMENT CONFIG
 ####### Windows/Cygwin
@@ -41,7 +47,7 @@ NDK_ENV = windows-x86_64
 
 ######### ARMv7 Hard Float (SDL interface not working)
 # ARMv7 Hard Float Generic Hard float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 # ARMv7 Hard Float Generic Hard float No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard-noopt.mak
@@ -49,7 +55,7 @@ NDK_ENV = windows-x86_64
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 # ARMv7 Generic soft float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak

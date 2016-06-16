@@ -23,8 +23,16 @@ SDLSRC := limbo-android-sdl.c $(TEST_SRC)
 # Add your application source files here...
 LOCAL_SRC_FILES := $(LOCAL_PATH)/$(SDLSRC)
 
+LOCAL_SHARED_LIBRARIES := png jpeg
 
-LOCAL_SHARED_LIBRARIES := SDL2 SDL2_image SDL2_mixer SDL_ttf png jpeg
+ifeq ($(USE_SDL),true)
+	LOCAL_SHARED_LIBRARIES += SDL2
+	LOCAL_SHARED_LIBRARIES += SDL2_image
+endif
+
+ifeq ($(USE_SDL_AUDIO),true)
+	LOCAL_SHARED_LIBRARIES += SDL2_mixer
+endif
 
 LOCAL_LDLIBS := -lGLESv1_CM -llog
 

@@ -20,11 +20,15 @@ COROUTINE_POOL = --enable-coroutine-pool
 #Enable Internal profiler
 #CONFIG_PROFILER = --enable-gprof
 
-#ENABLE SDL
-SDL = --enable-sdl 
-#SDL += --with-sdlabi=1.2
-SDL += --with-sdlabi=2.0
-#SDL = --disable-sdl
+ifeq ($(USE_SDL),true)
+	#ENABLE SDL
+	SDL = --enable-sdl 
+	#SDL += --with-sdlabi=1.2
+	SDL += --with-sdlabi=2.0
+else 
+	# DISABLE
+	SDL = --disable-sdl
+endif
 
 # Set SDL Software rendering (issue with pause/resume)
 #SDL_RENDERING = -D__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__
@@ -34,9 +38,13 @@ SDL_RENDERING = -D__LIMBO_SDL_FORCE_HARDWARE_RENDERING__
 
 #ENABLE SOUND VIA SDL 
 # Currently hanging QEMU anyway too high latency so we disable for now
-#AUDIO += --audio-drv-list=sdl 
-# DISABLE
-AUDIO += --audio-drv-list=
+
+ifeq ($(USE_SDL_AUDIO),true)
+	AUDIO += --audio-drv-list=sdl
+else 
+	# DISABLE
+	AUDIO += --audio-drv-list=
+endif
 
 # NOT USED
 #AUDIO += --audio-card-list= --audio-drv-list=

@@ -31,6 +31,3 @@ LOCAL_STATIC_LIBRARIES += liblimbocompat
 LOCAL_ARM_MODE := $(ARM_MODE)
 
 include $(BUILD_SHARED_LIBRARY)
-
-#Uncomment to build SDL
-include $(LOCAL_PATH)/sdl_main/Android.mk
