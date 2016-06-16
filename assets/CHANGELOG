@@ -1,4 +1,9 @@
 <br>
+Limbo v2.2.1<br>
+-Fixed lib loading issue for Jellybean<br>
+<br>
+
+<br>
 Limbo v2.2<br>
 -Fixed several Issues with SDL<br> 
 -Enabled QMP Server for saving vm state<br>
