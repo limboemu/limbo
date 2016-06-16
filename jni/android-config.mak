@@ -13,7 +13,7 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 #USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
 # If you want to use SDL
-USE_SDL ?= false
+USE_SDL ?= true
 
 # If you want to use SDL Audio (currently not working)
 USE_SDL_AUDIO ?= false
@@ -47,7 +47,7 @@ NDK_ENV = windows-x86_64
 
 ######### ARMv7 Hard Float (SDL interface not working)
 # ARMv7 Hard Float Generic Hard float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 # ARMv7 Hard Float Generic Hard float No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard-noopt.mak
@@ -55,7 +55,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 # ARMv7 Generic soft float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
