@@ -1,10 +1,11 @@
 package org.libsdl.app;
 
 import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.main.LimboSDLActivity;
+import com.max2idea.android.limbo.main.LimboSDLActivityCompat;
 
-import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
@@ -13,8 +14,8 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.media.AudioAttributes;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.Display;
@@ -95,10 +96,22 @@ public class SDLSurface extends GLSurfaceView
 	private void reSize() {
 		// TODO Auto-generated method stub
 		Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
-		Point size = new Point();
-		display.getSize(size);
+		int height;
+		int width;
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB_MR2) {
+			Point size = new Point();
+			display.getSize(size);
+			width = size.x;
+			height = size.y;
+		} else {
+			width = display.getWidth();
+			height = display.getHeight();
+		}
+
+	
 		
-		float currentRatio = (float) size.x / size.y;
+		
+		float currentRatio = (float) width / height;
 		if(this.getHeight() != 0)
 			currentRatio = (float) this.getWidth() / this.getHeight();
 		
@@ -106,15 +119,15 @@ public class SDLSurface extends GLSurfaceView
 		if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
 			if(!initialized){
-				getHolder().setFixedSize(size.x, (int) (size.y / 2) );
+				getHolder().setFixedSize(width, (int) (height / 2) );
 			}else
-			getHolder().setFixedSize(size.x, (int) (size.x / currentRatio) );
+			getHolder().setFixedSize(width, (int) (width / currentRatio) );
 		} else if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			if (Config.enableSDLAlwaysFullscreen)
-				getHolder().setFixedSize(size.x, size.y);
+				getHolder().setFixedSize(width, height);
 			else
-				getHolder().setFixedSize(size.x, size.y / 2);
+				getHolder().setFixedSize(width, height / 2);
 		}
 		initialized = true;
 
@@ -204,7 +217,10 @@ public class SDLSurface extends GLSurfaceView
 			break;
 		}
 
-		Log.v("Limbo", "Surface Hardware Acceleration: " + this.isHardwareAccelerated());
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB) {
+			Log.v("Limbo", "Surface Hardware Acceleration: " + this.isHardwareAccelerated());
+		}
+		
 		mWidth = width;
 		mHeight = height;
 		SDLActivity.onNativeResize(width, height, sdlFormat, mDisplay.getRefreshRate());
