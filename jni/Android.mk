@@ -13,7 +13,7 @@ include $(NDK_PROJECT_PATH)/jni/compat/Android.mk
 ifeq ($(USE_SDL),true)
 	include $(NDK_PROJECT_PATH)/jni/SDL/Android.mk
 	include $(NDK_PROJECT_PATH)/jni/SDL_image/Android.mk
-	include $(LOCAL_PATH)/sdl_main/Android.mk
+	include $(NDK_PROJECT_PATH)/jni/limbo/sdl_main/Android.mk
 endif
 
 ifeq ($(USE_SDL_AUDIO),true)
