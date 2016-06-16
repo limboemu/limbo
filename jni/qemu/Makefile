@@ -41,6 +41,10 @@ else
 config-host.mak:
 ifneq ($(filter-out %clean,$(MAKECMDGOALS)),$(if $(MAKECMDGOALS),,fail))
 	@echo "Please call configure before running make!"
+	@echo "****************************************"
+	@echo "Please execute > make config"
+	@echo "Read Limbo README file for more info"
+	@echo "****************************************"
 	@exit 1
 endif
 endif

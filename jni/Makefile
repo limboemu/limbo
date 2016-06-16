@@ -20,6 +20,8 @@ DEL_LIBSDIR=rm -rf $(NDK_PROJECT_PATH)/libs/armeabi \
 	../libs/x86 ../libs/mips \   
 INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 	../libs/$(APP_ABI_DIR)/
+REMOVE_GDB=rm ../libs/$(APP_ABI_DIR)/gdb.setup; rm ../libs/$(APP_ABI_DIR)/gdbserver;
+  
 #RENAME_TUNCTL=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/tunctl \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
 #RENAME_PARPROUTED=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/parprouted \
@@ -40,7 +42,7 @@ endif
 	
 #debug is default
 # use "make release" for production version
-all: config-debug debug
+all: debug
 	
 	
 createdirs:
@@ -56,7 +58,7 @@ ndkclean:
 	$(ndkcleanobj) 
 	
 qemu:
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) -j $(BUILD_THREADS)
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) BUILD_THREADS=$(BUILD_THREADS)
 	
 #limbo: ndk config qemu
 #	$(MAKE) -f $(LIMBO_JNI_ROOT)/limbo.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
@@ -73,18 +75,19 @@ config:
 
 debug:
 	$(MAKE) ndk NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
-	$(MAKE) qemu NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=1
+	$(MAKE) qemu NDK_DEBUG=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
 	
-release: config
+release:
 	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
 	$(MAKE) qemu LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=1
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
 	$(STRIP_LIBS)
+	$(REMOVE_GDB)
 	
 ndk-gdb:
 	$(COPY_GDB_SETUP_LIBS)
