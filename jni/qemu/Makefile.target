@@ -190,11 +190,12 @@ $(QEMU_PROG_BUILD): config-devices.mak
 #spicelib=../../../obj/local/$(APP_ABI)/libspice.so
 
 ifeq ($(USE_SDL),true)
-	sdllibs = ../../../obj/local/$(APP_ABI)/libSDL2.so ../../../obj/local/$(APP_ABI)/libSDL2_image.so
+sdllibs=../../../obj/local/$(APP_ABI)/libSDL2.so \
+	../../../obj/local/$(APP_ABI)/libSDL2_image.so
 endif
 
 ifeq ($(USE_SDL_AUDIO),true)
-	sdlaudiolibs = ../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
+sdlaudiolibs=../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
 endif
 
 
