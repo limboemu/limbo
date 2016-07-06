@@ -49,6 +49,7 @@ import com.max2idea.android.limbo.utils.FileInstaller;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.androidVNC.ConnectionBean;
 import android.androidVNC.VncCanvas;
@@ -2732,7 +2733,7 @@ public class LimboActivity extends Activity {
 		    public void onClick ( View view ) {
 		    	EditText a = (EditText) alertDialog.findViewById(201012010);
 				if(a.getText().toString().trim().equals(""))
-					toastLong(activity, "Machine name cannot be empty");
+					UIUtils.toastLong(activity, "Machine name cannot be empty");
 				else {
 					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", a.getText().toString());
 					alertDialog.dismiss();
@@ -2917,19 +2918,6 @@ public class LimboActivity extends Activity {
 		}
 	}
 
-	public static void toastLong(final Context activity, final String errStr) {
-		new Handler(Looper.getMainLooper()).post(new Runnable() {
-			@Override
-			public void run() {
-
-				Toast toast = Toast.makeText(activity, errStr, Toast.LENGTH_LONG);
-				toast.setGravity(Gravity.CENTER | Gravity.CENTER, 0, 0);
-				toast.show();
-
-			}
-		});
-
-	}
 
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 
