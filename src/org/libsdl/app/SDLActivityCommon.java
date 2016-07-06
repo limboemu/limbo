@@ -18,6 +18,7 @@ import com.max2idea.android.limbo.main.LimboVNCActivity;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.QmpClient;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -430,9 +431,14 @@ public class SDLActivityCommon extends SDLActivity {
 		super.onOptionsItemSelected(item);
 		if (item.getItemId() == R.id.itemDrives) {
 			// Show up removable devices dialog
-			drives = new DrivesDialogBox(activity1, R.style.Transparent, this, LimboActivity.enableCDROM,
-					LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
-			drives.show();
+			if (LimboActivity.enableCDROM || LimboActivity.enableFDA || LimboActivity.enableFDB
+					|| LimboActivity.enableSD) {
+				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.enableCDROM,
+						LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
+				drives.show();
+			} else {
+				UIUtils.toastLong(activity, "No removable devices attached");
+			}
 		} else if (item.getItemId() == R.id.itemReset) {
 			resetVM();
 		} else if (item.getItemId() == R.id.itemShutdown) {

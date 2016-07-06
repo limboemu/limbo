@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 import com.limbo.emu.main.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.QmpClient;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.androidVNC.AbstractScaling;
 import android.app.Activity;
@@ -307,9 +308,15 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			stopVM(false);
 		} else if (item.getItemId() == R.id.itemDrives) {
 			// Show up removable devices dialog
-			drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.enableCDROM,
-					LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
-			drives.show();
+			if (LimboActivity.enableCDROM || LimboActivity.enableFDA || LimboActivity.enableFDB
+					|| LimboActivity.enableSD) {
+				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.enableCDROM,
+						LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
+				drives.show();
+			} else {
+				UIUtils.toastLong(activity, "No removable devices attached");
+			}
+
 		} else if (item.getItemId() == R.id.itemMonitor) {
 			if (this.monitorMode) {
 				this.onVNC();
@@ -600,7 +607,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 						pausedVM();
 					}
 				}, 1000);
-				
+
 				// new Handler(Looper.getMainLooper()).postDelayed(new
 				// Runnable() {
 				// @Override
