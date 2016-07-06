@@ -95,6 +95,7 @@ import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
@@ -2721,18 +2722,23 @@ public class LimboActivity extends Activity {
 		searchView.setSingleLine();
 		alertDialog.setView(searchView);
 		final Handler handler = this.handler;
+		
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
 
-		// alertDialog.setMessage(body);
-		alertDialog.setButton("Create", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-
-				// UIUtils.log("Searching...");
-				EditText a = (EditText) alertDialog.findViewById(201012010);
-				sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", a.getText().toString());
-				return;
-			}
-		});
 		alertDialog.show();
+		
+		Button button = alertDialog.getButton( DialogInterface.BUTTON_POSITIVE);
+		button.setOnClickListener( new View.OnClickListener() {
+		    public void onClick ( View view ) {
+		    	EditText a = (EditText) alertDialog.findViewById(201012010);
+				if(a.getText().toString().trim().equals(""))
+					toastLong(activity, "Machine name cannot be empty");
+				else {
+					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", a.getText().toString());
+					alertDialog.dismiss();
+				}
+		    }
+		});
 
 	}
 
