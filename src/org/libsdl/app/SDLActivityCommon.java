@@ -990,8 +990,10 @@ public class SDLActivityCommon extends SDLActivity {
 	// Setup
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
+		
 		super.onCreate(savedInstanceState);
 
+		
 		Log.v("SDL", "Max Mem = " + Runtime.getRuntime().maxMemory());
 		this.handler = commandHandler;
 		this.activity1 = this;
@@ -1004,9 +1006,6 @@ public class SDLActivityCommon extends SDLActivity {
 		if (Config.enable_qemu_fullScreen)
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
-		if (LimboSettingsManager.getOrientationReverse(this))
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
 
 		if (LimboActivity.currMachine == null) {
 			Log.v("SDLAcivity", "No VM selected!");
@@ -1024,20 +1023,26 @@ public class SDLActivityCommon extends SDLActivity {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-		if (LimboSettingsManager.getOrientationReverse(this))
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
-
 		createUI(0, 0);
 
 		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_SHORT);
 		toast.setGravity(Gravity.TOP | Gravity.CENTER, 0, 0);
 		toast.show();
+//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//			@Override
+//			public void run() {
+//				UIUtils.setOrientation(activity);
+//			}
+//		}, 2000);
+		
+		
+		
 	}
 
 	public SDLSurface getSDLSurface() {
 		// TODO Auto-generated method stub
 		if (mSurface == null)
-			mSurface = new SDLSurface(getApplication());
+			mSurface = new SDLSurface(activity);
 		return mSurface;
 	}
 
@@ -1094,12 +1099,21 @@ public class SDLActivityCommon extends SDLActivity {
 		inputMgr.toggleSoftInput(0, 0);
 	}
 
-	// protected void onResume() {
-	// Log.v("SDL", "onResume()");
-	// if (status == null || status.equals("") || status.equals("DONE"))
-	// SDLActivity.nativeResume();
-	// super.onResume();
-	// }
+	protected void onResume() {
+		Log.v("SDL", "onResume()");
+//		if (status == null || status.equals("") || status.equals("DONE"))
+//			SDLActivity.nativeResume();
+		
+		//mSurface.reSize();
+//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//			@Override
+//			public void run() {
+//				UIUtils.setOrientation(activity);
+//			}
+//		}, 1000);
+		
+		super.onResume();
+	}
 
 	// static void resume() {
 	// Log.v("Resume", "Resuming -> Full Screeen");

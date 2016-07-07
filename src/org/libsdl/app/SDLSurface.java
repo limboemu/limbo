@@ -1,11 +1,10 @@
 package org.libsdl.app;
 
 import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboSDLActivity;
-import com.max2idea.android.limbo.main.LimboSDLActivityCompat;
+import com.max2idea.android.limbo.utils.UIUtils;
 
+import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
@@ -15,7 +14,6 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
-import android.os.Build;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.Display;
@@ -53,12 +51,12 @@ public class SDLSurface extends GLSurfaceView
 	private boolean firstTouch = false;
 	private float sensitivity_mult = (float) 1.0;
 	private boolean stretchToScreen = false;
-	private Context context;
+	private Activity activity;
 
 	// Startup
-	public SDLSurface(Context context) {
-		super(context);
-		this.context = context;
+	public SDLSurface(Activity activity) {
+		super(activity);
+		this.activity = activity;
 
 //		getHolder().setFormat(PixelFormat.RGBA_8888);
 		getHolder().addCallback(this);
@@ -70,10 +68,10 @@ public class SDLSurface extends GLSurfaceView
 		// requestFocus();
 		setOnKeyListener(this);
 		setOnTouchListener(this);
-		gestureDetector = new GestureDetector(context, new GestureListener());
+		gestureDetector = new GestureDetector(activity, new GestureListener());
 
-		mDisplay = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-		mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+		mDisplay = ((WindowManager) activity.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+		mSensorManager = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
 
 		// if (Build.VERSION.SDK_INT >= 12) {
 		// setOnGenericMotionListener(new SDLGenericMotionListener_API12());
@@ -93,7 +91,7 @@ public class SDLSurface extends GLSurfaceView
 
 	public static boolean initialized = false;
 	//
-	private void reSize() {
+	public void reSize() {
 		// TODO Auto-generated method stub
 		Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
 		int height;
@@ -449,7 +447,7 @@ public class SDLSurface extends GLSurfaceView
 			// "Action=" + event.getAction() + ", X,Y=" + event.getX()
 			// + "," + event.getY() + " P=" + event.getPressure());
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
-			Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 			if (v.hasVibrator()) {
 				
 //				AudioAttributes attributes = 

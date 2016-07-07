@@ -1211,28 +1211,20 @@
                         </LinearLayout>
 
                         <LinearLayout
-                            android:id="@+id/reversel"
+                            android:id="@+id/orientation"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:layout_gravity="right|center_vertical"
                             android:gravity="right|center_vertical"
                             android:orientation="horizontal" >
 
-                            <TextView
-                                android:id="@+id/reverselStr"
-                                android:layout_width="wrap_content"
+                            <Spinner
+                                android:id="@+id/orientationval"
+                                android:layout_width="fill_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_gravity="right|center_vertical"
-                                android:gravity="right|center_vertical"
-                                android:text="Reverse Display"
+                                android:singleLine="true"
+                                android:text=""
                                 android:textSize="15dip" />
-
-                            <CheckBox
-                                android:id="@+id/reverselval"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="right|center_vertical"
-                                android:gravity="right|center_vertical" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

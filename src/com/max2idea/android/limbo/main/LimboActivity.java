@@ -163,6 +163,8 @@ public class LimboActivity extends Activity {
 	private boolean userPressedHDCacheCfg;
 	private boolean userPressedSoundcardCfg;
 
+	protected boolean userPressedOrientation = false;
+	
 	// Static
 	private static final int HELP = 0;
 	private static final int QUIT = 1;
@@ -217,6 +219,8 @@ public class LimboActivity extends Activity {
 		userPressedBluetoothMouse = pressed;
 		userPressedSnapshot = pressed;
 
+		userPressedOrientation = pressed;
+		
 		if (pressed) {
 			enableListeners();
 		} else
@@ -1069,9 +1073,14 @@ public class LimboActivity extends Activity {
 			}
 		});
 
-		mReverseLandscape.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				LimboSettingsManager.setOrientationReverse(activity, isChecked);
+		mOrientation.setOnItemSelectedListener(new OnItemSelectedListener() {
+			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+				String orientationCfg = (String) ((ArrayAdapter<?>) mOrientation.getAdapter()).getItem(position);
+				if (userPressedOrientation) {
+					LimboSettingsManager.setOrientationSetting(activity, position);
+				}
+
+				userPressedOrientation = true;
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
@@ -1123,7 +1132,7 @@ public class LimboActivity extends Activity {
 		mAppend.removeTextChangedListener(appendChangeListener);
 		mVNCAllowExternal.setOnCheckedChangeListener(null);
 		mPrio.setOnCheckedChangeListener(null);
-		mReverseLandscape.setOnCheckedChangeListener(null);
+		mOrientation.setOnItemSelectedListener(null);
 
 	}
 
@@ -1183,8 +1192,8 @@ public class LimboActivity extends Activity {
 	// private CheckBox mBluetoothMouse;
 	private CheckBox mVNCAllowExternal;
 	private CheckBox mPrio;
-	private CheckBox mReverseLandscape;
 	private Spinner mSnapshot;
+	private Spinner mOrientation;
 	private ImageButton mStart;
 	private ImageButton mStop;
 	private ImageButton mRestart;
@@ -1207,9 +1216,6 @@ public class LimboActivity extends Activity {
 		super.onCreate(savedInstanceState);
 
 		OShandler = this.handler;
-
-		if (LimboSettingsManager.getOrientationReverse(this))
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
 
 		// if (Const.enable_fullscreen
 		// || android.os.Build.VERSION.SDK_INT <
@@ -1404,6 +1410,7 @@ public class LimboActivity extends Activity {
 		userPressedBluetoothMouse = false;
 		userPressedSnapshot = false;
 		userPressedVNC = false;
+		userPressedOrientation = false;
 	}
 
 	private void populateAttributes() {
@@ -1432,6 +1439,7 @@ public class LimboActivity extends Activity {
 		this.populateHDCacheConfig();
 		this.populateSnapshot();
 		this.populateUI();
+		this.populateOrientation();
 	}
 
 	public void onFirstLaunch() {
@@ -2026,6 +2034,8 @@ public class LimboActivity extends Activity {
 	private ArrayAdapter<String> kernelAdapter;
 	private ArrayAdapter<String> initrdAdapter;
 	private ArrayAdapter<String> snapshotAdapter;
+	
+	private ArrayAdapter<String> orientationAdapter;
 
 	// Main event function
 	// Retrives values from saved preferences
@@ -2373,9 +2383,8 @@ public class LimboActivity extends Activity {
 		mVNCAllowExternal.setChecked(false);
 		this.mPrio = (CheckBox) findViewById(R.id.prioval); //
 		mPrio.setChecked(LimboSettingsManager.getPrio(activity));
-
-		this.mReverseLandscape = (CheckBox) findViewById(R.id.reverselval); //
-		mReverseLandscape.setChecked(LimboSettingsManager.getOrientationReverse(activity));
+		
+		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
 
@@ -3387,6 +3396,28 @@ public class LimboActivity extends Activity {
 		this.mVGAConfig.invalidate();
 	}
 
+	private void populateOrientation() {
+
+		String[] arraySpinner = {};
+
+		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+		arrList.add("Orientation (Auto)");
+		arrList.add("Landscape");
+		arrList.add("Landscape Reverse");
+//		arrList.add("Portrait");
+//		arrList.add("Portrait Reverse");
+
+		orientationAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
+		orientationAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		this.mOrientation.setAdapter(orientationAdapter);
+		this.mOrientation.invalidate();
+
+		int pos = LimboSettingsManager.getOrientationSetting(activity);
+		if (pos >= 0) {
+			this.mOrientation.setSelection(pos);
+		}
+	}
+	
 	private void populateSoundcardConfig() {
 
 		String[] arraySpinner = { "None", "sb16", "ac97", "adlib","cs4231a", "gus", "es1370", "hda", "pcspk", "all" };

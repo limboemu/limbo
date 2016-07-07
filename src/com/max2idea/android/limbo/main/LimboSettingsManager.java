@@ -66,18 +66,20 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.commit();
 	}
 
+	public static int getOrientationSetting(Activity activity) {
 
-	public static boolean getOrientationReverse(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getBoolean("OrientationReverse", false);
+		int orientation = prefs.getInt("orientation", 0);
+		// UIUtils.log("Getting First time: " + firstTime);
+		return orientation;
 	}
 	
-	public static void setOrientationReverse(Activity activity, boolean flag) {
+	public static void setOrientationSetting(Activity activity, int orientation) {
+
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
-		edit.putBoolean("OrientationReverse", flag);
+		edit.putInt("orientation", orientation);
 		edit.commit();
-		// UIUtils.log("Setting First time: ");
 	}
 
 	

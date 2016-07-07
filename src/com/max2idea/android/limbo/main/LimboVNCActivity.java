@@ -75,13 +75,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	@Override
 	public void onCreate(Bundle b) {
+		
+		UIUtils.setOrientation(this);
+		
 		if (Config.disableTitleBar || android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.LOLLIPOP) {
 			requestWindowFeature(Window.FEATURE_NO_TITLE);
 		}
 		super.onCreate(b);
-
-		if (LimboSettingsManager.getOrientationReverse(this))
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
 
 		if (Config.enable_qemu_fullScreen)
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
