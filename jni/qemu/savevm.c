@@ -716,6 +716,11 @@ static bool should_send_vmdesc(void)
     return !machine->suppress_vmdesc;
 }
 
+
+#ifdef __LIMBO__
+extern int migration_status;
+#endif
+
 void qemu_savevm_state_complete(QEMUFile *f)
 {
     QJSON *vmdesc;
@@ -796,6 +801,11 @@ void qemu_savevm_state_complete(QEMUFile *f)
     object_unref(OBJECT(vmdesc));
 
     qemu_fflush(f);
+
+#ifdef __LIMBO__
+    LOGI("Migration complete");
+    migration_status = 2;
+#endif
 }
 
 uint64_t qemu_savevm_state_pending(QEMUFile *f, uint64_t max_size)

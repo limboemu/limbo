@@ -954,7 +954,10 @@ public class SDLActivityCommon extends SDLActivity {
 		String save_state = "";
 		String pause_state = "";
 		if (LimboActivity.vmexecutor != null) {
+			//Get the state of saving full disk snapshot
 			save_state = LimboActivity.vmexecutor.get_save_state();
+			
+			//Get the state of saving the VM memory only
 			pause_state = LimboActivity.vmexecutor.get_pause_state();
 			Log.d(TAG, "save_state = " + save_state);
 			Log.d(TAG, "pause_state = " + pause_state);
@@ -1272,27 +1275,24 @@ public class SDLActivityCommon extends SDLActivity {
 				if (msg != null)
 					Log.i(TAG, msg);
 
-				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						pausedVM();
-					}
-				}, 1000);
-
-				// final String msg = LimboActivity.vmexecutor.pausevm(uri);
-				// Log.i(TAG, msg);
-				//
-				//
+				// XXX: We cant be sure that the machine state is completed
+				// saving
 				// new Handler(Looper.getMainLooper()).postDelayed(new
 				// Runnable() {
 				// @Override
 				// public void run() {
-				// Toast.makeText(getApplicationContext(), msg,
-				// Toast.LENGTH_SHORT).show();
-				// VMListener a = new VMListener();
-				// a.execute();
+				// pausedVM();
 				// }
-				// }, 0);
+				// }, 1000);
+
+				//XXX: Instead we poll to see if migration is complete
+				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+					@Override
+					public void run() {
+						VMListener a = new VMListener();
+						a.execute();
+					}
+				}, 0);
 			}
 		});
 		t.start();

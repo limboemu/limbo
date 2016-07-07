@@ -2100,8 +2100,13 @@ public class LimboActivity extends Activity {
 			sendHandlerMessage(handler, Config.VM_STARTED);
 
 		if (mUI.getSelectedItemPosition() == 0) { // VNC
+			vmexecutor.enableqmp = 0; // We enable qemu monitor
 			startVNC();
 		} else if (mUI.getSelectedItemPosition() == 1) { // SDL
+			// XXX: We need to enable qmp server to be able to save the state
+			//  We could do it via the Monitor but SDL for Android 
+			//  doesn't support multiple Windows
+			vmexecutor.enableqmp = 1; 
 			startSDL();
 		} else if (mUI.getSelectedItemPosition() == 2) { //SPICE
 			startSPICE();
