@@ -6,7 +6,7 @@
 BUILD_THREADS=4
 
 #PLATFORM CONFIG
-APP_PLATFORM = android-19
+APP_PLATFORM = android-21
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # Uncomment if you use NDK11 and above
@@ -69,10 +69,10 @@ NDK_ENV = windows-x86_64
 
 ######### x86
 # x86 Phones (ie Zenfone)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # x86 Phones Debug No optimization (ie Zenfone)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
 
 ################ No modifications below this line are necessary #####################
 TARGET_ARCH = 
