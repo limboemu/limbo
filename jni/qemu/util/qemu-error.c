@@ -168,6 +168,7 @@ const char *error_get_progname(void)
 /*
  * Print current location to current monitor if we have one, else to stderr.
  */
+#ifndef __ANDROID__
 static void error_print_loc(void)
 {
     const char *sep = "";
@@ -198,6 +199,7 @@ static void error_print_loc(void)
         error_printf("%s", sep);
     }
 }
+#endif
 
 bool enable_timestamp_msg;
 
