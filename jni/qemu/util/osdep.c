@@ -201,7 +201,7 @@ int qemu_open(const char *name, int flags, ...)
 
 #ifdef __LIMBO__
     if (strncmp(name, "/content/", 9) == 0) {
-    	ret = android_open(name, flags | O_CLOEXEC, mode);
+    	ret = android_openm(name, flags | O_CLOEXEC, mode);
     }else
 #endif //__LIMBO__
     ret = open(name, flags | O_CLOEXEC, mode);
@@ -209,7 +209,7 @@ int qemu_open(const char *name, int flags, ...)
 
 #ifdef __LIMBO__
     if (strncmp(name, "/content/", 9) == 0) {
-    	ret = android_open(name, flags, mode);
+    	ret = android_openm(name, flags, mode);
     }else
 #endif //__LIMBO__
     ret = open(name, flags, mode);

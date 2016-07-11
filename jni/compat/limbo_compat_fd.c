@@ -51,7 +51,7 @@ int close_fd(int fd) {
 	return res;
 
 }
-int get_fd(char * filepath) {
+int get_fd(const char * filepath) {
 
 	int fd = -1;
 
@@ -86,24 +86,14 @@ int get_fd(char * filepath) {
 	return fd;
 }
 
-//XXX: This is probably not needed for now all files are opened via file descriptors
-//FILE *android_fopen(const char *path, const char *mode) {
-//	//If it's an Android content uri
-//	FILE * file;
-//	if (strncmp(path, "/content/", 9) == 0) {
-//		int fd = get_fd(path);
-//		file = fdopen(fd, mode);
-//	} else {
-//		file = fopen(path, mode);
-//	}
-//
-//	return file;
-//}
 
-int android_open(char *path, int flags, mode_t mode) {
+int android_open(const char *path, int flags) {
 	int fd;
 	fd = get_fd(path);
 	return fd;
+}
+int android_openm(const char *path, int flags, mode_t mode) {
+	return android_open(path, flags);
 }
 //
 int android_close(int fd) {
