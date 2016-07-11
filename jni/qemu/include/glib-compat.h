@@ -20,6 +20,11 @@
 
 /* GLIB version compatibility flags */
 #if !GLIB_CHECK_VERSION(2, 26, 0)
+#if __LIMBO__
+#ifdef G_TIME_SPAN_SECOND
+#undef G_TIME_SPAN_SECOND
+#endif
+#endif
 #define G_TIME_SPAN_SECOND              (G_GINT64_CONSTANT(1000000))
 #endif
 
