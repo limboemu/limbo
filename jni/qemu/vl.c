@@ -4382,7 +4382,7 @@ void stop_vm(int no_reboot_vm) {
     qemu_notify_event();
 }
 int qemu_start(int argc, char **argv) {
-    main(argc, argv, NULL);
+    return main(argc, argv, NULL);
 }
 
 int get_state(void) {
