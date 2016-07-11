@@ -146,6 +146,10 @@ SPICE = --disable-spice
 #TCI
 #TCI = --enable-tcg-interpreter
 
+WARNING_FLAGS = -Wno-redundant-decls -Wno-unused-variable \
+	-Wno-maybe-uninitialized -Wno-unused-function \
+	-Wunused-but-set-variable
+	
 ifeq ($(APP_ABI), armeabi)
     QEMU_HOST_CPU = arm
 else ifeq ($(APP_ABI), armeabi-v7a)
@@ -215,6 +219,7 @@ config:
 	$(SDL_RENDERING) \
 	$(ENV_EXTRA) \
 	$(ARCH_CFLAGS) \
+	$(WARNING_FLAGS) \
 	" \
 	--with-coroutine=$(COROUTINE) \
 	$(DEBUG) \
