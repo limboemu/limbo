@@ -43,6 +43,10 @@
 #include "hw/vfio/vfio.h"
 #include "hw/vfio/vfio-common.h"
 
+#ifdef __ANDROID__
+#include <libgen.h>
+#endif
+
 struct VFIOPCIDevice;
 
 typedef struct VFIOQuirk {
