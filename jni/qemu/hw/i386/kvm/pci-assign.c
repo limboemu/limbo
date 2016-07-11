@@ -22,7 +22,9 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#ifndef __ANDROID__
 #include <sys/io.h>
+#endif //__ANDROID__
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -1072,6 +1072,19 @@ public class LimboActivity extends Activity {
 			public void onNothingSelected(AdapterView<?> parentView) {
 			}
 		});
+		mEnableKVM.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+				if (isChecked) {
+					promptKVM(activity);
+				} else {
+					LimboSettingsManager.setEnableKVM(activity, false);
+				}
+			}
+
+			public void onNothingSelected(AdapterView<?> parentView) {
+			}
+		});
 
 		mOrientation.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
@@ -1132,6 +1145,7 @@ public class LimboActivity extends Activity {
 		mAppend.removeTextChangedListener(appendChangeListener);
 		mVNCAllowExternal.setOnCheckedChangeListener(null);
 		mPrio.setOnCheckedChangeListener(null);
+		mEnableKVM.setOnCheckedChangeListener(null);
 		mOrientation.setOnItemSelectedListener(null);
 
 	}
@@ -1192,6 +1206,7 @@ public class LimboActivity extends Activity {
 	// private CheckBox mBluetoothMouse;
 	private CheckBox mVNCAllowExternal;
 	private CheckBox mPrio;
+	private CheckBox mEnableKVM;
 	private Spinner mSnapshot;
 	private Spinner mOrientation;
 	private ImageButton mStart;
@@ -1964,6 +1979,7 @@ public class LimboActivity extends Activity {
 			this.mSoundCardConfig.setEnabled(flag);
 
 		this.mPrio.setEnabled(flag);
+		this.mEnableKVM.setEnabled(flag);
 
 		this.mUI.setEnabled(flag);
 
@@ -2096,6 +2112,9 @@ public class LimboActivity extends Activity {
 		// dns
 		vmexecutor.dns_addr = mDNS.getText().toString();
 
+		//kvm 
+		vmexecutor.enablekvm = mEnableKVM.isChecked()?1:0;
+		
 		// Append only when kernel is set
 
 		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
@@ -2384,6 +2403,9 @@ public class LimboActivity extends Activity {
 		this.mPrio = (CheckBox) findViewById(R.id.prioval); //
 		mPrio.setChecked(LimboSettingsManager.getPrio(activity));
 		
+		this.mEnableKVM= (CheckBox) findViewById(R.id.enablekvmval); //
+		mEnableKVM.setChecked(LimboSettingsManager.getEnableKVM(activity));
+		
 		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
@@ -2501,6 +2523,42 @@ public class LimboActivity extends Activity {
 		alertDialog.show();
 	}
 
+	private void promptKVM(final Activity activity) {
+		// TODO Auto-generated method stub
+
+		final AlertDialog alertDialog;
+		alertDialog = new AlertDialog.Builder(activity).create();
+		alertDialog.setTitle("Enable KVM!");
+
+		TextView textView = new TextView(activity);
+		textView.setVisibility(View.VISIBLE);
+		textView.setId(201012010);
+		textView.setText("Warning! Enabling KVM is an UNTESTED and EXPERIMENTAL feature. Do you want to continue?");
+
+		alertDialog.setView(textView);
+		final Handler handler = this.handler;
+
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,"OK", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				LimboSettingsManager.setEnableKVM(activity, true);
+			}
+		});
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				mEnableKVM.setChecked(false);
+				return;
+			}
+		});
+		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+			@Override
+			public void onCancel(DialogInterface dialog) {
+				mEnableKVM.setChecked(false);
+			}
+		});
+		alertDialog.show();
+	}
+
+	
 	public void promptVNCAllowExternal(final Activity activity) {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();

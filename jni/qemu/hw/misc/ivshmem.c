@@ -806,6 +806,7 @@ static int pci_ivshmem_init(PCIDevice *dev)
 
         IVSHMEM_DPRINTF("using shm_open (shm object = %s)\n", s->shmobj);
 
+#ifndef __ANDROID__
         /* try opening with O_EXCL and if it succeeds zero the memory
          * by truncating to 0 */
         if ((fd = shm_open(s->shmobj, O_CREAT|O_RDWR|O_EXCL,
@@ -821,6 +822,7 @@ static int pci_ivshmem_init(PCIDevice *dev)
             exit(1);
 
         }
+#endif // __ANDROID__
 
         if (check_shm_size(s, fd) == -1) {
             exit(1);

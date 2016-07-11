@@ -486,6 +486,9 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	fid = (*env)->GetFieldID(env, c, "enablespice", "I");
 	int enablespice = (*env)->GetIntField(env, thiz, fid);
 
+	fid = (*env)->GetFieldID(env, c, "enablekvm", "I");
+	int enablekvm = (*env)->GetIntField(env, thiz, fid);
+
 	fid = (*env)->GetFieldID(env, c, "vnc_allow_external", "I");
 	int vnc_allow_external = (*env)->GetIntField(env, thiz, fid);
 
@@ -886,6 +889,9 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	//    strcpy(argv[param++], "file=/sdcard/limbo/tmp/trace");
 	//    strcpy(argv[param++], "-nographic"); //DO NOT USE //      disable graphical output and redirect serial I/Os to console
 
+	if(enablekvm){
+		strcpy(argv[param++], "-enable-kvm");
+	}
 	if (enablevnc) {
 		LOGV("Enable VNC server");
 		strcpy(argv[param++], "-vnc");

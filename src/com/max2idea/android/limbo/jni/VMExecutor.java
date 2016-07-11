@@ -77,6 +77,7 @@ public class VMExecutor {
 	private int usbmouse = 0; // for -usb -usbdevice tablet - fixes mouse
 								// positioning
 	public int enableqmp;
+	public int enablekvm;
 	public int enablevnc;
 	public String vnc_passwd = null;
 	public int vnc_allow_external = 0;

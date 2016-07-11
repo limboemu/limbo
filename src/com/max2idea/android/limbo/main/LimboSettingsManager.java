@@ -109,6 +109,18 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.commit();
 		// UIUtils.log("Setting First time: ");
 	}
+	static boolean getEnableKVM(Activity activity) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		return prefs.getBoolean("EnableKVM", false);
+	}
+
+	public static void setEnableKVM(Activity activity, boolean flag) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putBoolean("EnableKVM", flag);
+		edit.commit();
+		// UIUtils.log("Setting First time: ");
+	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
