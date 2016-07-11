@@ -159,12 +159,12 @@ public class LimboActivity extends Activity {
 	protected boolean userPressedBluetoothMouse = false;
 	protected boolean userPressedSnapshot = false;
 	protected boolean userPressedVNC = false;
-	
+
 	private boolean userPressedHDCacheCfg;
 	private boolean userPressedSoundcardCfg;
 
 	protected boolean userPressedOrientation = false;
-	
+
 	// Static
 	private static final int HELP = 0;
 	private static final int QUIT = 1;
@@ -220,7 +220,7 @@ public class LimboActivity extends Activity {
 		userPressedSnapshot = pressed;
 
 		userPressedOrientation = pressed;
-		
+
 		if (pressed) {
 			enableListeners();
 		} else
@@ -450,7 +450,7 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				
+
 			}
 		});
 
@@ -465,7 +465,7 @@ public class LimboActivity extends Activity {
 					currMachine.hda_img_path = null;
 				} else if (userPressedHDA && position == 1 && mHDAenable.isChecked()) {
 					promptImageName(activity, "hda");
-					
+
 				} else if (userPressedHDA && position == 2 && mHDAenable.isChecked()) {
 					browse("hda");
 					mHDA.setSelection(0);
@@ -496,7 +496,6 @@ public class LimboActivity extends Activity {
 				} else if (userPressedHDB && position == 1 && mHDBenable.isChecked()) {
 					promptImageName(activity, "hdb");
 
-
 				} else if (userPressedHDB && position == 2 && mHDBenable.isChecked()) {
 					browse("hdb");
 					mHDB.setSelection(0);
@@ -525,7 +524,6 @@ public class LimboActivity extends Activity {
 					currMachine.hdc_img_path = null;
 				} else if (userPressedHDC && position == 1 && mHDCenable.isChecked()) {
 					promptImageName(activity, "hdc");
-
 
 				} else if (userPressedHDC && position == 2 && mHDCenable.isChecked()) {
 					browse("hdc");
@@ -685,7 +683,7 @@ public class LimboActivity extends Activity {
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
-				
+
 			}
 		});
 
@@ -1042,7 +1040,6 @@ public class LimboActivity extends Activity {
 			};
 		mAppend.addTextChangedListener(appendChangeListener);
 
-
 		mVNCAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 
@@ -1103,7 +1100,6 @@ public class LimboActivity extends Activity {
 	}
 
 	private void disableListeners() {
-
 
 		mMachine.setOnItemSelectedListener(null);
 
@@ -1514,7 +1510,7 @@ public class LimboActivity extends Activity {
 
 		@Override
 		protected void onPostExecute(Void test) {
-			
+
 		}
 	}
 
@@ -1963,10 +1959,10 @@ public class LimboActivity extends Activity {
 		this.mCPU.setEnabled(flag);
 		this.mCPUNum.setEnabled(flag);
 		this.mRamSize.setEnabled(flag);
-		this.mKernel.setEnabled(flag); 
-		this.mInitrd.setEnabled(flag); 
-		this.mAppend.setEnabled(flag); 
-		this.mMachineType.setEnabled(flag); 
+		this.mKernel.setEnabled(flag);
+		this.mInitrd.setEnabled(flag);
+		this.mAppend.setEnabled(flag);
+		this.mMachineType.setEnabled(flag);
 
 		this.mBootDevices.setEnabled(flag);
 		this.mNetConfig.setEnabled(flag);
@@ -2050,7 +2046,7 @@ public class LimboActivity extends Activity {
 	private ArrayAdapter<String> kernelAdapter;
 	private ArrayAdapter<String> initrdAdapter;
 	private ArrayAdapter<String> snapshotAdapter;
-	
+
 	private ArrayAdapter<String> orientationAdapter;
 
 	// Main event function
@@ -2112,9 +2108,9 @@ public class LimboActivity extends Activity {
 		// dns
 		vmexecutor.dns_addr = mDNS.getText().toString();
 
-		//kvm 
-		vmexecutor.enablekvm = mEnableKVM.isChecked()?1:0;
-		
+		// kvm
+		vmexecutor.enablekvm = mEnableKVM.isChecked() ? 1 : 0;
+
 		// Append only when kernel is set
 
 		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
@@ -2133,11 +2129,11 @@ public class LimboActivity extends Activity {
 			startVNC();
 		} else if (mUI.getSelectedItemPosition() == 1) { // SDL
 			// XXX: We need to enable qmp server to be able to save the state
-			//  We could do it via the Monitor but SDL for Android 
-			//  doesn't support multiple Windows
-			vmexecutor.enableqmp = 1; 
+			// We could do it via the Monitor but SDL for Android
+			// doesn't support multiple Windows
+			vmexecutor.enableqmp = 1;
 			startSDL();
-		} else if (mUI.getSelectedItemPosition() == 2) { //SPICE
+		} else if (mUI.getSelectedItemPosition() == 2) { // SPICE
 			startSPICE();
 		}
 		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
@@ -2157,6 +2153,8 @@ public class LimboActivity extends Activity {
 				startsdl();
 			}
 		});
+		if (mPrio.isChecked())
+			tsdl.setPriority(Thread.MAX_PRIORITY);
 		tsdl.start();
 	}
 
@@ -2184,9 +2182,8 @@ public class LimboActivity extends Activity {
 
 		}, 2000);
 
-
 	}
-	
+
 	private void startSPICE() {
 		// TODO Auto-generated method stub
 
@@ -2402,10 +2399,10 @@ public class LimboActivity extends Activity {
 		mVNCAllowExternal.setChecked(false);
 		this.mPrio = (CheckBox) findViewById(R.id.prioval); //
 		mPrio.setChecked(LimboSettingsManager.getPrio(activity));
-		
-		this.mEnableKVM= (CheckBox) findViewById(R.id.enablekvmval); //
+
+		this.mEnableKVM = (CheckBox) findViewById(R.id.enablekvmval); //
 		mEnableKVM.setChecked(LimboSettingsManager.getEnableKVM(activity));
-		
+
 		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
@@ -2538,7 +2535,7 @@ public class LimboActivity extends Activity {
 		alertDialog.setView(textView);
 		final Handler handler = this.handler;
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,"OK", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				LimboSettingsManager.setEnableKVM(activity, true);
 			}
@@ -2558,7 +2555,6 @@ public class LimboActivity extends Activity {
 		alertDialog.show();
 	}
 
-	
 	public void promptVNCAllowExternal(final Activity activity) {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
@@ -2795,22 +2791,22 @@ public class LimboActivity extends Activity {
 		searchView.setSingleLine();
 		alertDialog.setView(searchView);
 		final Handler handler = this.handler;
-		
+
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
 
 		alertDialog.show();
-		
-		Button button = alertDialog.getButton( DialogInterface.BUTTON_POSITIVE);
-		button.setOnClickListener( new View.OnClickListener() {
-		    public void onClick ( View view ) {
-		    	EditText a = (EditText) alertDialog.findViewById(201012010);
-				if(a.getText().toString().trim().equals(""))
+
+		Button button = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+		button.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				EditText a = (EditText) alertDialog.findViewById(201012010);
+				if (a.getText().toString().trim().equals(""))
 					UIUtils.toastLong(activity, "Machine name cannot be empty");
 				else {
 					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", a.getText().toString());
 					alertDialog.dismiss();
 				}
-		    }
+			}
 		});
 
 	}
@@ -2849,7 +2845,8 @@ public class LimboActivity extends Activity {
 		arraySpinner[5] = "10 GB";
 		arraySpinner[6] = "20 GB";
 
-		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, android.R.layout.simple_spinner_item, arraySpinner);
+		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, android.R.layout.simple_spinner_item,
+				arraySpinner);
 		sizeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		size.setAdapter(sizeAdapter);
 		setPlusParams.addRule(RelativeLayout.BELOW, imageNameView.getId());
@@ -2989,7 +2986,6 @@ public class LimboActivity extends Activity {
 
 		}
 	}
-
 
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 
@@ -3306,7 +3302,7 @@ public class LimboActivity extends Activity {
 			vmexecutor.vnc_passwd = vnc_passwd;
 			vmexecutor.enablevnc = 0;
 			vmexecutor.enablespice = 1;
-		} 
+		}
 		vmexecutor.startvm(activity);
 
 	}
@@ -3439,8 +3435,8 @@ public class LimboActivity extends Activity {
 		arrList.add("std");
 		arrList.add("cirrus");
 		arrList.add("vmware");
-		
-		if(Config.enable_SPICE_menu)
+
+		if (Config.enable_SPICE_menu)
 			arrList.add("qxl");
 
 		// Add XEN
@@ -3462,8 +3458,8 @@ public class LimboActivity extends Activity {
 		arrList.add("Orientation (Auto)");
 		arrList.add("Landscape");
 		arrList.add("Landscape Reverse");
-//		arrList.add("Portrait");
-//		arrList.add("Portrait Reverse");
+		// arrList.add("Portrait");
+		// arrList.add("Portrait Reverse");
 
 		orientationAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 		orientationAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -3475,10 +3471,10 @@ public class LimboActivity extends Activity {
 			this.mOrientation.setSelection(pos);
 		}
 	}
-	
+
 	private void populateSoundcardConfig() {
 
-		String[] arraySpinner = { "None", "sb16", "ac97", "adlib","cs4231a", "gus", "es1370", "hda", "pcspk", "all" };
+		String[] arraySpinner = { "None", "sb16", "ac97", "adlib", "cs4231a", "gus", "es1370", "hda", "pcspk", "all" };
 
 		sndAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arraySpinner);
 		sndAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -3932,7 +3928,6 @@ public class LimboActivity extends Activity {
 	private void populateCPUs(String cpu) {
 		this.userPressedCPU = false;
 
-
 		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
@@ -4016,7 +4011,6 @@ public class LimboActivity extends Activity {
 
 	private void populateArch() {
 		this.userPressedArch = false;
-		
 
 		String[] arraySpinner = { "x86", "x64" };
 
@@ -4599,7 +4593,6 @@ public class LimboActivity extends Activity {
 			}
 		}
 
-
 	}
 
 	void execTimeListener() {
@@ -4629,7 +4622,6 @@ public class LimboActivity extends Activity {
 			ex.printStackTrace();
 
 		}
-
 
 	}
 
