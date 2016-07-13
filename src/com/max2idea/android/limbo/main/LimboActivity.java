@@ -3356,8 +3356,9 @@ public class LimboActivity extends Activity {
 
 		String[] arraySpinner = new String[128];
 
-		for (int i = 0; i < arraySpinner.length; i++) {
-			arraySpinner[i] = (i + 1) * 8 + "";
+		arraySpinner[0] = 4 + "";
+		for (int i = 1; i < arraySpinner.length; i++) {
+			arraySpinner[i] = i * 8 + "";
 		}
 		;
 
