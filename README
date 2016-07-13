@@ -72,6 +72,7 @@ https://github.com/limboemu/limbo
     	
    	c. Build the debugging version:
    		i. Modify debuggable flag in AndroidManifest.xml to true
+   			and set debug variable in Config.java to true
    		ii. Modify android-config.mak and point to a configuration 
    			with no optimization: 
    			ie android-generic-armv5te-softfp-noopt.mak
