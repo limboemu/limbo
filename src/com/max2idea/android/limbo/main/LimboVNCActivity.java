@@ -44,6 +44,7 @@ import android.os.Looper;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -473,6 +474,17 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		vncCanvas.sendMetaKey1(49, 6);
 	}
 
+	//FIXME: We need this to able to catch complex characters strings like grave and send it as text
+	@Override
+	public boolean dispatchKeyEvent(KeyEvent event) {
+		if (event.getAction() == KeyEvent.ACTION_MULTIPLE && event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
+			vncCanvas.sendText(event.getCharacters().toString());
+			return true;
+		} else
+			return super.dispatchKeyEvent(event);
+
+	}
+	
 	private void onSaveSnapshot(final String stateName) {
 		Thread t = new Thread(new Runnable() {
 			public void run() {

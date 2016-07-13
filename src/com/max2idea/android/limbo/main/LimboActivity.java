@@ -164,6 +164,7 @@ public class LimboActivity extends Activity {
 	private boolean userPressedSoundcardCfg;
 
 	protected boolean userPressedOrientation = false;
+	protected boolean userPressedKeyboard = false;
 
 	// Static
 	private static final int HELP = 0;
@@ -220,6 +221,7 @@ public class LimboActivity extends Activity {
 		userPressedSnapshot = pressed;
 
 		userPressedOrientation = pressed;
+		userPressedKeyboard = pressed;
 
 		if (pressed) {
 			enableListeners();
@@ -1097,6 +1099,19 @@ public class LimboActivity extends Activity {
 			}
 		});
 
+		mKeyboard.setOnItemSelectedListener(new OnItemSelectedListener() {
+			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+				String keyboardCfg = (String) ((ArrayAdapter<?>) mKeyboard.getAdapter()).getItem(position);
+				if (userPressedKeyboard) {
+					LimboSettingsManager.setKeyboardSetting(activity, position);
+				}
+
+				userPressedKeyboard = true;
+			}
+
+			public void onNothingSelected(AdapterView<?> parentView) {
+			}
+		});
 	}
 
 	private void disableListeners() {
@@ -1143,6 +1158,7 @@ public class LimboActivity extends Activity {
 		mPrio.setOnCheckedChangeListener(null);
 		mEnableKVM.setOnCheckedChangeListener(null);
 		mOrientation.setOnItemSelectedListener(null);
+		mKeyboard.setOnItemSelectedListener(null);
 
 	}
 
@@ -1205,6 +1221,7 @@ public class LimboActivity extends Activity {
 	private CheckBox mEnableKVM;
 	private Spinner mSnapshot;
 	private Spinner mOrientation;
+	private Spinner mKeyboard;
 	private ImageButton mStart;
 	private ImageButton mStop;
 	private ImageButton mRestart;
@@ -1451,6 +1468,7 @@ public class LimboActivity extends Activity {
 		this.populateSnapshot();
 		this.populateUI();
 		this.populateOrientation();
+		this.populateKeyboardLayout();
 	}
 
 	public void onFirstLaunch() {
@@ -1976,6 +1994,8 @@ public class LimboActivity extends Activity {
 
 		this.mPrio.setEnabled(flag);
 		this.mEnableKVM.setEnabled(flag);
+		
+		this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
 
 		this.mUI.setEnabled(flag);
 
@@ -2048,6 +2068,7 @@ public class LimboActivity extends Activity {
 	private ArrayAdapter<String> snapshotAdapter;
 
 	private ArrayAdapter<String> orientationAdapter;
+	private ArrayAdapter<String> keyboardAdapter;
 
 	// Main event function
 	// Retrives values from saved preferences
@@ -2111,6 +2132,8 @@ public class LimboActivity extends Activity {
 		// kvm
 		vmexecutor.enablekvm = mEnableKVM.isChecked() ? 1 : 0;
 
+		// Keyboard layout
+		vmexecutor.keyboard_layout = getLanguageCode(mKeyboard.getSelectedItemPosition());
 		// Append only when kernel is set
 
 		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
@@ -2144,6 +2167,19 @@ public class LimboActivity extends Activity {
 			}
 		}, 5000);
 
+	}
+
+	private String getLanguageCode(int index) {
+		//TODO: Add more languages from /assets/roms/keymaps
+		switch(index){
+		case 0:
+			return "en-us";
+		case 1:
+			return "es";
+		case 2:
+			return "fr";
+		}
+		return null;
 	}
 
 	private void startSDL() {
@@ -2404,6 +2440,8 @@ public class LimboActivity extends Activity {
 		mEnableKVM.setChecked(LimboSettingsManager.getEnableKVM(activity));
 
 		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
+		
+		this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
 
@@ -3226,7 +3264,7 @@ public class LimboActivity extends Activity {
 
 		// Wait till Qemu settles
 		try {
-			Thread.sleep(3000);
+			Thread.sleep(2000);
 		} catch (InterruptedException ex) {
 			Logger.getLogger(LimboActivity.class.getName()).log(Level.SEVERE, null, ex);
 		}
@@ -3470,6 +3508,27 @@ public class LimboActivity extends Activity {
 		int pos = LimboSettingsManager.getOrientationSetting(activity);
 		if (pos >= 0) {
 			this.mOrientation.setSelection(pos);
+		}
+	}
+	
+
+	private void populateKeyboardLayout() {
+
+		String[] arraySpinner = {};
+
+		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+		arrList.add("English");
+		arrList.add("Spanish");
+		arrList.add("French");
+
+		keyboardAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
+		keyboardAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		this.mKeyboard.setAdapter(keyboardAdapter);
+		this.mKeyboard.invalidate();
+
+		int pos = LimboSettingsManager.getKeyboardSetting(activity);
+		if (pos >= 0) {
+			this.mKeyboard.setSelection(pos);
 		}
 	}
 
@@ -4588,7 +4647,7 @@ public class LimboActivity extends Activity {
 			}
 
 			try {
-				Thread.sleep(3000);
+				Thread.sleep(1000);
 			} catch (InterruptedException ex) {
 				ex.printStackTrace();
 			}

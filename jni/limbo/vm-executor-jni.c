@@ -33,7 +33,6 @@
 #include "limbo_compat.h"
 #include "limbo_compat_fd.h"
 
-
 #define MSG_BUFSIZE 1024
 #define MAX_STRING_LEN 1024
 
@@ -115,7 +114,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_save(
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_pausevm(
 		JNIEnv* env, jobject thiz, jstring juri) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
-	char error [MSG_BUFSIZE + 1] = { 0 };
+	char error[MSG_BUFSIZE + 1] = { 0 };
 	const char * uri_str = NULL;
 	if (juri != NULL)
 		uri_str = (*env)->GetStringUTFChars(env, juri, 0);
@@ -130,17 +129,18 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_pausevm
 	pause_vm_t limbo_migrate = (pause_vm_t) dlsym(handle, "limbo_migrate");
 	const char *dlsym_error = dlerror();
 	if (dlsym_error) {
-		sprintf(res_msg, "Cannot load symbol 'limbo_migrate': %s\n", dlsym_error);
+		sprintf(res_msg, "Cannot load symbol 'limbo_migrate': %s\n",
+				dlsym_error);
 		LOGE(res_msg);
 		return (*env)->NewStringUTF(env, res_msg);
 	}
 
 	int res = limbo_migrate(uri_str, error);
 
-	if(res){
+	if (res) {
 		LOGE(error);
 		sprintf(res_msg, error);
-	}else
+	} else
 		sprintf(res_msg, "VM State Saving Started");
 
 	LOGV(res_msg);
@@ -319,7 +319,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getsave
 	int state = 0;
 	state = get_save_state();
 
-
 	if (state == 0)
 		sprintf(res_msg, "NONE");
 	else if (state == 1)
@@ -331,7 +330,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getsave
 
 	return (*env)->NewStringUTF(env, res_msg);
 }
-
 
 //For pausing vm
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getpausestate(
@@ -499,6 +497,13 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	LOGV("disablefdbootchk= %d", disablefdbootchk);
 
+	fid = (*env)->GetFieldID(env, c, "keyboard_layout", "Ljava/lang/String;");
+	jstring jkeyboard_layout = (*env)->GetObjectField(env, thiz, fid);
+	const char * keyboard_layout = NULL;
+	if (jkeyboard_layout != NULL)
+		keyboard_layout = (*env)->GetStringUTFChars(env, jkeyboard_layout, 0);
+	LOGV("Keyboard Layout = %s", keyboard_layout);
+
 	fid = (*env)->GetFieldID(env, c, "hda_img_path", "Ljava/lang/String;");
 	jstring jhda_img_path = (*env)->GetObjectField(env, thiz, fid);
 	const char * hda_img_path_str = NULL;
@@ -607,7 +612,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	jstring jsave_state_name = (*env)->GetObjectField(env, thiz, fid);
 	const char * save_state_name_str = NULL;
 	if (jsave_state_name != NULL)
-		save_state_name_str = (*env)->GetStringUTFChars(env, jsave_state_name, 0);
+		save_state_name_str = (*env)->GetStringUTFChars(env, jsave_state_name,
+				0);
 
 	fid = (*env)->GetFieldID(env, c, "qmp_port", "I");
 	int qmp_port = (*env)->GetIntField(env, thiz, fid);
@@ -616,7 +622,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	jstring jqmp_server = (*env)->GetObjectField(env, thiz, fid);
 	const char * qmp_server_str = NULL;
 	if (jqmp_server != NULL)
-		qmp_server_str  = (*env)->GetStringUTFChars(env, jqmp_server, 0);
+		qmp_server_str = (*env)->GetStringUTFChars(env, jqmp_server, 0);
 
 	fid = (*env)->GetFieldID(env, c, "vnc_passwd", "Ljava/lang/String;");
 	jstring jvnc_passwd = (*env)->GetObjectField(env, thiz, fid);
@@ -826,13 +832,13 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], snapshot_name_str);
 	}
 
-	if (paused ==1 && strcmp(save_state_name_str, "") != 0) {
+	if (paused == 1 && strcmp(save_state_name_str, "") != 0) {
 		LOGV("Loading VM State: %s", save_state_name_str);
 
 		int fd_tmp = open(save_state_name_str, O_RDWR | O_CLOEXEC);
 		if (fd_tmp < 0) {
 			LOGE("Error while getting fd for: %s", save_state_name_str);
-		}else {
+		} else {
 			LOGI("Got new fd %d for: %s", fd_tmp, save_state_name_str);
 			fd_save_state = fd_tmp;
 		}
@@ -840,7 +846,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], "-incoming");
 
 		char fd[5];
-		sprintf(fd,"%d",fd_save_state);
+		sprintf(fd, "%d", fd_save_state);
 		strcpy(argv[param], "fd:");
 		strcat(argv[param++], fd);
 
@@ -889,9 +895,10 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	//    strcpy(argv[param++], "file=/sdcard/limbo/tmp/trace");
 	//    strcpy(argv[param++], "-nographic"); //DO NOT USE //      disable graphical output and redirect serial I/Os to console
 
-	if(enablekvm){
+	if (enablekvm) {
 		strcpy(argv[param++], "-enable-kvm");
 	}
+
 	if (enablevnc) {
 		LOGV("Enable VNC server");
 		strcpy(argv[param++], "-vnc");
@@ -918,10 +925,17 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		//strcpy(argv[param++], "-chardev");
 		//strcpy(argv[param++], "spicevm");
 	} else {
-		LOGV("Disabling VNC server, using SDL instead");
 		//SDL needs explicit keyboard layout
+		LOGV("Disabling VNC server, using SDL instead");
+		if(keyboard_layout == NULL){
+			strcpy(argv[param++], "-k");
+			strcpy(argv[param++], "en-us");
+		}
+	}
+
+	if (keyboard_layout != NULL) {
 		strcpy(argv[param++], "-k");
-		strcpy(argv[param++], "en-us");
+		strcpy(argv[param++], keyboard_layout);
 	}
 
 	LOGV("Setting multi core: %s", cpu_num_str);

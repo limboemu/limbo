@@ -1245,8 +1245,43 @@
                     android:gravity="right|center_vertical"
                     android:orientation="horizontal" >
 
+                    <TextView
+                        android:id="@+id/orientationstr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="right|center_vertical"
+                        android:gravity="right|center_vertical"
+                        android:text="Orientation"
+                        android:textSize="15dip" />
+
                     <Spinner
                         android:id="@+id/orientationval"
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"
+                        android:text=""
+                        android:textSize="15dip" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/keyboard"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="right|center_vertical"
+                    android:gravity="right|center_vertical"
+                    android:orientation="horizontal" >
+
+                    <TextView
+                        android:id="@+id/keyboardstr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="right|center_vertical"
+                        android:gravity="right|center_vertical"
+                        android:text="Keyboard Layout"
+                        android:textSize="15dip" />
+
+                    <Spinner
+                        android:id="@+id/keyboardval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
                         android:singleLine="true"

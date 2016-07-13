@@ -82,6 +82,21 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.commit();
 	}
 
+	public static int getKeyboardSetting(Activity activity) {
+
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		int orientation = prefs.getInt("keyboard", 0);
+		// UIUtils.log("Getting First time: " + firstTime);
+		return orientation;
+	}
+	
+	public static void setKeyboardSetting(Activity activity, int orientation) {
+
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putInt("keyboard", orientation);
+		edit.commit();
+	}
 	
 	public static boolean getPromptUpdateVersion(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);

@@ -119,7 +119,13 @@ public class Config {
 	public static final ScaleType defaultFullscreenScaleMode = ScaleType.FIT_CENTER;
 	public static final ScaleType defaultScaleModeCenter = ScaleType.CENTER;
 	public static final String defaultInputMode = VncCanvasActivity.TOUCH_ZOOM_MODE;
-
+	
+	//Keyboard Layout
+	public static String defaultKeyboardLayout = "en-us";
+	//FIXME: disable for now 
+	public static final boolean enableKeyboardLayoutOption = true; 
+	
+	
 	// Features
 	protected static final boolean enableSaveVMmonitor = true; // we use the
 																// Monitor
@@ -127,7 +133,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = false;
+	public static final boolean debug = true;
 	public static final DebugMode debugMode = DebugMode.X86;
 	
 	

@@ -834,21 +834,34 @@ public class SDLActivityCommon extends SDLActivity {
 
 	}
 
+	// FIXME: We need this to able to catch complex characters strings like
+	// grave and send it as text
+	@Override
+	public boolean dispatchKeyEvent(KeyEvent event) {
+		if (event.getAction() == KeyEvent.ACTION_MULTIPLE && event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
+			sendText(event.getCharacters().toString());
+			return true;
+		} else
+			return super.dispatchKeyEvent(event);
+
+	}
+
 	private static void sendText(String string) {
 		// TODO Auto-generated method stub
 		// Log.v("sendText", string);
-		KeyCharacterMap keyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.BUILT_IN_KEYBOARD);
+		KeyCharacterMap keyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
 		KeyEvent[] keyEvents = keyCharacterMap.getEvents(string.toCharArray());
-		for (int i = 0; i < keyEvents.length; i++) {
+		if (keyEvents != null)
+			for (int i = 0; i < keyEvents.length; i++) {
 
-			if (keyEvents[i].getAction() == KeyEvent.ACTION_DOWN) {
-				// Log.v("sendText", "Up: " + keyEvents[i].getKeyCode());
-				SDLActivity.onNativeKeyDown(keyEvents[i].getKeyCode());
-			} else if (keyEvents[i].getAction() == KeyEvent.ACTION_UP) {
-				// Log.v("sendText", "Down: " + keyEvents[i].getKeyCode());
-				SDLActivity.onNativeKeyUp(keyEvents[i].getKeyCode());
+				if (keyEvents[i].getAction() == KeyEvent.ACTION_DOWN) {
+					// Log.v("sendText", "Up: " + keyEvents[i].getKeyCode());
+					SDLActivity.onNativeKeyDown(keyEvents[i].getKeyCode());
+				} else if (keyEvents[i].getAction() == KeyEvent.ACTION_UP) {
+					// Log.v("sendText", "Down: " + keyEvents[i].getKeyCode());
+					SDLActivity.onNativeKeyUp(keyEvents[i].getKeyCode());
+				}
 			}
-		}
 	}
 
 	private class SaveVM extends AsyncTask<Void, Void, Void> {
@@ -954,10 +967,10 @@ public class SDLActivityCommon extends SDLActivity {
 		String save_state = "";
 		String pause_state = "";
 		if (LimboActivity.vmexecutor != null) {
-			//Get the state of saving full disk snapshot
+			// Get the state of saving full disk snapshot
 			save_state = LimboActivity.vmexecutor.get_save_state();
-			
-			//Get the state of saving the VM memory only
+
+			// Get the state of saving the VM memory only
 			pause_state = LimboActivity.vmexecutor.get_pause_state();
 			Log.d(TAG, "save_state = " + save_state);
 			Log.d(TAG, "pause_state = " + pause_state);
@@ -990,10 +1003,9 @@ public class SDLActivityCommon extends SDLActivity {
 	// Setup
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
-		
+
 		super.onCreate(savedInstanceState);
 
-		
 		Log.v("SDL", "Max Mem = " + Runtime.getRuntime().maxMemory());
 		this.handler = commandHandler;
 		this.activity1 = this;
@@ -1028,15 +1040,13 @@ public class SDLActivityCommon extends SDLActivity {
 		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_SHORT);
 		toast.setGravity(Gravity.TOP | Gravity.CENTER, 0, 0);
 		toast.show();
-//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//			@Override
-//			public void run() {
-//				UIUtils.setOrientation(activity);
-//			}
-//		}, 2000);
-		
-		
-		
+		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// UIUtils.setOrientation(activity);
+		// }
+		// }, 2000);
+
 	}
 
 	public SDLSurface getSDLSurface() {
@@ -1101,17 +1111,17 @@ public class SDLActivityCommon extends SDLActivity {
 
 	protected void onResume() {
 		Log.v("SDL", "onResume()");
-//		if (status == null || status.equals("") || status.equals("DONE"))
-//			SDLActivity.nativeResume();
-		
-		//mSurface.reSize();
-//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//			@Override
-//			public void run() {
-//				UIUtils.setOrientation(activity);
-//			}
-//		}, 1000);
-		
+		// if (status == null || status.equals("") || status.equals("DONE"))
+		// SDLActivity.nativeResume();
+
+		// mSurface.reSize();
+		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// UIUtils.setOrientation(activity);
+		// }
+		// }, 1000);
+
 		super.onResume();
 	}
 
@@ -1299,7 +1309,7 @@ public class SDLActivityCommon extends SDLActivity {
 				// }
 				// }, 1000);
 
-				//XXX: Instead we poll to see if migration is complete
+				// XXX: Instead we poll to see if migration is complete
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {

@@ -98,6 +98,7 @@ public class VMExecutor {
 	public int enablespice = 0;
 	private String qmp_server;
 	private int qmp_port;
+	public String keyboard_layout = Config.defaultKeyboardLayout;
 
 	/**
 	 */
