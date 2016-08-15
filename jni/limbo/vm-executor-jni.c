@@ -958,6 +958,9 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	strcpy(argv[param++], "-rtc");
 	strcpy(argv[param++], "base=localtime");
 
+	//This should already be set by the rtc option above, though it shouldn't hurt if we add again
+	strcpy(argv[param++], "-localtime");
+
 	//XXX: Usb redir not working under User mode
 	//Redirect ports (SSH)
 	//	strcpy(argv[param++], "-redir");
