@@ -76,7 +76,7 @@ public class Config {
 	public static final String ACTION_START = "com.max2idea.android.limbo.action.STARTVM";
 
 	public static enum DebugMode {
-		X86, ARM
+		X86, X86_64, ARM
 	};
 
 	// GUI Options
@@ -134,7 +134,7 @@ public class Config {
 
 	// Debug
 	public static final boolean debug = true;
-	public static final DebugMode debugMode = DebugMode.X86;
+	public static final DebugMode debugMode = DebugMode.X86_64;
 	
 	
 

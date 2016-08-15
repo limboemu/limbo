@@ -1312,6 +1312,8 @@ public class LimboActivity extends Activity {
 		// For debugging purposes
 		if (Config.debug) {
 			if (Config.debugMode == DebugMode.X86)
+				System.loadLibrary("qemu-system-i386");
+			else if (Config.debugMode == DebugMode.X86_64)
 				System.loadLibrary("qemu-system-x86_64");
 			else if (Config.debugMode == DebugMode.ARM)
 				System.loadLibrary("qemu-system-arm");
@@ -1994,7 +1996,7 @@ public class LimboActivity extends Activity {
 
 		this.mPrio.setEnabled(flag);
 		this.mEnableKVM.setEnabled(flag);
-		
+
 		this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
 
 		this.mUI.setEnabled(flag);
@@ -2170,8 +2172,8 @@ public class LimboActivity extends Activity {
 	}
 
 	private String getLanguageCode(int index) {
-		//TODO: Add more languages from /assets/roms/keymaps
-		switch(index){
+		// TODO: Add more languages from /assets/roms/keymaps
+		switch (index) {
 		case 0:
 			return "en-us";
 		case 1:
@@ -2440,7 +2442,7 @@ public class LimboActivity extends Activity {
 		mEnableKVM.setChecked(LimboSettingsManager.getEnableKVM(activity));
 
 		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
-		
+
 		this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
@@ -3510,7 +3512,6 @@ public class LimboActivity extends Activity {
 			this.mOrientation.setSelection(pos);
 		}
 	}
-	
 
 	private void populateKeyboardLayout() {
 
@@ -3991,61 +3992,86 @@ public class LimboActivity extends Activity {
 		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+		
+		//x86 cpus 32 bit
+		ArrayList<String> arrX86 = new ArrayList<String>();
+		arrX86.add("Default");
+		arrX86.add("qemu32");// QEMU Virtual CPU version 2.3.0
+		arrX86.add("kvm32");// Common 32-bit KVM processor
+		arrX86.add("coreduo");// Genuine Intel(R) CPU T2600 @ 2.16GHz
+		arrX86.add("486");
+		arrX86.add("pentium");
+		arrX86.add("pentium2");
+		arrX86.add("pentium3");
+		arrX86.add("athlon"); //QEMU Virtual CPU version 2.3.0                  
+		arrX86.add("n270"); //Intel(R) Atom(TM) CPU N270   @ 1.60GHz     
+		
+		//x86 cpus 64 bit
+		ArrayList<String> arrX86_64 = new ArrayList<String>();
+		arrX86_64.add("Default");
+		arrX86_64.add("qemu64");// QEMU Virtual CPU version 2.3.0
+		arrX86_64.add("kvm64");// Common KVM processor
+		arrX86_64.add("phenom");// AMD Phenom(tm) 9550 Quad-Core Processor
+		arrX86_64.add("core2duo");// Intel(R) Core(TM)2 Duo CPU T7700 @
+								// 2.40GHz
+		
+		arrX86_64.add("Conroe");// Intel Celeron_4x0 (Conroe/Merom Class Core
+								// 2)
+		arrX86_64.add("Penryn");// Intel Core 2 Duo P9xxx (Penryn Class Core
+								// 2)
+		arrX86_64.add("Nehalem");// Intel Core i7 9xx (Nehalem Class Core i7)
+		arrX86_64.add("Westmer");// e Westmere E56xx/L56xx/X56xx (Nehalem-C)
+		arrX86_64.add("SandyBridge");// Intel Xeon E312xx (Sandy Bridge)
+		arrX86_64.add("IvyBridge");// Intel Xeon E3-12xx v2 (Ivy Bridge)
+		arrX86_64.add("Haswell-noTSX");// Intel Core Processor (Haswell, no
+										// TSX)
+		arrX86_64.add("Haswell");// Intel Core Processor (Haswell)
+		arrX86_64.add("Broadwell-noTSX");// Intel Core Processor (Broadwell,
+										// no TSX)
+		arrX86_64.add("Broadwell");// Intel Core Processor (Broadwell)
+		arrX86_64.add("Opteron_G1");// AMD Opteron 240 (Gen 1 Class Opteron)
+		arrX86_64.add("Opteron_G2");// AMD Opteron 22xx (Gen 2 Class Opteron)
+		arrX86_64.add("Opteron_G3");// AMD Opteron 23xx (Gen 3 Class Opteron)
+		arrX86_64.add("Opteron_G4");// AMD Opteron 62xx class CPU
+		arrX86_64.add("Opteron_G5");// AMD Opteron 63xx class CPU
+		
+		//ARM cpus
+		ArrayList<String> arrARM = new ArrayList<String>();
+		arrARM.add("arm926");
+		arrARM.add("arm946");
+		arrARM.add("arm1026");
+		arrARM.add("arm1136");
+		arrARM.add("arm1136-r2");
+		arrARM.add("arm1176");
+		arrARM.add("arm11mpcore");
+		arrARM.add("cortex-m3");
+		arrARM.add("cortex-a8");
+		arrARM.add("cortex-a8-r2");
+		arrARM.add("cortex-a9");
+		arrARM.add("cortex-a15");
 
+		// "arm1136 (arm)", "arm1136-r2 (arm)", "arm1176 (arm)",
+		// "arm11mpcore (arm)", "cortex-m3 (arm)", "cortex-a8 (arm)",
+		// "cortex-a8-r2 (arm)", "cortex-a9 (arm)", "cortex-a15 (arm)",
+
+		// "ti925t (arm)", "pxa250 (arm)", "sa1100 (arm)", "sa1110
+		// (arm)",
+		// "pxa255 (arm)", "pxa260 (arm)", "pxa261 (arm)", "pxa262
+		// (arm)",
+		// "pxa270 (arm)", "pxa270-a0 (arm)", "pxa270-a1 (arm)",
+		// "pxa270-b0 (arm)", "pxa270-b1 (arm)", "pxa270-c0 (arm)",
+		// "pxa270-c5 (arm)", "any (arm)"
+		
 		if (currMachine != null) {
-			if (currMachine.arch.equals("x86")) {
-
-				arrList.add("Default");
-				arrList.add("qemu32");
-				arrList.add("coreduo");
-				arrList.add("486");
-				arrList.add("pentium");
-				arrList.add("pentium2");
-				arrList.add("pentium3");
-				arrList.add("athlon");
-				arrList.add("n270");
+			if (currMachine.arch.equals("x86")){
+				arrList.addAll(arrX86);
 			} else if (currMachine.arch.equals("x64")) {
-				arrList.add("Default");
-				arrList.add("qemu64");
-				arrList.add("phenom");
-				arrList.add("core2duo");
-				arrList.add("kvm64");
-			} else if (currMachine.arch.equals("ARM")) {
-				arrList.add("arm926");
-				arrList.add("arm946");
-				arrList.add("arm1026");
-				arrList.add("arm1136");
-				arrList.add("arm1136-r2");
-				arrList.add("arm1176");
-				arrList.add("arm11mpcore");
-				arrList.add("cortex-m3");
-				arrList.add("cortex-a8");
-				arrList.add("cortex-a8-r2");
-				arrList.add("cortex-a9");
-				arrList.add("cortex-a15");
-
-				// "arm1136 (arm)", "arm1136-r2 (arm)", "arm1176 (arm)",
-				// "arm11mpcore (arm)", "cortex-m3 (arm)", "cortex-a8 (arm)",
-				// "cortex-a8-r2 (arm)", "cortex-a9 (arm)", "cortex-a15 (arm)",
-
-				// "ti925t (arm)", "pxa250 (arm)", "sa1100 (arm)", "sa1110
-				// (arm)",
-				// "pxa255 (arm)", "pxa260 (arm)", "pxa261 (arm)", "pxa262
-				// (arm)",
-				// "pxa270 (arm)", "pxa270-a0 (arm)", "pxa270-a1 (arm)",
-				// "pxa270-b0 (arm)", "pxa270-b1 (arm)", "pxa270-c0 (arm)",
-				// "pxa270-c5 (arm)", "any (arm)"
-
+				arrList.addAll(arrX86_64);
+			}else if (currMachine.arch.equals("ARM")) {
+				arrList.addAll(arrARM);
 			}
 		} else {
-			arrList.add("qemu32");
-			arrList.add("coreduo");
-			arrList.add("486");
-			arrList.add("pentium");
-			arrList.add("pentium2");
-			arrList.add("pentium3");
-			arrList.add("athlon");
-			arrList.add("n270");
+			arrList.addAll(arrX86);
 		}
 
 		if (cpuAdapter == null) {
