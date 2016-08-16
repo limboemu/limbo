@@ -98,6 +98,9 @@ public class Config {
 	public static final String APP_NAME = "Limbo PC Emulator (QEMU)";
 	public static final String DBFile = Environment.getExternalStorageDirectory() + "/limbo/machines.csv";
 	public static final String basefiledir = Environment.getExternalStorageDirectory() + "/limbo/";
+	public static String sharedFolder = basefiledir + "shared";
+	public static String tmpFolder = basefiledir + "tmp"; // Do not modify
+	
 	public static final String machinedir = basefiledir + "machines/";
 	public static final boolean enableHDCache = false;
 	public static final String defaultDNSServer = "8.8.8.8";

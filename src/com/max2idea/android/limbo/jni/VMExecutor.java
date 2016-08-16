@@ -99,6 +99,8 @@ public class VMExecutor {
 	private String qmp_server;
 	private int qmp_port;
 	public String keyboard_layout = Config.defaultKeyboardLayout;
+	public String shared_folder_path;
+	public int shared_folder_readonly = 1;
 
 	/**
 	 */
@@ -231,6 +233,14 @@ public class VMExecutor {
 			this.sound_card = null;
 		}
 
+		//Shared folder
+		if (machine.shared_folder != null){
+			shared_folder_path = Config.sharedFolder;
+			if(machine.shared_folder_mode == 0)
+				shared_folder_readonly = 1;
+			else if(machine.shared_folder_mode == 1)
+				shared_folder_readonly = 0;
+		}
 		this.prepPaths();
 	}
 

@@ -554,6 +554,16 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		sd_img_path_str = (*env)->GetStringUTFChars(env, jsd_img_path, 0);
 	LOGV("SD= %s", sd_img_path_str);
 
+	fid = (*env)->GetFieldID(env, c, "shared_folder_path", "Ljava/lang/String;");
+		jstring jshared_folder_path = (*env)->GetObjectField(env, thiz, fid);
+		const char * shared_folder_path_str = NULL;
+		if (jshared_folder_path != NULL)
+			shared_folder_path_str = (*env)->GetStringUTFChars(env, jshared_folder_path, 0);
+		LOGV("Shared Folder= %s", shared_folder_path_str);
+
+	fid = (*env)->GetFieldID(env, c, "shared_folder_readonly", "I");
+	int shared_folder_readonly = (*env)->GetIntField(env, thiz, fid);
+
 	fid = (*env)->GetFieldID(env, c, "bootdevice", "Ljava/lang/String;");
 	jstring jboot_dev = (*env)->GetObjectField(env, thiz, fid);
 	const char * boot_dev_str = NULL;
@@ -772,6 +782,16 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		}
 
 	}
+
+	if (shared_folder_path_str != NULL) { //We use hdd to mount any virtual fat drives
+		strcpy(argv[param++], "-drive"); //empty
+		strcpy(argv[param], "index=3,media=disk,file=fat:");
+		if(!shared_folder_readonly){
+			strcat(argv[param], "rw:");
+		}
+		strcat(argv[param++], shared_folder_path_str);
+	}
+
 
 	if (vga_type_str != NULL) {
 		LOGV("Adding vga: %s", vga_type_str);
@@ -1019,7 +1039,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		LOGE("Cannot load symbol 'set_jni': %s\n", dlsym_error3);
 		return (*env)->NewStringUTF(env, res_msg);
 	}
-	set_jni(env, thiz);
+	set_jni(env, thiz, c);
 
 	LOGV("Loading symbol qemu_start...\n");
 	typedef void (*qemu_start_t)();

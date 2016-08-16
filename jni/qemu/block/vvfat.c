@@ -1178,6 +1178,7 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
     //    assert(is_consistent(s));
     qemu_co_mutex_init(&s->lock);
 
+#ifndef __LIMBO__
     /* Disable migration when vvfat is used rw */
     if (s->qcow) {
         error_set(&s->migration_blocker,
@@ -1185,6 +1186,7 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
                   "vvfat (rw)", bdrv_get_device_name(bs), "live migration");
         migrate_add_blocker(s->migration_blocker);
     }
+#endif // __LIMBO__
 
     ret = 0;
 fail:

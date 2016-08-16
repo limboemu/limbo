@@ -517,6 +517,44 @@
                         android:textSize="15dip" />
                 </LinearLayout>
 
+                                <LinearLayout
+                    android:id="@+id/sharedfolderl"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" >
+
+                    <CheckBox
+                        android:id="@+id/sharedfoldercheck"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="left|center_vertical"
+                        android:gravity="left|center_vertical"
+                        android:paddingRight="5dip" />
+
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:paddingRight="5dip"
+                        android:src="@drawable/folder" />
+
+                    <TextView
+                        android:id="@+id/sharedfolderstr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:text="Shared Folder "
+                        android:textSize="15dip" />
+
+                    <Spinner
+                        android:id="@+id/sharedfolderval"
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"
+                        android:text=""
+                        android:textSize="15dip" />
+                </LinearLayout>
+                
                 <LinearLayout
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"
@@ -687,6 +725,9 @@
                         android:textSize="15dip" />
                 </LinearLayout>
 
+
+                
+                
                 <LinearLayout
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"

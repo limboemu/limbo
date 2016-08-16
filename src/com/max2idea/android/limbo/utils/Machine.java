@@ -83,6 +83,9 @@ public class Machine {
 
 	public int enablespice;
 
+	public String shared_folder;
+	public int shared_folder_mode;
+
 	   public Machine(String machinename) {
 		   this.machinename = machinename;
 	   }

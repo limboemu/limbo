@@ -228,12 +228,13 @@ static int qcow_open(BlockDriverState *bs, QDict *options, int flags,
         bs->backing_file[len] = '\0';
     }
 
+#ifndef __LIMBO__
     /* Disable migration when qcow images are used */
     error_set(&s->migration_blocker,
               QERR_BLOCK_FORMAT_FEATURE_NOT_SUPPORTED,
               "qcow", bdrv_get_device_name(bs), "live migration");
     migrate_add_blocker(s->migration_blocker);
-
+#endif //__LIMBO__
     qemu_co_mutex_init(&s->lock);
     return 0;
 

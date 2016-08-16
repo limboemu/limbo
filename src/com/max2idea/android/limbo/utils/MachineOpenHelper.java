@@ -38,7 +38,7 @@ import java.util.Iterator;
  */
 public class MachineOpenHelper extends SQLiteOpenHelper {
 
-	private static final int DATABASE_VERSION = 10;
+	private static final int DATABASE_VERSION = 11;
 	private static final String DATABASE_NAME = "LIMBO";
 	private static final String MACHINE_TABLE_NAME = "machines";
 	// COlumns
@@ -60,6 +60,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String HDC = "HDC";
 	public static final String HDD = "HDD";
 	public static final String SD = "SD";
+	public static final String SHARED_FOLDER = "SHARED_FOLDER";
+	public static final String SHARED_FOLDER_MODE = "SHARED_FOLDER_MODE";
 	public static final String BOOT_CONFIG = "BOOT_CONFIG";
 	public static final String NET_CONFIG = "NETCONFIG";
 	public static final String NIC_CONFIG = "NICCONFIG";
@@ -83,7 +85,10 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			+ " INTEGER, " + DISABLE_HPET + " INTEGER, " + ENABLE_USBMOUSE + " INTEGER, " + STATUS + " TEXT, "
 			+ LASTUPDATED + " DATE, " + KERNEL + " INTEGER, " + INITRD + " TEXT, " + APPEND + " TEXT, " + CPUNUM
 			+ " INTEGER, " + MACHINE_TYPE + " TEXT, " + DISABLE_FD_BOOT_CHK + " INTEGER, " + SD + " TEXT, " + PAUSED
-			+ " INTEGER " + ");";
+			+ " INTEGER, " 
+			+ SHARED_FOLDER + " TEXT, "
+			+ SHARED_FOLDER_MODE + " INTEGER "
+			+ ");";
 
 	private final Activity activity;
 	private String TAG = "MachineOpenHelper";
@@ -142,7 +147,12 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.PAUSED + " INTEGER;");
 
 		}
+		if (newVersion >= 11 && oldVersion <= 10) {
 
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SHARED_FOLDER + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SHARED_FOLDER_MODE + " INTEGER;");
+
+		}
 	}
 
 	public synchronized int insertMachine(Machine myMachine) {
@@ -163,6 +173,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		stateValues.put(this.CDROM, myMachine.cd_iso_path);
 		stateValues.put(this.FDA, myMachine.fda_img_path);
 		stateValues.put(this.FDB, myMachine.fdb_img_path);
+		stateValues.put(this.SHARED_FOLDER, myMachine.shared_folder);
+		stateValues.put(this.SHARED_FOLDER_MODE, myMachine.shared_folder_mode);
 		stateValues.put(this.BOOT_CONFIG, myMachine.bootdevice);
 		stateValues.put(this.NET_CONFIG, myMachine.net_cfg);
 		stateValues.put(this.NIC_CONFIG, myMachine.nic_driver);
@@ -268,7 +280,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 				+ this.DISABLE_HPET + " , " + this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , "
 				+ this.BOOT_CONFIG + " , " + this.KERNEL + " , " + this.INITRD + " , " + this.APPEND + " , "
 				+ this.CPUNUM + " , " + this.MACHINE_TYPE + " , " + this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , "
-				+ this.PAUSED + " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS + " in ( "
+				+ this.PAUSED + " , " + this.SD + " , " + this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE 
+				+ " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS + " in ( "
 				+ Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " " + " ) " + " and " + this.MACHINE_NAME + "=\""
 				+ machine + "\"" + " and " + this.SNAPSHOT_NAME + "=\"" + snapshot + "\"" + ";";
 
@@ -306,6 +319,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			int fdbootchk = (int) cur.getInt(25);
 			String arch = cur.getString(26);
 			int paused = cur.getInt(27);
+			String sd = cur.getString(28);
+			String sharedFolder = cur.getString(29);
+			int sharedFolderMode = cur.getInt(30);
 
 			// Log.v("DB", "Got Machine: " + machinename);
 			// Log.v("DB", "Got cpu: " + cpu);
@@ -320,9 +336,17 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			myMachine.hdc_img_path = hdc;
 			myMachine.hdd_img_path = hdd;
 
+			// Shared Folder
+			myMachine.shared_folder = sharedFolder;
+			myMachine.shared_folder_mode = sharedFolderMode;
+			
 			// FDA
 			myMachine.fda_img_path = fda;
 			myMachine.fdb_img_path = fdb;
+			
+			//SD
+			myMachine.sd_img_path = sd;
+			
 			myMachine.vga_type = vga;
 			myMachine.soundcard = snd;
 			myMachine.net_cfg = net;

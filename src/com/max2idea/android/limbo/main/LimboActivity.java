@@ -143,6 +143,8 @@ public class LimboActivity extends Activity {
 	protected boolean userPressedFDA = false;
 
 	protected boolean userPressedSD = false;
+	protected boolean userPressedSharedFolder = false;
+	
 
 	// HDD
 	protected boolean userPressedHDA = false;
@@ -721,6 +723,37 @@ public class LimboActivity extends Activity {
 			}
 		});
 
+		mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
+			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+				String sharedFolder = (String) ((ArrayAdapter<?>) mSharedFolder.getAdapter()).getItem(position);
+				
+				if (userPressedSharedFolder && (position == 0 || !mSharedFolderenable.isChecked())) {
+					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, null);
+					currMachine.shared_folder = null;
+					currMachine.shared_folder_mode = 0;
+				} else if (userPressedSharedFolder && position == 1 && mSharedFolderenable.isChecked()) {
+					String [] shared_folder = sharedFolder.split("\\("); 
+					currMachine.shared_folder = shared_folder[0].trim();
+					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
+					currMachine.shared_folder_mode = 0;
+					ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, "0");
+				} else if (userPressedSharedFolder && position== 2 && mSharedFolderenable.isChecked()) {
+					String [] shared_folder = sharedFolder.split("\\("); 
+					
+					currMachine.shared_folder = shared_folder[0];
+					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
+					currMachine.shared_folder_mode = 1;
+					ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, "1");
+				}
+				userPressedSharedFolder = true;
+			}
+
+			public void onNothingSelected(AdapterView<?> parentView) {
+
+			}
+		});
+
+		
 		mCDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mCD.setEnabled(isChecked);
@@ -794,6 +827,7 @@ public class LimboActivity extends Activity {
 				if (currMachine != null) {
 					if (isChecked) {
 						currMachine.hdd_img_path = "";
+						mSharedFolderenable.setChecked(false);
 					} else {
 						currMachine.hdd_img_path = null;
 					}
@@ -853,6 +887,26 @@ public class LimboActivity extends Activity {
 				}
 
 				triggerUpdateSpinner(mSD);
+			}
+
+		});
+		mSharedFolderenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+				mSharedFolder.setEnabled(isChecked);
+				if (currMachine != null) {
+					if (isChecked) {
+						currMachine.shared_folder = "";
+						currMachine.shared_folder_mode = 0;
+						int ret = machineDB.update(currMachine, MachineOpenHelper.SD, "");
+						mHDDenable.setChecked(false);
+					} else {
+						currMachine.shared_folder = null;
+						currMachine.shared_folder_mode = 0;
+						int ret = machineDB.update(currMachine, MachineOpenHelper.SD, null);
+					}
+				}
+
+				triggerUpdateSpinner(mSharedFolder);
 			}
 
 		});
@@ -1193,6 +1247,7 @@ public class LimboActivity extends Activity {
 	private Spinner mFDA;
 	private Spinner mFDB;
 	private Spinner mSD;
+	private Spinner mSharedFolder;
 
 	private CheckBox mHDAenable;
 	private CheckBox mHDBenable;
@@ -1202,6 +1257,7 @@ public class LimboActivity extends Activity {
 	private CheckBox mFDAenable;
 	private CheckBox mFDBenable;
 	private CheckBox mSDenable;
+	private CheckBox mSharedFolderenable;
 
 	private Spinner mRamSize;
 	private Spinner mBootDevices;
@@ -1242,6 +1298,16 @@ public class LimboActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		// Create Temp folder
+		File folder = new File(Config.tmpFolder);
+		if (!folder.exists())
+			folder.mkdirs();
+
+		// Create shared folder
+		File shared_folder = new File(Config.sharedFolder);
+		if (!shared_folder.exists())
+			shared_folder.mkdirs();
 
 		OShandler = this.handler;
 
@@ -1461,6 +1527,7 @@ public class LimboActivity extends Activity {
 		this.populateFloppy("fda");
 		this.populateFloppy("fdb");
 		this.populateSDCard("sd");
+		this.populateSharedFolder();
 		this.populateBootDevices();
 		this.populateNet();
 		this.populateNetDevices(null);
@@ -1963,11 +2030,13 @@ public class LimboActivity extends Activity {
 		mFDAenable.setEnabled(flag);
 		mFDBenable.setEnabled(flag);
 		mSDenable.setEnabled(flag);
-
+		
+		
 		mCD.setEnabled(flag && mCDenable.isChecked());
 		mFDA.setEnabled(flag && mFDAenable.isChecked());
 		mFDB.setEnabled(flag && mFDBenable.isChecked());
 		mSD.setEnabled(flag && mSDenable.isChecked());
+
 	}
 
 	private void enableNonRemovableDeviceOptions(boolean flag) {
@@ -2017,12 +2086,14 @@ public class LimboActivity extends Activity {
 		mHDBenable.setEnabled(flag);
 		mHDCenable.setEnabled(flag);
 		mHDDenable.setEnabled(flag);
-
+		mSharedFolderenable.setEnabled(flag);
+		
+		
 		mHDA.setEnabled(flag && mHDAenable.isChecked());
 		mHDB.setEnabled(flag && mHDBenable.isChecked());
 		mHDC.setEnabled(flag && mHDCenable.isChecked());
 		mHDD.setEnabled(flag && mHDDenable.isChecked());
-
+		mSharedFolder.setEnabled(flag && mSharedFolderenable.isChecked());
 	}
 
 	static private void onInstall() {
@@ -2058,6 +2129,7 @@ public class LimboActivity extends Activity {
 	private ArrayAdapter<String> fdaAdapter;
 	private ArrayAdapter<String> fdbAdapter;
 	private ArrayAdapter<String> sdAdapter;
+	private ArrayAdapter<String> sharedFolderAdapter;
 
 	// HDD
 	private ArrayAdapter<String> hdaAdapter;
@@ -2125,7 +2197,9 @@ public class LimboActivity extends Activity {
 			vmexecutor.fdb_img_path = "";
 		if (mSDenable.isChecked() && vmexecutor.sd_img_path == null)
 			vmexecutor.sd_img_path = "";
-
+//		if (mSharedFolderenable.isChecked() && vmexecutor.shared_folder_path == null)
+//			vmexecutor.shared_folder_path = "";
+//		
 		// Global settings
 
 		// dns
@@ -2410,6 +2484,7 @@ public class LimboActivity extends Activity {
 		this.mFDA = (Spinner) findViewById(R.id.floppyimgval);
 		this.mFDB = (Spinner) findViewById(R.id.floppybimgval);
 		this.mSD = (Spinner) findViewById(R.id.sdcardimgval);
+		this.mSharedFolder = (Spinner) findViewById(R.id.sharedfolderval);
 
 		this.mHDAenable = (CheckBox) findViewById(R.id.hdimgcheck);
 		this.mHDBenable = (CheckBox) findViewById(R.id.hdbimgcheck);
@@ -2419,6 +2494,7 @@ public class LimboActivity extends Activity {
 		this.mFDAenable = (CheckBox) findViewById(R.id.floppyimgcheck);
 		this.mFDBenable = (CheckBox) findViewById(R.id.floppybimgcheck);
 		this.mSDenable = (CheckBox) findViewById(R.id.sdcardimgcheck);
+		this.mSharedFolderenable = (CheckBox) findViewById(R.id.sharedfoldercheck);
 
 		this.mBootDevices = (Spinner) findViewById(R.id.bootfromval);
 		this.mNetConfig = (Spinner) findViewById(R.id.netcfgval);
@@ -2723,6 +2799,13 @@ public class LimboActivity extends Activity {
 		this.setHDB(currMachine.hdb_img_path, false);
 		this.setHDC(currMachine.hdc_img_path, false);
 		this.setHDD(currMachine.hdd_img_path, false);
+		if(currMachine.shared_folder != null){
+			if(currMachine.shared_folder_mode == 0){
+				mSharedFolder.setSelection(1);
+			} else if(currMachine.shared_folder_mode == 1){
+				mSharedFolder.setSelection(2);
+			}
+		}
 
 		// Advance
 		this.setBootDevice(currMachine.bootdevice, false);
@@ -2790,6 +2873,11 @@ public class LimboActivity extends Activity {
 		} else
 			mSDenable.setChecked(false);
 
+		if (currMachine.shared_folder != null) {
+			mSharedFolderenable.setChecked(true);
+		} else
+			mSharedFolderenable.setChecked(false);
+		
 		mMachine.setEnabled(false);
 
 		if (currMachine.paused == 1) {
@@ -3992,8 +4080,8 @@ public class LimboActivity extends Activity {
 		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		
-		//x86 cpus 32 bit
+
+		// x86 cpus 32 bit
 		ArrayList<String> arrX86 = new ArrayList<String>();
 		arrX86.add("Default");
 		arrX86.add("qemu32");// QEMU Virtual CPU version 2.3.0
@@ -4003,18 +4091,18 @@ public class LimboActivity extends Activity {
 		arrX86.add("pentium");
 		arrX86.add("pentium2");
 		arrX86.add("pentium3");
-		arrX86.add("athlon"); //QEMU Virtual CPU version 2.3.0                  
-		arrX86.add("n270"); //Intel(R) Atom(TM) CPU N270   @ 1.60GHz     
-		
-		//x86 cpus 64 bit
+		arrX86.add("athlon"); // QEMU Virtual CPU version 2.3.0
+		arrX86.add("n270"); // Intel(R) Atom(TM) CPU N270 @ 1.60GHz
+
+		// x86 cpus 64 bit
 		ArrayList<String> arrX86_64 = new ArrayList<String>();
 		arrX86_64.add("Default");
 		arrX86_64.add("qemu64");// QEMU Virtual CPU version 2.3.0
 		arrX86_64.add("kvm64");// Common KVM processor
 		arrX86_64.add("phenom");// AMD Phenom(tm) 9550 Quad-Core Processor
 		arrX86_64.add("core2duo");// Intel(R) Core(TM)2 Duo CPU T7700 @
-								// 2.40GHz
-		
+									// 2.40GHz
+
 		arrX86_64.add("Conroe");// Intel Celeron_4x0 (Conroe/Merom Class Core
 								// 2)
 		arrX86_64.add("Penryn");// Intel Core 2 Duo P9xxx (Penryn Class Core
@@ -4027,15 +4115,15 @@ public class LimboActivity extends Activity {
 										// TSX)
 		arrX86_64.add("Haswell");// Intel Core Processor (Haswell)
 		arrX86_64.add("Broadwell-noTSX");// Intel Core Processor (Broadwell,
-										// no TSX)
+											// no TSX)
 		arrX86_64.add("Broadwell");// Intel Core Processor (Broadwell)
 		arrX86_64.add("Opteron_G1");// AMD Opteron 240 (Gen 1 Class Opteron)
 		arrX86_64.add("Opteron_G2");// AMD Opteron 22xx (Gen 2 Class Opteron)
 		arrX86_64.add("Opteron_G3");// AMD Opteron 23xx (Gen 3 Class Opteron)
 		arrX86_64.add("Opteron_G4");// AMD Opteron 62xx class CPU
 		arrX86_64.add("Opteron_G5");// AMD Opteron 63xx class CPU
-		
-		//ARM cpus
+
+		// ARM cpus
 		ArrayList<String> arrARM = new ArrayList<String>();
 		arrARM.add("arm926");
 		arrARM.add("arm946");
@@ -4061,13 +4149,13 @@ public class LimboActivity extends Activity {
 		// "pxa270 (arm)", "pxa270-a0 (arm)", "pxa270-a1 (arm)",
 		// "pxa270-b0 (arm)", "pxa270-b1 (arm)", "pxa270-c0 (arm)",
 		// "pxa270-c5 (arm)", "any (arm)"
-		
+
 		if (currMachine != null) {
-			if (currMachine.arch.equals("x86")){
+			if (currMachine.arch.equals("x86")) {
 				arrList.addAll(arrX86);
 			} else if (currMachine.arch.equals("x64")) {
 				arrList.addAll(arrX86_64);
-			}else if (currMachine.arch.equals("ARM")) {
+			} else if (currMachine.arch.equals("ARM")) {
 				arrList.addAll(arrARM);
 			}
 		} else {
@@ -4473,6 +4561,19 @@ public class LimboActivity extends Activity {
 			this.mSD.setAdapter(sdAdapter);
 			this.mSD.invalidate();
 		}
+	}
+
+	private void populateSharedFolder() {
+		ArrayList<String> arraySpinner = new ArrayList<String>();
+		arraySpinner.add("None");
+		arraySpinner.add(Config.sharedFolder + " (read-only)");
+		arraySpinner.add(Config.sharedFolder + " (read-write)");
+
+		sharedFolderAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+		sharedFolderAdapter .setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+		this.mSharedFolder.setAdapter(sharedFolderAdapter );
+		this.mSharedFolder.invalidate();
+
 	}
 
 	public void browse(String fileType) {

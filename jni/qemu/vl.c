@@ -125,6 +125,10 @@ int main(int argc, char **argv)
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
+#ifdef __LIMBO__
+char * limbo_base_dir;
+#endif
+
 static const char *data_dir[16];
 static int data_dir_idx;
 const char *bios_name = NULL;
@@ -3136,6 +3140,9 @@ int main(int argc, char **argv, char **envp)
                 break;
             case QEMU_OPTION_L:
                 if (data_dir_idx < ARRAY_SIZE(data_dir)) {
+#ifdef __LIMBO__
+                	limbo_base_dir = optarg;
+#endif // __LIMBO__
                     data_dir[data_dir_idx++] = optarg;
                 }
                 break;
