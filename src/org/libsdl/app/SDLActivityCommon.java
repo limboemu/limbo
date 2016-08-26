@@ -727,6 +727,9 @@ public class SDLActivityCommon extends SDLActivity {
 		// android supports only 1
 		menu.removeItem(menu.findItem(R.id.itemMonitor).getItemId());
 
+		// Remove scaling for now
+		menu.removeItem(menu.findItem(R.id.itemScaling).getItemId());
+		
 		// if (this.monitorMode) {
 		// menu.findItem(R.id.itemMonitor).setTitle("VM Console");
 		//
