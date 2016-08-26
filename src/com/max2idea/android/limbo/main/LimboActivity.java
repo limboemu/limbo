@@ -1082,8 +1082,10 @@ public class LimboActivity extends Activity {
 			appendChangeListener = new TextWatcher() {
 
 				public void afterTextChanged(Editable s) {
-
-					int ret = machineDB.update(currMachine, MachineOpenHelper.APPEND, s.toString());
+					if (currMachine != null) {
+						currMachine.append = s.toString();
+						int ret = machineDB.update(currMachine, MachineOpenHelper.APPEND, s.toString());
+					}
 				}
 
 				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
