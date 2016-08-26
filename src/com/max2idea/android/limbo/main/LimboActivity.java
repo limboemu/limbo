@@ -144,7 +144,6 @@ public class LimboActivity extends Activity {
 
 	protected boolean userPressedSD = false;
 	protected boolean userPressedSharedFolder = false;
-	
 
 	// HDD
 	protected boolean userPressedHDA = false;
@@ -180,6 +179,7 @@ public class LimboActivity extends Activity {
 	private ImageView mStatus;
 	private EditText mDNS;
 	private EditText mAppend;
+	private EditText mExtraParams;
 	private boolean timeQuit = false;
 	private Object lockTime = new Object();
 	public static String currStatus = "READY";
@@ -187,6 +187,7 @@ public class LimboActivity extends Activity {
 	private WakeLock mWakeLock;
 	private WifiLock wlock;
 	private static TextWatcher appendChangeListener;
+	private static TextWatcher extraParamsChangeListener;
 	private static TextWatcher dnsChangeListener;
 
 	public void setUserPressed(boolean pressed) {
@@ -726,20 +727,20 @@ public class LimboActivity extends Activity {
 		mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				String sharedFolder = (String) ((ArrayAdapter<?>) mSharedFolder.getAdapter()).getItem(position);
-				
+
 				if (userPressedSharedFolder && (position == 0 || !mSharedFolderenable.isChecked())) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, null);
 					currMachine.shared_folder = null;
 					currMachine.shared_folder_mode = 0;
 				} else if (userPressedSharedFolder && position == 1 && mSharedFolderenable.isChecked()) {
-					String [] shared_folder = sharedFolder.split("\\("); 
+					String[] shared_folder = sharedFolder.split("\\(");
 					currMachine.shared_folder = shared_folder[0].trim();
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
 					currMachine.shared_folder_mode = 0;
 					ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, "0");
-				} else if (userPressedSharedFolder && position== 2 && mSharedFolderenable.isChecked()) {
-					String [] shared_folder = sharedFolder.split("\\("); 
-					
+				} else if (userPressedSharedFolder && position == 2 && mSharedFolderenable.isChecked()) {
+					String[] shared_folder = sharedFolder.split("\\(");
+
 					currMachine.shared_folder = shared_folder[0];
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
 					currMachine.shared_folder_mode = 1;
@@ -753,7 +754,6 @@ public class LimboActivity extends Activity {
 			}
 		});
 
-		
 		mCDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mCD.setEnabled(isChecked);
@@ -1096,6 +1096,26 @@ public class LimboActivity extends Activity {
 			};
 		mAppend.addTextChangedListener(appendChangeListener);
 
+		if (extraParamsChangeListener == null)
+			extraParamsChangeListener = new TextWatcher() {
+
+				public void afterTextChanged(Editable s) {
+					if (currMachine != null) {
+						currMachine.extra_params = s.toString();
+						int ret = machineDB.update(currMachine, MachineOpenHelper.EXTRA_PARAMS, s.toString());
+					}
+				}
+
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+				}
+
+				public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+				}
+			};
+		mExtraParams.addTextChangedListener(extraParamsChangeListener);
+
 		mVNCAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 
@@ -1213,6 +1233,7 @@ public class LimboActivity extends Activity {
 		mEnableKVM.setOnCheckedChangeListener(null);
 		mOrientation.setOnItemSelectedListener(null);
 		mKeyboard.setOnItemSelectedListener(null);
+		mExtraParams.removeTextChangedListener(extraParamsChangeListener);
 
 	}
 
@@ -1301,6 +1322,16 @@ public class LimboActivity extends Activity {
 
 		// Create Temp folder
 		File folder = new File(Config.tmpFolder);
+		if (folder.exists()){
+			File [] files = folder.listFiles();
+			for (File file : files ){
+				try {
+					file.delete();
+				} catch (Exception ex){
+					Log.e(TAG, "Could not remove temp file: " + file.getAbsolutePath());
+				}
+			}
+		}
 		if (!folder.exists())
 			folder.mkdirs();
 
@@ -2030,8 +2061,7 @@ public class LimboActivity extends Activity {
 		mFDAenable.setEnabled(flag);
 		mFDBenable.setEnabled(flag);
 		mSDenable.setEnabled(flag);
-		
-		
+
 		mCD.setEnabled(flag && mCDenable.isChecked());
 		mFDA.setEnabled(flag && mFDAenable.isChecked());
 		mFDB.setEnabled(flag && mFDBenable.isChecked());
@@ -2087,13 +2117,14 @@ public class LimboActivity extends Activity {
 		mHDCenable.setEnabled(flag);
 		mHDDenable.setEnabled(flag);
 		mSharedFolderenable.setEnabled(flag);
-		
-		
+
 		mHDA.setEnabled(flag && mHDAenable.isChecked());
 		mHDB.setEnabled(flag && mHDBenable.isChecked());
 		mHDC.setEnabled(flag && mHDCenable.isChecked());
 		mHDD.setEnabled(flag && mHDDenable.isChecked());
 		mSharedFolder.setEnabled(flag && mSharedFolderenable.isChecked());
+
+		this.mExtraParams.setEnabled(flag);
 	}
 
 	static private void onInstall() {
@@ -2197,9 +2228,10 @@ public class LimboActivity extends Activity {
 			vmexecutor.fdb_img_path = "";
 		if (mSDenable.isChecked() && vmexecutor.sd_img_path == null)
 			vmexecutor.sd_img_path = "";
-//		if (mSharedFolderenable.isChecked() && vmexecutor.shared_folder_path == null)
-//			vmexecutor.shared_folder_path = "";
-//		
+		// if (mSharedFolderenable.isChecked() && vmexecutor.shared_folder_path
+		// == null)
+		// vmexecutor.shared_folder_path = "";
+		//
 		// Global settings
 
 		// dns
@@ -2450,6 +2482,10 @@ public class LimboActivity extends Activity {
 		this.mAppend.setFocusable(true);
 		// this.mAppend.setEnabled(false);
 		// this.mAppend.setText(LimboSettingsManager.getAppend(activity));
+
+		this.mExtraParams = (EditText) findViewById(R.id.extraparamsval);
+		this.mExtraParams.setFocusableInTouchMode(true);
+		this.mExtraParams.setFocusable(true);
 
 		this.mMachine = (Spinner) findViewById(R.id.machineval);
 
@@ -2785,6 +2821,11 @@ public class LimboActivity extends Activity {
 		else
 			mAppend.setText("");
 
+		if (currMachine.extra_params != null)
+			mExtraParams.setText(currMachine.extra_params);
+		else
+			mExtraParams.setText("");
+
 		setCDROM(currMachine.cd_iso_path, false);
 
 		// Floppy
@@ -2799,10 +2840,10 @@ public class LimboActivity extends Activity {
 		this.setHDB(currMachine.hdb_img_path, false);
 		this.setHDC(currMachine.hdc_img_path, false);
 		this.setHDD(currMachine.hdd_img_path, false);
-		if(currMachine.shared_folder != null){
-			if(currMachine.shared_folder_mode == 0){
+		if (currMachine.shared_folder != null) {
+			if (currMachine.shared_folder_mode == 0) {
 				mSharedFolder.setSelection(1);
-			} else if(currMachine.shared_folder_mode == 1){
+			} else if (currMachine.shared_folder_mode == 1) {
 				mSharedFolder.setSelection(2);
 			}
 		}
@@ -2877,7 +2918,7 @@ public class LimboActivity extends Activity {
 			mSharedFolderenable.setChecked(true);
 		} else
 			mSharedFolderenable.setChecked(false);
-		
+
 		mMachine.setEnabled(false);
 
 		if (currMachine.paused == 1) {
@@ -4570,8 +4611,8 @@ public class LimboActivity extends Activity {
 		arraySpinner.add(Config.sharedFolder + " (read-write)");
 
 		sharedFolderAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		sharedFolderAdapter .setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mSharedFolder.setAdapter(sharedFolderAdapter );
+		sharedFolderAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+		this.mSharedFolder.setAdapter(sharedFolderAdapter);
 		this.mSharedFolder.invalidate();
 
 	}

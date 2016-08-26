@@ -38,7 +38,7 @@ import java.util.Iterator;
  */
 public class MachineOpenHelper extends SQLiteOpenHelper {
 
-	private static final int DATABASE_VERSION = 11;
+	private static final int DATABASE_VERSION = 12;
 	private static final String DATABASE_NAME = "LIMBO";
 	private static final String MACHINE_TABLE_NAME = "machines";
 	// COlumns
@@ -75,7 +75,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String STATUS = "STATUS";
 	public static final String LASTUPDATED = "LAST_UPDATED";
 	public static final String PAUSED = "PAUSED";
-
+	public static final String EXTRA_PARAMS = "EXTRA_PARAMS";
+	
 	// Create DDL
 	private static final String MACHINE_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS " + MACHINE_TABLE_NAME + " ("
 			+ MACHINE_NAME + " TEXT , " + SNAPSHOT_NAME + " TEXT , " + CPU + " TEXT, " + ARCH + " TEXT, " + MEMORY
@@ -87,7 +88,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			+ " INTEGER, " + MACHINE_TYPE + " TEXT, " + DISABLE_FD_BOOT_CHK + " INTEGER, " + SD + " TEXT, " + PAUSED
 			+ " INTEGER, " 
 			+ SHARED_FOLDER + " TEXT, "
-			+ SHARED_FOLDER_MODE + " INTEGER "
+			+ SHARED_FOLDER_MODE + " INTEGER, "
+			+ EXTRA_PARAMS + " TEXT "
 			+ ");";
 
 	private final Activity activity;
@@ -153,6 +155,11 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SHARED_FOLDER_MODE + " INTEGER;");
 
 		}
+		if (newVersion >= 12 && oldVersion <= 11) {
+
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.EXTRA_PARAMS + " TEXT;");
+
+		}
 	}
 
 	public synchronized int insertMachine(Machine myMachine) {
@@ -190,6 +197,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		stateValues.put(this.APPEND, myMachine.append);
 		stateValues.put(this.MACHINE_TYPE, myMachine.machine_type);
 		stateValues.put(this.ARCH, myMachine.arch);
+		stateValues.put(this.EXTRA_PARAMS, myMachine.extra_params);
 
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		Date date = new Date();
@@ -251,7 +259,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		int rows = -1;
 		SQLiteDatabase db = this.getWritableDatabase();
 
-		Log.v("DB", "Update Machine: " + myMachine.machinename + " column: " + colname + "=" + value);
+		//Log.v("DB", "Update Machine: " + myMachine.machinename + " column: " + colname + "=" + value);
 		ContentValues stateValues = new ContentValues();
 		stateValues.put(colname, value);
 
@@ -280,7 +288,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 				+ this.DISABLE_HPET + " , " + this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , "
 				+ this.BOOT_CONFIG + " , " + this.KERNEL + " , " + this.INITRD + " , " + this.APPEND + " , "
 				+ this.CPUNUM + " , " + this.MACHINE_TYPE + " , " + this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , "
-				+ this.PAUSED + " , " + this.SD + " , " + this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE 
+				+ this.PAUSED + " , " + this.SD + " , " + this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , "
+				+ this.EXTRA_PARAMS
 				+ " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS + " in ( "
 				+ Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " " + " ) " + " and " + this.MACHINE_NAME + "=\""
 				+ machine + "\"" + " and " + this.SNAPSHOT_NAME + "=\"" + snapshot + "\"" + ";";
@@ -322,6 +331,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			String sd = cur.getString(28);
 			String sharedFolder = cur.getString(29);
 			int sharedFolderMode = cur.getInt(30);
+			String extraParams = cur.getString(31);
 
 			// Log.v("DB", "Got Machine: " + machinename);
 			// Log.v("DB", "Got cpu: " + cpu);
@@ -366,6 +376,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			myMachine.arch = arch;
 
 			myMachine.paused = paused;
+			
+			myMachine.extra_params = extraParams;
 
 			break;
 		}

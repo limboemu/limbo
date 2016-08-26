@@ -50,6 +50,8 @@ public class Machine {
     public  String initrd;
     public  String append;
     
+    public  String extra_params;
+    
     //Default Settings
     public int memory = 128;
     public String bootdevice = "c";

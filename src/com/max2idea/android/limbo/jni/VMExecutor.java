@@ -101,6 +101,7 @@ public class VMExecutor {
 	public String keyboard_layout = Config.defaultKeyboardLayout;
 	public String shared_folder_path;
 	public int shared_folder_readonly = 1;
+	private String extra_params;
 
 	/**
 	 */
@@ -240,6 +241,11 @@ public class VMExecutor {
 				shared_folder_readonly = 1;
 			else if(machine.shared_folder_mode == 1)
 				shared_folder_readonly = 0;
+		}
+		
+		//Extra Params
+		if(machine.extra_params != null){
+			this.extra_params = machine.extra_params;
 		}
 		this.prepPaths();
 	}

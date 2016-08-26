@@ -17,9 +17,12 @@ LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/.. \
 	$(LIMBO_JNI_ROOT_INC)/qemu \
 	$(LIMBO_JNI_ROOT_INC)/qemu/include \
-	$(LIMBO_JNI_ROOT_INC)/compat
+	$(LIMBO_JNI_ROOT_INC)/compat \
+	$(LIMBO_JNI_ROOT_INC)/glib/glib \
+	$(LIMBO_JNI_ROOT_INC)/glib \
+	$(LIMBO_JNI_ROOT_INC)/glib/android
 
-LOCAL_STATIC_LIBRARIES := spice png
+LOCAL_STATIC_LIBRARIES := spice png glib-2.0
 
 LOCAL_LDLIBS :=				\
 	-ldl -llog

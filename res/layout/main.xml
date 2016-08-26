@@ -517,7 +517,7 @@
                         android:textSize="15dip" />
                 </LinearLayout>
 
-                                <LinearLayout
+                <LinearLayout
                     android:id="@+id/sharedfolderl"
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"
@@ -554,7 +554,7 @@
                         android:text=""
                         android:textSize="15dip" />
                 </LinearLayout>
-                
+
                 <LinearLayout
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"
@@ -725,9 +725,6 @@
                         android:textSize="15dip" />
                 </LinearLayout>
 
-
-                
-                
                 <LinearLayout
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"
@@ -1323,6 +1320,30 @@
 
                     <Spinner
                         android:id="@+id/keyboardval"
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"
+                        android:text=""
+                        android:textSize="15dip" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/extraparamsl"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:orientation="horizontal" >
+
+                    <TextView
+                        android:id="@+id/extraparamsStr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:text="Extra Params: "
+                        android:textSize="15dip" />
+
+                    <EditText
+                        android:id="@+id/extraparamsval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
                         android:singleLine="true"

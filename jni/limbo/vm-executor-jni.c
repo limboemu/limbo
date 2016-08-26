@@ -30,6 +30,7 @@
 #include <dlfcn.h>
 #include <unwind.h>
 #include <dlfcn.h>
+#include <glib.h>
 #include "limbo_compat.h"
 #include "limbo_compat_fd.h"
 
@@ -670,6 +671,12 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jappend != NULL)
 		append_str = (*env)->GetStringUTFChars(env, jappend, 0);
 
+	fid = (*env)->GetFieldID(env, c, "extra_params", "Ljava/lang/String;");
+	jstring jextra_params = (*env)->GetObjectField(env, thiz, fid);
+	const char * extra_params_str = NULL;
+	if (jextra_params != NULL)
+		extra_params_str = (*env)->GetStringUTFChars(env, jextra_params, 0);
+
 	fid = (*env)->GetFieldID(env, c, "initrd", "Ljava/lang/String;");
 	jstring jinitrd = (*env)->GetObjectField(env, thiz, fid);
 	const char * initrd_str = NULL;
@@ -686,7 +693,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	int i = 0;
 	LOGV("Setting Params");
-	int MAX_PARAMS = 128;
+	int MAX_PARAMS = 256;
 	char ** argv = (char **) malloc(MAX_PARAMS * sizeof(*argv));
 	for (i = 0; i < MAX_PARAMS; i++) {
 		argv[i] = (char *) malloc(MAX_STRING_LEN * sizeof(char));
@@ -980,6 +987,19 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	//This should already be set by the rtc option above, though it shouldn't hurt if we add again
 	strcpy(argv[param++], "-localtime");
+
+	//Setting extra params
+	if (extra_params_str != NULL && strcmp(extra_params_str, "") != 0) {
+		gint argc_extra_params;
+		gchar **argv_extra_params;
+		GError *error;
+		gboolean extra_params_res = g_shell_parse_argv (extra_params_str, &argc_extra_params, &argv_extra_params, &error);
+		LOGD("Parsed args for extra_params: %d : %d", extra_params_res, argc_extra_params);
+		for(int i=0; i < argc_extra_params; i++){
+			LOGD("Copy args for extra_params: %s", argv_extra_params[i]);
+			strcpy(argv[param++], argv_extra_params[i]);
+		}
+	}
 
 	//XXX: Usb redir not working under User mode
 	//Redirect ports (SSH)
