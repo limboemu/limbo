@@ -1324,16 +1324,6 @@ public class LimboActivity extends Activity {
 
 		// Create Temp folder
 		File folder = new File(Config.tmpFolder);
-		if (folder.exists()){
-			File [] files = folder.listFiles();
-			for (File file : files ){
-				try {
-					file.delete();
-				} catch (Exception ex){
-					Log.e(TAG, "Could not remove temp file: " + file.getAbsolutePath());
-				}
-			}
-		}
 		if (!folder.exists())
 			folder.mkdirs();
 
