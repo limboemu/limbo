@@ -31,9 +31,12 @@ REMOVE_GDB=rm ../libs/$(APP_ABI_DIR)/gdb.setup; rm ../libs/$(APP_ABI_DIR)/gdbser
 #GDB needs the gdb.setup under ./libs & ./obj/local/armeabi
 COPY_GDB_SETUP_LIBS=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/libs/gdb.setup
-CREATE_OBJDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/libs/armeabi
+CREATE_LIBSDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/libs/armeabi
+CREATE_OBJDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/obj/local/armeabi
 COPY_GDB_SETUP_LIBS_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
+COPY_GDB_SETUP_OBJ_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
+	$(NDK_PROJECT_PATH)/obj/local/armeabi/gdb.setup
 APPEND_GDB_CMD_EXTRA=cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
 	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
 	
@@ -91,9 +94,12 @@ release:
 	$(REMOVE_GDB)
 	
 ndk-gdb:
+	-echo $(APP_ABI)
 	$(COPY_GDB_SETUP_LIBS)
 	$(CREATE_OBJDIR_ARMEABI)
+	$(CREATE_LIBSDIR_ARMEABI)
 	$(COPY_GDB_SETUP_LIBS_ARMEABI)
+	$(COPY_GDB_SETUP_OBJ_ARMEABI)
 	$(APPEND_GDB_CMD_EXTRA)
 	$(ndkgdb)  
 	
