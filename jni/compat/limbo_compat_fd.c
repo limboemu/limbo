@@ -14,7 +14,7 @@
 #include "limbo_compat_fd.h"
 #include "limbo_compat.h"
 
-//
+
 int close_fd(int fd) {
 
 	pthread_mutex_lock(&lock);
@@ -34,25 +34,12 @@ int close_fd(int fd) {
 		return -1;
 	}
 
-	//Using a static method
-	//	LOGD("Close fd Attached JVM FD: %d", fd);
-	//	methodID = (*env)->GetStaticMethodID(env, jcls, "close_fd", "(I)I");
-	//	LOGD("Close fd Got Method JVM FD: %d", fd);
-	//	jres = (jint)(*env)->CallStaticIntMethod(env, jcls, methodID, fd);
-
-	//Using a non-static method
 	jclass cls = (*env)->GetObjectClass(env, jobj);
 	methodID = (*env)->GetMethodID(env, cls, "close_fd", "(I)I");
 	jres = (jint)(*env)->CallIntMethod(env, jobj, methodID, fd);
 
 	res = (int) jres;
 
-//	(*env)->DeleteLocalRef(env, jfd);
-//	(*env)->DeleteLocalRef(env, cls);
-//	(*env)->DeleteLocalRef(env, jres);
-	//(*env)->DeleteLocalRef(env, rs);
-
-	//XXX: Not sure if we can dettach yet while this thread will continue to run
 	(*jvm)->DetachCurrentThread(jvm);
 	pthread_mutex_unlock(&lock);
 	return res;
@@ -66,6 +53,8 @@ int get_fd(const char * filepath) {
 	jmethodID methodID;
 	jint jfd;
 
+	LOGI("get_fd: %s", filepath);
+
 	if (jvm == NULL) {
 		LOGE("Jvm not initialized");
 		return -1;
@@ -77,25 +66,24 @@ int get_fd(const char * filepath) {
 	}
 	jstring jfilepath = (*env)->NewStringUTF(env, filepath);
 
-	//Using a non-static method
 	jclass cls = (*env)->GetObjectClass(env, jobj);
 	methodID = (*env)->GetMethodID(env, cls, "get_fd", "(Ljava/lang/String;)I");
 	jfd = (jint)(*env)->CallIntMethod(env, jobj, methodID, jfilepath);
 
 	fd = (int) jfd;
 
-//	(*env)->DeleteLocalRef(env, jfd);
-//	(*env)->DeleteLocalRef(env, cls);
-//	(*env)->DeleteLocalRef(env, jfilepath);
+	(*env)->DeleteLocalRef(env, jfilepath);
 
-	//(*jvm)->DetachCurrentThread(jvm);
+	(*jvm)->DetachCurrentThread(jvm);
 	pthread_mutex_unlock(&lock);
+	LOGI("Done get_fd: %d, %s", fd, filepath);
 	return fd;
 }
 
 int android_open(const char *path, int flags) {
 	int fd;
-	fd = get_fd(path);
+	fd = create_thread_get_fd(path);
+	//fd = get_fd(path);
 	return fd;
 }
 int android_openm(const char *path, int flags, mode_t mode) {
@@ -171,7 +159,7 @@ void *get_fd_thread(void *t) {
 	pthread_exit(NULL);
 }
 
-int create_thread_get_fd(char * filepath) {
+int create_thread_get_fd(const char * filepath) {
 	int fd = 0;
 	int rc;
 	int i;
@@ -179,12 +167,14 @@ int create_thread_get_fd(char * filepath) {
 	pthread_attr_t attr;
 	void *status;
 
+	LOGI("get fd Filepath: %s", filepath);
 	// Initialize and set thread joinable
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
 	//void * param = (void *) fd;
 	fd_t * fd_data = (struct fd_t*) malloc(sizeof(struct fd_t));
+	fd_data->filepath = filepath;
 	void * param = (void *) fd_data;
 	rc = pthread_create(&thread, NULL, get_fd_thread, param);
 	if (rc) {
