@@ -208,12 +208,14 @@ public class LimboActivity extends Activity {
 		userPressedBootDev = pressed;
 		userPressedFDB = pressed;
 		userPressedFDA = pressed;
+		userPressedSD = pressed;
 
 		// HDD
 		userPressedHDA = pressed;
 		userPressedHDB = pressed;
 		userPressedHDC = pressed;
 		userPressedHDD = pressed;
+		userPressedSharedFolder = pressed;
 
 		userPressedKernel = pressed;
 		userPressedInitrd = pressed;
@@ -698,8 +700,7 @@ public class LimboActivity extends Activity {
 				if (userPressedSD && position == 0 && mSDenable.isChecked()) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SD, "");
 					currMachine.sd_img_path = "";
-				}
-				if (userPressedSD && (position == 0 || !mSDenable.isChecked())) {
+				}else if (userPressedSD && (position == 0 || !mSDenable.isChecked())) {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SD, null);
 					currMachine.sd_img_path = null;
 				} else if (userPressedSD && position == 1 && mSDenable.isChecked()) {
@@ -732,20 +733,20 @@ public class LimboActivity extends Activity {
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, null);
 					currMachine.shared_folder = null;
 					currMachine.shared_folder_mode = 0;
-				} else if (userPressedSharedFolder && position == 1 && mSharedFolderenable.isChecked()) {
+				} else if (userPressedSharedFolder && mSharedFolderenable.isChecked()) {
 					String[] shared_folder = sharedFolder.split("\\(");
 					currMachine.shared_folder = shared_folder[0].trim();
 					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
-					currMachine.shared_folder_mode = 0;
-					ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, "0");
-				} else if (userPressedSharedFolder && position == 2 && mSharedFolderenable.isChecked()) {
-					String[] shared_folder = sharedFolder.split("\\(");
-
-					currMachine.shared_folder = shared_folder[0];
-					int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
-					currMachine.shared_folder_mode = 1;
-					ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, "1");
-				}
+					if(position >= 1 && position <= 4){
+						int folderMode = 0; //default is readonly
+						if(position == 2 || position == 4){
+							folderMode = 1; //read-write
+						}
+						currMachine.shared_folder_mode = folderMode;
+						ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER_MODE, folderMode+"");
+					}
+				} 
+				
 				userPressedSharedFolder = true;
 			}
 
@@ -893,16 +894,16 @@ public class LimboActivity extends Activity {
 		mSharedFolderenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mSharedFolder.setEnabled(isChecked);
-				if (currMachine != null) {
+				if (currMachine != null && userPressedSharedFolder) {
 					if (isChecked) {
 						currMachine.shared_folder = "";
 						currMachine.shared_folder_mode = 0;
-						int ret = machineDB.update(currMachine, MachineOpenHelper.SD, "");
+						int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, "");
 						mHDDenable.setChecked(false);
 					} else {
 						currMachine.shared_folder = null;
 						currMachine.shared_folder_mode = 0;
-						int ret = machineDB.update(currMachine, MachineOpenHelper.SD, null);
+						int ret = machineDB.update(currMachine, MachineOpenHelper.SHARED_FOLDER, null);
 					}
 				}
 
@@ -1514,12 +1515,14 @@ public class LimboActivity extends Activity {
 		userPressedBootDev = false;
 		userPressedFDB = false;
 		userPressedFDA = false;
+		userPressedSD = false;
 
 		// HDD
 		userPressedHDA = false;
 		userPressedHDB = false;
 		userPressedHDC = false;
 		userPressedHDD = false;
+		userPressedSharedFolder = false;
 
 		userPressedKernel = false;
 		userPressedInitrd = false;
@@ -2832,13 +2835,8 @@ public class LimboActivity extends Activity {
 		this.setHDB(currMachine.hdb_img_path, false);
 		this.setHDC(currMachine.hdc_img_path, false);
 		this.setHDD(currMachine.hdd_img_path, false);
-		if (currMachine.shared_folder != null) {
-			if (currMachine.shared_folder_mode == 0) {
-				mSharedFolder.setSelection(1);
-			} else if (currMachine.shared_folder_mode == 1) {
-				mSharedFolder.setSelection(2);
-			}
-		}
+		this.setSharedFolder(currMachine.shared_folder, currMachine.shared_folder_mode, false);
+		
 
 		// Advance
 		this.setBootDevice(currMachine.bootdevice, false);
@@ -3955,7 +3953,7 @@ public class LimboActivity extends Activity {
 	}
 
 	private void setSD(String sd, boolean userPressed) {
-		this.userPressedFDB = userPressed;
+		this.userPressedSD = userPressed;
 		this.currMachine.sd_img_path = sd;
 
 		if (sd != null) {
@@ -3972,6 +3970,30 @@ public class LimboActivity extends Activity {
 		}
 	}
 
+	private void setSharedFolder(String sharedFolder, int shared_folder_mode, boolean userPressed) {
+		this.userPressedSharedFolder = userPressed;
+		this.currMachine.shared_folder = sharedFolder;
+		String sharedMode = null;
+		if (currMachine.shared_folder_mode == 0) {
+			sharedMode = "(read-only)";
+		} else if (currMachine.shared_folder_mode == 1) {
+			sharedMode = "(read-write)";	
+		}
+		if (sharedFolder != null) {
+			int pos = sharedFolderAdapter.getPosition(sharedFolder + " " + sharedMode);
+
+			if (pos >= 0) {
+				mSharedFolder.setSelection(pos);
+			} else {
+				mSharedFolder.setSelection(0);
+			}
+		} else {
+			mSharedFolder.setSelection(0);
+
+		}
+	}
+
+	
 	private void setHDCache(String hdcache, boolean userPressed) {
 		this.userPressedHDCacheCfg = userPressed;
 
@@ -4599,8 +4621,10 @@ public class LimboActivity extends Activity {
 	private void populateSharedFolder() {
 		ArrayList<String> arraySpinner = new ArrayList<String>();
 		arraySpinner.add("None");
-		arraySpinner.add(Config.sharedFolder + " (read-only)");
+		arraySpinner.add(Config.sharedFolder + " (read-only)"); //single folder safer
 		arraySpinner.add(Config.sharedFolder + " (read-write)");
+		//arraySpinner.add(Environment.getExternalStorageDirectory() + " (read-only)"); // external storage is usually too large to fit in FAT16
+		//arraySpinner.add(Environment.getExternalStorageDirectory() + " (read-write)");
 
 		sharedFolderAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 		sharedFolderAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);

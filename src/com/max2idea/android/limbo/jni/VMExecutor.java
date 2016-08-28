@@ -235,13 +235,14 @@ public class VMExecutor {
 		}
 
 		//Shared folder
-		if (machine.shared_folder != null){
-			shared_folder_path = Config.sharedFolder;
+		if (machine.shared_folder != null && !machine.shared_folder.trim().equals("")){
+			shared_folder_path = machine.shared_folder;
 			if(machine.shared_folder_mode == 0)
 				shared_folder_readonly = 1;
 			else if(machine.shared_folder_mode == 1)
 				shared_folder_readonly = 0;
-		}
+		}else
+			shared_folder_path = null;
 		
 		//Extra Params
 		if(machine.extra_params != null){
