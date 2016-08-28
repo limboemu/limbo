@@ -2853,13 +2853,12 @@ DLOG(fprintf(stderr, "Write to qcow backend: %d + %d\n", (int)sector_num, nb_sec
 	    i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
     	//FIXME: For some reason the sector_num is lesser than the fake_sectors
     	// for now we add this check but we should fix this in the future
-#ifdef __LIMBO
+#ifdef __LIMBO__
 	if (i >= 0 && i < size_clusters)
 #else
 	if (i >= 0)
 #endif //__LIMBO__
 	    s->used_clusters[i] |= USED_ALLOCATED;
-    }
 
 DLOG(checkpoint());
     /* TODO: add timeout */
