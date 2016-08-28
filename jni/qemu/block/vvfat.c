@@ -75,6 +75,9 @@ typedef struct array_t {
     unsigned int size,next,item_size;
 } array_t;
 
+#ifdef __LIMBO__
+int size_clusters = 0;
+#endif //__LIMBO__
 static inline void array_init(array_t* array,unsigned int item_size)
 {
     array->pointer = NULL;
@@ -2848,8 +2851,15 @@ DLOG(fprintf(stderr, "Write to qcow backend: %d + %d\n", (int)sector_num, nb_sec
 
     for (i = sector2cluster(s, sector_num);
 	    i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
+    	//FIXME: For some reason the sector_num is lesser than the fake_sectors
+    	// for now we add this check but we should fix this in the future
+#ifdef __LIMBO
+	if (i >= 0 && i < size_clusters)
+#else
 	if (i >= 0)
+#endif //__LIMBO__
 	    s->used_clusters[i] |= USED_ALLOCATED;
+    }
 
 DLOG(checkpoint());
     /* TODO: add timeout */
@@ -2907,6 +2917,9 @@ static int enable_write_target(BDRVVVFATState *s, Error **errp)
     QemuOpts *opts = NULL;
     int ret;
     int size = sector2cluster(s, s->sector_count);
+#ifdef __LIMBO__
+    size_clusters = size;
+#endif //__LIMBO__
     s->used_clusters = calloc(size, 1);
 
     array_init(&(s->commits), sizeof(commit_t));
