@@ -2693,7 +2693,7 @@ public class LimboActivity extends Activity {
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
 		textView.setId(201012010);
-		textView.setText("Warning! Enabling KVM is an UNTESTED and EXPERIMENTAL feature. Do you want to continue?");
+		textView.setText("Warning! Enabling KVM is an UNTESTED and EXPERIMENTAL feature. If you experience crashes disable this option. Do you want to continue?");
 
 		alertDialog.setView(textView);
 		final Handler handler = this.handler;
