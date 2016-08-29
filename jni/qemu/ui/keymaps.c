@@ -100,6 +100,7 @@ static kbd_layout_t *parse_keyboard_layout(const name2keysym_t *table,
     char line[1024];
     int len;
 
+    LOGV("Start Read keymap file: '%s'\n", language);
     filename = qemu_find_file(QEMU_FILE_TYPE_KEYMAP, language);
     f = filename ? fopen(filename, "r") : NULL;
     g_free(filename);
@@ -178,6 +179,7 @@ static kbd_layout_t *parse_keyboard_layout(const name2keysym_t *table,
         }
     }
     fclose(f);
+    LOGV("Read keymap file: '%s'\n", language);
     return k;
 }
 
