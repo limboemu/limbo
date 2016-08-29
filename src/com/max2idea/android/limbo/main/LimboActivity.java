@@ -3651,8 +3651,9 @@ public class LimboActivity extends Activity {
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 		arrList.add("English");
-		arrList.add("Spanish");
-		arrList.add("French");
+		//FIXME: Need to enable in VNC & SDL interfaces
+//		arrList.add("Spanish"); 
+//		arrList.add("French");
 
 		keyboardAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, arrList);
 		keyboardAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
