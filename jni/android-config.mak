@@ -55,7 +55,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard.mak
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 # ARMv7 Generic soft float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
