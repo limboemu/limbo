@@ -621,9 +621,13 @@ public class LimboActivity extends Activity {
 					currMachine.cd_iso_path = cd;
 				}
 				if (userPressedCDROM && currStatus.equals("RUNNING") && position > 1 && mCDenable.isChecked()) {
+					mCD.setEnabled(false);
 					vmexecutor.change_dev("ide1-cd0", currMachine.cd_iso_path);
+					mCD.setEnabled(true);
 				} else if (mCDenable.isChecked() && userPressedCDROM && currStatus.equals("RUNNING") && position == 0) {
+					mCD.setEnabled(false);
 					vmexecutor.change_dev("ide1-cd0", null); // Eject
+					mCD.setEnabled(true);
 				}
 				userPressedCDROM = true;
 			}
@@ -651,9 +655,13 @@ public class LimboActivity extends Activity {
 					// TODO: If Machine is running eject and set floppy img
 				}
 				if (userPressedFDA && currStatus.equals("RUNNING") && position > 1 && mFDAenable.isChecked()) {
+					mFDA.setEnabled(false);
 					vmexecutor.change_dev("floppy0", currMachine.fda_img_path);
+					mFDA.setEnabled(true);
 				} else if (userPressedFDA && currStatus.equals("RUNNING") && position == 0 && mFDAenable.isChecked()) {
+					mFDA.setEnabled(false);
 					vmexecutor.change_dev("floppy0", null); // Eject
+					mFDA.setEnabled(true);
 				}
 
 				userPressedFDA = true;
@@ -682,9 +690,13 @@ public class LimboActivity extends Activity {
 					// TODO: If Machine is running eject and set floppy img
 				}
 				if (userPressedFDB && currStatus.equals("RUNNING") && position > 1 && mFDBenable.isChecked()) {
+					mFDB.setEnabled(false);
 					vmexecutor.change_dev("floppy1", currMachine.fdb_img_path);
+					mFDB.setEnabled(true);
 				} else if (userPressedFDB && currStatus.equals("RUNNING") && position == 0 && mFDBenable.isChecked()) {
+					mFDB.setEnabled(false);
 					vmexecutor.change_dev("floppy1", null); // Eject
+					mFDB.setEnabled(true);
 				}
 				userPressedFDB = true;
 			}
@@ -758,8 +770,9 @@ public class LimboActivity extends Activity {
 		mCDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mCD.setEnabled(isChecked);
-				enableCDROM = isChecked;
+				
 				if (currMachine != null) {
+					currMachine.enableCDROM = isChecked;
 					if (isChecked) {
 						currMachine.cd_iso_path = "";
 						int ret = machineDB.update(currMachine, MachineOpenHelper.CDROM, "");
@@ -841,8 +854,9 @@ public class LimboActivity extends Activity {
 		mFDAenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mFDA.setEnabled(isChecked);
-				enableFDA = isChecked;
+				
 				if (currMachine != null) {
+					currMachine.enableFDA = isChecked;
 					if (isChecked) {
 						currMachine.fda_img_path = "";
 						int ret = machineDB.update(currMachine, MachineOpenHelper.FDA, "");
@@ -859,8 +873,9 @@ public class LimboActivity extends Activity {
 		mFDBenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mFDB.setEnabled(isChecked);
-				enableFDB = isChecked;
+				
 				if (currMachine != null) {
+					currMachine.enableFDB = isChecked;
 					if (isChecked) {
 						currMachine.fdb_img_path = "";
 						int ret = machineDB.update(currMachine, MachineOpenHelper.FDB, "");
@@ -876,8 +891,9 @@ public class LimboActivity extends Activity {
 		mSDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 				mSD.setEnabled(isChecked);
-				enableSD = isChecked;
+				
 				if (currMachine != null) {
+					currMachine.enableSD = isChecked;
 					if (isChecked) {
 						currMachine.sd_img_path = "";
 						int ret = machineDB.update(currMachine, MachineOpenHelper.SD, "");
@@ -2934,10 +2950,7 @@ public class LimboActivity extends Activity {
 
 	public static Machine currMachine = null;
 	public static Handler OShandler;
-	public static boolean enableCDROM;
-	public static boolean enableFDA;
-	public static boolean enableFDB;
-	public static boolean enableSD;
+
 
 	public void promptMachineName(final Activity activity) {
 		final AlertDialog alertDialog;
@@ -4641,7 +4654,7 @@ public class LimboActivity extends Activity {
 			return;
 		}
 
-		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) {
+		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP || !Config.enableExternalSD) {
 
 			String dir = null;
 			// GET THE LAST ACCESSED DIR FROM THE REG

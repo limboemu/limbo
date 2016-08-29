@@ -34,6 +34,8 @@ extern void qmp_change_vnc_password(const char *password, Error **errp);
 extern void qmp_change(const char *device, const char *target, bool has_arg,
 		const char *arg, Error **errp);
 
+extern void qmp_eject(const char *device, bool has_force, bool force, Error **errp);
+
 extern int limbo_savevm(char * limbo_snapshot_name);
 
 extern int get_save_state();

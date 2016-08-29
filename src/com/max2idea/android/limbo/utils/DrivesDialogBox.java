@@ -27,18 +27,11 @@ import android.widget.Toast;
 
 public class DrivesDialogBox extends Dialog {
 	private static Activity activity;
-	public boolean enableCDROM;
-	public boolean enableFDA;
-	public boolean enableFDB;
-	public boolean enableSD;
+	private Machine currMachine;
 
-	public DrivesDialogBox(Context context, int theme, Activity activity1, boolean enableCDROM, boolean enableFDA,
-			boolean enableFDB, boolean enableSD) {
+	public DrivesDialogBox(Context context, int theme, Activity activity1, Machine currMachine) {
 		super(context, theme);
-		this.enableCDROM = enableCDROM;
-		this.enableFDA = enableFDA;
-		this.enableFDB = enableFDB;
-		this.enableSD = enableSD;
+		this.currMachine = currMachine;
 		activity = activity1;
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND, WindowManager.LayoutParams.FLAG_DIM_BEHIND);
 		setContentView(R.layout.dev_dialog);
@@ -99,22 +92,25 @@ public class DrivesDialogBox extends Dialog {
 				String cd = (String) ((ArrayAdapter) mCD.getAdapter()).getItem(position);
 
 				if (userPressedCDROM && position == 0) {
-					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.CDROM, null);
-					LimboActivity.currMachine.cd_iso_path = null;
+					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.CDROM, "");
+					LimboActivity.currMachine.cd_iso_path = "";
 				} else if (userPressedCDROM && position == 1) {
 					browse("cd");
+					mCD.setSelection(0);
 				} else if (userPressedCDROM && position > 1) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.CDROM, cd);
 					LimboActivity.currMachine.cd_iso_path = cd;
 					// TODO: If Machine is running eject and set
 					// floppy img
 				}
-				if (userPressedCDROM && LimboActivity.vmexecutor != null && position > 1
-						&& !LimboActivity.vmexecutor.busy) {
+				if (userPressedCDROM && LimboActivity.vmexecutor != null && position > 1) {
+					mCD.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("ide1-cd0", LimboActivity.currMachine.cd_iso_path);
-				} else if (userPressedCDROM && LimboActivity.vmexecutor != null && position == 0
-						&& !LimboActivity.vmexecutor.busy) {
+					mCD.setEnabled(true);
+				} else if (userPressedCDROM && LimboActivity.vmexecutor != null && position == 0) {
+					mCD.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("ide1-cd0", null); // Eject
+					mCD.setEnabled(true);
 				}
 				userPressedCDROM = true;
 			}
@@ -130,10 +126,11 @@ public class DrivesDialogBox extends Dialog {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				String fda = (String) ((ArrayAdapter) mFDA.getAdapter()).getItem(position);
 				if (userPressedFDA && position == 0) {
-					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDA, null);
-					LimboActivity.currMachine.fda_img_path = null;
+					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDA, "");
+					LimboActivity.currMachine.fda_img_path = "";
 				} else if (userPressedFDA && position == 1) {
 					browse("fda");
+					mFDA.setSelection(0);
 				} else if (userPressedFDA && position > 1) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDA, fda);
 					LimboActivity.currMachine.fda_img_path = fda;
@@ -141,9 +138,13 @@ public class DrivesDialogBox extends Dialog {
 					// floppy img
 				}
 				if (userPressedFDA && LimboActivity.vmexecutor != null && position > 1) {
+					mFDA.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("floppy0", LimboActivity.currMachine.fda_img_path);
+					mFDA.setEnabled(true);
 				} else if (userPressedFDA && LimboActivity.vmexecutor != null && position == 0) {
+					mFDA.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("floppy0", null); // Eject
+					mFDA.setEnabled(true);
 				}
 
 				userPressedFDA = true;
@@ -160,10 +161,11 @@ public class DrivesDialogBox extends Dialog {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				String fdb = (String) ((ArrayAdapter) mFDB.getAdapter()).getItem(position);
 				if (userPressedFDB && position == 0) {
-					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDB, null);
-					LimboActivity.currMachine.fdb_img_path = null;
+					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDB, "");
+					LimboActivity.currMachine.fdb_img_path = "";
 				} else if (userPressedFDB && position == 1) {
 					browse("fdb");
+					mFDB.setSelection(0);
 				} else if (userPressedFDB && position > 1) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDB, fdb);
 					LimboActivity.currMachine.fdb_img_path = fdb;
@@ -171,11 +173,49 @@ public class DrivesDialogBox extends Dialog {
 					// floppy img
 				}
 				if (userPressedFDB && LimboActivity.vmexecutor != null && position > 1) {
+					mFDB.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("floppy1", LimboActivity.currMachine.fdb_img_path);
+					mFDB.setEnabled(true);
 				} else if (userPressedFDB && LimboActivity.vmexecutor != null && position == 0) {
+					mFDB.setEnabled(false);
 					LimboActivity.vmexecutor.change_dev("floppy1", null); // Eject
+					mFDB.setEnabled(true);
 				}
 				userPressedFDB = true;
+			}
+
+			public void onNothingSelected(AdapterView<?> parentView) {
+				// your code here
+				// Log.v(TAG, "Nothing selected");
+			}
+		});
+
+		mSD.setOnItemSelectedListener(new OnItemSelectedListener() {
+
+			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+				String sd = (String) ((ArrayAdapter) mSD.getAdapter()).getItem(position);
+				if (userPressedSD && position == 0) {
+					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.SD, "");
+					LimboActivity.currMachine.sd_img_path = "";
+				} else if (userPressedSD && position == 1) {
+					browse("sd");
+					mSD.setSelection(0);
+				} else if (userPressedSD && position > 1) {
+					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.SD, sd);
+					LimboActivity.currMachine.sd_img_path = sd;
+					// TODO: If Machine is running eject and set
+					// floppy img
+				}
+				if (userPressedSD && LimboActivity.vmexecutor != null && position > 1) {
+					mSD.setEnabled(false);
+					LimboActivity.vmexecutor.change_dev("sd0", LimboActivity.currMachine.sd_img_path);
+					mSD.setEnabled(true);
+				} else if (userPressedSD && LimboActivity.vmexecutor != null && position == 0) {
+					mSD.setEnabled(false);
+					LimboActivity.vmexecutor.change_dev("sd0", null); // Eject
+					mSD.setEnabled(true);
+				}
+				userPressedSD = true;
 			}
 
 			public void onNothingSelected(AdapterView<?> parentView) {
@@ -188,22 +228,22 @@ public class DrivesDialogBox extends Dialog {
 
 	private void initUI() {
 		// Set spinners to values from currmachine
-		if (enableCDROM) {
+		if (currMachine.enableCDROM) {
 			populateCDRom("cd");
 		} else {
 			mCDLayout.setVisibility(View.GONE);
 		}
-		if (enableFDA) {
+		if (currMachine.enableFDA) {
 			populateFloppy("fda");
 		} else {
 			mFDALayout.setVisibility(View.GONE);
 		}
-		if (enableFDB) {
+		if (currMachine.enableFDB) {
 			populateFloppy("fdb");
 		} else {
 			mFDBLayout.setVisibility(View.GONE);
 		}
-		if (enableSD) {
+		if (currMachine.enableSD) {
 			populateSD("sd");
 		} else {
 			mSDLayout.setVisibility(View.GONE);
@@ -457,7 +497,7 @@ public class DrivesDialogBox extends Dialog {
 			return;
 		}
 
-		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) {
+		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP || !Config.enableExternalSD) {
 			String dir = null;
 			// GET THE LAST ACCESSED DIR FROM THE REG
 			String lastDir = LimboSettingsManager.getLastDir(activity);

@@ -81,8 +81,6 @@ public class VMExecutor {
 	public int enablevnc;
 	public String vnc_passwd = null;
 	public int vnc_allow_external = 0;
-	private String qemu_dev;
-	private String qemu_dev_value;
 	public String base_dir = Config.basefiledir;
 	public String dns_addr;
 	private int width;
@@ -326,9 +324,9 @@ public class VMExecutor {
 
 	protected native String getstate();
 
-	protected native String changedev();
+	protected native String changedev(String dev, String dev_value);
 
-	protected native String ejectdev();
+	protected native String ejectdev(String dev);
 
 	public String startvm(Context context) {
 		LimboService.executor = this;
@@ -390,17 +388,26 @@ public class VMExecutor {
 	}
 
 	public String change_dev(String dev, String image_path) {
-		this.busy = true;
-		this.qemu_dev = dev;
-		this.qemu_dev_value = image_path;
-		if (qemu_dev_value == null || qemu_dev_value.trim().equals("")) {
+		
+		if (image_path == null || image_path.trim().equals("")) {
 			Log.v("Limbo", "Ejecting Dev: " + dev);
+			this.busy = true;
+			String res = this.ejectdev(dev);
 			this.busy = false;
-			return this.ejectdev();
+			return res;
 		} else {
 			Log.v("Limbo", "Changing Dev: " + dev + " to: " + image_path);
+			this.busy = true;
+			String res = this.ejectdev(dev);
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			res = this.changedev(dev, image_path);
 			this.busy = false;
-			return this.changedev();
+			return res;
 		}
 
 	}

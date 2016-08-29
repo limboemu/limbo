@@ -100,6 +100,7 @@ public class Config {
 	public static final String basefiledir = Environment.getExternalStorageDirectory() + "/limbo/";
 	public static String sharedFolder = basefiledir + "shared";
 	public static String tmpFolder = basefiledir + "tmp"; // Do not modify
+	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
 	
 	public static final String machinedir = basefiledir + "machines/";
 	public static final boolean enableHDCache = false;

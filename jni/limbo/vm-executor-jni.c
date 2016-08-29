@@ -230,21 +230,16 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_dnschan
 }
 
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changedev(
-		JNIEnv* env, jobject thiz) {
+		JNIEnv* env, jobject thiz, jstring jdev, jstring jdev_value) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 	Error **err;
 	if (handle == NULL)
 		return (*env)->NewStringUTF(env, "VM not running");
 
-	jclass c = (*env)->GetObjectClass(env, thiz);
-	jfieldID fid = (*env)->GetFieldID(env, c, "qemu_dev", "Ljava/lang/String;");
-	jstring jdev = (*env)->GetObjectField(env, thiz, fid);
 	const char *dev = NULL;
 	if (jdev != NULL)
 		dev = (*env)->GetStringUTFChars(env, jdev, 0);
 
-	fid = (*env)->GetFieldID(env, c, "qemu_dev_value", "Ljava/lang/String;");
-	jstring jdev_value = (*env)->GetObjectField(env, thiz, fid);
 	const char *dev_value = NULL;
 	if (jdev_value != NULL)
 		dev_value = (*env)->GetStringUTFChars(env, jdev_value, 0);
@@ -268,25 +263,22 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 }
 
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectdev(
-		JNIEnv* env, jobject thiz) {
+		JNIEnv* env, jobject thiz, jstring jdev) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
 	if (handle == NULL)
 		return (*env)->NewStringUTF(env, "VM not running");
 
-	jclass c = (*env)->GetObjectClass(env, thiz);
-	jfieldID fid = (*env)->GetFieldID(env, c, "qemu_dev", "Ljava/lang/String;");
-	jstring jdev = (*env)->GetObjectField(env, thiz, fid);
 	const char *dev = NULL;
 	if (jdev != NULL)
 		dev = (*env)->GetStringUTFChars(env, jdev, 0);
 
 	typedef void (*eject_dev_t)();
 	dlerror();
-	eject_dev_t eject_dev = (eject_dev_t) dlsym(handle, "eject_dev");
+	eject_dev_t eject_dev = (eject_dev_t) dlsym(handle, "qmp_eject");
 	const char *dlsym_error = dlerror();
 	if (dlsym_error) {
-		LOGE("Cannot load symbol 'eject_dev': %s\n", dlsym_error);
+		LOGE("Cannot load symbol 'qmp_eject': %s\n", dlsym_error);
 		return (*env)->NewStringUTF(env, res_msg);
 	}
 

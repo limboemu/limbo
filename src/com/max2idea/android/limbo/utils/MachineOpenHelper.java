@@ -339,6 +339,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			myMachine.cpu = cpu;
 			myMachine.memory = mem;
 			myMachine.cd_iso_path = cdrom;
+			if(cdrom!=null)
+				myMachine.enableCDROM = true;
 
 			// HDD
 			myMachine.hda_img_path = hda;
@@ -352,10 +354,17 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			
 			// FDA
 			myMachine.fda_img_path = fda;
+			if(fda!=null)
+				myMachine.enableFDA = true;
+			
 			myMachine.fdb_img_path = fdb;
+			if(fdb!=null)
+				myMachine.enableFDB = true;
 			
 			//SD
 			myMachine.sd_img_path = sd;
+			if(sd!=null)
+				myMachine.enableSD = true;
 			
 			myMachine.vga_type = vga;
 			myMachine.soundcard = snd;

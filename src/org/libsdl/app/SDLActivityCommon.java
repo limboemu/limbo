@@ -431,10 +431,8 @@ public class SDLActivityCommon extends SDLActivity {
 		super.onOptionsItemSelected(item);
 		if (item.getItemId() == R.id.itemDrives) {
 			// Show up removable devices dialog
-			if (LimboActivity.enableCDROM || LimboActivity.enableFDA || LimboActivity.enableFDB
-					|| LimboActivity.enableSD) {
-				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.enableCDROM,
-						LimboActivity.enableFDA, LimboActivity.enableFDB, LimboActivity.enableSD);
+			if (LimboActivity.currMachine.hasRemovableDevices()) {
+				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.currMachine);
 				drives.show();
 			} else {
 				UIUtils.toastLong(activity, "No removable devices attached");

@@ -101,28 +101,7 @@ public class FileManager extends ListActivity {
 			for (File file1 : files) {
 				if (file1 != null) {
 					String filename = file1.getName();
-					if (filename != null && file1.isFile()
-							&& (((this.fileType.toLowerCase().startsWith("hd")
-									|| this.fileType.toLowerCase().startsWith("sd"))
-									&& (file1.getPath().toLowerCase().endsWith("img")
-											|| file1.getPath().toLowerCase().endsWith("qcow")
-											|| file1.getPath().toLowerCase().endsWith("qcow2")
-											|| file1.getPath().toLowerCase().endsWith("vmdk")
-											|| file1.getPath().toLowerCase().endsWith("vdi")
-											|| file1.getPath().toLowerCase().endsWith("cow")
-											|| file1.getPath().toLowerCase().endsWith("dmg")
-											|| file1.getPath().toLowerCase().endsWith("bochs")
-											|| file1.getPath().toLowerCase().endsWith("vpc")
-											|| file1.getPath().toLowerCase().endsWith("vhd")
-											|| file1.getPath().toLowerCase().endsWith("fs")))
-							|| (this.fileType.toLowerCase().startsWith("cd")
-									&& (file1.getPath().toLowerCase().endsWith("iso")))
-							|| (this.fileType.toLowerCase().startsWith("kernel")
-					// && (file1.getPath().toLowerCase().contains("vmlinuz"))
-					) || (this.fileType.toLowerCase().startsWith("initrd")
-					// && (file1.getPath().toLowerCase().contains("initrd"))
-					) || (this.fileType.toLowerCase().startsWith("fd") && (file1.getPath().toLowerCase().endsWith("img")
-							|| file1.getPath().toLowerCase().endsWith("ima"))))) {
+					if (filename != null && file1.isFile() && filter(file1)) {
 						items.add(filename);
 					} else if (filename != null && file1.isDirectory()) {
 						items.add(filename);
@@ -133,6 +112,23 @@ public class FileManager extends ListActivity {
 		Collections.sort(items, comperator);
 		ArrayAdapter<String> fileList = new ArrayAdapter<String>(this, R.layout.dir_row, R.id.FILE_NAME, items);
 		setListAdapter(fileList);
+
+	}
+
+	private boolean filter(File file1) {
+		return ((this.fileType.toLowerCase().startsWith("hd") || this.fileType.toLowerCase().startsWith("sd")) && (file1
+				.getPath().toLowerCase().endsWith("img") || file1.getPath().toLowerCase().endsWith("qcow")
+				|| file1.getPath().toLowerCase().endsWith("qcow2") || file1.getPath().toLowerCase().endsWith("vmdk")
+				|| file1.getPath().toLowerCase().endsWith("vdi") || file1.getPath().toLowerCase().endsWith("cow")
+				|| file1.getPath().toLowerCase().endsWith("dmg") || file1.getPath().toLowerCase().endsWith("bochs")
+				|| file1.getPath().toLowerCase().endsWith("vpc") || file1.getPath().toLowerCase().endsWith("vhd")
+				|| file1.getPath().toLowerCase().endsWith("fs")))
+				|| (this.fileType.toLowerCase().startsWith("cd") && (file1.getPath().toLowerCase().endsWith("iso")))
+				|| (this.fileType.toLowerCase().startsWith("kernel")
+				// && (file1.getPath().toLowerCase().contains("vmlinuz"))
+				) || (this.fileType.toLowerCase().startsWith("initrd")
+				// && (file1.getPath().toLowerCase().contains("initrd"))
+				) || (this.fileType.toLowerCase().startsWith("fd") && (file1.getPath().toLowerCase().endsWith("img") || file1.getPath().toLowerCase().endsWith("ima")));
 
 	}
 
@@ -244,13 +240,12 @@ public class FileManager extends ListActivity {
 		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 
 //		if (fileType.toLowerCase().startsWith("hd") || fileType.toLowerCase().startsWith("sd")) {
-//			final String[] ACCEPT_MIME_TYPES = { 
-//					"*/img", "*/qcow", "*/qcow2", "*/vmdk", "*/vdi", "*/cow", "*/dmg",
+//			final String[] ACCEPT_MIME_TYPES = { "*/img", "*/qcow", "*/qcow2", "*/vmdk", "*/vdi", "*/cow", "*/dmg",
 //					"*/bochs", "*/vpc", "*/vhd", "*/fs" };
 //			intent.setType("*/*");
 //			intent.putExtra(Intent.EXTRA_MIME_TYPES, ACCEPT_MIME_TYPES);
 //		} else if (fileType.toLowerCase().startsWith("cd")) {
-//			intent.setType(getMimeType("iso"));
+//			intent.setType(getMimeType(".iso"));
 //		} else if (fileType.toLowerCase().startsWith("fd")) {
 //			final String[] ACCEPT_MIME_TYPES = { "*/img", "*/ima" };
 //			intent.setType("*/*");
