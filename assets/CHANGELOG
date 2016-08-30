@@ -1,4 +1,14 @@
 <br>
+Limbo v2.2.2<br>
+Option for Virtual FAT disk<br> 
+Extra QEMU parameters<br>
+Fixed issues with Removable Devices<br>
+Added CPU types<br>
+Several backend compatibility fixes<br>
+Enabled KVM (ΝΟΤ Τested)<br>
+<br>
+
+<br>
 Limbo v2.2.1<br>
 -Fixed lib loading issue for Jellybean<br>
 <br>
