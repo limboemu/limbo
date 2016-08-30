@@ -13,7 +13,7 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 #USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
 # If you want to use SDL
-USE_SDL ?= true
+USE_SDL ?= false
 
 # If you want to use SDL Audio (currently not working)
 USE_SDL_AUDIO ?= false

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
-    android:versionCode="221"
-    android:versionName="2.2.1"
+    android:versionCode="222"
+    android:versionName="2.2.2"
     android:installLocation="auto" >
 
     <uses-sdk
