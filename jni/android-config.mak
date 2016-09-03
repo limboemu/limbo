@@ -9,7 +9,7 @@ BUILD_THREADS=4
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
 # We use android-19 since it ensures that older android libc versions (from 12 to 19) that use "signal" differently will work
 # Note: Android Emulator with version lesser than 12 might be failing because of sigsetjmp. This is a known issue, you should use a real device instead.  
-APP_PLATFORM = android-19
+APP_PLATFORM = android-21
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # Uncomment if you use NDK11 and above
@@ -17,7 +17,7 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # Enable KVM (NOT Tested)
 # Note: KVM headers are available only for android-21 platform and above
-USE_KVM ?= false
+USE_KVM ?= true
 
 # If you want to use SDL (not working for Hard-float device config, see below)
 USE_SDL ?= true
