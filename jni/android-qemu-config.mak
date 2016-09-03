@@ -133,8 +133,13 @@ DEBUG =
 #endif
 
 #KVM
-KVM = --enable-kvm
-#KVM = --disable-kvm
+ifeq ($(USE_KVM),true)
+	#ENABLE KVM
+	KVM = --enable-kvm
+else 
+	# DISABLE
+	KVM = --disable-kvm
+endif
 
 #XEN
 XEN = --disable-xen --disable-xen-pci-passthrough

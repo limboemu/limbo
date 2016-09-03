@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
-    android:versionCode="222"
-    android:versionName="2.2.2"
+    android:versionCode="223"
+    android:versionName="2.2.3"
     android:installLocation="auto" >
 
     <uses-sdk
-        android:minSdkVersion="4"
+        android:minSdkVersion="9"
         android:targetSdkVersion="9" />
 
     <uses-permission android:name="android.permission.INTERNET" />

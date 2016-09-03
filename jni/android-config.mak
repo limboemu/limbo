@@ -6,13 +6,20 @@
 BUILD_THREADS=4
 
 #PLATFORM CONFIG
-APP_PLATFORM = android-21
+# Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
+# We use android-19 since it ensures that older android libc versions (from 12 to 19) that use "signal" differently will work
+# Note: Android Emulator with version lesser than 12 might be failing because of sigsetjmp. This is a known issue, you should use a real device instead.  
+APP_PLATFORM = android-19
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # Uncomment if you use NDK11 and above
 #USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
-# If you want to use SDL
+# Enable KVM (NOT Tested)
+# Note: KVM headers are available only for android-21 platform and above
+USE_KVM ?= false
+
+# If you want to use SDL (not working for Hard-float device config, see below)
 USE_SDL ?= true
 
 # If you want to use SDL Audio (currently not working)
@@ -55,7 +62,7 @@ NDK_ENV = windows-x86_64
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 # ARMv7 Generic soft float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
@@ -69,7 +76,7 @@ NDK_ENV = windows-x86_64
 
 ######### x86
 # x86 Phones (ie Zenfone)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # x86 Phones Debug No optimization (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak

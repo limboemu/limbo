@@ -1384,9 +1384,6 @@ public class LimboActivity extends Activity {
 			onFirstLaunch();
 		}
 
-		System.loadLibrary("limbo");
-		// Load GLIB and ICONV
-		// System.loadLibrary("iconv");
 		System.loadLibrary("glib-2.0");
 		System.loadLibrary("gthread-2.0");
 		System.loadLibrary("gobject-2.0");
@@ -1413,8 +1410,9 @@ public class LimboActivity extends Activity {
 		if (Config.enable_SDL_libs) {
 			System.loadLibrary("main");
 		}
-		// acquireLocks();
 
+		System.loadLibrary("limbo");
+		
 		// For debugging purposes
 		if (Config.debug) {
 			if (Config.debugMode == DebugMode.X86)
