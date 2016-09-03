@@ -2103,7 +2103,8 @@ public class LimboActivity extends Activity {
 			this.mSoundCardConfig.setEnabled(flag);
 
 		this.mPrio.setEnabled(flag);
-		this.mEnableKVM.setEnabled(flag);
+		if (Config.enable_KVM || !flag)
+			this.mEnableKVM.setEnabled(flag);
 
 		this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
 
