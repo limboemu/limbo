@@ -210,7 +210,7 @@ ps2_sendbyte(int aux, u8 command, int timeout)
     return 0;
 }
 
-u8 Ps2ctr VARLOW;
+u8 Ps2ctr VARLOW = I8042_CTR_KBDDIS | I8042_CTR_AUXDIS;
 
 static int
 __ps2_command(int aux, int command, u8 *param)
@@ -232,6 +232,7 @@ __ps2_command(int aux, int command, u8 *param)
     yield();
 
     // Enable port command is being sent to.
+    SET_LOW(Ps2ctr, newctr);
     if (aux)
         newctr &= ~I8042_CTR_AUXDIS;
     else
@@ -240,8 +241,8 @@ __ps2_command(int aux, int command, u8 *param)
     if (ret)
         goto fail;
 
-    if (command == ATKBD_CMD_RESET_BAT) {
-        // Reset is special wrt timeouts and bytes received.
+    if ((u8)command == (u8)ATKBD_CMD_RESET_BAT) {
+        // Reset is special wrt timeouts.
 
         // Send command.
         ret = ps2_sendbyte(aux, command, 1000);
@@ -253,11 +254,12 @@ __ps2_command(int aux, int command, u8 *param)
         if (ret < 0)
             goto fail;
         param[0] = ret;
-        ret = ps2_recvbyte(aux, 0, 100);
-        if (ret < 0)
-            // Some devices only respond with one byte on reset.
-            ret = 0;
-        param[1] = ret;
+        if (receive > 1) {
+            ret = ps2_recvbyte(aux, 0, 500);
+            if (ret < 0)
+                goto fail;
+            param[1] = ret;
+        }
     } else if (command == ATKBD_CMD_GETID) {
         // Getid is special wrt bytes received.
 
@@ -308,6 +310,7 @@ __ps2_command(int aux, int command, u8 *param)
 
 fail:
     // Restore interrupts and keyboard/mouse.
+    SET_LOW(Ps2ctr, ps2ctr);
     ret2 = i8042_command(I8042_CMD_CTL_WCTR, &ps2ctr);
     if (ret2)
         return ret2;
@@ -343,7 +346,8 @@ ps2_mouse_command(int command, u8 *param)
     if (command == PSMOUSE_CMD_ENABLE || command == PSMOUSE_CMD_DISABLE) {
         u8 ps2ctr = GET_LOW(Ps2ctr);
         if (command == PSMOUSE_CMD_ENABLE)
-            ps2ctr = (ps2ctr | I8042_CTR_AUXINT) & ~I8042_CTR_AUXDIS;
+            ps2ctr = ((ps2ctr | (CONFIG_HARDWARE_IRQ ? I8042_CTR_AUXINT : 0))
+                      & ~I8042_CTR_AUXDIS);
         else
             ps2ctr = (ps2ctr | I8042_CTR_AUXDIS) & ~I8042_CTR_AUXINT;
         SET_LOW(Ps2ctr, ps2ctr);
@@ -414,6 +418,31 @@ done:
     pic_eoi1();
 }
 
+// Check for ps2 activity on machines without hardware irqs
+void
+ps2_check_event(void)
+{
+    if (! CONFIG_PS2PORT || CONFIG_HARDWARE_IRQ)
+        return;
+    u8 ps2ctr = GET_LOW(Ps2ctr);
+    if ((ps2ctr & (I8042_CTR_KBDDIS|I8042_CTR_AUXDIS))
+        == (I8042_CTR_KBDDIS|I8042_CTR_AUXDIS))
+        return;
+    for (;;) {
+        u8 status = inb(PORT_PS2_STATUS);
+        if (!(status & I8042_STR_OBF))
+            break;
+        u8 data = inb(PORT_PS2_DATA);
+        if (status & I8042_STR_AUXDATA) {
+            if (!(ps2ctr & I8042_CTR_AUXDIS))
+                process_mouse(data);
+        } else {
+            if (!(ps2ctr & I8042_CTR_KBDDIS))
+                process_key(data);
+        }
+    }
+}
+
 
 /****************************************************************
  * Setup
@@ -445,9 +474,6 @@ ps2_keyboard_setup(void *data)
         dprintf(1, "i8042 keyboard test failed (got %x not 0x00)\n", param[0]);
         return;
     }
-
-    // Disable keyboard and mouse events.
-    SET_LOW(Ps2ctr, I8042_CTR_KBDDIS | I8042_CTR_AUXDIS);
 
 
     /* ------------------- keyboard side ------------------------*/
@@ -482,7 +508,8 @@ ps2_keyboard_setup(void *data)
         return;
 
     // Keyboard Mode: disable mouse, scan code convert, enable kbd IRQ
-    SET_LOW(Ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
+    Ps2ctr = (I8042_CTR_AUXDIS | I8042_CTR_XLATE
+              | (CONFIG_HARDWARE_IRQ ? I8042_CTR_KBDINT : 0));
 
     /* Enable keyboard */
     ret = ps2_kbd_command(ATKBD_CMD_ENABLE, NULL);

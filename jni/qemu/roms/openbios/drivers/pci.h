@@ -59,6 +59,15 @@
 #define PCI_MIN_GNT             0x3e    /* 8 bits */
 #define PCI_MAX_LAT             0x3f    /* 8 bits */
 
+#define PCI_RANGE_RELOCATABLE          0x80000000
+#define PCI_RANGE_PREFETCHABLE         0x40000000
+#define PCI_RANGE_ALIASED              0x20000000
+#define PCI_RANGE_TYPE_MASK            0x03000000
+#define PCI_RANGE_MMIO_64BIT           0x03000000
+#define PCI_RANGE_MMIO                 0x02000000
+#define PCI_RANGE_IOPORT               0x01000000
+#define PCI_RANGE_CONFIG               0x00000000
+
 typedef struct {
         u16     signature;
         u8      reserved[0x16];

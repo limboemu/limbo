@@ -1,7 +1,7 @@
 /*
  * Tiny Code Interpreter for QEMU
  *
- * Copyright (c) 2009, 2011 Stefan Weil
+ * Copyright (c) 2009, 2011, 2016 Stefan Weil
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,15 +17,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
 
-/* Defining NDEBUG disables assertions (which makes the code faster). */
-#if !defined(CONFIG_DEBUG_TCG) && !defined(NDEBUG)
-# define NDEBUG
+/* Enable TCI assertions only when debugging TCG (and without NDEBUG defined).
+ * Without assertions, the interpreter runs much faster. */
+#if defined(CONFIG_DEBUG_TCG)
+# define tci_assert(cond) assert(cond)
+#else
+# define tci_assert(cond) ((void)0)
 #endif
 
 #include "qemu-common.h"
-#include "exec/exec-all.h"           /* MAX_OPC_PARAM_IARGS */
+#include "tcg/tcg.h"           /* MAX_OPC_PARAM_IARGS */
 #include "exec/cpu_ldst.h"
 #include "tcg-op.h"
 
@@ -52,17 +55,11 @@ typedef uint64_t (*helper_function)(tcg_target_ulong, tcg_target_ulong,
                                     tcg_target_ulong);
 #endif
 
-/* Targets which don't use GETPC also don't need tci_tb_ptr
-   which makes them a little faster. */
-#if defined(GETPC)
-uintptr_t tci_tb_ptr;
-#endif
-
 static tcg_target_ulong tci_reg[TCG_TARGET_NB_REGS];
 
 static tcg_target_ulong tci_read_reg(TCGReg index)
 {
-    assert(index < ARRAY_SIZE(tci_reg));
+    tci_assert(index < ARRAY_SIZE(tci_reg));
     return tci_reg[index];
 }
 
@@ -111,9 +108,9 @@ static uint64_t tci_read_reg64(TCGReg index)
 
 static void tci_write_reg(TCGReg index, tcg_target_ulong value)
 {
-    assert(index < ARRAY_SIZE(tci_reg));
-    assert(index != TCG_AREG0);
-    assert(index != TCG_REG_CALL_STACK);
+    tci_assert(index < ARRAY_SIZE(tci_reg));
+    tci_assert(index != TCG_AREG0);
+    tci_assert(index != TCG_REG_CALL_STACK);
     tci_reg[index] = value;
 }
 
@@ -331,7 +328,7 @@ static uint64_t tci_read_ri64(uint8_t **tb_ptr)
 static tcg_target_ulong tci_read_label(uint8_t **tb_ptr)
 {
     tcg_target_ulong label = tci_read_i(tb_ptr);
-    assert(label != 0);
+    tci_assert(label != 0);
     return label;
 }
 
@@ -420,35 +417,34 @@ static bool tci_compare64(uint64_t u0, uint64_t u1, TCGCond condition)
 }
 
 #ifdef CONFIG_SOFTMMU
-# define mmuidx          tci_read_i(&tb_ptr)
 # define qemu_ld_ub \
-    helper_ret_ldub_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_ret_ldub_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_leuw \
-    helper_le_lduw_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_lduw_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_leul \
-    helper_le_ldul_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_ldul_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_leq \
-    helper_le_ldq_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_ldq_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_beuw \
-    helper_be_lduw_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_lduw_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_beul \
-    helper_be_ldul_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_ldul_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_ld_beq \
-    helper_be_ldq_mmu(env, taddr, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_ldq_mmu(env, taddr, oi, (uintptr_t)tb_ptr)
 # define qemu_st_b(X) \
-    helper_ret_stb_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_ret_stb_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_lew(X) \
-    helper_le_stw_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_stw_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_lel(X) \
-    helper_le_stl_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_stl_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_leq(X) \
-    helper_le_stq_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_le_stq_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_bew(X) \
-    helper_be_stw_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_stw_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_bel(X) \
-    helper_be_stl_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_stl_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 # define qemu_st_beq(X) \
-    helper_be_stq_mmu(env, taddr, X, mmuidx, (uintptr_t)tb_ptr)
+    helper_be_stq_mmu(env, taddr, X, oi, (uintptr_t)tb_ptr)
 #else
 # define qemu_ld_ub      ldub_p(g2h(taddr))
 # define qemu_ld_leuw    lduw_le_p(g2h(taddr))
@@ -471,15 +467,15 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
 {
     long tcg_temps[CPU_TEMP_BUF_NLONGS];
     uintptr_t sp_value = (uintptr_t)(tcg_temps + CPU_TEMP_BUF_NLONGS);
-    uintptr_t next_tb = 0;
+    uintptr_t ret = 0;
 
     tci_reg[TCG_AREG0] = (tcg_target_ulong)env;
     tci_reg[TCG_REG_CALL_STACK] = sp_value;
-    assert(tb_ptr);
+    tci_assert(tb_ptr);
 
     for (;;) {
         TCGOpcode opc = tb_ptr[0];
-#if !defined(NDEBUG)
+#if defined(CONFIG_DEBUG_TCG) && !defined(NDEBUG)
         uint8_t op_size = tb_ptr[1];
         uint8_t *old_code_ptr = tb_ptr;
 #endif
@@ -496,7 +492,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
 #if TCG_TARGET_REG_BITS == 32
         uint64_t v64;
 #endif
-        TCGMemOp memop;
+        TCGMemOpIdx oi;
 
 #if defined(GETPC)
         tci_tb_ptr = (uintptr_t)tb_ptr;
@@ -532,7 +528,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             break;
         case INDEX_op_br:
             label = tci_read_label(&tb_ptr);
-            assert(tb_ptr == old_code_ptr + op_size);
+            tci_assert(tb_ptr == old_code_ptr + op_size);
             tb_ptr = (uint8_t *)label;
             continue;
         case INDEX_op_setcond_i32:
@@ -607,7 +603,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             t0 = tci_read_r32(&tb_ptr);
             t1 = tci_read_r(&tb_ptr);
             t2 = tci_read_s32(&tb_ptr);
-            assert(t1 != sp_value || (int32_t)t2 < 0);
+            tci_assert(t1 != sp_value || (int32_t)t2 < 0);
             *(uint32_t *)(t1 + t2) = t0;
             break;
 
@@ -732,7 +728,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             condition = *tb_ptr++;
             label = tci_read_label(&tb_ptr);
             if (tci_compare32(t0, t1, condition)) {
-                assert(tb_ptr == old_code_ptr + op_size);
+                tci_assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
                 continue;
             }
@@ -758,7 +754,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             condition = *tb_ptr++;
             label = tci_read_label(&tb_ptr);
             if (tci_compare64(tmp64, v64, condition)) {
-                assert(tb_ptr == old_code_ptr + op_size);
+                tci_assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
                 continue;
             }
@@ -892,7 +888,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             t0 = tci_read_r64(&tb_ptr);
             t1 = tci_read_r(&tb_ptr);
             t2 = tci_read_s32(&tb_ptr);
-            assert(t1 != sp_value || (int32_t)t2 < 0);
+            tci_assert(t1 != sp_value || (int32_t)t2 < 0);
             *(uint64_t *)(t1 + t2) = t0;
             break;
 
@@ -999,7 +995,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             condition = *tb_ptr++;
             label = tci_read_label(&tb_ptr);
             if (tci_compare64(t0, t1, condition)) {
-                assert(tb_ptr == old_code_ptr + op_size);
+                tci_assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
                 continue;
             }
@@ -1034,18 +1030,20 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
 #endif
 #if TCG_TARGET_HAS_ext32s_i64
         case INDEX_op_ext32s_i64:
+#endif
+        case INDEX_op_ext_i32_i64:
             t0 = *tb_ptr++;
             t1 = tci_read_r32s(&tb_ptr);
             tci_write_reg64(t0, t1);
             break;
-#endif
 #if TCG_TARGET_HAS_ext32u_i64
         case INDEX_op_ext32u_i64:
+#endif
+        case INDEX_op_extu_i32_i64:
             t0 = *tb_ptr++;
             t1 = tci_read_r32(&tb_ptr);
             tci_write_reg64(t0, t1);
             break;
-#endif
 #if TCG_TARGET_HAS_bswap16_i64
         case INDEX_op_bswap16_i64:
             TODO();
@@ -1086,29 +1084,23 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
 
             /* QEMU specific operations. */
 
-#if TARGET_LONG_BITS > TCG_TARGET_REG_BITS
-        case INDEX_op_debug_insn_start:
-            TODO();
-            break;
-#else
-        case INDEX_op_debug_insn_start:
-            TODO();
-            break;
-#endif
         case INDEX_op_exit_tb:
-            next_tb = *(uint64_t *)tb_ptr;
+            ret = *(uint64_t *)tb_ptr;
             goto exit;
             break;
         case INDEX_op_goto_tb:
-            t0 = tci_read_i32(&tb_ptr);
-            assert(tb_ptr == old_code_ptr + op_size);
+            /* Jump address is aligned */
+            tb_ptr = QEMU_ALIGN_PTR_UP(tb_ptr, 4);
+            t0 = atomic_read((int32_t *)tb_ptr);
+            tb_ptr += sizeof(int32_t);
+            tci_assert(tb_ptr == old_code_ptr + op_size);
             tb_ptr += (int32_t)t0;
             continue;
         case INDEX_op_qemu_ld_i32:
             t0 = *tb_ptr++;
             taddr = tci_read_ulong(&tb_ptr);
-            memop = tci_read_i(&tb_ptr);
-            switch (memop) {
+            oi = tci_read_i(&tb_ptr);
+            switch (get_memop(oi) & (MO_BSWAP | MO_SSIZE)) {
             case MO_UB:
                 tmp32 = qemu_ld_ub;
                 break;
@@ -1144,8 +1136,8 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                 t1 = *tb_ptr++;
             }
             taddr = tci_read_ulong(&tb_ptr);
-            memop = tci_read_i(&tb_ptr);
-            switch (memop) {
+            oi = tci_read_i(&tb_ptr);
+            switch (get_memop(oi) & (MO_BSWAP | MO_SSIZE)) {
             case MO_UB:
                 tmp64 = qemu_ld_ub;
                 break;
@@ -1193,8 +1185,8 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
         case INDEX_op_qemu_st_i32:
             t0 = tci_read_r(&tb_ptr);
             taddr = tci_read_ulong(&tb_ptr);
-            memop = tci_read_i(&tb_ptr);
-            switch (memop) {
+            oi = tci_read_i(&tb_ptr);
+            switch (get_memop(oi) & (MO_BSWAP | MO_SIZE)) {
             case MO_UB:
                 qemu_st_b(t0);
                 break;
@@ -1217,8 +1209,8 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
         case INDEX_op_qemu_st_i64:
             tmp64 = tci_read_r64(&tb_ptr);
             taddr = tci_read_ulong(&tb_ptr);
-            memop = tci_read_i(&tb_ptr);
-            switch (memop) {
+            oi = tci_read_i(&tb_ptr);
+            switch (get_memop(oi) & (MO_BSWAP | MO_SIZE)) {
             case MO_UB:
                 qemu_st_b(tmp64);
                 break;
@@ -1248,8 +1240,8 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             TODO();
             break;
         }
-        assert(tb_ptr == old_code_ptr + op_size);
+        tci_assert(tb_ptr == old_code_ptr + op_size);
     }
 exit:
-    return next_tb;
+    return ret;
 }

@@ -4,16 +4,17 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h"
+#include "config.h" // CONFIG_XEN
+#include "e820map.h" // e820_add
 #include "hw/serialio.h" // DebugOutputPort
 #include "malloc.h" // memalign_high
-#include "memmap.h" // add_e820
+#include "memmap.h" // PAGE_SIZE
 #include "output.h" // dprintf
 #include "paravirt.h" // PlatformRunningOn
 #include "string.h" // memcpy
 #include "util.h" // copy_acpi_rsdp
 #include "x86.h" // cpuid
-#include "xen.h"
+#include "xen.h" // xen_extraversion_t
 
 #define INFO_PHYSICAL_ADDRESS 0x00001000
 
@@ -142,6 +143,6 @@ void xen_ramsize_preinit(void)
 
     for (i = 0; i < info->e820_nr; i++) {
         struct e820entry *e = &e820[i];
-        add_e820(e->start, e->size, e->type);
+        e820_add(e->start, e->size, e->type);
     }
 }

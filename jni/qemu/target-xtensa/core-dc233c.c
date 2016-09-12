@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/exec-all.h"
 #include "exec/gdbstub.h"
@@ -34,7 +35,7 @@
 #include "core-dc233c/core-isa.h"
 #include "overlay_tool.h"
 
-static const XtensaConfig dc233c __attribute__((unused)) = {
+static XtensaConfig dc233c __attribute__((unused)) = {
     .name = "dc233c",
     .gdb_regmap = {
         .num_regs = 121,

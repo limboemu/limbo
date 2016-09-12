@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -35,21 +39,32 @@ FILE_LICENCE ( GPL2_OR_LATER );
 /**
  * Report an snprintf() test result
  *
+ * @v len		Buffer length
+ * @v expected		Expected result
+ * @v file		Test code file
+ * @v line		Test code line
+ * @v format		Format string
+ * @v ...		Arguments
  */
-#define snprintf_ok( len, result, format, ... ) do {			\
-	char actual[ (len) ];						\
-	const char expected[] = result;					\
-	size_t actual_len;						\
-									\
-	actual_len = snprintf ( actual, sizeof ( actual ),		\
-				format, ##__VA_ARGS__ );		\
-	ok ( actual_len >= strlen ( result ) );				\
-	ok ( strcmp ( actual, expected ) == 0 );			\
-	if ( strcmp ( actual, expected ) != 0 ) {			\
-		DBG ( "SNPRINTF expected \"%s\", got \"%s\"\n",		\
-		      expected, actual );				\
-	}								\
-	} while ( 0 )
+static void snprintf_okx ( size_t len, const char *expected, const char *file,
+			   unsigned int line, const char *fmt, ... ) {
+	char actual[len];
+	size_t actual_len;
+	va_list args;
+
+	va_start ( args, fmt );
+	actual_len = vsnprintf ( actual, sizeof ( actual ), fmt, args );
+	va_end ( args );
+	okx ( actual_len >= strlen ( expected ), file, line );
+	okx ( strcmp ( actual, expected ) == 0, file, line );
+	if ( strcmp ( actual, expected ) != 0 ) {
+		DBG ( "SNPRINTF expected \"%s\", got \"%s\"\n",
+		      expected, actual );
+	}
+}
+#define snprintf_ok( len, result, format, ... )				\
+	snprintf_okx ( len, result, __FILE__, __LINE__, format,		\
+		       ##__VA_ARGS__ )
 
 /**
  * Perform vsprintf() self-tests
@@ -93,6 +108,10 @@ static void vsprintf_test_exec ( void ) {
 	snprintf_ok ( 64, "PCI 00:1f.3", "PCI %02x:%02x.%x", 0x00, 0x1f, 0x03 );
 	snprintf_ok ( 64, "Region [1000000,3f000000)", "Region [%llx,%llx)",
 		      0x1000000ULL, 0x3f000000ULL );
+
+	/* Null string (used for debug messages) */
+	snprintf_ok ( 16, "<NULL>", "%s", ( ( char * ) NULL ) );
+	snprintf_ok ( 16, "<NULL>", "%ls", ( ( wchar_t * ) NULL ) );
 }
 
 /** vsprintf() self-test */

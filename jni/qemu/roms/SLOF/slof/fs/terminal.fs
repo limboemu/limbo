@@ -167,6 +167,7 @@ false VALUE stopcsi
 CREATE twtracebuf 4000 allot twtracebuf 4000 erase
 twtracebuf VALUE twbp
 0 VALUE twbc
+0 VALUE twtrace-enabled?
 
 : twtrace
 	twbc 4000 = IF 0 to twbc twtracebuf to twbp THEN
@@ -176,7 +177,7 @@ twtracebuf VALUE twbp
 : terminal-write ( addr len -- actual-len )
  	cursor-off
 	tuck bounds ?DO i c@
-		twtrace
+		twtrace-enabled? IF twtrace THEN
 		esc-on IF esc-process
 		ELSE CASE
 			1B OF true to esc-on ENDOF

@@ -403,10 +403,7 @@ bochsvga_setup(void)
         case 0x15ad: /* qemu vmware vga */
             barid = 1;
             break;
-        case 0x1af4: /* virtio-vga */
-            barid = 2;
-            break;
-        default: /* stdvga, qxl */
+        default: /* stdvga, qxl, virtio */
             barid = 0;
             break;
         }

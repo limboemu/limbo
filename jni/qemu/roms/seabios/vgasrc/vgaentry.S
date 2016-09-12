@@ -45,33 +45,15 @@ _rom_header_signature:
  * Entry points
  ****************************************************************/
 
-        // Force a fault if found to be running on broken x86emu versions.
-        DECLFUNC x86emu_fault
-msg:    .ascii "SeaVGABIOS: x86emu leal trap!\n"
-x86emu_fault:
-#if CONFIG_DEBUG_IO
-        movw %cs:DebugOutputPort, %dx
-        movw $msg, %si
-1:      movb %cs:(%si), %al
-        outb %al, (%dx)
-        incw %si
-        cmpw $x86emu_fault, %si
-        jl 1b
-#endif
-1:      hlt
-        jmp 1b
-
         // This macro implements a call while avoiding instructions
         // that old versions of x86emu have problems with.
         .macro VGA_CALLL cfunc
-        // Make sure leal instruction works.
-        movl $0x8000, %ecx
-        leal (%ecx, %ecx, 1), %ecx
-        cmpl $0x10000, %ecx
-        jne x86emu_fault
-        // Use callw instead of calll
-        push %ax
+#if CONFIG_VGA_FIXUP_ASM
+        pushw %ax
         callw \cfunc
+#else
+        calll \cfunc
+#endif
         .endm
 
         // This macro is the same as ENTRY_ARG except VGA_CALLL is used.
@@ -104,14 +86,23 @@ entry_10:
         ENTRY_ARG_VGA handle_10
         iretw
 
+#define VGA_CUSTOM_BDA_FLAGS 0xb9
+#define BF_EXTRA_STACK 0x40
+
         // Entry point using extra stack
         DECLFUNC entry_10_extrastack
 entry_10_extrastack:
         cli
         cld
-        pushw %ds               // Set %ds:%eax to space on ExtraStack
+        pushw %ds
         pushl %eax
-        movw %cs:ExtraStackSeg, %ds
+
+        movw $SEG_BDA, %ax      // Check if extra stack is enabled
+        movw %ax, %ds
+        testb $BF_EXTRA_STACK, VGA_CUSTOM_BDA_FLAGS
+        jz 1f
+
+        movw %cs:ExtraStackSeg, %ds // Set %ds:%eax to space on ExtraStack
         movl $(CONFIG_VGA_EXTRA_STACK_SIZE-PUSHBREGS_size-16), %eax
         SAVEBREGS_POP_DSEAX     // Save registers on extra stack
         movl %esp, PUSHBREGS_size+8(%eax)
@@ -133,6 +124,11 @@ entry_10_extrastack:
         pushl BREGS_code(%eax)
         RESTOREBREGS_DSEAX
         iretw
+
+1:      // Use regular entry point if the extra stack is disabled
+        popl %eax
+        popw %ds
+        jmp entry_10
 
         // Timer irq handling
         DECLFUNC entry_timer_hook

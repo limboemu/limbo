@@ -15,29 +15,30 @@
  * the flags
  */
 
-#include <slirp.h>
+#include "qemu/osdep.h"
+#include "slirp.h"
 
 #define MBUF_THRESH 30
 
 /*
  * Find a nice value for msize
- * XXX if_maxlinkhdr already in mtu
  */
-#define SLIRP_MSIZE (IF_MTU + IF_MAXLINKHDR + offsetof(struct mbuf, m_dat) + 6)
+#define SLIRP_MSIZE\
+    (offsetof(struct mbuf, m_dat) + IF_MAXLINKHDR + TCPIPHDR_DELTA + IF_MTU)
 
 void
 m_init(Slirp *slirp)
 {
-    slirp->m_freelist.m_next = slirp->m_freelist.m_prev = &slirp->m_freelist;
-    slirp->m_usedlist.m_next = slirp->m_usedlist.m_prev = &slirp->m_usedlist;
+    slirp->m_freelist.qh_link = slirp->m_freelist.qh_rlink = &slirp->m_freelist;
+    slirp->m_usedlist.qh_link = slirp->m_usedlist.qh_rlink = &slirp->m_usedlist;
 }
 
 void m_cleanup(Slirp *slirp)
 {
     struct mbuf *m, *next;
 
-    m = slirp->m_usedlist.m_next;
-    while (m != &slirp->m_usedlist) {
+    m = (struct mbuf *) slirp->m_usedlist.qh_link;
+    while ((struct quehead *) m != &slirp->m_usedlist) {
         next = m->m_next;
         if (m->m_flags & M_EXT) {
             free(m->m_ext);
@@ -45,8 +46,8 @@ void m_cleanup(Slirp *slirp)
         free(m);
         m = next;
     }
-    m = slirp->m_freelist.m_next;
-    while (m != &slirp->m_freelist) {
+    m = (struct mbuf *) slirp->m_freelist.qh_link;
+    while ((struct quehead *) m != &slirp->m_freelist) {
         next = m->m_next;
         free(m);
         m = next;
@@ -69,7 +70,7 @@ m_get(Slirp *slirp)
 
 	DEBUG_CALL("m_get");
 
-	if (slirp->m_freelist.m_next == &slirp->m_freelist) {
+	if (slirp->m_freelist.qh_link == &slirp->m_freelist) {
 		m = (struct mbuf *)malloc(SLIRP_MSIZE);
 		if (m == NULL) goto end_error;
 		slirp->mbuf_alloced++;
@@ -77,7 +78,7 @@ m_get(Slirp *slirp)
 			flags = M_DOFREE;
 		m->slirp = slirp;
 	} else {
-		m = slirp->m_freelist.m_next;
+		m = (struct mbuf *) slirp->m_freelist.qh_link;
 		remque(m);
 	}
 
@@ -91,10 +92,10 @@ m_get(Slirp *slirp)
 	m->m_len = 0;
         m->m_nextpkt = NULL;
         m->m_prevpkt = NULL;
-        m->arp_requested = false;
+        m->resolution_requested = false;
         m->expiration_date = (uint64_t)-1;
 end_error:
-	DEBUG_ARG("m = %lx", (long )m);
+	DEBUG_ARG("m = %p", m);
 	return m;
 }
 
@@ -103,7 +104,7 @@ m_free(struct mbuf *m)
 {
 
   DEBUG_CALL("m_free");
-  DEBUG_ARG("m = %lx", (long )m);
+  DEBUG_ARG("m = %p", m);
 
   if(m) {
 	/* Remove from m_usedlist */
@@ -221,10 +222,11 @@ dtom(Slirp *slirp, void *dat)
 	struct mbuf *m;
 
 	DEBUG_CALL("dtom");
-	DEBUG_ARG("dat = %lx", (long )dat);
+	DEBUG_ARG("dat = %p", dat);
 
 	/* bug corrected for M_EXT buffers */
-	for (m = slirp->m_usedlist.m_next; m != &slirp->m_usedlist;
+	for (m = (struct mbuf *) slirp->m_usedlist.qh_link;
+	     (struct quehead *) m != &slirp->m_usedlist;
 	     m = m->m_next) {
 	  if (m->m_flags & M_EXT) {
 	    if( (char *)dat>=m->m_ext && (char *)dat<(m->m_ext + m->m_size) )

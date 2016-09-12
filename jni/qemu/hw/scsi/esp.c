@@ -23,9 +23,11 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/scsi/esp.h"
 #include "trace.h"
+#include "qapi/error.h"
 #include "qemu/log.h"
 
 /*
@@ -80,7 +82,7 @@ void esp_request_cancelled(SCSIRequest *req)
     }
 }
 
-static uint32_t get_cmd(ESPState *s, uint8_t *buf)
+static uint32_t get_cmd(ESPState *s, uint8_t *buf, uint8_t buflen)
 {
     uint32_t dmalen;
     int target;
@@ -90,9 +92,15 @@ static uint32_t get_cmd(ESPState *s, uint8_t *buf)
         dmalen = s->rregs[ESP_TCLO];
         dmalen |= s->rregs[ESP_TCMID] << 8;
         dmalen |= s->rregs[ESP_TCHI] << 16;
+        if (dmalen > buflen) {
+            return 0;
+        }
         s->dma_memory_read(s->dma_opaque, buf, dmalen);
     } else {
         dmalen = s->ti_size;
+        if (dmalen > TI_BUFSZ) {
+            return 0;
+        }
         memcpy(buf, s->ti_buf, dmalen);
         buf[0] = buf[2] >> 5;
     }
@@ -164,7 +172,7 @@ static void handle_satn(ESPState *s)
         s->dma_cb = handle_satn;
         return;
     }
-    len = get_cmd(s, buf);
+    len = get_cmd(s, buf, sizeof(buf));
     if (len)
         do_cmd(s, buf);
 }
@@ -178,7 +186,7 @@ static void handle_s_without_atn(ESPState *s)
         s->dma_cb = handle_s_without_atn;
         return;
     }
-    len = get_cmd(s, buf);
+    len = get_cmd(s, buf, sizeof(buf));
     if (len) {
         do_busid_cmd(s, buf, 0);
     }
@@ -190,7 +198,7 @@ static void handle_satn_stop(ESPState *s)
         s->dma_cb = handle_satn_stop;
         return;
     }
-    s->cmdlen = get_cmd(s, s->cmdbuf);
+    s->cmdlen = get_cmd(s, s->cmdbuf, sizeof(s->cmdbuf));
     if (s->cmdlen) {
         trace_esp_handle_satn_stop(s->cmdlen);
         s->do_cmd = 1;
@@ -214,7 +222,7 @@ static void write_response(ESPState *s)
     } else {
         s->ti_size = 2;
         s->ti_rptr = 0;
-        s->ti_wptr = 0;
+        s->ti_wptr = 2;
         s->rregs[ESP_RFLAGS] = 2;
     }
     esp_raise_irq(s);
@@ -237,15 +245,12 @@ static void esp_do_dma(ESPState *s)
     uint32_t len;
     int to_device;
 
-    to_device = (s->ti_size < 0);
     len = s->dma_left;
     if (s->do_cmd) {
         trace_esp_do_dma(s->cmdlen, len);
+        assert (s->cmdlen <= sizeof(s->cmdbuf) &&
+                len <= sizeof(s->cmdbuf) - s->cmdlen);
         s->dma_memory_read(s->dma_opaque, &s->cmdbuf[s->cmdlen], len);
-        s->ti_size = 0;
-        s->cmdlen = 0;
-        s->do_cmd = 0;
-        do_cmd(s, s->cmdbuf);
         return;
     }
     if (s->async_len == 0) {
@@ -255,6 +260,7 @@ static void esp_do_dma(ESPState *s)
     if (len > s->async_len) {
         len = s->async_len;
     }
+    to_device = (s->ti_size < 0);
     if (to_device) {
         s->dma_memory_read(s->dma_opaque, s->async_buf, len);
     } else {
@@ -310,6 +316,7 @@ void esp_transfer_data(SCSIRequest *req, uint32_t len)
 {
     ESPState *s = req->hba_private;
 
+    assert(!s->do_cmd);
     trace_esp_transfer_data(s->dma_left, s->ti_size);
     s->async_len = len;
     s->async_buf = scsi_req_get_buf(req);
@@ -340,7 +347,7 @@ static void handle_ti(ESPState *s)
     s->dma_counter = dmalen;
 
     if (s->do_cmd)
-        minlen = (dmalen < 32) ? dmalen : 32;
+        minlen = (dmalen < ESP_CMDBUF_SZ) ? dmalen : ESP_CMDBUF_SZ;
     else if (s->ti_size < 0)
         minlen = (dmalen < -s->ti_size) ? dmalen : -s->ti_size;
     else
@@ -350,13 +357,13 @@ static void handle_ti(ESPState *s)
         s->dma_left = minlen;
         s->rregs[ESP_RSTAT] &= ~STAT_TC;
         esp_do_dma(s);
-    } else if (s->do_cmd) {
+    }
+    if (s->do_cmd) {
         trace_esp_handle_ti_cmd(s->cmdlen);
         s->ti_size = 0;
         s->cmdlen = 0;
         s->do_cmd = 0;
         do_cmd(s, s->cmdbuf);
-        return;
     }
 }
 
@@ -395,19 +402,17 @@ uint64_t esp_reg_read(ESPState *s, uint32_t saddr)
     trace_esp_mem_readb(saddr, s->rregs[saddr]);
     switch (saddr) {
     case ESP_FIFO:
-        if (s->ti_size > 0) {
+        if ((s->rregs[ESP_RSTAT] & STAT_PIO_MASK) == 0) {
+            /* Data out.  */
+            qemu_log_mask(LOG_UNIMP, "esp: PIO data read not implemented\n");
+            s->rregs[ESP_FIFO] = 0;
+            esp_raise_irq(s);
+        } else if (s->ti_rptr < s->ti_wptr) {
             s->ti_size--;
-            if ((s->rregs[ESP_RSTAT] & STAT_PIO_MASK) == 0) {
-                /* Data out.  */
-                qemu_log_mask(LOG_UNIMP,
-                              "esp: PIO data read not implemented\n");
-                s->rregs[ESP_FIFO] = 0;
-            } else {
-                s->rregs[ESP_FIFO] = s->ti_buf[s->ti_rptr++];
-            }
+            s->rregs[ESP_FIFO] = s->ti_buf[s->ti_rptr++];
             esp_raise_irq(s);
         }
-        if (s->ti_size == 0) {
+        if (s->ti_rptr == s->ti_wptr) {
             s->ti_rptr = 0;
             s->ti_wptr = 0;
         }
@@ -446,8 +451,12 @@ void esp_reg_write(ESPState *s, uint32_t saddr, uint64_t val)
         break;
     case ESP_FIFO:
         if (s->do_cmd) {
-            s->cmdbuf[s->cmdlen++] = val & 0xff;
-        } else if (s->ti_size == TI_BUFSZ - 1) {
+            if (s->cmdlen < ESP_CMDBUF_SZ) {
+                s->cmdbuf[s->cmdlen++] = val & 0xff;
+            } else {
+                trace_esp_error_fifo_overrun();
+            }
+        } else if (s->ti_wptr == TI_BUFSZ - 1) {
             trace_esp_error_fifo_overrun();
         } else {
             s->ti_size++;
@@ -565,7 +574,7 @@ static bool esp_mem_accepts(void *opaque, hwaddr addr,
 
 const VMStateDescription vmstate_esp = {
     .name ="esp",
-    .version_id = 3,
+    .version_id = 4,
     .minimum_version_id = 3,
     .fields = (VMStateField[]) {
         VMSTATE_BUFFER(rregs, ESPState),
@@ -576,7 +585,8 @@ const VMStateDescription vmstate_esp = {
         VMSTATE_BUFFER(ti_buf, ESPState),
         VMSTATE_UINT32(status, ESPState),
         VMSTATE_UINT32(dma, ESPState),
-        VMSTATE_BUFFER(cmdbuf, ESPState),
+        VMSTATE_PARTIAL_BUFFER(cmdbuf, ESPState, 16),
+        VMSTATE_BUFFER_START_MIDDLE_V(cmdbuf, ESPState, 16, 4),
         VMSTATE_UINT32(cmdlen, ESPState),
         VMSTATE_UINT32(do_cmd, ESPState),
         VMSTATE_UINT32(dma_left, ESPState),

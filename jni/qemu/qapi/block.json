@@ -6,7 +6,7 @@
 { 'include': 'block-core.json' }
 
 ##
-# BiosAtaTranslation:
+# @BiosAtaTranslation:
 #
 # Policy that BIOS should use to interpret cylinder/head/sector
 # addresses.  Note that Bochs BIOS and SeaBIOS will not actually
@@ -40,6 +40,22 @@
   'data': ['auto', 'none', 'lba', 'large', 'rechs']}
 
 ##
+# @FloppyDriveType
+#
+# Type of Floppy drive to be emulated by the Floppy Disk Controller.
+#
+# @144:  1.44MB 3.5" drive
+# @288:  2.88MB 3.5" drive
+# @120:  1.2MB 5.25" drive
+# @none: No drive connected
+# @auto: Automatically determined by inserted media at boot
+#
+# Since: 2.6
+##
+{ 'enum': 'FloppyDriveType',
+  'data': ['144', '288', '120', 'none', 'auto']}
+
+##
 # @BlockdevSnapshotInternal
 #
 # @device: the name of the device to generate the snapshot from
@@ -52,7 +68,7 @@
 #
 # Since: 1.7
 ##
-{ 'type': 'BlockdevSnapshotInternal',
+{ 'struct': 'BlockdevSnapshotInternal',
   'data': { 'device': 'str', 'name': 'str' } }
 
 ##
@@ -130,13 +146,15 @@
 # QEMU instance could refer to them as "nbd:HOST:PORT:exportname=NAME".
 #
 # @addr: Address on which to listen.
+# @tls-creds: (optional) ID of the TLS credentials object. Since 2.6
 #
 # Returns: error if the server is already running.
 #
 # Since: 1.3.0
 ##
 { 'command': 'nbd-server-start',
-  'data': { 'addr': 'SocketAddress' } }
+  'data': { 'addr': 'SocketAddress',
+            '*tls-creds': 'str'} }
 
 ##
 # @nbd-server-add:
@@ -178,3 +196,19 @@
 ##
 { 'event': 'DEVICE_TRAY_MOVED',
   'data': { 'device': 'str', 'tray-open': 'bool' } }
+
+##
+# @QuorumOpType
+#
+# An enumeration of the quorum operation types
+#
+# @read: read operation
+#
+# @write: write operation
+#
+# @flush: flush operation
+#
+# Since: 2.6
+##
+{ 'enum': 'QuorumOpType',
+  'data': [ 'read', 'write', 'flush' ] }

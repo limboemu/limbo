@@ -213,7 +213,7 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
 
 #define CDROM_CDB_SIZE 12
 
-int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+int ahci_atapi_process_op(struct disk_op_s *op)
 {
     if (! CONFIG_AHCI)
         return 0;
@@ -221,15 +221,14 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     struct ahci_port_s *port_gf = container_of(
         op->drive_gf, struct ahci_port_s, drive);
     struct ahci_cmd_s *cmd = port_gf->cmd;
-    u8 *atapi = cdbcmd;
-    int i, rc;
 
+    if (op->command == CMD_WRITE || op->command == CMD_FORMAT)
+        return DISK_RET_EWRITEPROTECT;
+    int blocksize = scsi_fill_cmd(op, cmd->atapi, CDROM_CDB_SIZE);
+    if (blocksize < 0)
+        return default_process_op(op);
     sata_prep_atapi(&cmd->fis, blocksize);
-    for (i = 0; i < CDROM_CDB_SIZE; i++) {
-        cmd->atapi[i] = atapi[i];
-    }
-    rc = ahci_command(port_gf, 0, 1, op->buf_fl,
-                      op->count * blocksize);
+    int rc = ahci_command(port_gf, 0, 1, op->buf_fl, op->count * blocksize);
     if (rc < 0)
         return DISK_RET_EBADTRACK;
     return DISK_RET_SUCCESS;
@@ -296,8 +295,8 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
 }
 
 // command demuxer
-int VISIBLE32FLAT
-process_ahci_op(struct disk_op_s *op)
+int
+ahci_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_AHCI)
         return 0;
@@ -306,15 +305,8 @@ process_ahci_op(struct disk_op_s *op)
         return ahci_disk_readwrite(op, 0);
     case CMD_WRITE:
         return ahci_disk_readwrite(op, 1);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
     default:
-        dprintf(1, "AHCI: unknown disk command %d\n", op->command);
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 
@@ -405,6 +397,14 @@ static struct ahci_port_s* ahci_port_realloc(struct ahci_port_s *port)
     port->list = memalign_high(1024, 1024);
     port->fis = memalign_high(256, 256);
     port->cmd = memalign_high(256, 256);
+    if (!port->list || !port->fis || !port->cmd) {
+        warn_noalloc();
+        free(port->list);
+        free(port->fis);
+        free(port->cmd);
+        free(port);
+        return NULL;
+    }
 
     ahci_port_writel(port->ctrl, port->pnr, PORT_LST_ADDR, (u32)port->list);
     ahci_port_writel(port->ctrl, port->pnr, PORT_FIS_ADDR, (u32)port->fis);
@@ -601,7 +601,7 @@ ahci_controller_setup(struct pci_device *pci)
     dprintf(2, "AHCI: cap 0x%x, ports_impl 0x%x\n",
             ctrl->caps, ctrl->ports);
 
-    max = ctrl->caps & 0x1f;
+    max = 0x1f;
     for (pnr = 0; pnr <= max; pnr++) {
         if (!(ctrl->ports & (1 << pnr)))
             continue;

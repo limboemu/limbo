@@ -7,9 +7,9 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
+#include "e820map.h" // E820_RAM
 #include "hw/pic.h" // pic_reset
 #include "malloc.h" // LegacyRamSize
-#include "memmap.h" // E820_RAM
 #include "output.h" // debug_enter
 #include "string.h" // memcpy_far
 #include "util.h" // handle_1553

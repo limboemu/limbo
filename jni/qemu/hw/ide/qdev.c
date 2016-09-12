@@ -16,10 +16,12 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include <hw/hw.h>
+#include "qemu/osdep.h"
+#include "hw/hw.h"
 #include "sysemu/dma.h"
+#include "qapi/error.h"
 #include "qemu/error-report.h"
-#include <hw/ide/internal.h>
+#include "hw/ide/internal.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
 #include "hw/block/block.h"
@@ -118,7 +120,8 @@ IDEDevice *ide_create_drive(IDEBus *bus, int unit, DriveInfo *drive)
 
     dev = qdev_create(&bus->qbus, drive->media_cd ? "ide-cd" : "ide-hd");
     qdev_prop_set_uint32(dev, "unit", unit);
-    qdev_prop_set_drive_nofail(dev, "drive", blk_by_legacy_dinfo(drive));
+    qdev_prop_set_drive(dev, "drive", blk_by_legacy_dinfo(drive),
+                        &error_fatal);
     qdev_init_nofail(dev);
     return DO_UPCAST(IDEDevice, qdev, dev);
 }
@@ -171,12 +174,13 @@ static int ide_dev_initfn(IDEDevice *dev, IDEDriveKind kind)
 
     blkconf_serial(&dev->conf, &dev->serial);
     if (kind != IDE_CD) {
-        blkconf_geometry(&dev->conf, &dev->chs_trans, 65536, 16, 255, &err);
+        blkconf_geometry(&dev->conf, &dev->chs_trans, 65535, 16, 255, &err);
         if (err) {
             error_report_err(err);
             return -1;
         }
     }
+    blkconf_apply_backend_options(&dev->conf);
 
     if (ide_init_drive(s, dev->conf.blk, kind,
                        dev->version, dev->serial, dev->model, dev->wwn,
@@ -198,22 +202,22 @@ static int ide_dev_initfn(IDEDevice *dev, IDEDriveKind kind)
     return 0;
 }
 
-static void ide_dev_get_bootindex(Object *obj, Visitor *v, void *opaque,
-                                  const char *name, Error **errp)
+static void ide_dev_get_bootindex(Object *obj, Visitor *v, const char *name,
+                                  void *opaque, Error **errp)
 {
     IDEDevice *d = IDE_DEVICE(obj);
 
-    visit_type_int32(v, &d->conf.bootindex, name, errp);
+    visit_type_int32(v, name, &d->conf.bootindex, errp);
 }
 
-static void ide_dev_set_bootindex(Object *obj, Visitor *v, void *opaque,
-                                  const char *name, Error **errp)
+static void ide_dev_set_bootindex(Object *obj, Visitor *v, const char *name,
+                                  void *opaque, Error **errp)
 {
     IDEDevice *d = IDE_DEVICE(obj);
     int32_t boot_index;
     Error *local_err = NULL;
 
-    visit_type_int32(v, &boot_index, name, &local_err);
+    visit_type_int32(v, name, &boot_index, &local_err);
     if (local_err) {
         goto out;
     }
@@ -230,9 +234,7 @@ static void ide_dev_set_bootindex(Object *obj, Visitor *v, void *opaque,
                              d->unit ? "/disk@1" : "/disk@0");
     }
 out:
-    if (local_err) {
-        error_propagate(errp, local_err);
-    }
+    error_propagate(errp, local_err);
 }
 
 static void ide_dev_instance_init(Object *obj)
@@ -262,6 +264,7 @@ static int ide_drive_initfn(IDEDevice *dev)
 
 #define DEFINE_IDE_DEV_PROPERTIES()                     \
     DEFINE_BLOCK_PROPERTIES(IDEDrive, dev.conf),        \
+    DEFINE_BLOCK_ERROR_PROPERTIES(IDEDrive, dev.conf),  \
     DEFINE_PROP_STRING("ver",  IDEDrive, dev.version),  \
     DEFINE_PROP_UINT64("wwn",  IDEDrive, dev.wwn, 0),    \
     DEFINE_PROP_STRING("serial",  IDEDrive, dev.serial),\

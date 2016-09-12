@@ -12,13 +12,7 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/mman.h>
-#include <stdlib.h>
+#include "qemu/osdep.h"
 
 #include "libqtest.h"
 #include "libqos/pci.h"
@@ -26,8 +20,6 @@
 #include "hw/pci/pci_regs.h"
 
 #define BROKEN 1
-
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 typedef struct TestData
 {
@@ -191,7 +183,7 @@ static void write_area(uint32_t start, uint32_t end, uint8_t value)
     uint32_t size = end - start + 1;
     uint8_t *data;
 
-    data = g_malloc0(size);
+    data = g_malloc(size);
     memset(data, value, size);
     memwrite(start, data, size);
 
@@ -402,7 +394,6 @@ static void request_pflash(FirmwareTestFixture *fixture,
 int main(int argc, char **argv)
 {
     TestData data;
-    int ret;
 
     g_test_init(&argc, &argv, NULL);
 
@@ -413,6 +404,5 @@ int main(int argc, char **argv)
     add_firmware_test("i440fx/firmware/bios", request_bios);
     add_firmware_test("i440fx/firmware/pflash", request_pflash);
 
-    ret = g_test_run();
-    return ret;
+    return g_test_run();
 }

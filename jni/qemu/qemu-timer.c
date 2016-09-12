@@ -22,8 +22,11 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "qemu/main-loop.h"
 #include "qemu/timer.h"
+#include "sysemu/replay.h"
+#include "sysemu/sysemu.h"
 
 #ifdef CONFIG_POSIX
 #include <pthread.h>
@@ -99,7 +102,7 @@ QEMUTimerList *timerlist_new(QEMUClockType type,
     QEMUClock *clock = qemu_clock_ptr(type);
 
     timer_list = g_malloc0(sizeof(QEMUTimerList));
-    qemu_event_init(&timer_list->timers_done_ev, false);
+    qemu_event_init(&timer_list->timers_done_ev, true);
     timer_list->clock = clock;
     timer_list->notify_cb = cb;
     timer_list->notify_opaque = opaque;
@@ -126,7 +129,7 @@ static void qemu_clock_init(QEMUClockType type)
     assert(main_loop_tlg.tl[type] == NULL);
 
     clock->type = type;
-    clock->enabled = true;
+    clock->enabled = (type == QEMU_CLOCK_VIRTUAL ? false : true);
     clock->last = INT64_MIN;
     QLIST_INIT(&clock->timerlists);
     notifier_list_init(&clock->reset_notifiers);
@@ -289,7 +292,7 @@ int qemu_timeout_ns_to_ms(int64_t ns)
     /* Always round up, because it's better to wait too long than to wait too
      * little and effectively busy-wait
      */
-    ms = (ns + SCALE_MS - 1) / SCALE_MS;
+    ms = DIV_ROUND_UP(ns, SCALE_MS);
 
     /* To avoid overflow problems, limit this to 2^31, i.e. approx 25 days */
     if (ms > (int64_t) INT32_MAX) {
@@ -391,7 +394,9 @@ static bool timer_mod_ns_locked(QEMUTimerList *timer_list,
 static void timerlist_rearm(QEMUTimerList *timer_list)
 {
     /* Interrupt execution to force deadline recalculation.  */
-    qemu_clock_warp(timer_list->clock->type);
+    if (timer_list->clock->type == QEMU_CLOCK_VIRTUAL) {
+        qemu_start_warp_timer();
+    }
     timerlist_notify(timer_list);
 }
 
@@ -477,8 +482,29 @@ bool timerlist_run_timers(QEMUTimerList *timer_list)
     void *opaque;
 
     qemu_event_reset(&timer_list->timers_done_ev);
-    if (!timer_list->clock->enabled) {
+    if (!timer_list->clock->enabled || !timer_list->active_timers) {
         goto out;
+    }
+
+    switch (timer_list->clock->type) {
+    case QEMU_CLOCK_REALTIME:
+        break;
+    default:
+    case QEMU_CLOCK_VIRTUAL:
+        if (!replay_checkpoint(CHECKPOINT_CLOCK_VIRTUAL)) {
+            goto out;
+        }
+        break;
+    case QEMU_CLOCK_HOST:
+        if (!replay_checkpoint(CHECKPOINT_CLOCK_HOST)) {
+            goto out;
+        }
+        break;
+    case QEMU_CLOCK_VIRTUAL_RT:
+        if (!replay_checkpoint(CHECKPOINT_CLOCK_VIRTUAL_RT)) {
+            goto out;
+        }
+        break;
     }
 
     current_time = qemu_clock_get_ns(timer_list->clock->type);
@@ -544,11 +570,17 @@ int64_t timerlistgroup_deadline_ns(QEMUTimerListGroup *tlg)
 {
     int64_t deadline = -1;
     QEMUClockType type;
+    bool play = replay_mode == REPLAY_MODE_PLAY;
     for (type = 0; type < QEMU_CLOCK_MAX; type++) {
-        if (qemu_clock_use_for_deadline(tlg->tl[type]->clock->type)) {
-            deadline = qemu_soonest_timeout(deadline,
-                                            timerlist_deadline_ns(
-                                                tlg->tl[type]));
+        if (qemu_clock_use_for_deadline(type)) {
+            if (!play || type == QEMU_CLOCK_REALTIME) {
+                deadline = qemu_soonest_timeout(deadline,
+                                                timerlist_deadline_ns(tlg->tl[type]));
+            } else {
+                /* Read clock from the replay file and
+                   do not calculate the deadline, based on virtual clock. */
+                qemu_clock_get_ns(type);
+            }
         }
     }
     return deadline;
@@ -570,15 +602,15 @@ int64_t qemu_clock_get_ns(QEMUClockType type)
             return cpu_get_clock();
         }
     case QEMU_CLOCK_HOST:
-        now = get_clock_realtime();
+        now = REPLAY_CLOCK(REPLAY_CLOCK_HOST, get_clock_realtime());
         last = clock->last;
         clock->last = now;
-        if (now < last) {
+        if (now < last || now > (last + get_max_clock_jump())) {
             notifier_list_notify(&clock->reset_notifiers, &now);
         }
         return now;
     case QEMU_CLOCK_VIRTUAL_RT:
-        return cpu_get_clock();
+        return REPLAY_CLOCK(REPLAY_CLOCK_VIRTUAL_RT, cpu_get_clock());
     }
 }
 

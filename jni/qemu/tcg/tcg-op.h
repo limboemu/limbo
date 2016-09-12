@@ -684,7 +684,8 @@ static inline void tcg_gen_neg_i64(TCGv_i64 ret, TCGv_i64 arg)
 void tcg_gen_extu_i32_i64(TCGv_i64 ret, TCGv_i32 arg);
 void tcg_gen_ext_i32_i64(TCGv_i64 ret, TCGv_i32 arg);
 void tcg_gen_concat_i32_i64(TCGv_i64 dest, TCGv_i32 low, TCGv_i32 high);
-void tcg_gen_trunc_shr_i64_i32(TCGv_i32 ret, TCGv_i64 arg, unsigned int c);
+void tcg_gen_extrl_i64_i32(TCGv_i32 ret, TCGv_i64 arg);
+void tcg_gen_extrh_i64_i32(TCGv_i32 ret, TCGv_i64 arg);
 void tcg_gen_extr_i64_i32(TCGv_i32 lo, TCGv_i32 hi, TCGv_i64 arg);
 void tcg_gen_extr32_i64(TCGv_i64 lo, TCGv_i64 hi, TCGv_i64 arg);
 
@@ -693,38 +694,81 @@ static inline void tcg_gen_concat32_i64(TCGv_i64 ret, TCGv_i64 lo, TCGv_i64 hi)
     tcg_gen_deposit_i64(ret, lo, hi, 32, 32);
 }
 
-static inline void tcg_gen_trunc_i64_i32(TCGv_i32 ret, TCGv_i64 arg)
-{
-    tcg_gen_trunc_shr_i64_i32(ret, arg, 0);
-}
-
 /* QEMU specific operations.  */
 
 #ifndef TARGET_LONG_BITS
 #error must include QEMU headers
 #endif
 
-/* debug info: write the PC of the corresponding QEMU CPU instruction */
-static inline void tcg_gen_debug_insn_start(uint64_t pc)
+#if TARGET_INSN_START_WORDS == 1
+# if TARGET_LONG_BITS <= TCG_TARGET_REG_BITS
+static inline void tcg_gen_insn_start(target_ulong pc)
 {
-    /* XXX: must really use a 32 bit size for TCGArg in all cases */
-#if TARGET_LONG_BITS > TCG_TARGET_REG_BITS
-    tcg_gen_op2ii(INDEX_op_debug_insn_start,
-                  (uint32_t)(pc), (uint32_t)(pc >> 32));
-#else
-    tcg_gen_op1i(INDEX_op_debug_insn_start, pc);
-#endif
+    tcg_gen_op1(&tcg_ctx, INDEX_op_insn_start, pc);
 }
+# else
+static inline void tcg_gen_insn_start(target_ulong pc)
+{
+    tcg_gen_op2(&tcg_ctx, INDEX_op_insn_start,
+                (uint32_t)pc, (uint32_t)(pc >> 32));
+}
+# endif
+#elif TARGET_INSN_START_WORDS == 2
+# if TARGET_LONG_BITS <= TCG_TARGET_REG_BITS
+static inline void tcg_gen_insn_start(target_ulong pc, target_ulong a1)
+{
+    tcg_gen_op2(&tcg_ctx, INDEX_op_insn_start, pc, a1);
+}
+# else
+static inline void tcg_gen_insn_start(target_ulong pc, target_ulong a1)
+{
+    tcg_gen_op4(&tcg_ctx, INDEX_op_insn_start,
+                (uint32_t)pc, (uint32_t)(pc >> 32),
+                (uint32_t)a1, (uint32_t)(a1 >> 32));
+}
+# endif
+#elif TARGET_INSN_START_WORDS == 3
+# if TARGET_LONG_BITS <= TCG_TARGET_REG_BITS
+static inline void tcg_gen_insn_start(target_ulong pc, target_ulong a1,
+                                      target_ulong a2)
+{
+    tcg_gen_op3(&tcg_ctx, INDEX_op_insn_start, pc, a1, a2);
+}
+# else
+static inline void tcg_gen_insn_start(target_ulong pc, target_ulong a1,
+                                      target_ulong a2)
+{
+    tcg_gen_op6(&tcg_ctx, INDEX_op_insn_start,
+                (uint32_t)pc, (uint32_t)(pc >> 32),
+                (uint32_t)a1, (uint32_t)(a1 >> 32),
+                (uint32_t)a2, (uint32_t)(a2 >> 32));
+}
+# endif
+#else
+# error "Unhandled number of operands to insn_start"
+#endif
 
 static inline void tcg_gen_exit_tb(uintptr_t val)
 {
     tcg_gen_op1i(INDEX_op_exit_tb, val);
 }
 
+/**
+ * tcg_gen_goto_tb() - output goto_tb TCG operation
+ * @idx: Direct jump slot index (0 or 1)
+ *
+ * See tcg/README for more info about this TCG operation.
+ *
+ * NOTE: In softmmu emulation, direct jumps with goto_tb are only safe within
+ * the pages this TB resides in because we don't take care of direct jumps when
+ * address mapping changes, e.g. in tlb_flush(). In user mode, there's only a
+ * static address translation, so the destination address is always valid, TBs
+ * are always invalidated properly, and direct jumps are reset when mapping
+ * changes.
+ */
 void tcg_gen_goto_tb(unsigned idx);
 
 #if TARGET_LONG_BITS == 32
-#define TCGv TCGv_i32
 #define tcg_temp_new() tcg_temp_new_i32()
 #define tcg_global_reg_new tcg_global_reg_new_i32
 #define tcg_global_mem_new tcg_global_mem_new_i32
@@ -736,7 +780,6 @@ void tcg_gen_goto_tb(unsigned idx);
 #define tcg_gen_qemu_ld_tl tcg_gen_qemu_ld_i32
 #define tcg_gen_qemu_st_tl tcg_gen_qemu_st_i32
 #else
-#define TCGv TCGv_i64
 #define tcg_temp_new() tcg_temp_new_i64()
 #define tcg_global_reg_new tcg_global_reg_new_i64
 #define tcg_global_mem_new tcg_global_mem_new_i64
@@ -853,7 +896,7 @@ static inline void tcg_gen_qemu_st64(TCGv_i64 arg, TCGv addr, int mem_index)
 #define tcg_gen_divu_tl tcg_gen_divu_i64
 #define tcg_gen_remu_tl tcg_gen_remu_i64
 #define tcg_gen_discard_tl tcg_gen_discard_i64
-#define tcg_gen_trunc_tl_i32 tcg_gen_trunc_i64_i32
+#define tcg_gen_trunc_tl_i32 tcg_gen_extrl_i64_i32
 #define tcg_gen_trunc_i64_tl tcg_gen_mov_i64
 #define tcg_gen_extu_i32_tl tcg_gen_extu_i32_i64
 #define tcg_gen_ext_i32_tl tcg_gen_ext_i32_i64
@@ -932,7 +975,7 @@ static inline void tcg_gen_qemu_st64(TCGv_i64 arg, TCGv addr, int mem_index)
 #define tcg_gen_remu_tl tcg_gen_remu_i32
 #define tcg_gen_discard_tl tcg_gen_discard_i32
 #define tcg_gen_trunc_tl_i32 tcg_gen_mov_i32
-#define tcg_gen_trunc_i64_tl tcg_gen_trunc_i64_i32
+#define tcg_gen_trunc_i64_tl tcg_gen_extrl_i64_i32
 #define tcg_gen_extu_i32_tl tcg_gen_mov_i32
 #define tcg_gen_ext_i32_tl tcg_gen_mov_i32
 #define tcg_gen_extu_tl_i64 tcg_gen_extu_i32_i64

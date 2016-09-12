@@ -11,6 +11,7 @@
 import json
 import errno
 import socket
+import sys
 
 class QMPError(Exception):
     pass
@@ -21,8 +22,11 @@ class QMPConnectError(QMPError):
 class QMPCapabilitiesError(QMPError):
     pass
 
+class QMPTimeoutError(QMPError):
+    pass
+
 class QEMUMonitorProtocol:
-    def __init__(self, address, server=False):
+    def __init__(self, address, server=False, debug=False):
         """
         Create a QEMUMonitorProtocol class.
 
@@ -36,8 +40,10 @@ class QEMUMonitorProtocol:
         """
         self.__events = []
         self.__address = address
+        self._debug = debug
         self.__sock = self.__get_sock()
         if server:
+            self.__sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.__sock.bind(self.__address)
             self.__sock.listen(1)
 
@@ -65,12 +71,52 @@ class QEMUMonitorProtocol:
                 return
             resp = json.loads(data)
             if 'event' in resp:
+                if self._debug:
+                    print >>sys.stderr, "QMP:<<< %s" % resp
                 self.__events.append(resp)
                 if not only_event:
                     continue
             return resp
 
     error = socket.error
+
+    def __get_events(self, wait=False):
+        """
+        Check for new events in the stream and cache them in __events.
+
+        @param wait (bool): block until an event is available.
+        @param wait (float): If wait is a float, treat it as a timeout value.
+
+        @raise QMPTimeoutError: If a timeout float is provided and the timeout
+                                period elapses.
+        @raise QMPConnectError: If wait is True but no events could be retrieved
+                                or if some other error occurred.
+        """
+
+        # Check for new events regardless and pull them into the cache:
+        self.__sock.setblocking(0)
+        try:
+            self.__json_read()
+        except socket.error as err:
+            if err[0] == errno.EAGAIN:
+                # No data available
+                pass
+        self.__sock.setblocking(1)
+
+        # Wait for new events, if needed.
+        # if wait is 0.0, this means "no wait" and is also implicitly false.
+        if not self.__events and wait:
+            if isinstance(wait, float):
+                self.__sock.settimeout(wait)
+            try:
+                ret = self.__json_read(only_event=True)
+            except socket.timeout:
+                raise QMPTimeoutError("Timeout waiting for event")
+            except:
+                raise QMPConnectError("Error while reading from socket")
+            if ret is None:
+                raise QMPConnectError("Error while reading from socket")
+            self.__sock.settimeout(None)
 
     def connect(self, negotiate=True):
         """
@@ -95,6 +141,7 @@ class QEMUMonitorProtocol:
         @raise QMPConnectError if the greeting is not received
         @raise QMPCapabilitiesError if fails to negotiate capabilities
         """
+        self.__sock.settimeout(15)
         self.__sock, _ = self.__sock.accept()
         self.__sockfile = self.__sock.makefile()
         return self.__negotiate_capabilities()
@@ -107,13 +154,18 @@ class QEMUMonitorProtocol:
         @return QMP response as a Python dict or None if the connection has
                 been closed
         """
+        if self._debug:
+            print >>sys.stderr, "QMP:>>> %s" % qmp_cmd
         try:
             self.__sock.sendall(json.dumps(qmp_cmd))
-        except socket.error, err:
+        except socket.error as err:
             if err[0] == errno.EPIPE:
                 return
             raise socket.error(err)
-        return self.__json_read()
+        resp = self.__json_read()
+        if self._debug:
+            print >>sys.stderr, "QMP:<<< %s" % resp
+        return resp
 
     def cmd(self, name, args=None, id=None):
         """
@@ -140,43 +192,37 @@ class QEMUMonitorProtocol:
         """
         Get and delete the first available QMP event.
 
-        @param wait: block until an event is available (bool)
+        @param wait (bool): block until an event is available.
+        @param wait (float): If wait is a float, treat it as a timeout value.
+
+        @raise QMPTimeoutError: If a timeout float is provided and the timeout
+                                period elapses.
+        @raise QMPConnectError: If wait is True but no events could be retrieved
+                                or if some other error occurred.
+
+        @return The first available QMP event, or None.
         """
-        self.__sock.setblocking(0)
-        try:
-            self.__json_read()
-        except socket.error, err:
-            if err[0] == errno.EAGAIN:
-                # No data available
-                pass
-        self.__sock.setblocking(1)
-        if not self.__events and wait:
-            self.__json_read(only_event=True)
-        event = self.__events[0]
-        del self.__events[0]
-        return event
+        self.__get_events(wait)
+
+        if self.__events:
+            return self.__events.pop(0)
+        return None
 
     def get_events(self, wait=False):
         """
         Get a list of available QMP events.
 
-        @param wait: block until an event is available (bool)
-        """
-        self.__sock.setblocking(0)
-        try:
-            self.__json_read()
-        except socket.error, err:
-            if err[0] == errno.EAGAIN:
-                # No data available
-                pass
-        self.__sock.setblocking(1)
-        if not self.__events and wait:
-            ret = self.__json_read(only_event=True)
-            if ret == None:
-                # We are in blocking mode, if don't get anything, something
-                # went wrong
-                raise QMPConnectError("Error while reading from socket")
+        @param wait (bool): block until an event is available.
+        @param wait (float): If wait is a float, treat it as a timeout value.
 
+        @raise QMPTimeoutError: If a timeout float is provided and the timeout
+                                period elapses.
+        @raise QMPConnectError: If wait is True but no events could be retrieved
+                                or if some other error occurred.
+
+        @return The list of available QMP events.
+        """
+        self.__get_events(wait)
         return self.__events
 
     def clear_events(self):

@@ -17,6 +17,9 @@ here c@ ef = CONSTANT ?littleendian
 
 ?bigendian [IF]
 
+: x!-le >r xbflip r> x! ;
+: x@-le x@ xbflip ;
+
 : l!-le  >r lbflip r> l! ;
 : l@-le  l@ lbflip ;
 
@@ -46,6 +49,9 @@ here c@ ef = CONSTANT ?littleendian
 
 
 [ELSE]
+
+: x!-le x! ;
+: x@-le x@ ;
 
 : l!-le  l! ;
 : l@-le  l@ ;

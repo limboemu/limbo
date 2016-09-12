@@ -15,14 +15,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdarg.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <signal.h>
+#include "qemu/osdep.h"
 
 #include "cpu.h"
+#include "exec/exec-all.h"
 
 enum {
     TLBRET_DIRTY = -4,
@@ -66,8 +62,8 @@ int cpu_tricore_handle_mmu_fault(CPUState *cs, target_ulong address,
     access_type = ACCESS_INT;
     ret = get_physical_address(env, &physical, &prot,
                                address, rw, access_type);
-    qemu_log("%s address=" TARGET_FMT_lx " ret %d physical " TARGET_FMT_plx
-             " prot %d\n", __func__, address, ret, physical, prot);
+    qemu_log_mask(CPU_LOG_MMU, "%s address=" TARGET_FMT_lx " ret %d physical " TARGET_FMT_plx
+                  " prot %d\n", __func__, address, ret, physical, prot);
 
     if (ret == TLBRET_MATCH) {
         tlb_set_page(cs, address & TARGET_PAGE_MASK,
@@ -115,10 +111,18 @@ void tricore_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     g_slist_free(list);
 }
 
+void fpu_set_state(CPUTriCoreState *env)
+{
+    set_float_rounding_mode(env->PSW & MASK_PSW_FPU_RM, &env->fp_status);
+    set_flush_inputs_to_zero(1, &env->fp_status);
+    set_flush_to_zero(1, &env->fp_status);
+    set_default_nan_mode(1, &env->fp_status);
+}
+
 uint32_t psw_read(CPUTriCoreState *env)
 {
     /* clear all USB bits */
-    env->PSW &= 0xffffff;
+    env->PSW &= 0x6ffffff;
     /* now set them from the cache */
     env->PSW |= ((env->PSW_USB_C != 0) << 31);
     env->PSW |= ((env->PSW_USB_V   & (1 << 31))  >> 1);
@@ -132,9 +136,11 @@ uint32_t psw_read(CPUTriCoreState *env)
 void psw_write(CPUTriCoreState *env, uint32_t val)
 {
     env->PSW_USB_C = (val & MASK_USB_C);
-    env->PSW_USB_V = (val & MASK_USB_V << 1);
-    env->PSW_USB_SV = (val & MASK_USB_SV << 2);
-    env->PSW_USB_AV = ((val & MASK_USB_AV) << 3);
-    env->PSW_USB_SAV = ((val & MASK_USB_SAV) << 4);
+    env->PSW_USB_V = (val & MASK_USB_V) << 1;
+    env->PSW_USB_SV = (val & MASK_USB_SV) << 2;
+    env->PSW_USB_AV = (val & MASK_USB_AV) << 3;
+    env->PSW_USB_SAV = (val & MASK_USB_SAV) << 4;
     env->PSW = val;
+
+    fpu_set_state(env);
 }

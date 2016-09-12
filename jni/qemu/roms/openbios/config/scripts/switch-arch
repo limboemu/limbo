@@ -17,48 +17,57 @@ if [ x"$1" = x -o "$1" = "-help" ]; then
   exit 0
 fi
 
+is_bigendian()
+{
+    cpu=$1
+
+    if test "$cpu" = "powerpc" -o "$cpu" = "ppc" \
+        -o "$cpu" = "powerpc64" -o "$cpu" = "ppc64" \
+        -o "$cpu" = "mips" -o "$cpu" = "s390" \
+        -o "$cpu" = "sparc32" -o "$cpu" = "sparc64" \
+        -o "$cpu" = "m68k" -o "$cpu" = "armv4b"; then
+        echo yes
+    else
+        echo no
+    fi
+}
+
+longbits()
+{
+    cpu=$1
+    if test "$cpu" = "sparc64" -o "$cpu" = "ia64" \
+        -o "$cpu" = "amd64" -o "$cpu" = "x86_64" \
+        -o "$cpu" = "powerpc64" -o "$cpu" = "ppc64" \
+        -o "$cpu" = "alpha"; then
+        echo 64
+    else
+        echo 32
+    fi
+}
+
+basearch()
+{
+    arch=$1
+    case $arch in
+    powerpc|ppc64|powerpc64)
+        echo ppc
+        ;;
+    *)
+        echo $arch
+        ;;
+    esac
+}
+
 crosscflags()
 {
     host=$1
     target=$2
 
-    if test "$host" = "powerpc" -o "$host" = "ppc" \
-        -o "$host" = "mips" -o "$host" = "s390" \
-        -o "$host" = "sparc32" -o "$host" = "sparc64" \
-        -o "$host" = "m68k" -o "$host" = "armv4b"; then
-        hostbigendian="yes"
-    else
-        hostbigendian="no"
-    fi
+    hostbigendian=$(is_bigendian $host)
+    hostlongbits=$(longbits $host)
 
-# host long bits test
-    if test "$host" = "sparc64" -o "$host" = "ia64" \
-        -o "$host" = "amd64" -o "$host" = "x86_64" \
-        -o "$host" = "alpha"; then
-        hostlongbits="64"
-    else
-        hostlongbits="32"
-    fi
-
-    if test "$target" = "powerpc" -o "$target" = "ppc" \
-        -o "$target" = "powerpc64" -o "$target" = "ppc64" \
-        -o "$target" = "mips" -o "$target" = "s390" \
-        -o "$target" = "sparc32" -o "$target" = "sparc64" \
-        -o "$target" = "m68k" -o "$target" = "armv4b"; then
-        targetbigendian="yes"
-    else
-        targetbigendian="no"
-    fi
-
-# target long bits test
-    if test "$target" = "sparc64" -o "$target" = "ia64" \
-        -o "$target" = "amd64"  -o "$target" = "x86_64" \
-        -o "$target" = "powerpc64" -o "$target" = "ppc64" \
-        -o "$target" = "alpha"; then
-        targetlongbits="64"
-    else
-        targetlongbits="32"
-    fi
+    targetbigendian=$(is_bigendian $target)
+    targetlongbits=$(longbits $target)
 
     if test "$targetbigendian" = "$hostbigendian"; then
         cflags="-USWAP_ENDIANNESS"
@@ -99,17 +108,27 @@ archname()
 
 select_prefix()
 {
-    for TARGET in ${1}-unknown-linux-gnu- ${1}-linux-gnu- ${1}-linux- ${1}-elf- ${1}-eabi-
-    do
-        if type ${TARGET}gcc > /dev/null 2>&1
-        then
+    BASEARCH=$(basearch $ARCH)
+    for target_arch ; do
+        TARGETS="${target_arch}-unknown-linux-gnu- ${target_arch}-linux-gnu- ${target_arch}-linux- ${target_arch}-elf- ${target_arch}-eabi-"
+
+        if [ x"$CROSS_COMPILE" != "x" ]; then
+            TARGETS=$CROSS_COMPILE
+        fi
+
+        for TARGET in $TARGETS
+        do
+            if type ${TARGET}gcc > /dev/null 2>&1
+            then
+                return
+            fi
+        done
+        if [ "$BASEARCH" = "$(basearch $HOSTARCH)" ]; then
+            TARGET=""
             return
         fi
     done
-    if [ "$ARCH" = "$HOSTARCH" ]; then
-        return
-    fi
-    echo "ERROR: no ${1} cross-compiler found !" 1>&2
+    echo "ERROR: no $* cross-compiler found !" 1>&2
     exit 1
 }
 
@@ -236,7 +255,6 @@ for ARCH in $arch_list; do
         esac
     done
 
-    BASEARCH=$ARCH
     case $ARCH in
         amd64)
         select_prefix x86_64
@@ -245,9 +263,10 @@ for ARCH in $arch_list; do
         ;;
 
         ppc)
-        select_prefix powerpc
+        select_prefix powerpc powerpc64
         if [ "$unix" = "no" ]; then
-            CFLAGS="-m32 -msoft-float -fno-builtin-bcopy -fno-builtin-log2"
+            # 604 cpu includes support for PReP as well as Mac
+            CFLAGS="-m32 -mcpu=604 -msoft-float -fno-builtin-bcopy -fno-builtin-log2"
             AS_FLAGS="-m32"
         else
             CFLAGS="-fno-builtin"
@@ -257,13 +276,14 @@ for ARCH in $arch_list; do
 
         ppc64)
         select_prefix powerpc64
-        CFLAGS="-Wa,-a64 -m64 -msoft-float -fno-builtin"
+
+        # 970 cpu is used in all 64-bit Macs but disable altivec
+        CFLAGS="-mcpu=970 -mno-altivec -Wa,-a64 -m64 -msoft-float -fno-builtin"
         AS_FLAGS="-Wa,-a64"
-        BASEARCH=ppc
         ;;
 
         sparc32)
-        select_prefix sparc
+        select_prefix sparc sparc64
         CFLAGS="-Wa,-xarch=v8 -Wa,-32 -m32 -mcpu=supersparc -fno-builtin"
         AS_FLAGS="-Wa,-xarch=v8 -Wa,-32"
         ;;

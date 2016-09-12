@@ -9,25 +9,28 @@
  * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
-#include <sys/types.h>
+#include "qemu/osdep.h"
 #include <sys/ioctl.h>
-#include <sys/mman.h>
 
 #include <linux/kvm.h>
 
 #include "qemu-common.h"
+#include "cpu.h"
 #include "qemu/error-report.h"
 #include "qemu/timer.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/kvm.h"
-#include "cpu.h"
 #include "sysemu/cpus.h"
 #include "kvm_mips.h"
+#include "exec/memattrs.h"
 
 #define DEBUG_KVM 0
 
 #define DPRINTF(fmt, ...) \
     do { if (DEBUG_KVM) { fprintf(stderr, fmt, ## __VA_ARGS__); } } while (0)
+
+static int kvm_mips_fpu_cap;
+static int kvm_mips_msa_cap;
 
 const KVMCapabilityInfo kvm_arch_required_capabilities[] = {
     KVM_CAP_LAST_INFO
@@ -45,15 +48,38 @@ int kvm_arch_init(MachineState *ms, KVMState *s)
     /* MIPS has 128 signals */
     kvm_set_sigmask_len(s, 16);
 
+    kvm_mips_fpu_cap = kvm_check_extension(s, KVM_CAP_MIPS_FPU);
+    kvm_mips_msa_cap = kvm_check_extension(s, KVM_CAP_MIPS_MSA);
+
     DPRINTF("%s\n", __func__);
     return 0;
 }
 
 int kvm_arch_init_vcpu(CPUState *cs)
 {
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
     int ret = 0;
 
     qemu_add_vm_change_state_handler(kvm_mips_update_state, cs);
+
+    if (kvm_mips_fpu_cap && env->CP0_Config1 & (1 << CP0C1_FP)) {
+        ret = kvm_vcpu_enable_cap(cs, KVM_CAP_MIPS_FPU, 0, 0);
+        if (ret < 0) {
+            /* mark unsupported so it gets disabled on reset */
+            kvm_mips_fpu_cap = 0;
+            ret = 0;
+        }
+    }
+
+    if (kvm_mips_msa_cap && env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        ret = kvm_vcpu_enable_cap(cs, KVM_CAP_MIPS_MSA, 0, 0);
+        if (ret < 0) {
+            /* mark unsupported so it gets disabled on reset */
+            kvm_mips_msa_cap = 0;
+            ret = 0;
+        }
+    }
 
     DPRINTF("%s\n", __func__);
     return ret;
@@ -63,9 +89,13 @@ void kvm_mips_reset_vcpu(MIPSCPU *cpu)
 {
     CPUMIPSState *env = &cpu->env;
 
-    if (env->CP0_Config1 & (1 << CP0C1_FP)) {
-        fprintf(stderr, "Warning: FPU not supported with KVM, disabling\n");
+    if (!kvm_mips_fpu_cap && env->CP0_Config1 & (1 << CP0C1_FP)) {
+        fprintf(stderr, "Warning: KVM does not support FPU, disabling\n");
         env->CP0_Config1 &= ~(1 << CP0C1_FP);
+    }
+    if (!kvm_mips_msa_cap && env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        fprintf(stderr, "Warning: KVM does not support MSA, disabling\n");
+        env->CP0_Config3 &= ~(1 << CP0C3_MSAP);
     }
 
     DPRINTF("%s\n", __func__);
@@ -87,7 +117,6 @@ static inline int cpu_mips_io_interrupts_pending(MIPSCPU *cpu)
 {
     CPUMIPSState *env = &cpu->env;
 
-    DPRINTF("%s: %#x\n", __func__, env->CP0_Cause & (1 << (2 + CP0Ca_IP)));
     return env->CP0_Cause & (0x1 << (2 + CP0Ca_IP));
 }
 
@@ -97,6 +126,8 @@ void kvm_arch_pre_run(CPUState *cs, struct kvm_run *run)
     MIPSCPU *cpu = MIPS_CPU(cs);
     int r;
     struct kvm_mips_interrupt intr;
+
+    qemu_mutex_lock_iothread();
 
     if ((cs->interrupt_request & CPU_INTERRUPT_HARD) &&
             cpu_mips_io_interrupts_pending(cpu)) {
@@ -108,11 +139,13 @@ void kvm_arch_pre_run(CPUState *cs, struct kvm_run *run)
                          __func__, cs->cpu_index, intr.irq);
         }
     }
+
+    qemu_mutex_unlock_iothread();
 }
 
-void kvm_arch_post_run(CPUState *cs, struct kvm_run *run)
+MemTxAttrs kvm_arch_post_run(CPUState *cs, struct kvm_run *run)
 {
-    DPRINTF("%s\n", __func__);
+    return MEMTXATTRS_UNSPECIFIED;
 }
 
 int kvm_arch_process_async_events(CPUState *cs)
@@ -206,10 +239,10 @@ int kvm_mips_set_ipi_interrupt(MIPSCPU *cpu, int irq, int level)
 }
 
 #define MIPS_CP0_32(_R, _S)                                     \
-    (KVM_REG_MIPS | KVM_REG_SIZE_U32 | 0x10000 | (8 * (_R) + (_S)))
+    (KVM_REG_MIPS_CP0 | KVM_REG_SIZE_U32 | (8 * (_R) + (_S)))
 
 #define MIPS_CP0_64(_R, _S)                                     \
-    (KVM_REG_MIPS | KVM_REG_SIZE_U64 | 0x10000 | (8 * (_R) + (_S)))
+    (KVM_REG_MIPS_CP0 | KVM_REG_SIZE_U64 | (8 * (_R) + (_S)))
 
 #define KVM_REG_MIPS_CP0_INDEX          MIPS_CP0_32(0, 0)
 #define KVM_REG_MIPS_CP0_CONTEXT        MIPS_CP0_64(4, 0)
@@ -224,26 +257,32 @@ int kvm_mips_set_ipi_interrupt(MIPSCPU *cpu, int irq, int level)
 #define KVM_REG_MIPS_CP0_STATUS         MIPS_CP0_32(12, 0)
 #define KVM_REG_MIPS_CP0_CAUSE          MIPS_CP0_32(13, 0)
 #define KVM_REG_MIPS_CP0_EPC            MIPS_CP0_64(14, 0)
+#define KVM_REG_MIPS_CP0_PRID           MIPS_CP0_32(15, 0)
+#define KVM_REG_MIPS_CP0_CONFIG         MIPS_CP0_32(16, 0)
+#define KVM_REG_MIPS_CP0_CONFIG1        MIPS_CP0_32(16, 1)
+#define KVM_REG_MIPS_CP0_CONFIG2        MIPS_CP0_32(16, 2)
+#define KVM_REG_MIPS_CP0_CONFIG3        MIPS_CP0_32(16, 3)
+#define KVM_REG_MIPS_CP0_CONFIG4        MIPS_CP0_32(16, 4)
+#define KVM_REG_MIPS_CP0_CONFIG5        MIPS_CP0_32(16, 5)
 #define KVM_REG_MIPS_CP0_ERROREPC       MIPS_CP0_64(30, 0)
-
-/* CP0_Count control */
-#define KVM_REG_MIPS_COUNT_CTL          (KVM_REG_MIPS | KVM_REG_SIZE_U64 | \
-                                         0x20000 | 0)
-#define KVM_REG_MIPS_COUNT_CTL_DC       0x00000001      /* master disable */
-/* CP0_Count resume monotonic nanoseconds */
-#define KVM_REG_MIPS_COUNT_RESUME       (KVM_REG_MIPS | KVM_REG_SIZE_U64 | \
-                                         0x20000 | 1)
-/* CP0_Count rate in Hz */
-#define KVM_REG_MIPS_COUNT_HZ           (KVM_REG_MIPS | KVM_REG_SIZE_U64 | \
-                                         0x20000 | 2)
 
 static inline int kvm_mips_put_one_reg(CPUState *cs, uint64_t reg_id,
                                        int32_t *addr)
 {
-    uint64_t val64 = *addr;
     struct kvm_one_reg cp0reg = {
         .id = reg_id,
-        .addr = (uintptr_t)&val64
+        .addr = (uintptr_t)addr
+    };
+
+    return kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &cp0reg);
+}
+
+static inline int kvm_mips_put_one_ureg(CPUState *cs, uint64_t reg_id,
+                                        uint32_t *addr)
+{
+    struct kvm_one_reg cp0reg = {
+        .id = reg_id,
+        .addr = (uintptr_t)addr
     };
 
     return kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &cp0reg);
@@ -262,7 +301,18 @@ static inline int kvm_mips_put_one_ulreg(CPUState *cs, uint64_t reg_id,
 }
 
 static inline int kvm_mips_put_one_reg64(CPUState *cs, uint64_t reg_id,
-                                         uint64_t *addr)
+                                         int64_t *addr)
+{
+    struct kvm_one_reg cp0reg = {
+        .id = reg_id,
+        .addr = (uintptr_t)addr
+    };
+
+    return kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &cp0reg);
+}
+
+static inline int kvm_mips_put_one_ureg64(CPUState *cs, uint64_t reg_id,
+                                          uint64_t *addr)
 {
     struct kvm_one_reg cp0reg = {
         .id = reg_id,
@@ -275,21 +325,26 @@ static inline int kvm_mips_put_one_reg64(CPUState *cs, uint64_t reg_id,
 static inline int kvm_mips_get_one_reg(CPUState *cs, uint64_t reg_id,
                                        int32_t *addr)
 {
-    int ret;
-    uint64_t val64 = 0;
     struct kvm_one_reg cp0reg = {
         .id = reg_id,
-        .addr = (uintptr_t)&val64
+        .addr = (uintptr_t)addr
     };
 
-    ret = kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &cp0reg);
-    if (ret >= 0) {
-        *addr = val64;
-    }
-    return ret;
+    return kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &cp0reg);
 }
 
-static inline int kvm_mips_get_one_ulreg(CPUState *cs, uint64 reg_id,
+static inline int kvm_mips_get_one_ureg(CPUState *cs, uint64_t reg_id,
+                                        uint32_t *addr)
+{
+    struct kvm_one_reg cp0reg = {
+        .id = reg_id,
+        .addr = (uintptr_t)addr
+    };
+
+    return kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &cp0reg);
+}
+
+static inline int kvm_mips_get_one_ulreg(CPUState *cs, uint64_t reg_id,
                                          target_ulong *addr)
 {
     int ret;
@@ -306,8 +361,8 @@ static inline int kvm_mips_get_one_ulreg(CPUState *cs, uint64 reg_id,
     return ret;
 }
 
-static inline int kvm_mips_get_one_reg64(CPUState *cs, uint64 reg_id,
-                                         uint64_t *addr)
+static inline int kvm_mips_get_one_reg64(CPUState *cs, uint64_t reg_id,
+                                         int64_t *addr)
 {
     struct kvm_one_reg cp0reg = {
         .id = reg_id,
@@ -315,6 +370,50 @@ static inline int kvm_mips_get_one_reg64(CPUState *cs, uint64 reg_id,
     };
 
     return kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &cp0reg);
+}
+
+static inline int kvm_mips_get_one_ureg64(CPUState *cs, uint64_t reg_id,
+                                          uint64_t *addr)
+{
+    struct kvm_one_reg cp0reg = {
+        .id = reg_id,
+        .addr = (uintptr_t)addr
+    };
+
+    return kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &cp0reg);
+}
+
+#define KVM_REG_MIPS_CP0_CONFIG_MASK    (1U << CP0C0_M)
+#define KVM_REG_MIPS_CP0_CONFIG1_MASK   ((1U << CP0C1_M) | \
+                                         (1U << CP0C1_FP))
+#define KVM_REG_MIPS_CP0_CONFIG2_MASK   (1U << CP0C2_M)
+#define KVM_REG_MIPS_CP0_CONFIG3_MASK   ((1U << CP0C3_M) | \
+                                         (1U << CP0C3_MSAP))
+#define KVM_REG_MIPS_CP0_CONFIG4_MASK   (1U << CP0C4_M)
+#define KVM_REG_MIPS_CP0_CONFIG5_MASK   ((1U << CP0C5_MSAEn) | \
+                                         (1U << CP0C5_UFE) | \
+                                         (1U << CP0C5_FRE) | \
+                                         (1U << CP0C5_UFR))
+
+static inline int kvm_mips_change_one_reg(CPUState *cs, uint64_t reg_id,
+                                          int32_t *addr, int32_t mask)
+{
+    int err;
+    int32_t tmp, change;
+
+    err = kvm_mips_get_one_reg(cs, reg_id, &tmp);
+    if (err < 0) {
+        return err;
+    }
+
+    /* only change bits in mask */
+    change = (*addr ^ tmp) & mask;
+    if (!change) {
+        return 0;
+    }
+
+    tmp = tmp ^ change;
+    return kvm_mips_put_one_reg(cs, reg_id, &tmp);
 }
 
 /*
@@ -334,13 +433,13 @@ static int kvm_mips_save_count(CPUState *cs)
     int err, ret = 0;
 
     /* freeze KVM timer */
-    err = kvm_mips_get_one_reg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
+    err = kvm_mips_get_one_ureg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
     if (err < 0) {
         DPRINTF("%s: Failed to get COUNT_CTL (%d)\n", __func__, err);
         ret = err;
     } else if (!(count_ctl & KVM_REG_MIPS_COUNT_CTL_DC)) {
         count_ctl |= KVM_REG_MIPS_COUNT_CTL_DC;
-        err = kvm_mips_put_one_reg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
+        err = kvm_mips_put_one_ureg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
         if (err < 0) {
             DPRINTF("%s: Failed to set COUNT_CTL.DC=1 (%d)\n", __func__, err);
             ret = err;
@@ -376,14 +475,14 @@ static int kvm_mips_restore_count(CPUState *cs)
     int err_dc, err, ret = 0;
 
     /* check the timer is frozen */
-    err_dc = kvm_mips_get_one_reg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
+    err_dc = kvm_mips_get_one_ureg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
     if (err_dc < 0) {
         DPRINTF("%s: Failed to get COUNT_CTL (%d)\n", __func__, err_dc);
         ret = err_dc;
     } else if (!(count_ctl & KVM_REG_MIPS_COUNT_CTL_DC)) {
         /* freeze timer (sets COUNT_RESUME for us) */
         count_ctl |= KVM_REG_MIPS_COUNT_CTL_DC;
-        err = kvm_mips_put_one_reg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
+        err = kvm_mips_put_one_ureg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
         if (err < 0) {
             DPRINTF("%s: Failed to set COUNT_CTL.DC=1 (%d)\n", __func__, err);
             ret = err;
@@ -407,7 +506,7 @@ static int kvm_mips_restore_count(CPUState *cs)
     /* resume KVM timer */
     if (err_dc >= 0) {
         count_ctl &= ~KVM_REG_MIPS_COUNT_CTL_DC;
-        err = kvm_mips_put_one_reg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
+        err = kvm_mips_put_one_ureg64(cs, KVM_REG_MIPS_COUNT_CTL, &count_ctl);
         if (err < 0) {
             DPRINTF("%s: Failed to set COUNT_CTL.DC=0 (%d)\n", __func__, err);
             ret = err;
@@ -440,8 +539,8 @@ static void kvm_mips_update_state(void *opaque, int running, RunState state)
     } else {
         /* Set clock restore time to now */
         count_resume = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
-        ret = kvm_mips_put_one_reg64(cs, KVM_REG_MIPS_COUNT_RESUME,
-                                     &count_resume);
+        ret = kvm_mips_put_one_ureg64(cs, KVM_REG_MIPS_COUNT_RESUME,
+                                      &count_resume);
         if (ret < 0) {
             fprintf(stderr, "Failed setting COUNT_RESUME\n");
             return;
@@ -455,6 +554,167 @@ static void kvm_mips_update_state(void *opaque, int running, RunState state)
         }
     }
 }
+
+static int kvm_mips_put_fpu_registers(CPUState *cs, int level)
+{
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+    int err, ret = 0;
+    unsigned int i;
+
+    /* Only put FPU state if we're emulating a CPU with an FPU */
+    if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+        /* FPU Control Registers */
+        if (level == KVM_PUT_FULL_STATE) {
+            err = kvm_mips_put_one_ureg(cs, KVM_REG_MIPS_FCR_IR,
+                                        &env->active_fpu.fcr0);
+            if (err < 0) {
+                DPRINTF("%s: Failed to put FCR_IR (%d)\n", __func__, err);
+                ret = err;
+            }
+        }
+        err = kvm_mips_put_one_ureg(cs, KVM_REG_MIPS_FCR_CSR,
+                                    &env->active_fpu.fcr31);
+        if (err < 0) {
+            DPRINTF("%s: Failed to put FCR_CSR (%d)\n", __func__, err);
+            ret = err;
+        }
+
+        /*
+         * FPU register state is a subset of MSA vector state, so don't put FPU
+         * registers if we're emulating a CPU with MSA.
+         */
+        if (!(env->CP0_Config3 & (1 << CP0C3_MSAP))) {
+            /* Floating point registers */
+            for (i = 0; i < 32; ++i) {
+                if (env->CP0_Status & (1 << CP0St_FR)) {
+                    err = kvm_mips_put_one_ureg64(cs, KVM_REG_MIPS_FPR_64(i),
+                                                  &env->active_fpu.fpr[i].d);
+                } else {
+                    err = kvm_mips_get_one_ureg(cs, KVM_REG_MIPS_FPR_32(i),
+                                    &env->active_fpu.fpr[i].w[FP_ENDIAN_IDX]);
+                }
+                if (err < 0) {
+                    DPRINTF("%s: Failed to put FPR%u (%d)\n", __func__, i, err);
+                    ret = err;
+                }
+            }
+        }
+    }
+
+    /* Only put MSA state if we're emulating a CPU with MSA */
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        /* MSA Control Registers */
+        if (level == KVM_PUT_FULL_STATE) {
+            err = kvm_mips_put_one_reg(cs, KVM_REG_MIPS_MSA_IR,
+                                       &env->msair);
+            if (err < 0) {
+                DPRINTF("%s: Failed to put MSA_IR (%d)\n", __func__, err);
+                ret = err;
+            }
+        }
+        err = kvm_mips_put_one_reg(cs, KVM_REG_MIPS_MSA_CSR,
+                                   &env->active_tc.msacsr);
+        if (err < 0) {
+            DPRINTF("%s: Failed to put MSA_CSR (%d)\n", __func__, err);
+            ret = err;
+        }
+
+        /* Vector registers (includes FP registers) */
+        for (i = 0; i < 32; ++i) {
+            /* Big endian MSA not supported by QEMU yet anyway */
+            err = kvm_mips_put_one_reg64(cs, KVM_REG_MIPS_VEC_128(i),
+                                         env->active_fpu.fpr[i].wr.d);
+            if (err < 0) {
+                DPRINTF("%s: Failed to put VEC%u (%d)\n", __func__, i, err);
+                ret = err;
+            }
+        }
+    }
+
+    return ret;
+}
+
+static int kvm_mips_get_fpu_registers(CPUState *cs)
+{
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+    int err, ret = 0;
+    unsigned int i;
+
+    /* Only get FPU state if we're emulating a CPU with an FPU */
+    if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+        /* FPU Control Registers */
+        err = kvm_mips_get_one_ureg(cs, KVM_REG_MIPS_FCR_IR,
+                                    &env->active_fpu.fcr0);
+        if (err < 0) {
+            DPRINTF("%s: Failed to get FCR_IR (%d)\n", __func__, err);
+            ret = err;
+        }
+        err = kvm_mips_get_one_ureg(cs, KVM_REG_MIPS_FCR_CSR,
+                                    &env->active_fpu.fcr31);
+        if (err < 0) {
+            DPRINTF("%s: Failed to get FCR_CSR (%d)\n", __func__, err);
+            ret = err;
+        } else {
+            restore_fp_status(env);
+        }
+
+        /*
+         * FPU register state is a subset of MSA vector state, so don't save FPU
+         * registers if we're emulating a CPU with MSA.
+         */
+        if (!(env->CP0_Config3 & (1 << CP0C3_MSAP))) {
+            /* Floating point registers */
+            for (i = 0; i < 32; ++i) {
+                if (env->CP0_Status & (1 << CP0St_FR)) {
+                    err = kvm_mips_get_one_ureg64(cs, KVM_REG_MIPS_FPR_64(i),
+                                                  &env->active_fpu.fpr[i].d);
+                } else {
+                    err = kvm_mips_get_one_ureg(cs, KVM_REG_MIPS_FPR_32(i),
+                                    &env->active_fpu.fpr[i].w[FP_ENDIAN_IDX]);
+                }
+                if (err < 0) {
+                    DPRINTF("%s: Failed to get FPR%u (%d)\n", __func__, i, err);
+                    ret = err;
+                }
+            }
+        }
+    }
+
+    /* Only get MSA state if we're emulating a CPU with MSA */
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        /* MSA Control Registers */
+        err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_MSA_IR,
+                                   &env->msair);
+        if (err < 0) {
+            DPRINTF("%s: Failed to get MSA_IR (%d)\n", __func__, err);
+            ret = err;
+        }
+        err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_MSA_CSR,
+                                   &env->active_tc.msacsr);
+        if (err < 0) {
+            DPRINTF("%s: Failed to get MSA_CSR (%d)\n", __func__, err);
+            ret = err;
+        } else {
+            restore_msa_fp_status(env);
+        }
+
+        /* Vector registers (includes FP registers) */
+        for (i = 0; i < 32; ++i) {
+            /* Big endian MSA not supported by QEMU yet anyway */
+            err = kvm_mips_get_one_reg64(cs, KVM_REG_MIPS_VEC_128(i),
+                                         env->active_fpu.fpr[i].wr.d);
+            if (err < 0) {
+                DPRINTF("%s: Failed to get VEC%u (%d)\n", __func__, i, err);
+                ret = err;
+            }
+        }
+    }
+
+    return ret;
+}
+
 
 static int kvm_mips_put_cp0_registers(CPUState *cs, int level)
 {
@@ -532,6 +792,53 @@ static int kvm_mips_put_cp0_registers(CPUState *cs, int level)
     err = kvm_mips_put_one_ulreg(cs, KVM_REG_MIPS_CP0_EPC, &env->CP0_EPC);
     if (err < 0) {
         DPRINTF("%s: Failed to put CP0_EPC (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_put_one_reg(cs, KVM_REG_MIPS_CP0_PRID, &env->CP0_PRid);
+    if (err < 0) {
+        DPRINTF("%s: Failed to put CP0_PRID (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG,
+                                  &env->CP0_Config0,
+                                  KVM_REG_MIPS_CP0_CONFIG_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG1,
+                                  &env->CP0_Config1,
+                                  KVM_REG_MIPS_CP0_CONFIG1_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG1 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG2,
+                                  &env->CP0_Config2,
+                                  KVM_REG_MIPS_CP0_CONFIG2_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG2 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG3,
+                                  &env->CP0_Config3,
+                                  KVM_REG_MIPS_CP0_CONFIG3_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG3 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG4,
+                                  &env->CP0_Config4,
+                                  KVM_REG_MIPS_CP0_CONFIG4_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG4 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_change_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG5,
+                                  &env->CP0_Config5,
+                                  KVM_REG_MIPS_CP0_CONFIG5_MASK);
+    if (err < 0) {
+        DPRINTF("%s: Failed to change CP0_CONFIG5 (%d)\n", __func__, err);
         ret = err;
     }
     err = kvm_mips_put_one_ulreg(cs, KVM_REG_MIPS_CP0_ERROREPC,
@@ -620,6 +927,41 @@ static int kvm_mips_get_cp0_registers(CPUState *cs)
         DPRINTF("%s: Failed to get CP0_EPC (%d)\n", __func__, err);
         ret = err;
     }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_PRID, &env->CP0_PRid);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_PRID (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG, &env->CP0_Config0);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG1, &env->CP0_Config1);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG1 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG2, &env->CP0_Config2);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG2 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG3, &env->CP0_Config3);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG3 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG4, &env->CP0_Config4);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG4 (%d)\n", __func__, err);
+        ret = err;
+    }
+    err = kvm_mips_get_one_reg(cs, KVM_REG_MIPS_CP0_CONFIG5, &env->CP0_Config5);
+    if (err < 0) {
+        DPRINTF("%s: Failed to get CP0_CONFIG5 (%d)\n", __func__, err);
+        ret = err;
+    }
     err = kvm_mips_get_one_ulreg(cs, KVM_REG_MIPS_CP0_ERROREPC,
                                  &env->CP0_ErrorEPC);
     if (err < 0) {
@@ -640,12 +982,12 @@ int kvm_arch_put_registers(CPUState *cs, int level)
 
     /* Set the registers based on QEMU's view of things */
     for (i = 0; i < 32; i++) {
-        regs.gpr[i] = env->active_tc.gpr[i];
+        regs.gpr[i] = (int64_t)(target_long)env->active_tc.gpr[i];
     }
 
-    regs.hi = env->active_tc.HI[0];
-    regs.lo = env->active_tc.LO[0];
-    regs.pc = env->active_tc.PC;
+    regs.hi = (int64_t)(target_long)env->active_tc.HI[0];
+    regs.lo = (int64_t)(target_long)env->active_tc.LO[0];
+    regs.pc = (int64_t)(target_long)env->active_tc.PC;
 
     ret = kvm_vcpu_ioctl(cs, KVM_SET_REGS, &regs);
 
@@ -654,6 +996,11 @@ int kvm_arch_put_registers(CPUState *cs, int level)
     }
 
     ret = kvm_mips_put_cp0_registers(cs, level);
+    if (ret < 0) {
+        return ret;
+    }
+
+    ret = kvm_mips_put_fpu_registers(cs, level);
     if (ret < 0) {
         return ret;
     }
@@ -685,12 +1032,29 @@ int kvm_arch_get_registers(CPUState *cs)
     env->active_tc.PC = regs.pc;
 
     kvm_mips_get_cp0_registers(cs);
+    kvm_mips_get_fpu_registers(cs);
 
     return ret;
 }
 
 int kvm_arch_fixup_msi_route(struct kvm_irq_routing_entry *route,
-                             uint64_t address, uint32_t data)
+                             uint64_t address, uint32_t data, PCIDevice *dev)
 {
     return 0;
+}
+
+int kvm_arch_add_msi_route_post(struct kvm_irq_routing_entry *route,
+                                int vector, PCIDevice *dev)
+{
+    return 0;
+}
+
+int kvm_arch_release_virq_post(int virq)
+{
+    return 0;
+}
+
+int kvm_arch_msi_data_to_gsi(uint32_t data)
+{
+    abort();
 }

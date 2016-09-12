@@ -18,6 +18,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/boards.h"
 #include "elf.h"
@@ -68,7 +72,8 @@ static void cpu_openrisc_load_kernel(ram_addr_t ram_size,
 
     if (kernel_filename && !qtest_enabled()) {
         kernel_size = load_elf(kernel_filename, NULL, NULL,
-                               &elf_entry, NULL, NULL, 1, ELF_MACHINE, 1);
+                               &elf_entry, NULL, NULL, 1, EM_OPENRISC,
+                               1, 0);
         entry = elf_entry;
         if (kernel_size < 0) {
             kernel_size = load_uimage(kernel_filename,
@@ -114,7 +119,7 @@ static void openrisc_sim_init(MachineState *machine)
     }
 
     ram = g_malloc(sizeof(*ram));
-    memory_region_init_ram(ram, NULL, "openrisc.ram", ram_size, &error_abort);
+    memory_region_init_ram(ram, NULL, "openrisc.ram", ram_size, &error_fatal);
     vmstate_register_ram_global(ram);
     memory_region_add_subregion(get_system_memory(), 0, ram);
 
@@ -132,17 +137,12 @@ static void openrisc_sim_init(MachineState *machine)
     cpu_openrisc_load_kernel(ram_size, kernel_filename, cpu);
 }
 
-static QEMUMachine openrisc_sim_machine = {
-    .name = "or32-sim",
-    .desc = "or32 simulation",
-    .init = openrisc_sim_init,
-    .max_cpus = 1,
-    .is_default = 1,
-};
-
-static void openrisc_sim_machine_init(void)
+static void openrisc_sim_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&openrisc_sim_machine);
+    mc->desc = "or32 simulation";
+    mc->init = openrisc_sim_init;
+    mc->max_cpus = 1;
+    mc->is_default = 1;
 }
 
-machine_init(openrisc_sim_machine_init);
+DEFINE_MACHINE("or32-sim", openrisc_sim_machine_init)

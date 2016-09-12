@@ -7,19 +7,15 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <ipxe/ansiesc.h>
 #include <ipxe/uaccess.h>
-
-struct pixel_buffer;
+#include <ipxe/console.h>
 
 /** Character width, in pixels */
 #define FBCON_CHAR_WIDTH 9
-
-/** Character height, in pixels */
-#define FBCON_CHAR_HEIGHT 16
 
 /** Bold colour modifier (RGB value) */
 #define FBCON_BOLD 0x555555
@@ -30,14 +26,21 @@ struct pixel_buffer;
 /** A font glyph */
 struct fbcon_font_glyph {
 	/** Row bitmask */
-	uint8_t bitmask[FBCON_CHAR_HEIGHT];
-} __attribute__ (( packed ));
+	uint8_t bitmask[0];
+};
 
 /** A font definition */
 struct fbcon_font {
-	/** Character glyphs */
-	userptr_t start;
-} __attribute__ (( packed ));
+	/** Character height (in pixels) */
+	unsigned int height;
+	/**
+	 * Get character glyph
+	 *
+	 * @v character		Character
+	 * @v glyph		Character glyph to fill in
+	 */
+	void ( * glyph ) ( unsigned int character, uint8_t *glyph );
+};
 
 /** A frame buffer geometry
  *
@@ -145,10 +148,9 @@ struct fbcon {
 
 extern int fbcon_init ( struct fbcon *fbcon, userptr_t start,
 			struct fbcon_geometry *pixel,
-			struct fbcon_margin *margin,
 			struct fbcon_colour_map *map,
 			struct fbcon_font *font,
-			struct pixel_buffer *pixbuf );
+			struct console_configuration *config );
 extern void fbcon_fini ( struct fbcon *fbcon );
 extern void fbcon_putchar ( struct fbcon *fbcon, int character );
 

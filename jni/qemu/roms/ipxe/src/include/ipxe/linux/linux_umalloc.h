@@ -1,13 +1,13 @@
 #ifndef _IPXE_LINUX_UMALLOC_H
 #define _IPXE_LINUX_UMALLOC_H
 
-FILE_LICENCE(GPL2_OR_LATER);
-
 /** @file
  *
- * iPXE user memory allocation API for linux
+ * iPXE user memory allocation API for Linux
  *
  */
+
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #ifdef UMALLOC_LINUX
 #define UMALLOC_PREFIX_linux

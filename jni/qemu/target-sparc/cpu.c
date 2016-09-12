@@ -17,8 +17,11 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "cpu.h"
 #include "qemu/error-report.h"
+#include "exec/exec-all.h"
 
 //#define DEBUG_FEATURES
 
@@ -90,9 +93,19 @@ static bool sparc_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     return false;
 }
 
+static void cpu_sparc_disas_set_info(CPUState *cpu, disassemble_info *info)
+{
+    info->print_insn = print_insn_sparc;
+#ifdef TARGET_SPARC64
+    info->mach = bfd_mach_sparc_v9b;
+#endif
+}
+
+static void sparc_cpu_parse_features(CPUState *cs, char *features,
+                                     Error **errp);
+
 static int cpu_sparc_register(SPARCCPU *cpu, const char *cpu_model)
 {
-    CPUClass *cc = CPU_GET_CLASS(cpu);
     CPUSPARCState *env = &cpu->env;
     char *s = g_strdup(cpu_model);
     char *featurestr, *name = strtok(s, ",");
@@ -108,7 +121,7 @@ static int cpu_sparc_register(SPARCCPU *cpu, const char *cpu_model)
     memcpy(env->def, def, sizeof(*def));
 
     featurestr = strtok(NULL, ",");
-    cc->parse_features(CPU(cpu), featurestr, &err);
+    sparc_cpu_parse_features(CPU(cpu), featurestr, &err);
     g_free(s);
     if (err) {
         error_report_err(err);
@@ -802,7 +815,7 @@ static void sparc_cpu_initfn(Object *obj)
     CPUSPARCState *env = &cpu->env;
 
     cs->env_ptr = env;
-    cpu_exec_init(env);
+    cpu_exec_init(cs, &error_abort);
 
     if (tcg_enabled()) {
         gen_intermediate_code_init(env);
@@ -829,7 +842,6 @@ static void sparc_cpu_class_init(ObjectClass *oc, void *data)
     scc->parent_reset = cc->reset;
     cc->reset = sparc_cpu_reset;
 
-    cc->parse_features = sparc_cpu_parse_features;
     cc->has_work = sparc_cpu_has_work;
     cc->do_interrupt = sparc_cpu_do_interrupt;
     cc->cpu_exec_interrupt = sparc_cpu_exec_interrupt;
@@ -847,13 +859,22 @@ static void sparc_cpu_class_init(ObjectClass *oc, void *data)
     cc->do_unassigned_access = sparc_cpu_unassigned_access;
     cc->do_unaligned_access = sparc_cpu_do_unaligned_access;
     cc->get_phys_page_debug = sparc_cpu_get_phys_page_debug;
+    cc->vmsd = &vmstate_sparc_cpu;
 #endif
+    cc->disas_set_info = cpu_sparc_disas_set_info;
 
 #if defined(TARGET_SPARC64) && !defined(TARGET_ABI32)
     cc->gdb_num_core_regs = 86;
 #else
     cc->gdb_num_core_regs = 72;
 #endif
+
+    /*
+     * Reason: sparc_cpu_initfn() calls cpu_exec_init(), which saves
+     * the object in cpus -> dangling pointer after final
+     * object_unref().
+     */
+    dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
 static const TypeInfo sparc_cpu_type_info = {

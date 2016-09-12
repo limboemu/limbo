@@ -5,10 +5,11 @@
  * as "vxge" even though the code is in vxge_* named files.
  */
 
-FILE_LICENCE(GPL2_OR_LATER);
+FILE_LICENCE(GPL2_OR_LATER_OR_UBDL);
 
 #include <ipxe/pci.h>
 
+PROVIDE_REQUIRING_SYMBOL();
 REQUIRE_OBJECT(vxge_main);
 
 /** vxge PCI IDs for util/parserom.pl which are put into bin/NIC */

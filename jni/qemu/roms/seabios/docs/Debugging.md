@@ -55,8 +55,10 @@ rate.
 The tool can also timestamp the messages from the QEMU debug port. To
 use with QEMU run the following:
 
-`mkfifo qemudebugpipe`\
-`qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...`
+```
+mkfifo qemudebugpipe
+qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...
+```
 
 and then in another session:
 
@@ -84,20 +86,23 @@ bios 16bit code) or out/rom.o (to debug bios 32bit code). For example:
 
 `gdb out/rom16.o`
 
-Once in gdb, use the command "target remote localhost:1234" to have
+Once in gdb, use the command `target remote localhost:1234` to have
 gdb connect to QEMU. See the QEMU documentation for more information
 on using gdb and QEMU in this mode.
 
-When debugging 16bit code, also run the following commands in gdb:
+When debugging 16bit code it is necessary to load the 16bit symbols
+twice in order for gdb to properly handle break points.  To do this,
+run the following command `objcopy --adjust-vma 0xf0000 out/rom16.o
+rom16offset.o` and then run the following in gdb:
 
-`set architecture i8086`\
-`add-symbol-file out/rom16.o 0xf0000`
+```
+set architecture i8086
+add-symbol-file rom16offset.o 0
+```
 
-The second command loads the 16bit symbols a second time at an offset
-of 0xf0000, which helps gdb set and catch breakpoints correctly.
-
-To debug a VGA BIOS image, run "gdb out/vgarom.o" add use the gdb
-command "add-symbol-file out/vgarom.o 0xc0000" to load the 16bit VGA
+To debug a VGA BIOS image, run `gdb out/vgarom.o`, create a
+vgaromoffset.o file with offset 0xc0000, add use the gdb
+command `add-symbol-file out/vgaromoffset.o 0` to load the 16bit VGA
 BIOS symbols twice.
 
 If debugging the 32bit SeaBIOS initialization code with gdb, note that

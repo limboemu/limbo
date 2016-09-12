@@ -17,24 +17,22 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CPU_LM32_H
-#define CPU_LM32_H
+#ifndef LM32_CPU_H
+#define LM32_CPU_H
 
 #define TARGET_LONG_BITS 32
 
 #define CPUArchState struct CPULM32State
 
-#include "config.h"
 #include "qemu-common.h"
+#include "cpu-qom.h"
 #include "exec/cpu-defs.h"
 struct CPULM32State;
 typedef struct CPULM32State CPULM32State;
 
-#define ELF_MACHINE EM_LATTICEMICO32
-
 #define NB_MMU_MODES 1
 #define TARGET_PAGE_BITS 12
-static inline int cpu_mmu_index(CPULM32State *env)
+static inline int cpu_mmu_index(CPULM32State *env, bool ifetch)
 {
     return 0;
 }
@@ -183,6 +181,47 @@ struct CPULM32State {
 
 };
 
+/**
+ * LM32CPU:
+ * @env: #CPULM32State
+ *
+ * A LatticeMico32 CPU.
+ */
+struct LM32CPU {
+    /*< private >*/
+    CPUState parent_obj;
+    /*< public >*/
+
+    CPULM32State env;
+
+    uint32_t revision;
+    uint8_t num_interrupts;
+    uint8_t num_breakpoints;
+    uint8_t num_watchpoints;
+    uint32_t features;
+};
+
+static inline LM32CPU *lm32_env_get_cpu(CPULM32State *env)
+{
+    return container_of(env, LM32CPU, env);
+}
+
+#define ENV_GET_CPU(e) CPU(lm32_env_get_cpu(e))
+
+#define ENV_OFFSET offsetof(LM32CPU, env)
+
+#ifndef CONFIG_USER_ONLY
+extern const struct VMStateDescription vmstate_lm32_cpu;
+#endif
+
+void lm32_cpu_do_interrupt(CPUState *cpu);
+bool lm32_cpu_exec_interrupt(CPUState *cs, int int_req);
+void lm32_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
+                         int flags);
+hwaddr lm32_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int lm32_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
+int lm32_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
+
 typedef enum {
     LM32_WP_DISABLED = 0,
     LM32_WP_READ,
@@ -196,10 +235,7 @@ static inline lm32_wp_t lm32_wp_type(uint32_t dc, int idx)
     return (dc >> (idx+1)*2) & 0x3;
 }
 
-#include "cpu-qom.h"
-
 LM32CPU *cpu_lm32_init(const char *cpu_model);
-int cpu_lm32_exec(CPULM32State *s);
 /* you can call this signal handler from your SIGBUS and SIGSEGV
    signal handlers to inform the virtual CPU of exceptions. non zero
    is returned if the signal was handled by the virtual CPU.  */
@@ -220,8 +256,6 @@ bool lm32_cpu_do_semihosting(CPUState *cs);
 #define cpu_init(cpu_model) CPU(cpu_lm32_init(cpu_model))
 
 #define cpu_list lm32_cpu_list
-#define cpu_exec cpu_lm32_exec
-#define cpu_gen_code cpu_lm32_gen_code
 #define cpu_signal_handler cpu_lm32_signal_handler
 
 int lm32_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
@@ -230,13 +264,11 @@ int lm32_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
 #include "exec/cpu-all.h"
 
 static inline void cpu_get_tb_cpu_state(CPULM32State *env, target_ulong *pc,
-                                        target_ulong *cs_base, int *flags)
+                                        target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->pc;
     *cs_base = 0;
     *flags = 0;
 }
-
-#include "exec/exec-all.h"
 
 #endif

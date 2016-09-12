@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <stdio.h>
@@ -42,6 +46,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <usr/prompt.h>
 #include <usr/autoboot.h>
 #include <config/general.h>
+#include <config/branding.h>
 
 /** @file
  *
@@ -80,33 +85,6 @@ const struct setting scriptlet_setting __setting ( SETTING_MISC, scriptlet ) = {
  */
 __weak int pxe_menu_boot ( struct net_device *netdev __unused ) {
 	return -ENOTSUP;
-}
-
-/**
- * Parse next-server and filename into a URI
- *
- * @v next_server	Next-server address
- * @v filename		Filename
- * @ret uri		URI, or NULL on failure
- */
-static struct uri * parse_next_server_and_filename ( struct in_addr next_server,
-						     const char *filename ) {
-	struct uri *uri;
-
-	/* Parse filename */
-	uri = parse_uri ( filename );
-	if ( ! uri )
-		return NULL;
-
-	/* Construct a TFTP URI for the filename, if applicable */
-	if ( next_server.s_addr && filename[0] && ! uri_is_absolute ( uri ) ) {
-		uri_put ( uri );
-		uri = tftp_uri ( next_server, filename );
-		if ( ! uri )
-			return NULL;
-	}
-
-	return uri;
 }
 
 /** The "keep-san" setting */
@@ -149,7 +127,9 @@ int uriboot ( struct uri *filename, struct uri *root_path, int drive,
 
 	/* Hook SAN device, if applicable */
 	if ( root_path ) {
-		if ( ( rc = san_hook ( root_path, drive ) ) != 0 ) {
+		drive = san_hook ( root_path, drive );
+		if ( drive < 0 ) {
+			rc = drive;
 			printf ( "Could not open SAN device: %s\n",
 				 strerror ( rc ) );
 			goto err_san_hook;
@@ -158,7 +138,7 @@ int uriboot ( struct uri *filename, struct uri *root_path, int drive,
 	}
 
 	/* Describe SAN device, if applicable */
-	if ( ( drive >= 0 ) && ! ( flags & URIBOOT_NO_SAN_DESCRIBE ) ) {
+	if ( ! ( flags & URIBOOT_NO_SAN_DESCRIBE ) ) {
 		if ( ( rc = san_describe ( drive ) ) != 0 ) {
 			printf ( "Could not describe SAN device %#02x: %s\n",
 				 drive, strerror ( rc ) );
@@ -173,6 +153,7 @@ int uriboot ( struct uri *filename, struct uri *root_path, int drive,
 	if ( filename ) {
 		if ( ( rc = imgdownload ( filename, 0, &image ) ) != 0 )
 			goto err_download;
+		imgstat ( image );
 		image->flags |= IMAGE_AUTO_UNREGISTER;
 		if ( ( rc = image_exec ( image ) ) != 0 ) {
 			printf ( "Could not boot image: %s\n",
@@ -191,7 +172,7 @@ int uriboot ( struct uri *filename, struct uri *root_path, int drive,
 	}
 
 	/* Attempt SAN boot if applicable */
-	if ( ( drive >= 0 ) && ! ( flags & URIBOOT_NO_SAN_BOOT ) ) {
+	if ( ! ( flags & URIBOOT_NO_SAN_BOOT ) ) {
 		if ( fetch_intz_setting ( NULL, &skip_san_boot_setting) == 0 ) {
 			printf ( "Booting from SAN device %#02x\n", drive );
 			rc = san_boot ( drive );
@@ -209,7 +190,7 @@ int uriboot ( struct uri *filename, struct uri *root_path, int drive,
  err_download:
  err_san_describe:
 	/* Unhook SAN device, if applicable */
-	if ( ( drive >= 0 ) && ! ( flags & URIBOOT_NO_SAN_UNHOOK ) ) {
+	if ( ! ( flags & URIBOOT_NO_SAN_UNHOOK ) ) {
 		if ( fetch_intz_setting ( NULL, &keep_san_setting ) == 0 ) {
 			san_unhook ( drive );
 			printf ( "Unregistered SAN device %#02x\n", drive );
@@ -244,10 +225,16 @@ static void close_all_netdevs ( void ) {
  * @ret uri		URI, or NULL on failure
  */
 struct uri * fetch_next_server_and_filename ( struct settings *settings ) {
-	struct in_addr next_server = { 0 };
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+	} next_server;
 	char *raw_filename = NULL;
 	struct uri *uri = NULL;
 	char *filename;
+
+	/* Initialise server address */
+	memset ( &next_server, 0, sizeof ( next_server ) );
 
 	/* If we have a filename, fetch it along with the next-server
 	 * setting from the same settings block.
@@ -257,20 +244,27 @@ struct uri * fetch_next_server_and_filename ( struct settings *settings ) {
 		fetch_string_setting_copy ( settings, &filename_setting,
 					    &raw_filename );
 		fetch_ipv4_setting ( settings, &next_server_setting,
-				     &next_server );
+				     &next_server.sin.sin_addr );
+	}
+	if ( ! raw_filename )
+		goto err_fetch;
+
+	/* Populate server address */
+	if ( next_server.sin.sin_addr.s_addr ) {
+		next_server.sin.sin_family = AF_INET;
+		printf ( "Next server: %s\n",
+			 inet_ntoa ( next_server.sin.sin_addr ) );
 	}
 
 	/* Expand filename setting */
-	filename = expand_settings ( raw_filename ? raw_filename : "" );
+	filename = expand_settings ( raw_filename );
 	if ( ! filename )
 		goto err_expand;
-
-	/* Parse next server and filename */
-	if ( next_server.s_addr )
-		printf ( "Next server: %s\n", inet_ntoa ( next_server ) );
 	if ( filename[0] )
 		printf ( "Filename: %s\n", filename );
-	uri = parse_next_server_and_filename ( next_server, filename );
+
+	/* Construct URI */
+	uri = pxe_uri ( &next_server.sa, filename );
 	if ( ! uri )
 		goto err_parse;
 
@@ -278,6 +272,7 @@ struct uri * fetch_next_server_and_filename ( struct settings *settings ) {
 	free ( filename );
  err_expand:
 	free ( raw_filename );
+ err_fetch:
 	return uri;
 }
 
@@ -295,9 +290,11 @@ static struct uri * fetch_root_path ( struct settings *settings ) {
 	/* Fetch root-path setting */
 	fetch_string_setting_copy ( settings, &root_path_setting,
 				    &raw_root_path );
+	if ( ! raw_root_path )
+		goto err_fetch;
 
 	/* Expand filename setting */
-	root_path = expand_settings ( raw_root_path ? raw_root_path : "" );
+	root_path = expand_settings ( raw_root_path );
 	if ( ! root_path )
 		goto err_expand;
 
@@ -312,6 +309,7 @@ static struct uri * fetch_root_path ( struct settings *settings ) {
 	free ( root_path );
  err_expand:
 	free ( raw_root_path );
+ err_fetch:
 	return uri;
 }
 
@@ -372,32 +370,19 @@ int netboot ( struct net_device *netdev ) {
 		goto err_pxe_menu_boot;
 	}
 
-	/* Fetch next server and filename */
+	/* Fetch next server and filename (if any) */
 	filename = fetch_next_server_and_filename ( NULL );
-	if ( ! filename )
-		goto err_filename;
-	if ( ! uri_has_path ( filename ) ) {
-		/* Ignore empty filename */
-		uri_put ( filename );
-		filename = NULL;
-	}
 
-	/* Fetch root path */
+	/* Fetch root path (if any) */
 	root_path = fetch_root_path ( NULL );
-	if ( ! root_path )
-		goto err_root_path;
-	if ( ! uri_is_absolute ( root_path ) ) {
-		/* Ignore empty root path */
-		uri_put ( root_path );
-		root_path = NULL;
-	}
 
 	/* If we have both a filename and a root path, ignore an
-	 * unsupported URI scheme in the root path, since it may
-	 * represent an NFS root.
+	 * unsupported or missing URI scheme in the root path, since
+	 * it may represent an NFS root.
 	 */
 	if ( filename && root_path &&
-	     ( xfer_uri_opener ( root_path->scheme ) == NULL ) ) {
+	     ( ( ! uri_is_absolute ( root_path ) ) ||
+	       ( xfer_uri_opener ( root_path->scheme ) == NULL ) ) ) {
 		printf ( "Ignoring unsupported root path\n" );
 		uri_put ( root_path );
 		root_path = NULL;
@@ -418,9 +403,7 @@ int netboot ( struct net_device *netdev ) {
  err_uriboot:
  err_no_boot:
 	uri_put ( root_path );
- err_root_path:
 	uri_put ( filename );
- err_filename:
  err_pxe_menu_boot:
  err_dhcp:
  err_ifopen:
@@ -434,9 +417,14 @@ int netboot ( struct net_device *netdev ) {
  * @ret is_autoboot	Network device matches the autoboot device
  */
 static int is_autoboot_busloc ( struct net_device *netdev ) {
+	struct device *dev;
 
-	return ( ( netdev->dev->desc.bus_type == autoboot_desc.bus_type ) &&
-		 ( netdev->dev->desc.location == autoboot_desc.location ) );
+	for ( dev = netdev->dev ; dev ; dev = dev->parent ) {
+		if ( ( dev->desc.bus_type == autoboot_desc.bus_type ) &&
+		     ( dev->desc.location == autoboot_desc.location ) )
+			return 1;
+	}
+	return 0;
 }
 
 /**
@@ -522,7 +510,8 @@ static int shell_banner ( void ) {
 
 	/* Prompt user */
 	printf ( "\n" );
-	return ( prompt ( "Press Ctrl-B for the iPXE command line...",
+	return ( prompt ( "Press Ctrl-B for the " PRODUCT_SHORT_NAME
+			  " command line...",
 			  ( ( BANNER_TIMEOUT * TICKS_PER_SEC ) / 10 ),
 			  CTRL_B ) == 0 );
 }
@@ -531,28 +520,29 @@ static int shell_banner ( void ) {
  * Main iPXE flow of execution
  *
  * @v netdev		Network device, or NULL
+ * @ret rc		Return status code
  */
-void ipxe ( struct net_device *netdev ) {
+int ipxe ( struct net_device *netdev ) {
 	struct feature *feature;
 	struct image *image;
 	char *scriptlet;
+	int rc;
 
 	/*
 	 * Print welcome banner
 	 *
 	 *
 	 * If you wish to brand this build of iPXE, please do so by
-	 * defining the string PRODUCT_NAME in config/general.h.
+	 * defining the string PRODUCT_NAME in config/branding.h.
 	 *
 	 * While nothing in the GPL prevents you from removing all
 	 * references to iPXE or http://ipxe.org, we prefer you not to
 	 * do so.
 	 *
 	 */
-	printf ( NORMAL "\n\n%s\n" BOLD "iPXE %s"
-		 NORMAL " -- Open Source Network Boot Firmware -- "
-		 CYAN "http://ipxe.org" NORMAL "\n"
-		 "Features:", product_name, product_version );
+	printf ( NORMAL "\n\n" PRODUCT_NAME "\n" BOLD PRODUCT_SHORT_NAME " %s"
+		 NORMAL " -- " PRODUCT_TAG_LINE " -- "
+		 CYAN PRODUCT_URI NORMAL "\nFeatures:", product_version );
 	for_each_table_entry ( feature, FEATURES )
 		printf ( " %s", feature->name );
 	printf ( "\n" );
@@ -560,28 +550,30 @@ void ipxe ( struct net_device *netdev ) {
 	/* Boot system */
 	if ( ( image = first_image() ) != NULL ) {
 		/* We have an embedded image; execute it */
-		image_exec ( image );
+		return image_exec ( image );
 	} else if ( shell_banner() ) {
 		/* User wants shell; just give them a shell */
-		shell();
+		return shell();
 	} else {
 		fetch_string_setting_copy ( NULL, &scriptlet_setting,
 					    &scriptlet );
 		if ( scriptlet ) {
 			/* User has defined a scriptlet; execute it */
-			system ( scriptlet );
+			rc = system ( scriptlet );
 			free ( scriptlet );
+			return rc;
 		} else {
 			/* Try booting.  If booting fails, offer the
 			 * user another chance to enter the shell.
 			 */
 			if ( netdev ) {
-				netboot ( netdev );
+				rc = netboot ( netdev );
 			} else {
-				autoboot();
+				rc = autoboot();
 			}
 			if ( shell_banner() )
-				shell();
+				rc = shell();
+			return rc;
 		}
 	}
 }

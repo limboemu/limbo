@@ -22,10 +22,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "ui/console.h"
 #include "qemu/timer.h"
 #include "hw/input/hid.h"
+#include "trace.h"
 
 #define HID_USAGE_ERROR_ROLLOVER        0x01
 #define HID_USAGE_POSTFAIL              0x02
@@ -44,7 +46,7 @@ static const uint8_t hid_usage_keys[0x100] = {
     0xe2, 0x2c, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e,
     0x3f, 0x40, 0x41, 0x42, 0x43, 0x53, 0x47, 0x5f,
     0x60, 0x61, 0x56, 0x5c, 0x5d, 0x5e, 0x57, 0x59,
-    0x5a, 0x5b, 0x62, 0x63, 0x00, 0x00, 0x00, 0x44,
+    0x5a, 0x5b, 0x62, 0x63, 0x00, 0x00, 0x64, 0x44,
     0x45, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e,
     0xe8, 0xe9, 0x71, 0x72, 0x73, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x85, 0x00, 0x00, 0x00, 0x00,
@@ -95,7 +97,7 @@ void hid_set_next_idle(HIDState *hs)
 {
     if (hs->idle) {
         uint64_t expire_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-                               get_ticks_per_sec() * hs->idle * 4 / 1000;
+                               NANOSECONDS_PER_SECOND * hs->idle * 4 / 1000;
         if (!hs->idle_timer) {
             hs->idle_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, hid_idle_timer, hs);
         }
@@ -108,44 +110,49 @@ void hid_set_next_idle(HIDState *hs)
 static void hid_pointer_event(DeviceState *dev, QemuConsole *src,
                               InputEvent *evt)
 {
-    static const int bmap[INPUT_BUTTON_MAX] = {
+    static const int bmap[INPUT_BUTTON__MAX] = {
         [INPUT_BUTTON_LEFT]   = 0x01,
         [INPUT_BUTTON_RIGHT]  = 0x02,
         [INPUT_BUTTON_MIDDLE] = 0x04,
     };
     HIDState *hs = (HIDState *)dev;
     HIDPointerEvent *e;
+    InputMoveEvent *move;
+    InputBtnEvent *btn;
 
     assert(hs->n < QUEUE_LENGTH);
     e = &hs->ptr.queue[(hs->head + hs->n) & QUEUE_MASK];
 
-    switch (evt->kind) {
+    switch (evt->type) {
     case INPUT_EVENT_KIND_REL:
-        if (evt->rel->axis == INPUT_AXIS_X) {
-            e->xdx += evt->rel->value;
-        } else if (evt->rel->axis == INPUT_AXIS_Y) {
-            e->ydy += evt->rel->value;
+        move = evt->u.rel.data;
+        if (move->axis == INPUT_AXIS_X) {
+            e->xdx += move->value;
+        } else if (move->axis == INPUT_AXIS_Y) {
+            e->ydy += move->value;
         }
         break;
 
     case INPUT_EVENT_KIND_ABS:
-        if (evt->rel->axis == INPUT_AXIS_X) {
-            e->xdx = evt->rel->value;
-        } else if (evt->rel->axis == INPUT_AXIS_Y) {
-            e->ydy = evt->rel->value;
+        move = evt->u.abs.data;
+        if (move->axis == INPUT_AXIS_X) {
+            e->xdx = move->value;
+        } else if (move->axis == INPUT_AXIS_Y) {
+            e->ydy = move->value;
         }
         break;
 
     case INPUT_EVENT_KIND_BTN:
-        if (evt->btn->down) {
-            e->buttons_state |= bmap[evt->btn->button];
-            if (evt->btn->button == INPUT_BUTTON_WHEEL_UP) {
+        btn = evt->u.btn.data;
+        if (btn->down) {
+            e->buttons_state |= bmap[btn->button];
+            if (btn->button == INPUT_BUTTON_WHEEL_UP) {
                 e->dz--;
-            } else if (evt->btn->button == INPUT_BUTTON_WHEEL_DOWN) {
+            } else if (btn->button == INPUT_BUTTON_WHEEL_DOWN) {
                 e->dz++;
             }
         } else {
-            e->buttons_state &= ~bmap[evt->btn->button];
+            e->buttons_state &= ~bmap[btn->button];
         }
         break;
 
@@ -222,12 +229,13 @@ static void hid_keyboard_event(DeviceState *dev, QemuConsole *src,
     HIDState *hs = (HIDState *)dev;
     int scancodes[3], i, count;
     int slot;
+    InputKeyEvent *key = evt->u.key.data;
 
-    count = qemu_input_key_value_to_scancode(evt->key->key,
-                                             evt->key->down,
+    count = qemu_input_key_value_to_scancode(key->key,
+                                             key->down,
                                              scancodes);
     if (hs->n + count > QUEUE_LENGTH) {
-        fprintf(stderr, "usb-kbd: warning: key event queue full\n");
+        trace_hid_kbd_queue_full();
         return;
     }
     for (i = 0; i < count; i++) {
@@ -239,7 +247,7 @@ static void hid_keyboard_event(DeviceState *dev, QemuConsole *src,
 
 static void hid_keyboard_process_keycode(HIDState *hs)
 {
-    uint8_t hid_code, key;
+    uint8_t hid_code, index, key;
     int i, keycode, slot;
 
     if (hs->n == 0) {
@@ -249,7 +257,8 @@ static void hid_keyboard_process_keycode(HIDState *hs)
     keycode = hs->kbd.keycodes[slot];
 
     key = keycode & 0x7f;
-    hid_code = hid_usage_keys[key | ((hs->kbd.modifiers >> 1) & (1 << 7))];
+    index = key | ((hs->kbd.modifiers & (1 << 8)) >> 1);
+    hid_code = hid_usage_keys[index];
     hs->kbd.modifiers &= ~(1 << 8);
 
     switch (hid_code) {
@@ -257,18 +266,41 @@ static void hid_keyboard_process_keycode(HIDState *hs)
         return;
 
     case 0xe0:
+        assert(key == 0x1d);
         if (hs->kbd.modifiers & (1 << 9)) {
-            hs->kbd.modifiers ^= 3 << 8;
+            /* The hid_codes for the 0xe1/0x1d scancode sequence are 0xe9/0xe0.
+             * Here we're processing the second hid_code.  By dropping bit 9
+             * and setting bit 8, the scancode after 0x1d will access the
+             * second half of the table.
+             */
+            hs->kbd.modifiers ^= (1 << 8) | (1 << 9);
             return;
         }
+        /* fall through to process Ctrl_L */
     case 0xe1 ... 0xe7:
+        /* Ctrl_L/Ctrl_R, Shift_L/Shift_R, Alt_L/Alt_R, Win_L/Win_R.
+         * Handle releases here, or fall through to process presses.
+         */
         if (keycode & (1 << 7)) {
             hs->kbd.modifiers &= ~(1 << (hid_code & 0x0f));
             return;
         }
-    case 0xe8 ... 0xef:
+        /* fall through */
+    case 0xe8 ... 0xe9:
+        /* USB modifiers are just 1 byte long.  Bits 8 and 9 of
+         * hs->kbd.modifiers implement a state machine that detects the
+         * 0xe0 and 0xe1/0x1d sequences.  These bits do not follow the
+         * usual rules where bit 7 marks released keys; they are cleared
+         * elsewhere in the function as the state machine dictates.
+         */
         hs->kbd.modifiers |= 1 << (hid_code & 0x0f);
         return;
+
+    case 0xea ... 0xef:
+        abort();
+
+    default:
+        break;
     }
 
     if (keycode & (1 << 7)) {

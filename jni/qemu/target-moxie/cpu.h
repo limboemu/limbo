@@ -16,17 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _CPU_MOXIE_H
-#define _CPU_MOXIE_H
 
-#include "config.h"
+#ifndef MOXIE_CPU_H
+#define MOXIE_CPU_H
+
 #include "qemu-common.h"
 
 #define TARGET_LONG_BITS 32
 
 #define CPUArchState struct CPUMoxieState
-
-#define ELF_MACHINE     0xFEED /* EM_MOXIE */
 
 #define MOXIE_EX_DIV0        0
 #define MOXIE_EX_BAD         1
@@ -112,7 +110,6 @@ static inline MoxieCPU *moxie_env_get_cpu(CPUMoxieState *env)
 #define ENV_OFFSET offsetof(MoxieCPU, env)
 
 MoxieCPU *cpu_moxie_init(const char *cpu_model);
-int cpu_moxie_exec(CPUMoxieState *s);
 void moxie_cpu_do_interrupt(CPUState *cs);
 void moxie_cpu_dump_state(CPUState *cpu, FILE *f,
                           fprintf_function cpu_fprintf, int flags);
@@ -123,20 +120,17 @@ int cpu_moxie_signal_handler(int host_signum, void *pinfo,
 
 #define cpu_init(cpu_model) CPU(cpu_moxie_init(cpu_model))
 
-#define cpu_exec cpu_moxie_exec
-#define cpu_gen_code cpu_moxie_gen_code
 #define cpu_signal_handler cpu_moxie_signal_handler
 
-static inline int cpu_mmu_index(CPUMoxieState *env)
+static inline int cpu_mmu_index(CPUMoxieState *env, bool ifetch)
 {
     return 0;
 }
 
 #include "exec/cpu-all.h"
-#include "exec/exec-all.h"
 
 static inline void cpu_get_tb_cpu_state(CPUMoxieState *env, target_ulong *pc,
-                                        target_ulong *cs_base, int *flags)
+                                        target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->pc;
     *cs_base = 0;
@@ -146,4 +140,4 @@ static inline void cpu_get_tb_cpu_state(CPUMoxieState *env, target_ulong *pc,
 int moxie_cpu_handle_mmu_fault(CPUState *cpu, vaddr address,
                                int rw, int mmu_idx);
 
-#endif /* _CPU_MOXIE_H */
+#endif /* MOXIE_CPU_H */

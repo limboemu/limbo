@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -91,8 +95,8 @@ static struct neighbour * neighbour_create ( struct net_device *netdev,
 	memcpy ( neighbour->net_dest, net_dest,
 		 net_protocol->net_addr_len );
 	timer_init ( &neighbour->timer, neighbour_expired, &neighbour->refcnt );
-	neighbour->timer.min_timeout = NEIGHBOUR_MIN_TIMEOUT;
-	neighbour->timer.max_timeout = NEIGHBOUR_MAX_TIMEOUT;
+	set_timer_limits ( &neighbour->timer, NEIGHBOUR_MIN_TIMEOUT,
+			   NEIGHBOUR_MAX_TIMEOUT );
 	INIT_LIST_HEAD ( &neighbour->tx_queue );
 
 	/* Transfer ownership to cache */
@@ -318,7 +322,7 @@ int neighbour_tx ( struct io_buffer *iobuf, struct net_device *netdev,
 			netdev->name, net_protocol->name,
 			net_protocol->ntoa ( net_dest ) );
 		list_add_tail ( &iobuf->list, &neighbour->tx_queue );
-		return -EAGAIN;
+		return 0;
 	}
 }
 

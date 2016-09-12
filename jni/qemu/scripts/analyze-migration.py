@@ -252,6 +252,15 @@ class HTABSection(object):
     def getDict(self):
         return ""
 
+
+class ConfigurationSection(object):
+    def __init__(self, file):
+        self.file = file
+
+    def read(self):
+        name_len = self.file.read32()
+        name = self.file.readstr(len = name_len)
+
 class VMSDFieldGeneric(object):
     def __init__(self, desc, file):
         self.file = file
@@ -474,6 +483,8 @@ class MigrationDump(object):
     QEMU_VM_SECTION_FULL  = 0x04
     QEMU_VM_SUBSECTION    = 0x05
     QEMU_VM_VMDESCRIPTION = 0x06
+    QEMU_VM_CONFIGURATION = 0x07
+    QEMU_VM_SECTION_FOOTER= 0x7e
 
     def __init__(self, filename):
         self.section_classes = { ( 'ram', 0 ) : [ RamSection, None ],
@@ -513,6 +524,9 @@ class MigrationDump(object):
             section_type = file.read8()
             if section_type == self.QEMU_VM_EOF:
                 break
+            elif section_type == self.QEMU_VM_CONFIGURATION:
+                section = ConfigurationSection(file)
+                section.read()
             elif section_type == self.QEMU_VM_SECTION_START or section_type == self.QEMU_VM_SECTION_FULL:
                 section_id = file.read32()
                 name = file.readstr()
@@ -526,6 +540,10 @@ class MigrationDump(object):
             elif section_type == self.QEMU_VM_SECTION_PART or section_type == self.QEMU_VM_SECTION_END:
                 section_id = file.read32()
                 self.sections[section_id].read()
+            elif section_type == self.QEMU_VM_SECTION_FOOTER:
+                read_section_id = file.read32()
+                if read_section_id != section_id:
+                    raise Exception("Mismatched section footer: %x vs %x" % (read_section_id, section_id))
             else:
                 raise Exception("Unknown section type: %d" % section_type)
         file.close()

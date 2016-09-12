@@ -23,8 +23,7 @@ FALSE VALUE initialized?
 
 INSTANCE VARIABLE deblocker
 
-/vd-len BUFFER: virtiodev
-virtiodev virtio-setup-vd
+virtio-setup-vd VALUE virtiodev
 
 \ Quiesce the virtqueue of this device so that no more background
 \ transactions can be pending.

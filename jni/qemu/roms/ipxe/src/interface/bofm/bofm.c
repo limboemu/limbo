@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -309,12 +313,12 @@ int bofm ( userptr_t bofmtab, struct pci_device *pci ) {
 		}
 		DBG ( "BOFM: slot %d port %d%s is " PCI_FMT " mport %d\n",
 		      en.slot, ( en.port + 1 ),
-		      ( ( en.slot || en.port ) ? "" : "(?)" ),
+		      ( ( en.slot || en.port ) ? "" : "(?)" ), 0,
 		      PCI_BUS ( en.busdevfn ), PCI_SLOT ( en.busdevfn ),
 		      PCI_FUNC ( en.busdevfn ), en.mport );
 		bofm = bofm_find_busdevfn ( en.busdevfn );
 		if ( ! bofm ) {
-			DBG ( "BOFM: " PCI_FMT " mport %d ignored\n",
+			DBG ( "BOFM: " PCI_FMT " mport %d ignored\n", 0,
 			      PCI_BUS ( en.busdevfn ), PCI_SLOT ( en.busdevfn ),
 			      PCI_FUNC ( en.busdevfn ), en.mport );
 			continue;

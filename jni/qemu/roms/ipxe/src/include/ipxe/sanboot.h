@@ -16,7 +16,7 @@
  * the address parameter.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/api.h>
 #include <config/sanboot.h>
@@ -70,7 +70,7 @@ unsigned int san_default_drive ( void );
  *
  * @v uri		URI
  * @v drive		Drive number
- * @ret rc		Return status code
+ * @ret drive		Drive number, or negative error
  */
 int san_hook ( struct uri *uri, unsigned int drive );
 

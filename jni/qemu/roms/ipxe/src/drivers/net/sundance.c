@@ -601,7 +601,7 @@ static int sundance_probe ( struct nic *nic, struct pci_device *pci ) {
 	sdc->nic_name = pci->id->name;
 	sdc->mtu = mtu;
 
-	pci_read_config_byte(pci, PCI_REVISION_ID, &sdc->pci_rev_id);
+	pci_read_config_byte(pci, PCI_REVISION, &sdc->pci_rev_id);
 
 	DBG ( "Device revision id: %hx\n", sdc->pci_rev_id );
 

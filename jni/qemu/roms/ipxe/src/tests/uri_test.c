@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -31,6 +35,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <string.h>
 #include <byteswap.h>
 #include <ipxe/uri.h>
+#include <ipxe/tcpip.h>
 #include <ipxe/params.h>
 #include <ipxe/test.h>
 
@@ -62,10 +67,15 @@ struct uri_resolve_test {
 	const char *resolved;
 };
 
-/** A TFTP URI test */
-struct uri_tftp_test {
-	/** Next-server address */
-	struct in_addr next_server;
+/** A PXE URI test */
+struct uri_pxe_test {
+	/** Server address */
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_tcpip st;
+	} server;
 	/** Filename */
 	const char *filename;
 	/** URI */
@@ -317,20 +327,20 @@ static void uri_resolve_path_okx ( struct uri_resolve_test *test,
 	uri_resolve_path_okx ( test, __FILE__, __LINE__ )
 
 /**
- * Report URI TFTP test result
+ * Report URI PXE test result
  *
- * @v test		URI TFTP test
+ * @v test		URI PXE test
  * @v file		Test code file
  * @v line		Test code line
  */
-static void uri_tftp_okx ( struct uri_tftp_test *test, const char *file,
-			   unsigned int line ) {
+static void uri_pxe_okx ( struct uri_pxe_test *test, const char *file,
+			  unsigned int line ) {
 	char buf[ strlen ( test->string ) + 1 /* NUL */ ];
 	struct uri *uri;
 	size_t len;
 
 	/* Construct URI */
-	uri = tftp_uri ( test->next_server, test->filename );
+	uri = pxe_uri ( &test->server.sa, test->filename );
 	okx ( uri != NULL, file, line );
 	if ( uri ) {
 		uri_okx ( uri, &test->uri, file, line );
@@ -340,7 +350,7 @@ static void uri_tftp_okx ( struct uri_tftp_test *test, const char *file,
 	}
 	uri_put ( uri );
 }
-#define uri_tftp_ok( test ) uri_tftp_okx ( test, __FILE__, __LINE__ )
+#define uri_pxe_ok( test ) uri_pxe_okx ( test, __FILE__, __LINE__ )
 
 /**
  * Report current working URI test result
@@ -489,6 +499,18 @@ static struct uri_test uri_mailto = {
 	{ .scheme = "mailto", .opaque = "ipxe-devel@lists.ipxe.org" }
 };
 
+/** Basic path-only URI */
+static struct uri_test uri_path = {
+	"/var/lib/tftpboot/pxelinux.0",
+	{ .path = "/var/lib/tftpboot/pxelinux.0" },
+};
+
+/** Path-only URI with escaped characters */
+static struct uri_test uri_path_escaped = {
+	"/hello%20world%3F",
+	{ .path = "/hello world?" },
+};
+
 /** HTTP URI with all the trimmings */
 static struct uri_test uri_http_all = {
 	"http://anon:password@example.com:3001/~foo/cgi-bin/foo.pl?a=b&c=d#bit",
@@ -588,6 +610,34 @@ static struct uri_test uri_iscsi = {
 	},
 };
 
+/** File URI with relative (opaque) path */
+static struct uri_test uri_file_relative = {
+	"file:boot/script.ipxe",
+	{
+		.scheme = "file",
+		.opaque = "boot/script.ipxe",
+	},
+};
+
+/** File URI with absolute path */
+static struct uri_test uri_file_absolute = {
+	"file:/boot/script.ipxe",
+	{
+		.scheme = "file",
+		.path = "/boot/script.ipxe",
+	},
+};
+
+/** File URI with volume name */
+static struct uri_test uri_file_volume = {
+	"file://hpilo/boot/script.ipxe",
+	{
+		.scheme = "file",
+		.host = "hpilo",
+		.path = "/boot/script.ipxe",
+	},
+};
+
 /** URI with port number */
 static struct uri_port_test uri_explicit_port = {
 	"http://192.168.0.1:8080/boot.php",
@@ -672,40 +722,96 @@ static struct uri_resolve_test uri_fragment = {
 	"http://192.168.0.254/test#bar",
 };
 
-/** TFTP URI with absolute path */
-static struct uri_tftp_test uri_tftp_absolute = {
-	{ .s_addr = htonl ( 0xc0a80002 ) /* 192.168.0.2 */ },
+/** PXE URI with absolute URI */
+static struct uri_pxe_test uri_pxe_absolute = {
+	{
+		/* 192.168.0.3 */
+		.sin = {
+			.sin_family = AF_INET,
+			.sin_addr = { .s_addr = htonl ( 0xc0a80003 ) },
+		},
+	},
+	"http://not.a.tftp/uri",
+	{
+		.scheme = "http",
+		.host = "not.a.tftp",
+		.path = "/uri",
+	},
+	"http://not.a.tftp/uri",
+};
+
+/** PXE URI with absolute path */
+static struct uri_pxe_test uri_pxe_absolute_path = {
+	{
+		/* 192.168.0.2 */
+		.sin = {
+			.sin_family = AF_INET,
+			.sin_addr = { .s_addr = htonl ( 0xc0a80002 ) },
+		},
+	},
 	"/absolute/path",
 	{
 		.scheme = "tftp",
 		.host = "192.168.0.2",
-		.path = "/absolute/path",
+		.path = "//absolute/path",
 	},
-	"tftp://192.168.0.2/absolute/path",
+	"tftp://192.168.0.2//absolute/path",
 };
 
-/** TFTP URI with relative path */
-static struct uri_tftp_test uri_tftp_relative = {
-	{ .s_addr = htonl ( 0xc0a80003 ) /* 192.168.0.3 */ },
+/** PXE URI with relative path */
+static struct uri_pxe_test uri_pxe_relative_path = {
+	{
+		/* 192.168.0.3 */
+		.sin = {
+			.sin_family = AF_INET,
+			.sin_addr = { .s_addr = htonl ( 0xc0a80003 ) },
+		},
+	},
 	"relative/path",
 	{
 		.scheme = "tftp",
 		.host = "192.168.0.3",
-		.path = "relative/path",
+		.path = "/relative/path",
 	},
 	"tftp://192.168.0.3/relative/path",
 };
 
-/** TFTP URI with path containing special characters */
-static struct uri_tftp_test uri_tftp_icky = {
-	{ .s_addr = htonl ( 0x0a000006 ) /* 10.0.0.6 */ },
+/** PXE URI with path containing special characters */
+static struct uri_pxe_test uri_pxe_icky = {
+	{
+		/* 10.0.0.6 */
+		.sin = {
+			.sin_family = AF_INET,
+			.sin_addr = { .s_addr = htonl ( 0x0a000006 ) },
+		},
+	},
 	"C:\\tftpboot\\icky#path",
 	{
 		.scheme = "tftp",
 		.host = "10.0.0.6",
-		.path = "C:\\tftpboot\\icky#path",
+		.path = "/C:\\tftpboot\\icky#path",
 	},
 	"tftp://10.0.0.6/C%3A\\tftpboot\\icky%23path",
+};
+
+/** PXE URI with custom port */
+static struct uri_pxe_test uri_pxe_port = {
+	{
+		/* 192.168.0.1:4069 */
+		.sin = {
+			.sin_family = AF_INET,
+			.sin_addr = { .s_addr = htonl ( 0xc0a80001 ) },
+			.sin_port = htons ( 4069 ),
+		},
+	},
+	"/another/path",
+	{
+		.scheme = "tftp",
+		.host = "192.168.0.1",
+		.port = "4069",
+		.path = "//another/path",
+	},
+	"tftp://192.168.0.1:4069//another/path",
 };
 
 /** Current working URI test */
@@ -811,6 +917,8 @@ static void uri_test_exec ( void ) {
 	uri_parse_format_dup_ok ( &uri_empty );
 	uri_parse_format_dup_ok ( &uri_boot_ipxe_org );
 	uri_parse_format_dup_ok ( &uri_mailto );
+	uri_parse_format_dup_ok ( &uri_path );
+	uri_parse_format_dup_ok ( &uri_path_escaped );
 	uri_parse_format_dup_ok ( &uri_http_all );
 	uri_parse_format_dup_ok ( &uri_http_escaped );
 	uri_parse_ok ( &uri_http_escaped_improper ); /* Parse only */
@@ -819,6 +927,9 @@ static void uri_test_exec ( void ) {
 	uri_parse_format_dup_ok ( &uri_ipv6_local );
 	uri_parse_ok ( &uri_ipv6_local_non_conforming ); /* Parse only */
 	uri_parse_format_dup_ok ( &uri_iscsi );
+	uri_parse_format_dup_ok ( &uri_file_relative );
+	uri_parse_format_dup_ok ( &uri_file_absolute );
+	uri_parse_format_dup_ok ( &uri_file_volume );
 
 	/** URI port number tests */
 	uri_port_ok ( &uri_explicit_port );
@@ -838,10 +949,12 @@ static void uri_test_exec ( void ) {
 	uri_resolve_ok ( &uri_query );
 	uri_resolve_ok ( &uri_fragment );
 
-	/* TFTP URI construction tests */
-	uri_tftp_ok ( &uri_tftp_absolute );
-	uri_tftp_ok ( &uri_tftp_relative );
-	uri_tftp_ok ( &uri_tftp_icky );
+	/* PXE URI construction tests */
+	uri_pxe_ok ( &uri_pxe_absolute );
+	uri_pxe_ok ( &uri_pxe_absolute_path );
+	uri_pxe_ok ( &uri_pxe_relative_path );
+	uri_pxe_ok ( &uri_pxe_icky );
+	uri_pxe_ok ( &uri_pxe_port );
 
 	/* Current working URI tests */
 	uri_churi_ok ( uri_churi );

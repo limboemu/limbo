@@ -19,11 +19,12 @@
 
 typedef struct QmpInputVisitor QmpInputVisitor;
 
-QmpInputVisitor *qmp_input_visitor_new(QObject *obj);
-QmpInputVisitor *qmp_input_visitor_new_strict(QObject *obj);
-
-void qmp_input_visitor_cleanup(QmpInputVisitor *v);
-
-Visitor *qmp_input_get_visitor(QmpInputVisitor *v);
+/*
+ * Return a new input visitor that converts QMP to QAPI.
+ *
+ * Set @strict to reject a parse that doesn't consume all keys of a
+ * dictionary; otherwise excess input is ignored.
+ */
+Visitor *qmp_input_visitor_new(QObject *obj, bool strict);
 
 #endif

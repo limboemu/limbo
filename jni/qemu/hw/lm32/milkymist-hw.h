@@ -1,15 +1,17 @@
-#ifndef QEMU_HW_MILKYMIST_H
-#define QEMU_HW_MILKYMIST_H
+#ifndef QEMU_HW_MILKYMIST_HW_H
+#define QEMU_HW_MILKYMIST_HW_H
 
 #include "hw/qdev.h"
 #include "net/net.h"
 
 static inline DeviceState *milkymist_uart_create(hwaddr base,
-        qemu_irq irq)
+                                                 qemu_irq irq,
+                                                 CharDriverState *chr)
 {
     DeviceState *dev;
 
     dev = qdev_create(NULL, "milkymist-uart");
+    qdev_prop_set_chr(dev, "chardev", chr);
     qdev_init_nofail(dev);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, base);
     sysbus_connect_irq(SYS_BUS_DEVICE(dev), 0, irq);
@@ -88,7 +90,8 @@ static inline DeviceState *milkymist_pfpu_create(hwaddr base,
 
 #ifdef CONFIG_OPENGL
 #include <X11/Xlib.h>
-#include <GL/glx.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
 static const int glx_fbconfig_attr[] = {
     GLX_GREEN_SIZE, 5,
     GLX_GREEN_SIZE, 6,
@@ -106,10 +109,6 @@ static inline DeviceState *milkymist_tmu2_create(hwaddr base,
     GLXFBConfig *configs;
     int nelements;
     int ver_major, ver_minor;
-
-    if (display_type == DT_NOGRAPHIC) {
-        return NULL;
-    }
 
     /* check that GLX will work */
     d = XOpenDisplay(NULL);
@@ -204,4 +203,4 @@ static inline DeviceState *milkymist_softusb_create(hwaddr base,
     return dev;
 }
 
-#endif /* QEMU_HW_MILKYMIST_H */
+#endif /* QEMU_HW_MILKYMIST_HW_H */

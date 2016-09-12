@@ -7,14 +7,16 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <stdarg.h>
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu/sockets.h" /* for EINPROGRESS on Windows */
 #include "block/block_int.h"
 #include "qapi/qmp/qdict.h"
 #include "qapi/qmp/qstring.h"
+#include "qemu/cutils.h"
 
 typedef struct {
-    BlockDriverState *test_file;
+    BdrvChild *test_file;
 } BDRVBlkverifyState;
 
 typedef struct BlkverifyAIOCB BlkverifyAIOCB;
@@ -123,26 +125,29 @@ static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
     }
 
     /* Open the raw file */
-    assert(bs->file == NULL);
-    ret = bdrv_open_image(&bs->file, qemu_opt_get(opts, "x-raw"), options,
-                          "raw", flags | BDRV_O_PROTOCOL, false, &local_err);
-    if (ret < 0) {
+    bs->file = bdrv_open_child(qemu_opt_get(opts, "x-raw"), options, "raw",
+                               bs, &child_file, false, &local_err);
+    if (local_err) {
+        ret = -EINVAL;
         error_propagate(errp, local_err);
         goto fail;
     }
 
     /* Open the test file */
-    assert(s->test_file == NULL);
-    ret = bdrv_open_image(&s->test_file, qemu_opt_get(opts, "x-image"), options,
-                          "test", flags, false, &local_err);
-    if (ret < 0) {
+    s->test_file = bdrv_open_child(qemu_opt_get(opts, "x-image"), options,
+                                   "test", bs, &child_format, false,
+                                   &local_err);
+    if (local_err) {
+        ret = -EINVAL;
         error_propagate(errp, local_err);
-        s->test_file = NULL;
         goto fail;
     }
 
     ret = 0;
 fail:
+    if (ret < 0) {
+        bdrv_unref_child(bs, bs->file);
+    }
     qemu_opts_del(opts);
     return ret;
 }
@@ -151,7 +156,7 @@ static void blkverify_close(BlockDriverState *bs)
 {
     BDRVBlkverifyState *s = bs->opaque;
 
-    bdrv_unref(s->test_file);
+    bdrv_unref_child(bs, s->test_file);
     s->test_file = NULL;
 }
 
@@ -159,7 +164,7 @@ static int64_t blkverify_getlength(BlockDriverState *bs)
 {
     BDRVBlkverifyState *s = bs->opaque;
 
-    return bdrv_getlength(s->test_file);
+    return bdrv_getlength(s->test_file->bs);
 }
 
 static BlkverifyAIOCB *blkverify_aio_get(BlockDriverState *bs, bool is_write,
@@ -238,7 +243,7 @@ static BlockAIOCB *blkverify_aio_readv(BlockDriverState *bs,
                                             nb_sectors, cb, opaque);
 
     acb->verify = blkverify_verify_readv;
-    acb->buf = qemu_blockalign(bs->file, qiov->size);
+    acb->buf = qemu_blockalign(bs->file->bs, qiov->size);
     qemu_iovec_init(&acb->raw_qiov, acb->qiov->niov);
     qemu_iovec_clone(&acb->raw_qiov, qiov, acb->buf);
 
@@ -271,7 +276,7 @@ static BlockAIOCB *blkverify_aio_flush(BlockDriverState *bs,
     BDRVBlkverifyState *s = bs->opaque;
 
     /* Only flush test file, the raw file is not important */
-    return bdrv_aio_flush(s->test_file, cb, opaque);
+    return bdrv_aio_flush(s->test_file->bs, cb, opaque);
 }
 
 static bool blkverify_recurse_is_first_non_filter(BlockDriverState *bs,
@@ -279,54 +284,44 @@ static bool blkverify_recurse_is_first_non_filter(BlockDriverState *bs,
 {
     BDRVBlkverifyState *s = bs->opaque;
 
-    bool perm = bdrv_recurse_is_first_non_filter(bs->file, candidate);
+    bool perm = bdrv_recurse_is_first_non_filter(bs->file->bs, candidate);
 
     if (perm) {
         return true;
     }
 
-    return bdrv_recurse_is_first_non_filter(s->test_file, candidate);
+    return bdrv_recurse_is_first_non_filter(s->test_file->bs, candidate);
 }
 
-/* Propagate AioContext changes to ->test_file */
-static void blkverify_detach_aio_context(BlockDriverState *bs)
+static void blkverify_refresh_filename(BlockDriverState *bs, QDict *options)
 {
     BDRVBlkverifyState *s = bs->opaque;
 
-    bdrv_detach_aio_context(s->test_file);
-}
+    /* bs->file->bs has already been refreshed */
+    bdrv_refresh_filename(s->test_file->bs);
 
-static void blkverify_attach_aio_context(BlockDriverState *bs,
-                                         AioContext *new_context)
-{
-    BDRVBlkverifyState *s = bs->opaque;
-
-    bdrv_attach_aio_context(s->test_file, new_context);
-}
-
-static void blkverify_refresh_filename(BlockDriverState *bs)
-{
-    BDRVBlkverifyState *s = bs->opaque;
-
-    /* bs->file has already been refreshed */
-    bdrv_refresh_filename(s->test_file);
-
-    if (bs->file->full_open_options && s->test_file->full_open_options) {
+    if (bs->file->bs->full_open_options
+        && s->test_file->bs->full_open_options)
+    {
         QDict *opts = qdict_new();
         qdict_put_obj(opts, "driver", QOBJECT(qstring_from_str("blkverify")));
 
-        QINCREF(bs->file->full_open_options);
-        qdict_put_obj(opts, "raw", QOBJECT(bs->file->full_open_options));
-        QINCREF(s->test_file->full_open_options);
-        qdict_put_obj(opts, "test", QOBJECT(s->test_file->full_open_options));
+        QINCREF(bs->file->bs->full_open_options);
+        qdict_put_obj(opts, "raw", QOBJECT(bs->file->bs->full_open_options));
+        QINCREF(s->test_file->bs->full_open_options);
+        qdict_put_obj(opts, "test",
+                      QOBJECT(s->test_file->bs->full_open_options));
 
         bs->full_open_options = opts;
     }
 
-    if (bs->file->exact_filename[0] && s->test_file->exact_filename[0]) {
+    if (bs->file->bs->exact_filename[0]
+        && s->test_file->bs->exact_filename[0])
+    {
         snprintf(bs->exact_filename, sizeof(bs->exact_filename),
                  "blkverify:%s:%s",
-                 bs->file->exact_filename, s->test_file->exact_filename);
+                 bs->file->bs->exact_filename,
+                 s->test_file->bs->exact_filename);
     }
 }
 
@@ -344,9 +339,6 @@ static BlockDriver bdrv_blkverify = {
     .bdrv_aio_readv                   = blkverify_aio_readv,
     .bdrv_aio_writev                  = blkverify_aio_writev,
     .bdrv_aio_flush                   = blkverify_aio_flush,
-
-    .bdrv_attach_aio_context          = blkverify_attach_aio_context,
-    .bdrv_detach_aio_context          = blkverify_detach_aio_context,
 
     .is_filter                        = true,
     .bdrv_recurse_is_first_non_filter = blkverify_recurse_is_first_non_filter,

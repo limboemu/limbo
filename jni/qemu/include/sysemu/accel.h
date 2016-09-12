@@ -23,7 +23,6 @@
 #ifndef HW_ACCEL_H
 #define HW_ACCEL_H
 
-#include "qemu/typedefs.h"
 #include "qom/object.h"
 
 typedef struct AccelState {
@@ -57,6 +56,6 @@ typedef struct AccelClass {
 
 extern int tcg_tb_size;
 
-int configure_accelerator(MachineState *ms);
+void configure_accelerator(MachineState *ms);
 
 #endif

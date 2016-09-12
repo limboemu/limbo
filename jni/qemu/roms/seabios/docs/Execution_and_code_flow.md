@@ -36,7 +36,7 @@ process.
 
 The POST phase itself has several sub-phases.
 
-* The "preinit" sub-phase: code run prior to code relocation.
+* The "preinit" sub-phase: code run prior to [code relocation](Linking overview#Code relocation).
 * The "init" sub-phase: code to initialize internal variables and
   interfaces.
 * The "setup" sub-phase: code to setup hardware and drivers.

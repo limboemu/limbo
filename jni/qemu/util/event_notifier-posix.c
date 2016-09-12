@@ -10,7 +10,9 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "qemu/cutils.h"
 #include "qemu/event_notifier.h"
 #include "sysemu/char.h"
 #include "qemu/main-loop.h"
@@ -19,11 +21,17 @@
 #include <sys/eventfd.h>
 #endif
 
+#ifdef CONFIG_EVENTFD
+/*
+ * Initialize @e with existing file descriptor @fd.
+ * @fd must be a genuine eventfd object, emulation with pipe won't do.
+ */
 void event_notifier_init_fd(EventNotifier *e, int fd)
 {
     e->rfd = fd;
     e->wfd = fd;
 }
+#endif
 
 int event_notifier_init(EventNotifier *e, int active)
 {
@@ -77,15 +85,18 @@ void event_notifier_cleanup(EventNotifier *e)
     close(e->wfd);
 }
 
-int event_notifier_get_fd(EventNotifier *e)
+int event_notifier_get_fd(const EventNotifier *e)
 {
     return e->rfd;
 }
 
 int event_notifier_set_handler(EventNotifier *e,
+                               bool is_external,
                                EventNotifierHandler *handler)
 {
-    return qemu_set_fd_handler(e->rfd, (IOHandler *)handler, NULL, e);
+    aio_set_fd_handler(iohandler_get_aio_context(), e->rfd, is_external,
+                       (IOHandler *)handler, NULL, e);
+    return 0;
 }
 
 int event_notifier_set(EventNotifier *e)

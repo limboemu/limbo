@@ -46,6 +46,8 @@
  * 0001:05:0c.0 IDE interface [0101]: Broadcom K2 SATA [1166:0240]
  *
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/ppc/ppc.h"
 #include "hw/ppc/mac.h"
@@ -62,12 +64,14 @@
 #include "hw/ide.h"
 #include "hw/loader.h"
 #include "elf.h"
+#include "qemu/error-report.h"
 #include "sysemu/kvm.h"
 #include "kvm_ppc.h"
 #include "hw/usb.h"
 #include "sysemu/block-backend.h"
 #include "exec/address-spaces.h"
 #include "hw/sysbus.h"
+#include "qemu/cutils.h"
 
 #define MAX_IDE_BUS 2
 #define CFG_ADDR 0xf0000510
@@ -119,7 +123,7 @@ static const MemoryRegionOps unin_ops = {
 static void fw_cfg_boot_set(void *opaque, const char *boot_device,
                             Error **errp)
 {
-    fw_cfg_add_i16(opaque, FW_CFG_BOOT_DEVICE, boot_device[0]);
+    fw_cfg_modify_i16(opaque, FW_CFG_BOOT_DEVICE, boot_device[0]);
 }
 
 static uint64_t translate_kernel_address(void *opaque, uint64_t addr)
@@ -145,7 +149,6 @@ static void ppc_core99_reset(void *opaque)
 static void ppc_core99_init(MachineState *machine)
 {
     ram_addr_t ram_size = machine->ram_size;
-    const char *cpu_model = machine->cpu_model;
     const char *kernel_filename = machine->kernel_filename;
     const char *kernel_cmdline = machine->kernel_cmdline;
     const char *initrd_filename = machine->initrd_filename;
@@ -182,14 +185,15 @@ static void ppc_core99_init(MachineState *machine)
     linux_boot = (kernel_filename != NULL);
 
     /* init CPUs */
-    if (cpu_model == NULL)
+    if (machine->cpu_model == NULL) {
 #ifdef TARGET_PPC64
-        cpu_model = "970fx";
+        machine->cpu_model = "970fx";
 #else
-        cpu_model = "G4";
+        machine->cpu_model = "G4";
 #endif
+    }
     for (i = 0; i < smp_cpus; i++) {
-        cpu = cpu_ppc_init(cpu_model);
+        cpu = cpu_ppc_init(machine->cpu_model);
         if (cpu == NULL) {
             fprintf(stderr, "Unable to find PowerPC CPU definition\n");
             exit(1);
@@ -207,7 +211,7 @@ static void ppc_core99_init(MachineState *machine)
 
     /* allocate and load BIOS */
     memory_region_init_ram(bios, NULL, "ppc_core99.bios", BIOS_SIZE,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(bios);
 
     if (bios_name == NULL)
@@ -219,14 +223,14 @@ static void ppc_core99_init(MachineState *machine)
     /* Load OpenBIOS (ELF) */
     if (filename) {
         bios_size = load_elf(filename, NULL, NULL, NULL,
-                             NULL, NULL, 1, ELF_MACHINE, 0);
+                             NULL, NULL, 1, PPC_ELF_MACHINE, 0, 0);
 
         g_free(filename);
     } else {
         bios_size = -1;
     }
     if (bios_size < 0 || bios_size > BIOS_SIZE) {
-        hw_error("qemu: could not load PowerPC bios '%s'\n", bios_name);
+        error_report("could not load PowerPC bios '%s'", bios_name);
         exit(1);
     }
 
@@ -242,7 +246,8 @@ static void ppc_core99_init(MachineState *machine)
         kernel_base = KERNEL_LOAD_ADDR;
 
         kernel_size = load_elf(kernel_filename, translate_kernel_address, NULL,
-                               NULL, &lowaddr, NULL, 1, ELF_MACHINE, 0);
+                               NULL, &lowaddr, NULL, 1, PPC_ELF_MACHINE,
+                               0, 0);
         if (kernel_size < 0)
             kernel_size = load_aout(kernel_filename, kernel_base,
                                     ram_size - kernel_base, bswap_needed,
@@ -252,7 +257,7 @@ static void ppc_core99_init(MachineState *machine)
                                               kernel_base,
                                               ram_size - kernel_base);
         if (kernel_size < 0) {
-            hw_error("qemu: could not load kernel '%s'\n", kernel_filename);
+            error_report("could not load kernel '%s'", kernel_filename);
             exit(1);
         }
         /* load initrd */
@@ -261,8 +266,8 @@ static void ppc_core99_init(MachineState *machine)
             initrd_size = load_image_targphys(initrd_filename, initrd_base,
                                               ram_size - initrd_base);
             if (initrd_size < 0) {
-                hw_error("qemu: could not load initial ram disk '%s'\n",
-                         initrd_filename);
+                error_report("could not load initial ram disk '%s'",
+                             initrd_filename);
                 exit(1);
             }
             cmdline_base = round_page(initrd_base + initrd_size);
@@ -344,7 +349,7 @@ static void ppc_core99_init(MachineState *machine)
             break;
 #endif /* defined(TARGET_PPC64) */
         default:
-            hw_error("Bus model not supported on mac99 machine\n");
+            error_report("Bus model not supported on mac99 machine");
             exit(1);
         }
     }
@@ -371,11 +376,13 @@ static void ppc_core99_init(MachineState *machine)
         /* 970 gets a U3 bus */
         pci_bus = pci_pmac_u3_init(pic, get_system_memory(), get_system_io());
         machine_arch = ARCH_MAC99_U3;
-        machine->usb |= defaults_enabled() && !machine->usb_disabled;
     } else {
         pci_bus = pci_pmac_init(pic, get_system_memory(), get_system_io());
         machine_arch = ARCH_MAC99;
     }
+    object_property_set_bool(OBJECT(pci_bus), true, "realized", &error_abort);
+
+    machine->usb |= defaults_enabled() && !machine->usb_disabled;
 
     /* Timebase Frequency */
     if (kvm_enabled()) {
@@ -508,7 +515,6 @@ static void core99_machine_class_init(ObjectClass *oc, void *data)
 {
     MachineClass *mc = MACHINE_CLASS(oc);
 
-    mc->name = "mac99";
     mc->desc = "Mac99 based PowerMAC";
     mc->init = ppc_core99_init;
     mc->max_cpus = MAX_CPUS;
@@ -517,7 +523,7 @@ static void core99_machine_class_init(ObjectClass *oc, void *data)
 }
 
 static const TypeInfo core99_machine_info = {
-    .name          = "mac99-machine",
+    .name          = MACHINE_TYPE_NAME("mac99"),
     .parent        = TYPE_MACHINE,
     .class_init    = core99_machine_class_init,
 };

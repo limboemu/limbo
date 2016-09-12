@@ -651,6 +651,8 @@
         r> TO pci-device-slots          \ and reset the slot array
 ;
 
+DEFER func-pci-device-props
+
 \ used for an gerneric device set up
 \ if a device has no special handling for setup
 \ the device file (pci-device_VENDOR_DEVICE.fs) can call
@@ -659,6 +661,8 @@
         dup assign-all-device-bars      \ calc all BARs
         dup pci-set-irq-line            \ set the interrupt pin
         dup pci-set-capabilities        \ set up the capabilities
-        dup pci-device-props            \ and generate all properties
+        dup func-pci-device-props       \ and generate all properties
         drop                            \ forget the config-addr
 ;
+
+' pci-device-props TO func-pci-device-props

@@ -10,9 +10,7 @@
  * This work is licensed under the terms of the GNU GPL, version 2 or later.
  * See the COPYING file in the top-level directory.
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <glib.h>
+#include "qemu/osdep.h"
 #include <windows.h>
 #include "qga/service-win32.h"
 

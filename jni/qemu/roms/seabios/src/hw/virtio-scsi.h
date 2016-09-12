@@ -41,7 +41,7 @@ struct virtio_scsi_resp_cmd {
 #define VIRTIO_SCSI_S_OK            0
 
 struct disk_op_s;
-int virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int virtio_scsi_process_op(struct disk_op_s *op);
 void virtio_scsi_setup(void);
 
 #endif /* _VIRTIO_SCSI_H */

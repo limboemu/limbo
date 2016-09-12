@@ -24,6 +24,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
@@ -34,6 +38,7 @@
 #include "hw/loader.h"
 #include "hw/char/serial.h"
 #include "exec/address-spaces.h"
+#include "elf.h"
 
 #define PHYS_MEM_BASE 0x80000000
 
@@ -52,8 +57,8 @@ static void load_kernel(MoxieCPU *cpu, LoaderParams *loader_params)
     ram_addr_t initrd_offset;
 
     kernel_size = load_elf(loader_params->kernel_filename,  NULL, NULL,
-                           &entry, &kernel_low, &kernel_high, 1,
-                           ELF_MACHINE, 0);
+                           &entry, &kernel_low, &kernel_high, 1, EM_MOXIE,
+                           0, 0);
 
     if (kernel_size <= 0) {
         fprintf(stderr, "qemu: could not load kernel '%s'\n",
@@ -123,11 +128,11 @@ static void moxiesim_init(MachineState *machine)
     qemu_register_reset(main_cpu_reset, cpu);
 
     /* Allocate RAM. */
-    memory_region_init_ram(ram, NULL, "moxiesim.ram", ram_size, &error_abort);
+    memory_region_init_ram(ram, NULL, "moxiesim.ram", ram_size, &error_fatal);
     vmstate_register_ram_global(ram);
     memory_region_add_subregion(address_space_mem, ram_base, ram);
 
-    memory_region_init_ram(rom, NULL, "moxie.rom", 128*0x1000, &error_abort);
+    memory_region_init_ram(rom, NULL, "moxie.rom", 128*0x1000, &error_fatal);
     vmstate_register_ram_global(rom);
     memory_region_add_subregion(get_system_memory(), 0x1000, rom);
 
@@ -146,16 +151,11 @@ static void moxiesim_init(MachineState *machine)
     }
 }
 
-static QEMUMachine moxiesim_machine = {
-    .name = "moxiesim",
-    .desc = "Moxie simulator platform",
-    .init = moxiesim_init,
-    .is_default = 1,
-};
-
-static void moxie_machine_init(void)
+static void moxiesim_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&moxiesim_machine);
+    mc->desc = "Moxie simulator platform";
+    mc->init = moxiesim_init;
+    mc->is_default = 1;
 }
 
-machine_init(moxie_machine_init)
+DEFINE_MACHINE("moxiesim", moxiesim_machine_init)

@@ -15,6 +15,7 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "block/block.h"
 #include "qemu/queue.h"
@@ -28,11 +29,13 @@ struct AioHandler {
     GPollFD pfd;
     int deleted;
     void *opaque;
+    bool is_external;
     QLIST_ENTRY(AioHandler) node;
 };
 
 void aio_set_fd_handler(AioContext *ctx,
                         int fd,
+                        bool is_external,
                         IOHandler *io_read,
                         IOHandler *io_write,
                         void *opaque)
@@ -86,6 +89,7 @@ void aio_set_fd_handler(AioContext *ctx,
         node->opaque = opaque;
         node->io_read = io_read;
         node->io_write = io_write;
+        node->is_external = is_external;
 
         event = event_notifier_get_handle(&ctx->notifier);
         WSAEventSelect(node->pfd.fd, event,
@@ -98,6 +102,7 @@ void aio_set_fd_handler(AioContext *ctx,
 
 void aio_set_event_notifier(AioContext *ctx,
                             EventNotifier *e,
+                            bool is_external,
                             EventNotifierHandler *io_notify)
 {
     AioHandler *node;
@@ -133,6 +138,7 @@ void aio_set_event_notifier(AioContext *ctx,
             node->e = e;
             node->pfd.fd = (uintptr_t)event_notifier_get_handle(e);
             node->pfd.events = G_IO_IN;
+            node->is_external = is_external;
             QLIST_INSERT_HEAD(&ctx->aio_handlers, node, node);
 
             g_source_add_poll(&ctx->source, &node->pfd);
@@ -279,36 +285,33 @@ bool aio_poll(AioContext *ctx, bool blocking)
 {
     AioHandler *node;
     HANDLE events[MAXIMUM_WAIT_OBJECTS + 1];
-    bool was_dispatching, progress, have_select_revents, first;
+    bool progress, have_select_revents, first;
     int count;
     int timeout;
 
-    have_select_revents = aio_prepare(ctx);
-    if (have_select_revents) {
-        blocking = false;
-    }
-
-    was_dispatching = ctx->dispatching;
+    aio_context_acquire(ctx);
     progress = false;
 
     /* aio_notify can avoid the expensive event_notifier_set if
      * everything (file descriptors, bottom halves, timers) will
      * be re-evaluated before the next blocking poll().  This is
      * already true when aio_poll is called with blocking == false;
-     * if blocking == true, it is only true after poll() returns.
-     *
-     * If we're in a nested event loop, ctx->dispatching might be true.
-     * In that case we can restore it just before returning, but we
-     * have to clear it now.
+     * if blocking == true, it is only true after poll() returns,
+     * so disable the optimization now.
      */
-    aio_set_dispatching(ctx, !blocking);
+    if (blocking) {
+        atomic_add(&ctx->notify_me, 2);
+    }
+
+    have_select_revents = aio_prepare(ctx);
 
     ctx->walking_handlers++;
 
     /* fill fd sets */
     count = 0;
     QLIST_FOREACH(node, &ctx->aio_handlers, node) {
-        if (!node->deleted && node->io_notify) {
+        if (!node->deleted && node->io_notify
+            && aio_node_check(ctx, node->is_external)) {
             events[count++] = event_notifier_get_handle(node->e);
         }
     }
@@ -316,20 +319,36 @@ bool aio_poll(AioContext *ctx, bool blocking)
     ctx->walking_handlers--;
     first = true;
 
-    /* wait until next event */
-    while (count > 0) {
+    /* ctx->notifier is always registered.  */
+    assert(count > 0);
+
+    /* Multiple iterations, all of them non-blocking except the first,
+     * may be necessary to process all pending events.  After the first
+     * WaitForMultipleObjects call ctx->notify_me will be decremented.
+     */
+    do {
         HANDLE event;
         int ret;
 
-        timeout = blocking
+        timeout = blocking && !have_select_revents
             ? qemu_timeout_ns_to_ms(aio_compute_timeout(ctx)) : 0;
-        ret = WaitForMultipleObjects(count, events, FALSE, timeout);
-        aio_set_dispatching(ctx, true);
-
-        if (first && aio_bh_poll(ctx)) {
-            progress = true;
+        if (timeout) {
+            aio_context_release(ctx);
         }
-        first = false;
+        ret = WaitForMultipleObjects(count, events, FALSE, timeout);
+        if (blocking) {
+            assert(first);
+            atomic_sub(&ctx->notify_me, 2);
+        }
+        if (timeout) {
+            aio_context_acquire(ctx);
+        }
+
+        if (first) {
+            aio_notify_accept(ctx);
+            progress |= aio_bh_poll(ctx);
+            first = false;
+        }
 
         /* if we have any signaled events, dispatch event */
         event = NULL;
@@ -344,10 +363,14 @@ bool aio_poll(AioContext *ctx, bool blocking)
         blocking = false;
 
         progress |= aio_dispatch_handlers(ctx, event);
-    }
+    } while (count > 0);
 
     progress |= timerlistgroup_run_timers(&ctx->tlg);
 
-    aio_set_dispatching(ctx, was_dispatching);
+    aio_context_release(ctx);
     return progress;
+}
+
+void aio_context_setup(AioContext *ctx)
+{
 }

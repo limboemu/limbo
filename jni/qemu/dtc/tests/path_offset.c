@@ -22,7 +22,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#include <fdt.h>
 #include <libfdt.h>
 
 #include "tests.h"
@@ -103,6 +102,10 @@ int main(int argc, char *argv[])
 	if (subsubnode2_offset != subsubnode2_offset_p)
 		FAIL("Mismatch between subnode_offset (%d) and path_offset (%d)",
 		     subsubnode2_offset, subsubnode2_offset_p);
+
+	if (subsubnode2_offset2 != subsubnode2_offset2_p)
+		FAIL("Mismatch between subnode_offset (%d) and path_offset (%d)",
+		     subsubnode2_offset2, subsubnode2_offset2_p);
 
 	PASS();
 }

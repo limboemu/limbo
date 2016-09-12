@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -54,6 +54,7 @@ typedef uint8_t entropy_sample_t;
 
 /* Include all architecture-independent entropy API headers */
 #include <ipxe/null_entropy.h>
+#include <ipxe/efi/efi_entropy.h>
 #include <ipxe/linux/linux_entropy.h>
 
 /* Include all architecture-dependent entropy API headers */

@@ -2616,8 +2616,12 @@
 #define PCI_DEVICE_ID_RME_DIGI32_8	0x9898
 
 #define PCI_VENDOR_ID_REDHAT_QUMRANET	0x1af4
-#define PCI_DEVICE_ID_VIRTIO_BLK	0x1001
-#define PCI_DEVICE_ID_VIRTIO_SCSI	0x1004
+/* virtio 0.9.5 ids (legacy/transitional devices) */
+#define PCI_DEVICE_ID_VIRTIO_BLK_09	0x1001
+#define PCI_DEVICE_ID_VIRTIO_SCSI_09	0x1004
+/* virtio 1.0 ids (modern devices) */
+#define PCI_DEVICE_ID_VIRTIO_BLK_10	0x1042
+#define PCI_DEVICE_ID_VIRTIO_SCSI_10	0x1048
 
 #define PCI_VENDOR_ID_VMWARE        0x15ad
 #define PCI_DEVICE_ID_VMWARE_PVSCSI 0x07C0

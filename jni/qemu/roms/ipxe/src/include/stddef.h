@@ -1,25 +1,43 @@
 #ifndef STDDEF_H
 #define STDDEF_H
 
-FILE_LICENCE ( GPL2_ONLY );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
-/* for size_t */
 #include <stdint.h>
 
+/** EFI headers also define NULL */
 #undef NULL
-#define NULL ((void *)0)
 
-#undef offsetof
-#if ( defined ( __GNUC__ ) && ( __GNUC__ > 3 ) )
-#define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
+/** Null pointer */
+#define NULL ( ( void * ) 0 )
+
+/**
+ * Get offset of a field within a structure
+ *
+ * @v type		Structure type
+ * @v field		Field within structure
+ * @ret offset		Offset within structure
+ */
+#if defined ( __GNUC__ ) && ( __GNUC__ > 3 )
+#define offsetof( type, field ) __builtin_offsetof ( type, field )
 #else
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define offsetof( type, field ) ( ( size_t ) &( ( ( type * ) NULL )->field ) )
 #endif
 
-#undef container_of
-#define container_of(ptr, type, member) ({                      \
-	const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-	(type *)( (char *)__mptr - offsetof(type,member) );})
+/**
+ * Get containing structure
+ *
+ * @v ptr		Pointer to contained field
+ * @v type		Containing structure type
+ * @v field		Field within containing structure
+ * @ret container	Pointer to containing structure
+ */
+#define container_of( ptr, type, field ) ( {				\
+	type *__container;						\
+	const volatile typeof ( __container->field ) *__field = (ptr);	\
+	__container = ( ( ( void * ) __field ) -			\
+			offsetof ( type, field ) );			\
+	__container; } )
 
 /* __WCHAR_TYPE__ is defined by gcc and will change if -fshort-wchar is used */
 #ifndef __WCHAR_TYPE__

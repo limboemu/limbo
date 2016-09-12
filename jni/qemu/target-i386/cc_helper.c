@@ -17,6 +17,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
 
@@ -378,17 +379,7 @@ void helper_sti_vm(CPUX86State *env)
 {
     env->eflags |= VIF_MASK;
     if (env->eflags & VIP_MASK) {
-        raise_exception(env, EXCP0D_GPF);
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
 }
 #endif
-
-void helper_set_inhibit_irq(CPUX86State *env)
-{
-    env->hflags |= HF_INHIBIT_IRQ_MASK;
-}
-
-void helper_reset_inhibit_irq(CPUX86State *env)
-{
-    env->hflags &= ~HF_INHIBIT_IRQ_MASK;
-}

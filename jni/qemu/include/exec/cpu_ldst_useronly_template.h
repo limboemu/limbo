@@ -22,6 +22,13 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+
+#if !defined(CODE_ACCESS)
+#include "trace.h"
+#endif
+
+#include "trace/mem.h"
+
 #if DATA_SIZE == 8
 #define SUFFIX q
 #define USUFFIX q
@@ -53,14 +60,40 @@
 static inline RES_TYPE
 glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
 {
+#if !defined(CODE_ACCESS)
+    trace_guest_mem_before_exec(
+        ENV_GET_CPU(env), ptr,
+        trace_mem_build_info(DATA_SIZE, false, MO_TE, false));
+#endif
     return glue(glue(ld, USUFFIX), _p)(g2h(ptr));
+}
+
+static inline RES_TYPE
+glue(glue(glue(cpu_ld, USUFFIX), MEMSUFFIX), _ra)(CPUArchState *env,
+                                                  target_ulong ptr,
+                                                  uintptr_t retaddr)
+{
+    return glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(env, ptr);
 }
 
 #if DATA_SIZE <= 2
 static inline int
 glue(glue(cpu_lds, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
 {
+#if !defined(CODE_ACCESS)
+    trace_guest_mem_before_exec(
+        ENV_GET_CPU(env), ptr,
+        trace_mem_build_info(DATA_SIZE, true, MO_TE, false));
+#endif
     return glue(glue(lds, SUFFIX), _p)(g2h(ptr));
+}
+
+static inline int
+glue(glue(glue(cpu_lds, SUFFIX), MEMSUFFIX), _ra)(CPUArchState *env,
+                                                  target_ulong ptr,
+                                                  uintptr_t retaddr)
+{
+    return glue(glue(cpu_lds, SUFFIX), MEMSUFFIX)(env, ptr);
 }
 #endif
 
@@ -69,7 +102,21 @@ static inline void
 glue(glue(cpu_st, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr,
                                       RES_TYPE v)
 {
+#if !defined(CODE_ACCESS)
+    trace_guest_mem_before_exec(
+        ENV_GET_CPU(env), ptr,
+        trace_mem_build_info(DATA_SIZE, false, MO_TE, true));
+#endif
     glue(glue(st, SUFFIX), _p)(g2h(ptr), v);
+}
+
+static inline void
+glue(glue(glue(cpu_st, SUFFIX), MEMSUFFIX), _ra)(CPUArchState *env,
+                                                  target_ulong ptr,
+                                                  RES_TYPE v,
+                                                  uintptr_t retaddr)
+{
+    glue(glue(cpu_st, SUFFIX), MEMSUFFIX)(env, ptr, v);
 }
 #endif
 

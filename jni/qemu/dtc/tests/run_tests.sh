@@ -36,6 +36,20 @@ base_run_test() {
     fi
 }
 
+shorten_echo () {
+    limit=32
+    echo -n "$1"
+    shift
+    for x; do
+	if [ ${#x} -le $limit ]; then
+	    echo -n " $x"
+	else
+	    short=$(echo "$x" | head -c$limit)
+	    echo -n " \"$short\"...<${#x} bytes>"
+	fi
+    done
+}
+
 run_test () {
     echo -n "$@:	"
     if [ -n "$VALGRIND" -a -f $1.supp ]; then
@@ -66,8 +80,30 @@ wrap_test () {
 }
 
 run_wrap_test () {
-    echo -n "$@:	"
+    shorten_echo "$@:	"
     base_run_test wrap_test "$@"
+}
+
+wrap_error () {
+    (
+	if verbose_run "$@"; then
+	    FAIL "Expected non-zero return code"
+	else
+	    ret="$?"
+	    if [ "$ret" -gt 127 ]; then
+		signame=$(kill -l $((ret - 128)))
+		FAIL "Killed by SIG$signame"
+	    else
+		PASS
+	    fi
+	fi
+    )
+}
+
+run_wrap_error_test () {
+    shorten_echo "$@"
+    echo -n " {!= 0}:	"
+    base_run_test wrap_error "$@"
 }
 
 run_dtc_test () {
@@ -81,6 +117,21 @@ asm_to_so () {
 
 asm_to_so_test () {
     run_wrap_test asm_to_so "$@"
+}
+
+run_fdtget_test () {
+    expect="$1"
+    shift
+    echo -n "fdtget-runtest.sh "$expect" $@:	"
+    base_run_test sh fdtget-runtest.sh "$expect" "$@"
+}
+
+run_fdtput_test () {
+    expect="$1"
+    shift
+    shorten_echo fdtput-runtest.sh "$expect" "$@"
+    echo -n ":	"
+    base_run_test sh fdtput-runtest.sh "$expect" "$@"
 }
 
 tree1_tests () {
@@ -178,6 +229,10 @@ libfdt_tests () {
     run_test rw_tree1
     tree1_tests rw_tree1.test.dtb
     tree1_tests_rw rw_tree1.test.dtb
+    run_test appendprop1
+    run_test appendprop2 appendprop1.test.dtb
+    run_dtc_test -I dts -O dtb -o appendprop.test.dtb appendprop.dts
+    run_test dtbs_equal_ordered appendprop2.test.dtb appendprop.test.dtb
 
     for basetree in test_tree1.dtb sw_tree1.test.dtb rw_tree1.test.dtb; do
 	run_test nopulate $basetree
@@ -185,6 +240,9 @@ libfdt_tests () {
 	tree1_tests noppy.$basetree
 	tree1_tests_rw noppy.$basetree
     done
+
+    run_dtc_test -I dts -O dtb -o subnode_iterate.dtb subnode_iterate.dts
+    run_test subnode_iterate subnode_iterate.dtb
 
     # Tests for behaviour on various sorts of corrupted trees
     run_test truncated_property
@@ -199,12 +257,19 @@ dtc_tests () {
     tree1_tests_rw dtc_tree1.test.dtb
     run_test dtbs_equal_ordered dtc_tree1.test.dtb test_tree1.dtb
 
-    run_dtc_test -I dts -O dtb -o dtc_tree1_dts0.test.dtb test_tree1_dts0.dts
-    tree1_tests dtc_tree1_dts0.test.dtb
-    tree1_tests_rw dtc_tree1_dts0.test.dtb
+    run_dtc_test -I dts -O dtb -o dtc_escapes.test.dtb propname_escapes.dts
+    run_test propname_escapes dtc_escapes.test.dtb
+
+    run_dtc_test -I dts -O dtb -o line_directives.test.dtb line_directives.dts
 
     run_dtc_test -I dts -O dtb -o dtc_escapes.test.dtb escapes.dts
     run_test string_escapes dtc_escapes.test.dtb
+
+    run_dtc_test -I dts -O dtb -o dtc_char_literal.test.dtb char_literal.dts
+    run_test char_literal dtc_char_literal.test.dtb
+
+    run_dtc_test -I dts -O dtb -o dtc_sized_cells.test.dtb sized_cells.dts
+    run_test sized_cells dtc_sized_cells.test.dtb
 
     run_dtc_test -I dts -O dtb -o dtc_extra-terminating-null.test.dtb extra-terminating-null.dts
     run_test extra-terminating-null dtc_extra-terminating-null.test.dtb
@@ -223,6 +288,8 @@ dtc_tests () {
 
     run_dtc_test -I dts -O dtb -o multilabel.test.dtb multilabel.dts
     run_test references multilabel.test.dtb
+
+    run_dtc_test -I dts -O dtb -o label_repeated.test.dtb label_repeated.dts
 
     run_dtc_test -I dts -O dtb -o dtc_comments.test.dtb comments.dts
     run_dtc_test -I dts -O dtb -o dtc_comments-cmp.test.dtb comments-cmp.dts
@@ -308,6 +375,13 @@ dtc_tests () {
     run_dtc_test -I dts -O dtb -o dtc_tree1_merge_path.test.dtb test_tree1_merge_path.dts
     tree1_tests dtc_tree1_merge_path.test.dtb test_tree1.dtb
 
+    # Check prop/node delete functionality
+    run_dtc_test -I dts -O dtb -o dtc_tree1_delete.test.dtb test_tree1_delete.dts
+    tree1_tests dtc_tree1_delete.test.dtb
+
+    run_dtc_test -I dts -O dts -o delete_reinstate_multilabel.dts.test.dts delete_reinstate_multilabel.dts
+    run_wrap_test cmp delete_reinstate_multilabel.dts.test.dts delete_reinstate_multilabel_ref.dts
+
     # Check some checks
     check_tests dup-nodename.dts duplicate_node_names
     check_tests dup-propname.dts duplicate_property_names
@@ -337,16 +411,48 @@ dtc_tests () {
     run_sh_test dtc-checkfails.sh duplicate_label -- -I dts -O dtb reuse-label5.dts
     run_sh_test dtc-checkfails.sh duplicate_label -- -I dts -O dtb reuse-label6.dts
 
+    # Check warning options
+    run_sh_test dtc-checkfails.sh address_cells_is_cell interrupt_cells_is_cell -n size_cells_is_cell -- -Wno_size_cells_is_cell -I dts -O dtb bad-ncells.dts
+    run_sh_test dtc-fails.sh -n test-warn-output.test.dtb -I dts -O dtb bad-ncells.dts
+    run_sh_test dtc-fails.sh test-error-output.test.dtb -I dts -O dtb bad-ncells.dts -Esize_cells_is_cell
+    run_sh_test dtc-checkfails.sh always_fail -- -Walways_fail -I dts -O dtb test_tree1.dts
+    run_sh_test dtc-checkfails.sh -n always_fail -- -Walways_fail -Wno_always_fail -I dts -O dtb test_tree1.dts
+    run_sh_test dtc-fails.sh test-negation-1.test.dtb -Ealways_fail -I dts -O dtb test_tree1.dts
+    run_sh_test dtc-fails.sh -n test-negation-2.test.dtb -Ealways_fail -Eno_always_fail -I dts -O dtb test_tree1.dts
+    run_sh_test dtc-fails.sh test-negation-3.test.dtb -Ealways_fail -Wno_always_fail -I dts -O dtb test_tree1.dts
+    run_sh_test dtc-fails.sh -n test-negation-4.test.dtb -Esize_cells_is_cell -Eno_size_cells_is_cell -I dts -O dtb bad-ncells.dts
+    run_sh_test dtc-checkfails.sh size_cells_is_cell -- -Esize_cells_is_cell -Eno_size_cells_is_cell -I dts -O dtb bad-ncells.dts
+
     # Check for proper behaviour reading from stdin
     run_dtc_test -I dts -O dtb -o stdin_dtc_tree1.test.dtb - < test_tree1.dts
     run_wrap_test cmp stdin_dtc_tree1.test.dtb dtc_tree1.test.dtb
     run_dtc_test -I dtb -O dts -o stdin_odts_test_tree1.dtb.test.dts - < test_tree1.dtb
     run_wrap_test cmp stdin_odts_test_tree1.dtb.test.dts odts_test_tree1.dtb.test.dts
 
+    # Check integer expresisons
+    run_test integer-expressions -g integer-expressions.test.dts
+    run_dtc_test -I dts -O dtb -o integer-expressions.test.dtb integer-expressions.test.dts
+    run_test integer-expressions integer-expressions.test.dtb
+
     # Check for graceful failure in some error conditions
     run_sh_test dtc-fatal.sh -I dts -O dtb nosuchfile.dts
     run_sh_test dtc-fatal.sh -I dtb -O dtb nosuchfile.dtb
     run_sh_test dtc-fatal.sh -I fs -O dtb nosuchfile
+
+    # Dependencies
+    run_dtc_test -I dts -O dtb -o dependencies.test.dtb -d dependencies.test.d dependencies.dts
+    run_wrap_test cmp dependencies.test.d dependencies.cmp
+
+    # Search paths
+    run_wrap_error_test $DTC -I dts -O dtb -o search_paths.dtb search_paths.dts
+    run_dtc_test -i search_dir -I dts -O dtb -o search_paths.dtb \
+	search_paths.dts
+    run_wrap_error_test $DTC -i search_dir_b -I dts -O dtb \
+	-o search_paths_b.dtb search_paths_b.dts
+    run_dtc_test -i search_dir_b -i search_dir -I dts -O dtb \
+	-o search_paths_b.dtb search_paths_b.dts
+    run_dtc_test -I dts -O dtb -o search_paths_subdir.dtb \
+	search_dir_b/search_paths_subdir.dts
 }
 
 cmp_tests () {
@@ -388,6 +494,99 @@ dtbs_equal_tests () {
     cmp_tests test_tree1.dtb $WRONG_TREE1
 }
 
+fdtget_tests () {
+    dts=label01.dts
+    dtb=$dts.fdtget.test.dtb
+    run_dtc_test -O dtb -o $dtb $dts
+
+    # run_fdtget_test <expected-result> [<flags>] <file> <node> <property>
+    run_fdtget_test "MyBoardName" $dtb / model
+    run_fdtget_test "MyBoardName MyBoardFamilyName" $dtb / compatible
+    run_fdtget_test "77 121 66 111 \
+97 114 100 78 97 109 101 0 77 121 66 111 97 114 100 70 97 109 105 \
+108 121 78 97 109 101 0" -t bu $dtb / compatible
+    run_fdtget_test "MyBoardName MyBoardFamilyName" -t s $dtb / compatible
+    run_fdtget_test 32768 $dtb /cpus/PowerPC,970@1 d-cache-size
+    run_fdtget_test 8000 -tx $dtb /cpus/PowerPC,970@1 d-cache-size
+    run_fdtget_test "61 62 63 0" -tbx $dtb /randomnode tricky1
+    run_fdtget_test "a b c d de ea ad be ef" -tbx $dtb /randomnode blob
+
+    # Here the property size is not a multiple of 4 bytes, so it should fail
+    run_wrap_error_test $DTGET -tlx $dtb /randomnode mixed
+    run_fdtget_test "6162 6300 1234 0 a 0 b 0 c" -thx $dtb /randomnode mixed
+    run_fdtget_test "61 62 63 0 12 34 0 0 0 a 0 0 0 b 0 0 0 c" \
+	-thhx $dtb /randomnode mixed
+    run_wrap_error_test $DTGET -ts $dtb /randomnode doctor-who
+
+    # Test multiple arguments
+    run_fdtget_test "MyBoardName\nmemory" -ts $dtb / model /memory device_type
+
+    # Test defaults
+    run_wrap_error_test $DTGET -tx $dtb /randomnode doctor-who
+    run_fdtget_test "<the dead silence>" -tx \
+	-d "<the dead silence>" $dtb /randomnode doctor-who
+    run_fdtget_test "<blink>" -tx -d "<blink>" $dtb /memory doctor-who
+}
+
+fdtput_tests () {
+    dts=label01.dts
+    dtb=$dts.fdtput.test.dtb
+    text=lorem.txt
+
+    # Allow just enough space for $text
+    run_dtc_test -O dtb -p $(stat -c %s $text) -o $dtb $dts
+
+    # run_fdtput_test <expected-result> <file> <node> <property> <flags> <value>
+    run_fdtput_test "a_model" $dtb / model -ts "a_model"
+    run_fdtput_test "board1 board2" $dtb / compatible -ts board1 board2
+    run_fdtput_test "board1 board2" $dtb / compatible -ts "board1 board2"
+    run_fdtput_test "32768" $dtb /cpus/PowerPC,970@1 d-cache-size "" "32768"
+    run_fdtput_test "8001" $dtb /cpus/PowerPC,970@1 d-cache-size -tx 0x8001
+    run_fdtput_test "2 3 12" $dtb /randomnode tricky1 -tbi "02 003 12"
+    run_fdtput_test "a b c ea ad be ef" $dtb /randomnode blob \
+	-tbx "a b c ea ad be ef"
+    run_fdtput_test "a0b0c0d deeaae ef000000" $dtb /randomnode blob \
+	-tx "a0b0c0d deeaae ef000000"
+    run_fdtput_test "$(cat $text)" $dtb /randomnode blob -ts "$(cat $text)"
+
+    # Test expansion of the blob when insufficient room for property
+    run_fdtput_test "$(cat $text $text)" $dtb /randomnode blob -ts "$(cat $text $text)"
+
+    # Start again with a fresh dtb
+    run_dtc_test -O dtb -p $(stat -c %s $text) -o $dtb $dts
+
+    # Node creation
+    run_wrap_error_test $DTPUT $dtb -c /baldrick sod
+    run_wrap_test $DTPUT $dtb -c /chosen/son /chosen/daughter
+    run_fdtput_test "eva" $dtb /chosen/daughter name "" -ts "eva"
+    run_fdtput_test "adam" $dtb /chosen/son name "" -ts "adam"
+
+    # Not allowed to create an existing node
+    run_wrap_error_test $DTPUT $dtb -c /chosen
+    run_wrap_error_test $DTPUT $dtb -c /chosen/son
+
+    # Automatic node creation
+    run_wrap_test $DTPUT $dtb -cp /blackadder/the-second/turnip \
+	/blackadder/the-second/potato
+    run_fdtput_test 1000 $dtb /blackadder/the-second/turnip cost "" 1000
+    run_fdtput_test "fine wine" $dtb /blackadder/the-second/potato drink \
+	"-ts" "fine wine"
+    run_wrap_test $DTPUT $dtb -p /you/are/drunk/sir/winston slurp -ts twice
+
+    # Test expansion of the blob when insufficent room for a new node
+    run_wrap_test $DTPUT $dtb -cp "$(cat $text $text)/longish"
+
+    # Allowed to create an existing node with -p
+    run_wrap_test $DTPUT $dtb -cp /chosen
+    run_wrap_test $DTPUT $dtb -cp /chosen/son
+
+    # TODO: Add tests for verbose mode?
+}
+
+utilfdt_tests () {
+    run_test utilfdt_test
+}
+
 while getopts "vt:m" ARG ; do
     case $ARG in
 	"v")
@@ -403,7 +602,7 @@ while getopts "vt:m" ARG ; do
 done
 
 if [ -z "$TESTSETS" ]; then
-    TESTSETS="libfdt dtc dtbs_equal"
+    TESTSETS="libfdt utilfdt dtc dtbs_equal fdtget fdtput"
 fi
 
 # Make sure we don't have stale blobs lying around
@@ -414,11 +613,20 @@ for set in $TESTSETS; do
 	"libfdt")
 	    libfdt_tests
 	    ;;
+	"utilfdt")
+	    utilfdt_tests
+	    ;;
 	"dtc")
 	    dtc_tests
 	    ;;
 	"dtbs_equal")
 	    dtbs_equal_tests
+	    ;;
+	"fdtget")
+	    fdtget_tests
+	    ;;
+	"fdtput")
+	    fdtput_tests
 	    ;;
     esac
 done

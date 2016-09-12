@@ -59,6 +59,7 @@ struct neighbor {
 };
 
 /******************** FUNCTIONS *********************************************/
+void ndp_init(void);
 int8_t neighbor_add (struct neighbor *);
 void * neighbor_create (uint8_t *packet, struct packeth *headers);
 struct neighbor * find_neighbor (ip6_addr_t *);

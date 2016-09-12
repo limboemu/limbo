@@ -51,9 +51,11 @@ char *get_nvram_buffer(int len);
 void free_nvram_buffer(char *buffer);
 int nvramlog_printf(const char* fmt, ...);
 partition_t get_partition(unsigned int type, char *name);
+partition_t get_partition_fs(char *name, int namelen);
 void erase_nvram(int offset, int len);
 int wipe_partition(partition_t partition, int header_only);
 partition_t new_nvram_partition(int type, char *name, int len);
+partition_t new_nvram_partition_fs(int type, char *name, int namelen, int len);
 int increase_nvram_partition_size(partition_t partition, int newsize);
 int clear_nvram_partition(partition_t part);
 int delete_nvram_partition(partition_t part);
@@ -65,9 +67,9 @@ void nvram_init(uint32_t store_token, uint32_t fetch_token,
 unsigned int get_nvram_size(void);
 
 /* envvar.c */
-char *get_env(partition_t part, char *envvar);
-int add_env(partition_t part, char *envvar, char *value);
-int del_env(partition_t part, char *envvar);
-int set_env(partition_t part, char *envvar, char *value);
+char *nvram_get_env(partition_t part, char *envvar, int evlen);
+int nvram_add_env(partition_t part, char *envvar, int evlen, char *value, int vallen);
+int nvram_del_env(partition_t part, char *envvar, int evlen);
+int nvram_set_env(partition_t part, char *envvar, int evlen, char *val, int vlen);
 
 #endif

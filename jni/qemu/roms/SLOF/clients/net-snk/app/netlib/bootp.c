@@ -232,7 +232,7 @@ bootp(char *ret_buffer, filename_ip_t * fn_ip, unsigned int retries)
 	int i = (int) retries+1;
 	fn_ip->own_ip = 0;
 
-	printf("   ");
+	printf("  Requesting IP address via BOOTP:    ");
 
 	response_buffer = ret_buffer;
 
@@ -249,6 +249,7 @@ bootp(char *ret_buffer, filename_ip_t * fn_ip, unsigned int retries)
 		 * in case the previous one was lost. And because we don't
 		 * trust the network cable we keep on doing this 30 times */
 	} while (receive_bootp(fn_ip) != 0);
-	printf("\b\b\b");
+
+	printf("\b\b\bdone\n");
 	return 0;
 }

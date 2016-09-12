@@ -10,12 +10,10 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <stdio.h>
-#include <string.h>
+#include "qemu/osdep.h"
 
 #include "vss-common.h"
-#include "inc/win2003/vscoordint.h"
-
+#include <inc/win2003/vscoordint.h>
 #include <comadmin.h>
 #include <wbemidl.h>
 #include <comdef.h>

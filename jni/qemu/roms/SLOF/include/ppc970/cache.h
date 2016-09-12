@@ -55,8 +55,8 @@ cache_inhibited_access(uint64_t, 64)
 #define _FASTMOVE(s, d, size) \
 	switch (((type_u)s | (type_u)d | size) & (sizeof(type_u)-1)) { \
 		case 0:			_MOVE(s, d, size, type_u); break; \
-		case sizeof(type_l):	_MOVE(s, d, size, type_l); break; \
-		case sizeof(type_w):	_MOVE(s, d, size, type_w); break; \
+		case 4:			_MOVE(s, d, size, type_l); break; \
+		case 2: case 6:		_MOVE(s, d, size, type_w); break; \
 		default:		_MOVE(s, d, size, type_c); break; \
 	}
 
@@ -78,9 +78,51 @@ cache_inhibited_access(uint64_t, 64)
 #define _FASTRMOVE(s, d, size) \
 	switch (((type_u)s | (type_u)d | size) & (sizeof(type_u)-1)) { \
 		case 0:			_RMOVE(s, d, size, type_u); break; \
-		case sizeof(type_l):	_RMOVE(s, d, size, type_l); break; \
-		case sizeof(type_w):	_RMOVE(s, d, size, type_w); break; \
+		case 4:			_RMOVE(s, d, size, type_l); break; \
+		case 2: case 6:		_RMOVE(s, d, size, type_w); break; \
 		default:		_RMOVE(s, d, size, type_c); break; \
+	}
+
+/* main RAM to IO memory move */
+#define FAST_MRMOVE_TYPED(s, d, size, t)	\
+{ \
+	t *s1 = (s), *d1 = (d); \
+	register t tmp; \
+	while (size > 0) { \
+		tmp = *s1++; SET_CI; *d1++ = tmp; CLR_CI; size -= sizeof(t); \
+	} \
+}
+
+#define FAST_MRMOVE(s, d, size) \
+	switch (((type_u)(s) | (type_u)(d) | (size)) & (sizeof(type_u)-1)) { \
+	case 0:		FAST_MRMOVE_TYPED(s, d, size, type_u); break; \
+	case 4:		FAST_MRMOVE_TYPED(s, d, size, type_l); break; \
+	case 2: case 6:	FAST_MRMOVE_TYPED(s, d, size, type_w); break; \
+	default:	FAST_MRMOVE_TYPED(s, d, size, type_c); break; \
+	}
+
+/* fill IO memory with pattern */
+#define FAST_RFILL_TYPED(dst, size, pat, t) \
+{ \
+	t *d1 = (dst); \
+	register t tmp = 0; \
+	int i = sizeof(t); \
+	while (i-- > 0) { \
+		tmp <<= 8; tmp |= pat & 0xff; \
+	} \
+	SET_CI; \
+	while (size > 0) { \
+		*d1++ = tmp; size -= sizeof(t); \
+	} \
+	CLR_CI; \
+}
+
+#define FAST_RFILL(dst, size, pat) \
+	switch (((type_u)dst | size) & (sizeof(type_u)-1)) { \
+	case 0:		FAST_RFILL_TYPED(dst, size, pat, type_u); break; \
+	case 4:		FAST_RFILL_TYPED(dst, size, pat, type_l); break; \
+	case 2: case 6:	FAST_RFILL_TYPED(dst, size, pat, type_w); break; \
+	default:	FAST_RFILL_TYPED(dst, size, pat, type_c); break; \
 	}
 
 #endif

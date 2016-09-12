@@ -8,11 +8,12 @@
 
 #include "config.h" // SEG_BDA
 #include "farptr.h" // GET_FARVAR
+#include "memmap.h" // SYMBOL
 #include "std/bda.h" // struct bios_data_area_s
 
 
 /****************************************************************
- * Interupt vector table
+ * Interrupt vector table
  ****************************************************************/
 
 #define GET_IVT(vector)                                         \
@@ -112,13 +113,12 @@ static inline u16 get_global_seg(void) {
  * "Low" memory variables
  ****************************************************************/
 
-extern u8 _zonelow_seg, zonelow_base[];
-#define SEG_LOW ((u32)&_zonelow_seg)
+#define SEG_LOW SYMBOL(_zonelow_seg)
 
 #if MODESEGMENT
 #define GET_LOW(var)            GET_FARVAR(SEG_LOW, (var))
 #define SET_LOW(var, val)       SET_FARVAR(SEG_LOW, (var), (val))
-#define LOWFLAT2LOW(var) ((typeof(var))((void*)(var) - (u32)zonelow_base))
+#define LOWFLAT2LOW(var) ((typeof(var))((void*)(var) - SYMBOL(zonelow_base)))
 #else
 #define GET_LOW(var)            (var)
 #define SET_LOW(var, val)       do { (var) = (val); } while (0)

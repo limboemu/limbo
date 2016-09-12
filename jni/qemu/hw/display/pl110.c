@@ -7,10 +7,12 @@
  * This code is licensed under the GNU LGPL
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "ui/console.h"
 #include "framebuffer.h"
 #include "ui/pixel_ops.h"
+#include "qemu/log.h"
 
 #define PL110_CR_EN   0x001
 #define PL110_CR_BGR  0x100
@@ -46,6 +48,7 @@ typedef struct PL110State {
     SysBusDevice parent_obj;
 
     MemoryRegion iomem;
+    MemoryRegionSection fbsection;
     QemuConsole *con;
 
     int version;
@@ -238,12 +241,20 @@ static void pl110_update_display(void *opaque)
     }
     dest_width *= s->cols;
     first = 0;
-    framebuffer_update_display(surface, sysbus_address_space(sbd),
-                               s->upbase, s->cols, s->rows,
+    if (s->invalidate) {
+        framebuffer_update_memory_section(&s->fbsection,
+                                          sysbus_address_space(sbd),
+                                          s->upbase,
+                                          s->rows, src_width);
+    }
+
+    framebuffer_update_display(surface, &s->fbsection,
+                               s->cols, s->rows,
                                src_width, dest_width, 0,
                                s->invalidate,
                                fn, s->palette,
                                &first, &last);
+
     if (first >= 0) {
         dpy_gfx_update(s->con, 0, first, s->cols, last - first + 1);
     }

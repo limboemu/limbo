@@ -21,10 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TCG_TARGET_S390 
-#define TCG_TARGET_S390 1
+
+#ifndef S390_TCG_TARGET_H
+#define S390_TCG_TARGET_H
 
 #define TCG_TARGET_INSN_UNIT_SIZE 2
+#define TCG_TARGET_TLB_DISPLACEMENT_BITS 19
 
 typedef enum TCGReg {
     TCG_REG_R0 = 0,
@@ -71,7 +73,8 @@ typedef enum TCGReg {
 #define TCG_TARGET_HAS_muls2_i32        0
 #define TCG_TARGET_HAS_muluh_i32        0
 #define TCG_TARGET_HAS_mulsh_i32        0
-#define TCG_TARGET_HAS_trunc_shr_i32    0
+#define TCG_TARGET_HAS_extrl_i64_i32    0
+#define TCG_TARGET_HAS_extrh_i64_i32    0
 
 #define TCG_TARGET_HAS_div2_i64         1
 #define TCG_TARGET_HAS_rot_i64          1

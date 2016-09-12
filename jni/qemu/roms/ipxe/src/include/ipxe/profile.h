@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <bits/profile.h>
 #include <ipxe/tables.h>
@@ -184,6 +184,20 @@ profile_exclude ( struct profiler *profiler ) {
 	/* If profiling is active then update accumulated excluded time */
 	if ( PROFILING )
 		profile_excluded += profile_elapsed ( profiler );
+}
+
+/**
+ * Record profiling sample in custom units
+ *
+ * @v profiler		Profiler
+ * @v sample		Profiling sample
+ */
+static inline __attribute__ (( always_inline )) void
+profile_custom ( struct profiler *profiler, unsigned long sample ) {
+
+	/* If profiling is active then update stats */
+	if ( PROFILING )
+		profile_update ( profiler, sample );
 }
 
 #endif /* _IPXE_PROFILE_H */

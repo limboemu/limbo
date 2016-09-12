@@ -11,7 +11,8 @@
  * option) any later version.  See the COPYING file in the top-level directory.
  *
  */
-#include <hw/qdev.h>
+#include "qemu/osdep.h"
+#include "hw/qdev.h"
 #include "sysemu/sysemu.h"
 #include "hw/s390x/sclp.h"
 #include "hw/s390x/event-facility.h"
@@ -66,7 +67,7 @@ static int read_event_data(SCLPEvent *event, EventBufferHeader *evt_buf_hdr,
 }
 
 static const VMStateDescription vmstate_sclpquiesce = {
-    .name = "sclpquiesce",
+    .name = TYPE_SCLP_QUIESCE,
     .version_id = 0,
     .minimum_version_id = 0,
     .fields = (VMStateField[]) {
@@ -116,6 +117,7 @@ static void quiesce_class_init(ObjectClass *klass, void *data)
 
     dc->reset = quiesce_reset;
     dc->vmsd = &vmstate_sclpquiesce;
+    set_bit(DEVICE_CATEGORY_MISC, dc->categories);
     k->init = quiesce_init;
 
     k->get_send_mask = send_mask;
@@ -126,7 +128,7 @@ static void quiesce_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo sclp_quiesce_info = {
-    .name          = "sclpquiesce",
+    .name          = TYPE_SCLP_QUIESCE,
     .parent        = TYPE_SCLP_EVENT,
     .instance_size = sizeof(SCLPEvent),
     .class_init    = quiesce_class_init,

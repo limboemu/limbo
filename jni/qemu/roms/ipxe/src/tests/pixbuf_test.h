@@ -1,7 +1,7 @@
 #ifndef _PIXBUF_TEST_H
 #define _PIXBUF_TEST_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <ipxe/refcnt.h>

@@ -1,7 +1,7 @@
 #ifndef _IPXE_TEST_H
 #define _IPXE_TEST_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *

@@ -1,7 +1,7 @@
 #ifndef _STDINT_H
 #define _STDINT_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /*
  * This is a standard predefined macro on all gcc's I've seen. It's

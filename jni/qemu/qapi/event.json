@@ -243,6 +243,31 @@
 { 'event': 'SPICE_MIGRATE_COMPLETED' }
 
 ##
+# @MIGRATION
+#
+# Emitted when a migration event happens
+#
+# @status: @MigrationStatus describing the current migration status.
+#
+# Since: 2.4
+##
+{ 'event': 'MIGRATION',
+  'data': {'status': 'MigrationStatus'}}
+
+##
+# @MIGRATION_PASS
+#
+# Emitted from the source side of a migration at the start of each pass
+# (when it syncs the dirty bitmap)
+#
+# @pass: An incrementing count (starting at 1 on the first pass)
+#
+# Since: 2.6
+##
+{ 'event': 'MIGRATION_PASS',
+  'data': { 'pass': 'int' } }
+
+##
 # @ACPI_DEVICE_OST
 #
 # Emitted when guest executes ACPI _OST method.
@@ -300,6 +325,8 @@
 #
 # Emitted to report a corruption of a Quorum file
 #
+# @type: quorum operation type (Since 2.6)
+#
 # @error: #optional, error message. Only present on failure. This field
 #         contains a human-readable error message. There are no semantics other
 #         than that the block layer reported an error and clients should not
@@ -314,7 +341,7 @@
 # Since: 2.0
 ##
 { 'event': 'QUORUM_REPORT_BAD',
-  'data': { '*error': 'str', 'node-name': 'str',
+  'data': { 'type': 'QuorumOpType', '*error': 'str', 'node-name': 'str',
             'sector-num': 'int', 'sectors-count': 'int' } }
 
 ##
@@ -330,3 +357,33 @@
 ##
 { 'event': 'VSERPORT_CHANGE',
   'data': { 'id': 'str', 'open': 'bool' } }
+
+##
+# @MEM_UNPLUG_ERROR
+#
+# Emitted when memory hot unplug error occurs.
+#
+# @device: device name
+#
+# @msg: Informative message
+#
+# Since: 2.4
+##
+{ 'event': 'MEM_UNPLUG_ERROR',
+  'data': { 'device': 'str', 'msg': 'str' } }
+
+##
+# @DUMP_COMPLETED
+#
+# Emitted when background dump has completed
+#
+# @result: DumpQueryResult type described in qapi-schema.json.
+#
+# @error: #optional human-readable error string that provides
+#         hint on why dump failed. Only presents on failure. The
+#         user should not try to interpret the error string.
+#
+# Since: 2.6
+##
+{ 'event': 'DUMP_COMPLETED' ,
+  'data': { 'result': 'DumpQueryResult', '*error': 'str' } }

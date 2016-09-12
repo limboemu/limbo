@@ -42,6 +42,8 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "disas/disas.h"
 #include "monitor/monitor.h"
@@ -51,11 +53,10 @@
 #include "hw/nvram/fw_cfg.h"
 #include "exec/memory.h"
 #include "exec/address-spaces.h"
+#include "hw/boards.h"
+#include "qemu/cutils.h"
 
 #include <zlib.h>
-
-bool option_rom_has_mr = false;
-bool rom_file_has_mr = true;
 
 static int roms_loaded;
 
@@ -63,11 +64,6 @@ static int roms_loaded;
 int get_image_size(const char *filename)
 {
     int fd, size;
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0)
-    	fd = android_open(filename, O_RDONLY | O_BINARY);
-    else
-#endif //__LIMBO__
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0)
         return -1;
@@ -81,11 +77,6 @@ int get_image_size(const char *filename)
 int load_image(const char *filename, uint8_t *addr)
 {
     int fd, size;
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0) {
-        fd = android_open(filename, O_RDONLY | O_BINARY);
-    }else
-#endif //__LIMBO__
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0)
         return -1;
@@ -112,11 +103,6 @@ ssize_t load_image_size(const char *filename, void *addr, size_t size)
     int fd;
     ssize_t actsize;
 
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0)
-    	fd = android_open(filename, O_RDONLY | O_BINARY);
-    else
-#endif //__LIMBO__
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0) {
         return -1;
@@ -159,6 +145,28 @@ int load_image_targphys(const char *filename,
     }
     if (size > 0) {
         rom_add_file_fixed(filename, addr, -1);
+    }
+    return size;
+}
+
+int load_image_mr(const char *filename, MemoryRegion *mr)
+{
+    int size;
+
+    if (!memory_access_is_direct(mr, false)) {
+        /* Can only load an image into RAM or ROM */
+        return -1;
+    }
+
+    size = get_image_size(filename);
+
+    if (size > memory_region_size(mr)) {
+        return -1;
+    }
+    if (size > 0) {
+        if (rom_add_file_mr(filename, mr, -1) < 0) {
+            return -1;
+        }
     }
     return size;
 }
@@ -233,11 +241,6 @@ int load_aout(const char *filename, hwaddr addr, int max_sz,
     struct exec e;
     uint32_t magic;
 
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0)
-    	fd = android_open(filename, O_RDONLY | O_BINARY);
-    else
-#endif //__LIMBO__
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0)
         return -1;
@@ -353,19 +356,70 @@ const char *load_elf_strerror(int error)
     }
 }
 
+void load_elf_hdr(const char *filename, void *hdr, bool *is64, Error **errp)
+{
+    int fd;
+    uint8_t e_ident_local[EI_NIDENT];
+    uint8_t *e_ident;
+    size_t hdr_size, off;
+    bool is64l;
+
+    if (!hdr) {
+        hdr = e_ident_local;
+    }
+    e_ident = hdr;
+
+    fd = open(filename, O_RDONLY | O_BINARY);
+    if (fd < 0) {
+        error_setg_errno(errp, errno, "Failed to open file: %s", filename);
+        return;
+    }
+    if (read(fd, hdr, EI_NIDENT) != EI_NIDENT) {
+        error_setg_errno(errp, errno, "Failed to read file: %s", filename);
+        goto fail;
+    }
+    if (e_ident[0] != ELFMAG0 ||
+        e_ident[1] != ELFMAG1 ||
+        e_ident[2] != ELFMAG2 ||
+        e_ident[3] != ELFMAG3) {
+        error_setg(errp, "Bad ELF magic");
+        goto fail;
+    }
+
+    is64l = e_ident[EI_CLASS] == ELFCLASS64;
+    hdr_size = is64l ? sizeof(Elf64_Ehdr) : sizeof(Elf32_Ehdr);
+    if (is64) {
+        *is64 = is64l;
+    }
+
+    off = EI_NIDENT;
+    while (hdr != e_ident_local && off < hdr_size) {
+        size_t br = read(fd, hdr + off, hdr_size - off);
+        switch (br) {
+        case 0:
+            error_setg(errp, "File too short: %s", filename);
+            goto fail;
+        case -1:
+            error_setg_errno(errp, errno, "Failed to read file: %s",
+                             filename);
+            goto fail;
+        }
+        off += br;
+    }
+
+fail:
+    close(fd);
+}
+
 /* return < 0 if error, otherwise the number of bytes loaded in memory */
 int load_elf(const char *filename, uint64_t (*translate_fn)(void *, uint64_t),
              void *translate_opaque, uint64_t *pentry, uint64_t *lowaddr,
-             uint64_t *highaddr, int big_endian, int elf_machine, int clear_lsb)
+             uint64_t *highaddr, int big_endian, int elf_machine,
+             int clear_lsb, int data_swab)
 {
     int fd, data_order, target_data_order, must_swab, ret = ELF_LOAD_FAILED;
     uint8_t e_ident[EI_NIDENT];
 
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0)
-    	fd = android_open(filename, O_RDONLY | O_BINARY);
-    else
-#endif // __LIMBO__
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0) {
         perror(filename);
@@ -400,10 +454,12 @@ int load_elf(const char *filename, uint64_t (*translate_fn)(void *, uint64_t),
     lseek(fd, 0, SEEK_SET);
     if (e_ident[EI_CLASS] == ELFCLASS64) {
         ret = load_elf64(filename, fd, translate_fn, translate_opaque, must_swab,
-                         pentry, lowaddr, highaddr, elf_machine, clear_lsb);
+                         pentry, lowaddr, highaddr, elf_machine, clear_lsb,
+                         data_swab);
     } else {
         ret = load_elf32(filename, fd, translate_fn, translate_opaque, must_swab,
-                         pentry, lowaddr, highaddr, elf_machine, clear_lsb);
+                         pentry, lowaddr, highaddr, elf_machine, clear_lsb,
+                         data_swab);
     }
 
  fail:
@@ -523,11 +579,7 @@ static int load_uboot_image(const char *filename, hwaddr *ep, hwaddr *loadaddr,
     uint8_t *data = NULL;
     int ret = -1;
     int do_uncompress = 0;
-#ifdef __LIMBO__
-    if (strncmp(filename, "/content/", 9) == 0)
-    	fd = android_open(filename, O_RDONLY | O_BINARY);
-    else
-#endif //__LIMBO__
+
     fd = open(filename, O_RDONLY | O_BINARY);
     if (fd < 0)
         return -1;
@@ -623,8 +675,7 @@ static int load_uboot_image(const char *filename, hwaddr *ep, hwaddr *loadaddr,
     ret = hdr->ih_size;
 
 out:
-    if (data)
-        g_free(data);
+    g_free(data);
     close(fd);
     return ret;
 }
@@ -770,7 +821,7 @@ static void *rom_set_mr(Rom *rom, Object *owner, const char *name)
     memory_region_init_resizeable_ram(rom->mr, owner, name,
                                       rom->datasize, rom->romsize,
                                       fw_cfg_resized,
-                                      &error_abort);
+                                      &error_fatal);
     memory_region_set_readonly(rom->mr, true);
     vmstate_register_ram_global(rom->mr);
 
@@ -782,8 +833,9 @@ static void *rom_set_mr(Rom *rom, Object *owner, const char *name)
 
 int rom_add_file(const char *file, const char *fw_dir,
                  hwaddr addr, int32_t bootindex,
-                 bool option_rom)
+                 bool option_rom, MemoryRegion *mr)
 {
+    MachineClass *mc = MACHINE_GET_CLASS(qdev_get_machine());
     Rom *rom;
     int rc, fd = -1;
     char devpath[100];
@@ -794,11 +846,7 @@ int rom_add_file(const char *file, const char *fw_dir,
     if (rom->path == NULL) {
         rom->path = g_strdup(file);
     }
-#ifdef __LIMBO__
-    if (strncmp(rom->path, "/content/", 9) == 0)
-    	fd = android_open(rom->path, O_RDONLY | O_BINARY);
-    else
-#endif //__LIMBO__
+
     fd = open(rom->path, O_RDONLY | O_BINARY);
     if (fd == -1) {
         fprintf(stderr, "Could not open option rom '%s': %s\n",
@@ -844,7 +892,7 @@ int rom_add_file(const char *file, const char *fw_dir,
                  basename);
         snprintf(devpath, sizeof(devpath), "/rom@%s", fw_file_name);
 
-        if ((!option_rom || option_rom_has_mr) && rom_file_has_mr) {
+        if ((!option_rom || mc->option_rom_has_mr) && mc->rom_file_has_mr) {
             data = rom_set_mr(rom, OBJECT(fw_cfg), devpath);
         } else {
             data = rom->data;
@@ -852,7 +900,12 @@ int rom_add_file(const char *file, const char *fw_dir,
 
         fw_cfg_add_file(fw_cfg, fw_file_name, data, rom->romsize);
     } else {
-        snprintf(devpath, sizeof(devpath), "/rom@" TARGET_FMT_plx, addr);
+        if (mr) {
+            rom->mr = mr;
+            snprintf(devpath, sizeof(devpath), "/rom@%s", file);
+        } else {
+            snprintf(devpath, sizeof(devpath), "/rom@" TARGET_FMT_plx, addr);
+        }
     }
 
     add_boot_device_path(bootindex, NULL, devpath);
@@ -861,19 +914,26 @@ int rom_add_file(const char *file, const char *fw_dir,
 err:
     if (fd != -1)
         close(fd);
+
     g_free(rom->data);
     g_free(rom->path);
     g_free(rom->name);
+    if (fw_dir) {
+        g_free(rom->fw_dir);
+        g_free(rom->fw_file);
+    }
     g_free(rom);
+
     return -1;
 }
 
-ram_addr_t rom_add_blob(const char *name, const void *blob, size_t len,
+MemoryRegion *rom_add_blob(const char *name, const void *blob, size_t len,
                    size_t max_len, hwaddr addr, const char *fw_file_name,
                    FWCfgReadCallback fw_callback, void *callback_opaque)
 {
+    MachineClass *mc = MACHINE_GET_CLASS(qdev_get_machine());
     Rom *rom;
-    ram_addr_t ret = RAM_ADDR_MAX;
+    MemoryRegion *mr = NULL;
 
     rom           = g_malloc0(sizeof(*rom));
     rom->name     = g_strdup(name);
@@ -889,9 +949,9 @@ ram_addr_t rom_add_blob(const char *name, const void *blob, size_t len,
 
         snprintf(devpath, sizeof(devpath), "/rom@%s", fw_file_name);
 
-        if (rom_file_has_mr) {
+        if (mc->rom_file_has_mr) {
             data = rom_set_mr(rom, OBJECT(fw_cfg), devpath);
-            ret = memory_region_get_ram_addr(rom->mr);
+            mr = rom->mr;
         } else {
             data = rom->data;
         }
@@ -900,7 +960,7 @@ ram_addr_t rom_add_blob(const char *name, const void *blob, size_t len,
                                  fw_callback, callback_opaque,
                                  data, rom->datasize);
     }
-    return ret;
+    return mr;
 }
 
 /* This function is specific for elf program because we don't need to allocate
@@ -925,12 +985,12 @@ int rom_add_elf_program(const char *name, void *data, size_t datasize,
 
 int rom_add_vga(const char *file)
 {
-    return rom_add_file(file, "vgaroms", 0, -1, true);
+    return rom_add_file(file, "vgaroms", 0, -1, true, NULL);
 }
 
 int rom_add_option(const char *file, int32_t bootindex)
 {
-    return rom_add_file(file, "genroms", 0, bootindex, true);
+    return rom_add_file(file, "genroms", 0, bootindex, true, NULL);
 }
 
 static void rom_reset(void *unused)
@@ -966,7 +1026,7 @@ static void rom_reset(void *unused)
     }
 }
 
-int rom_load_all(void)
+int rom_check_and_register_reset(void)
 {
     hwaddr addr = 0;
     MemoryRegionSection section;
@@ -990,17 +1050,27 @@ int rom_load_all(void)
         memory_region_unref(section.mr);
     }
     qemu_register_reset(rom_reset, NULL);
-    return 0;
-}
-
-void rom_load_done(void)
-{
     roms_loaded = 1;
+    return 0;
 }
 
 void rom_set_fw(FWCfgState *f)
 {
     fw_cfg = f;
+}
+
+void rom_set_order_override(int order)
+{
+    if (!fw_cfg)
+        return;
+    fw_cfg_set_order_override(fw_cfg, order);
+}
+
+void rom_reset_order_override(void)
+{
+    if (!fw_cfg)
+        return;
+    fw_cfg_reset_order_override(fw_cfg);
 }
 
 static Rom *find_rom(hwaddr addr)

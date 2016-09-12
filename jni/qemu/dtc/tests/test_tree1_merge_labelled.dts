@@ -6,6 +6,7 @@
 / {
 	compatible = "test_tree1";
 	prop-int = <0xdeadbeef>;
+	prop-int64 = /bits/ 64 <0xdeadbeef01abcdef>;
 	prop-str = "hello world";
 
 	subnode@1 {

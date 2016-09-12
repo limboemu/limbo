@@ -38,14 +38,18 @@
  *  CPUID Fn8000_0008_ECX[ApicIdCoreIdSize[3:0]] is set to apicid_core_width().
  */
 
-#include <stdint.h>
-#include <string.h>
 
 #include "qemu/bitops.h"
 
 /* APIC IDs can be 32-bit, but beware: APIC IDs > 255 require x2APIC support
  */
 typedef uint32_t apic_id_t;
+
+typedef struct X86CPUTopoInfo {
+    unsigned pkg_id;
+    unsigned core_id;
+    unsigned smt_id;
+} X86CPUTopoInfo;
 
 /* Return the bit width needed for 'count' IDs
  */
@@ -92,13 +96,11 @@ static inline unsigned apicid_pkg_offset(unsigned nr_cores, unsigned nr_threads)
  */
 static inline apic_id_t apicid_from_topo_ids(unsigned nr_cores,
                                              unsigned nr_threads,
-                                             unsigned pkg_id,
-                                             unsigned core_id,
-                                             unsigned smt_id)
+                                             const X86CPUTopoInfo *topo)
 {
-    return (pkg_id  << apicid_pkg_offset(nr_cores, nr_threads)) |
-           (core_id << apicid_core_offset(nr_cores, nr_threads)) |
-           smt_id;
+    return (topo->pkg_id  << apicid_pkg_offset(nr_cores, nr_threads)) |
+           (topo->core_id << apicid_core_offset(nr_cores, nr_threads)) |
+           topo->smt_id;
 }
 
 /* Calculate thread/core/package IDs for a specific topology,
@@ -107,14 +109,27 @@ static inline apic_id_t apicid_from_topo_ids(unsigned nr_cores,
 static inline void x86_topo_ids_from_idx(unsigned nr_cores,
                                          unsigned nr_threads,
                                          unsigned cpu_index,
-                                         unsigned *pkg_id,
-                                         unsigned *core_id,
-                                         unsigned *smt_id)
+                                         X86CPUTopoInfo *topo)
 {
     unsigned core_index = cpu_index / nr_threads;
-    *smt_id = cpu_index % nr_threads;
-    *core_id = core_index % nr_cores;
-    *pkg_id = core_index / nr_cores;
+    topo->smt_id = cpu_index % nr_threads;
+    topo->core_id = core_index % nr_cores;
+    topo->pkg_id = core_index / nr_cores;
+}
+
+/* Calculate thread/core/package IDs for a specific topology,
+ * based on APIC ID
+ */
+static inline void x86_topo_ids_from_apicid(apic_id_t apicid,
+                                            unsigned nr_cores,
+                                            unsigned nr_threads,
+                                            X86CPUTopoInfo *topo)
+{
+    topo->smt_id = apicid &
+                   ~(0xFFFFFFFFUL << apicid_smt_width(nr_cores, nr_threads));
+    topo->core_id = (apicid >> apicid_core_offset(nr_cores, nr_threads)) &
+                   ~(0xFFFFFFFFUL << apicid_core_width(nr_cores, nr_threads));
+    topo->pkg_id = apicid >> apicid_pkg_offset(nr_cores, nr_threads);
 }
 
 /* Make APIC ID for the CPU 'cpu_index'
@@ -125,10 +140,9 @@ static inline apic_id_t x86_apicid_from_cpu_idx(unsigned nr_cores,
                                                 unsigned nr_threads,
                                                 unsigned cpu_index)
 {
-    unsigned pkg_id, core_id, smt_id;
-    x86_topo_ids_from_idx(nr_cores, nr_threads, cpu_index,
-                          &pkg_id, &core_id, &smt_id);
-    return apicid_from_topo_ids(nr_cores, nr_threads, pkg_id, core_id, smt_id);
+    X86CPUTopoInfo topo;
+    x86_topo_ids_from_idx(nr_cores, nr_threads, cpu_index, &topo);
+    return apicid_from_topo_ids(nr_cores, nr_threads, &topo);
 }
 
 #endif /* HW_I386_TOPOLOGY_H */

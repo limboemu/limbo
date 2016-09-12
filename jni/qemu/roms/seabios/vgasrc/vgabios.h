@@ -62,7 +62,8 @@ struct gfx_op {
 #define GO_MEMSET  3
 #define GO_MEMMOVE 4
 
-// Custom internal storage in BDA
+// Custom internal storage in BDA (don't change here without also
+// updating vgaentry.S)
 #define VGA_CUSTOM_BDA 0xb9
 
 struct vga_bda_s {
@@ -74,6 +75,7 @@ struct vga_bda_s {
 #define BF_PM_MASK      0x0f
 #define BF_EMULATE_TEXT 0x10
 #define BF_SWCURSOR     0x20
+#define BF_EXTRA_STACK  0x40
 
 #define GET_BDA_EXT(var) \
     GET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var)

@@ -175,7 +175,9 @@ unsigned int usb_hub_init(void *hubdev)
 			newdev = usb_devpool_get();
 			dprintf("usb-hub: allocated device %p\n", newdev);
 			newdev->hcidev = dev->hcidev;
-			if (!setup_new_device(newdev, i))
+			if (usb_setup_new_device(newdev, i))
+				usb_slof_populate_new_device(newdev);
+			else
 				printf("usb-hub: unable to setup device on port %d\n", i);
 		}
 	}

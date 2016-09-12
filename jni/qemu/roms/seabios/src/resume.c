@@ -16,6 +16,7 @@
 #include "std/bda.h" // struct bios_data_area_s
 #include "string.h" // memset
 #include "util.h" // dma_setup
+#include "tcgbios.h" // tpm_s3_resume
 
 // Handler for post calls that look like a resume.
 void VISIBLE16
@@ -99,6 +100,8 @@ s3_resume(void)
 
     pci_resume();
 
+    /* resume TPM before we may measure option roms */
+    tpm_s3_resume();
     s3_resume_vga();
 
     make_bios_readonly();

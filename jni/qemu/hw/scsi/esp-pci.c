@@ -23,10 +23,12 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/pci/pci.h"
 #include "hw/nvram/eeprom93xx.h"
 #include "hw/scsi/esp.h"
 #include "trace.h"
+#include "qapi/error.h"
 #include "qemu/log.h"
 
 #define TYPE_AM53C974_DEVICE "am53c974"

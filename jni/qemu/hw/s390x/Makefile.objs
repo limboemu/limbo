@@ -1,4 +1,4 @@
-obj-y = s390-virtio-bus.o s390-virtio.o
+obj-y += s390-virtio.o
 obj-y += s390-virtio-hcall.o
 obj-y += sclp.o
 obj-y += event-facility.o
@@ -8,4 +8,8 @@ obj-y += ipl.o
 obj-y += css.o
 obj-y += s390-virtio-ccw.o
 obj-y += virtio-ccw.o
+obj-y += css-bridge.o
+obj-y += ccw-device.o
 obj-y += s390-pci-bus.o s390-pci-inst.o
+obj-y += s390-skeys.o
+obj-$(CONFIG_KVM) += s390-skeys-kvm.o

@@ -10,11 +10,8 @@
  */
 
 #ifndef HBITMAP_H
-#define HBITMAP_H 1
+#define HBITMAP_H
 
-#include <limits.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include "bitops.h"
 #include "host-utils.h"
 
@@ -65,6 +62,29 @@ struct HBitmapIter {
 HBitmap *hbitmap_alloc(uint64_t size, int granularity);
 
 /**
+ * hbitmap_truncate:
+ * @hb: The bitmap to change the size of.
+ * @size: The number of elements to change the bitmap to accommodate.
+ *
+ * truncate or grow an existing bitmap to accommodate a new number of elements.
+ * This may invalidate existing HBitmapIterators.
+ */
+void hbitmap_truncate(HBitmap *hb, uint64_t size);
+
+/**
+ * hbitmap_merge:
+ * @a: The bitmap to store the result in.
+ * @b: The bitmap to merge into @a.
+ * @return true if the merge was successful,
+ *         false if it was not attempted.
+ *
+ * Merge two bitmaps together.
+ * A := A (BITOR) B.
+ * B is left unmodified.
+ */
+bool hbitmap_merge(HBitmap *a, const HBitmap *b);
+
+/**
  * hbitmap_empty:
  * @hb: HBitmap to operate on.
  *
@@ -107,6 +127,14 @@ void hbitmap_set(HBitmap *hb, uint64_t start, uint64_t count);
  * Reset a consecutive range of bits in an HBitmap.
  */
 void hbitmap_reset(HBitmap *hb, uint64_t start, uint64_t count);
+
+/**
+ * hbitmap_reset_all:
+ * @hb: HBitmap to operate on.
+ *
+ * Reset all bits in an HBitmap.
+ */
+void hbitmap_reset_all(HBitmap *hb);
 
 /**
  * hbitmap_get:

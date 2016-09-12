@@ -22,7 +22,10 @@
  * THE SOFTWARE.
  */
 
-#include <stdio.h>
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/char/serial.h"
 #include "ui/console.h"
@@ -1322,6 +1325,7 @@ static void sm501_draw_crt(SM501State * s)
     }
 
     /* draw each line according to conditions */
+    memory_region_sync_dirty_bitmap(&s->local_mem_region);
     for (y = 0; y < height; y++) {
 	int update_hwc = draw_hwc_line ? within_hwc_y_range(s, y, 1) : 0;
 	int update = full_update || update_hwc;
@@ -1410,8 +1414,9 @@ void sm501_init(MemoryRegion *address_space_mem, uint32_t base,
 
     /* allocate local memory */
     memory_region_init_ram(&s->local_mem_region, NULL, "sm501.local",
-                           local_mem_bytes, &error_abort);
+                           local_mem_bytes, &error_fatal);
     vmstate_register_ram_global(&s->local_mem_region);
+    memory_region_set_log(&s->local_mem_region, true, DIRTY_MEMORY_VGA);
     s->local_mem = memory_region_get_ram_ptr(&s->local_mem_region);
     memory_region_add_subregion(address_space_mem, base, &s->local_mem_region);
 

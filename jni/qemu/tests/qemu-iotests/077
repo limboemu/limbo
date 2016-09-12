@@ -25,7 +25,6 @@ seq=`basename $0`
 echo "QA output created by $seq"
 
 here=`pwd`
-tmp=/tmp/$$
 status=1	# failure is the default!
 
 _cleanup()
@@ -61,9 +60,9 @@ EOF
 
 # Sequential RMW requests on the same physical sector
 off=0x1000
-for ev in "head" "after_head" "tail" "after_tail"; do
+for ev in "head" "after_head"; do
 cat  <<EOF
-break pwritev_rmw.$ev A
+break pwritev_rmw_$ev A
 aio_write -P 10 $((off + 0x200)) 0x200
 wait_break A
 aio_write -P 11 $((off + 0x400)) 0x200
@@ -76,7 +75,7 @@ done
 
 # Chained dependencies
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0x5000 0x200
 wait_break A
 aio_write -P 11 0x5200 0x200
@@ -93,10 +92,10 @@ EOF
 
 # Overlapping multiple requests
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0x6000 0x200
 wait_break A
-break pwritev_rmw.after_head B
+break pwritev_rmw_after_head B
 aio_write -P 10 0x7e00 0x200
 wait_break B
 aio_write -P 11 0x6800 0x1000
@@ -107,10 +106,10 @@ aio_flush
 EOF
 
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0x8000 0x200
 wait_break A
-break pwritev_rmw.after_head B
+break pwritev_rmw_after_head B
 aio_write -P 10 0x9e00 0x200
 wait_break B
 aio_write -P 11 0x8800 0x1000
@@ -121,11 +120,11 @@ aio_flush
 EOF
 
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0xa000 0x200
 wait_break A
 aio_write -P 11 0xa800 0x1000
-break pwritev_rmw.after_head B
+break pwritev_rmw_after_head B
 aio_write -P 10 0xbe00 0x200
 wait_break B
 resume A
@@ -135,11 +134,11 @@ aio_flush
 EOF
 
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0xc000 0x200
 wait_break A
 aio_write -P 11 0xc800 0x1000
-break pwritev_rmw.after_head B
+break pwritev_rmw_after_head B
 aio_write -P 10 0xde00 0x200
 wait_break B
 resume B
@@ -150,7 +149,7 @@ EOF
 
 # Only RMW for the tail part
 cat  <<EOF
-break pwritev_rmw.after_tail A
+break pwritev_rmw_after_tail A
 aio_write -P 10 0xe000 0x1800
 wait_break A
 aio_write -P 11 0xf000 0xc00
@@ -163,7 +162,7 @@ cat  <<EOF
 break pwritev A
 aio_write -P 10 0x10000 0x800
 wait_break A
-break pwritev_rmw.after_tail B
+break pwritev_rmw_after_tail B
 aio_write -P 11 0x10000 0x400
 break pwritev_done C
 resume A
@@ -211,16 +210,6 @@ function verify_io()
     echo read -P 10 0x2200 0x200
     echo read -P 11 0x2400 0x200
     echo read -P 0  0x2600 0xa00
-
-    echo read -P 0  0x3000 0x200
-    echo read -P 10 0x3200 0x200
-    echo read -P 11 0x3400 0x200
-    echo read -P 0  0x3600 0xa00
-
-    echo read -P 0  0x4000 0x200
-    echo read -P 10 0x4200 0x200
-    echo read -P 11 0x4400 0x200
-    echo read -P 0  0x4600 0xa00
 
     # Chained dependencies
     echo read -P 10 0x5000 0x200

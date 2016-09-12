@@ -16,9 +16,10 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/arm/omap.h"
-#include "hw/sd.h"
+#include "hw/sd/sd.h"
 
 struct omap_mmc_s {
     qemu_irq irq;
@@ -578,8 +579,7 @@ struct omap_mmc_s *omap_mmc_init(hwaddr base,
                 BlockBackend *blk,
                 qemu_irq irq, qemu_irq dma[], omap_clk clk)
 {
-    struct omap_mmc_s *s = (struct omap_mmc_s *)
-            g_malloc0(sizeof(struct omap_mmc_s));
+    struct omap_mmc_s *s = g_new0(struct omap_mmc_s, 1);
 
     s->irq = irq;
     s->dma = dma;
@@ -605,8 +605,7 @@ struct omap_mmc_s *omap2_mmc_init(struct omap_target_agent_s *ta,
                 BlockBackend *blk, qemu_irq irq, qemu_irq dma[],
                 omap_clk fclk, omap_clk iclk)
 {
-    struct omap_mmc_s *s = (struct omap_mmc_s *)
-            g_malloc0(sizeof(struct omap_mmc_s));
+    struct omap_mmc_s *s = g_new0(struct omap_mmc_s, 1);
 
     s->irq = irq;
     s->dma = dma;

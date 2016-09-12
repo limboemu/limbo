@@ -18,7 +18,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "qemu-common.h"
 #include "exec/gdbstub.h"
 #include "qemu/host-utils.h"

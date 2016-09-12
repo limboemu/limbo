@@ -123,7 +123,7 @@ int pci_init_device(const struct pci_device_id *ids
                     , struct pci_device *pci, void *arg);
 struct pci_device *pci_find_init_device(const struct pci_device_id *ids
                                         , void *arg);
-u8 pci_find_capability(struct pci_device *pci, u8 cap_id);
+u8 pci_find_capability(struct pci_device *pci, u8 cap_id, u8 cap);
 int pci_bridge_has_region(struct pci_device *pci,
                           enum pci_region_type region_type);
 void pci_reboot(void);

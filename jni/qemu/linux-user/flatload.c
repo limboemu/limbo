@@ -33,16 +33,11 @@
 
 /****************************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#include "qemu/osdep.h"
 
 #include "qemu.h"
 #include "flat.h"
-#define ntohl(x) be32_to_cpu(x)
-#include <target_flat.h>
+#include "target_flat.h"
 
 //#define DEBUG
 
@@ -707,7 +702,7 @@ static int load_flat_shared_library(int id, struct lib_info *libs)
 int load_flt_binary(struct linux_binprm *bprm, struct image_info *info)
 {
     struct lib_info libinfo[MAX_SHARED_LIBS];
-    abi_ulong p = bprm->p;
+    abi_ulong p;
     abi_ulong stack_len;
     abi_ulong start_addr;
     abi_ulong sp;

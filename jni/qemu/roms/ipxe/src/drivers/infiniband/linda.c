@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -108,32 +112,21 @@ struct linda {
  * This card requires atomic 64-bit accesses.  Strange things happen
  * if you try to use 32-bit accesses; sometimes they work, sometimes
  * they don't, sometimes you get random data.
- *
- * These accessors use the "movq" MMX instruction, and so won't work
- * on really old Pentiums (which won't have PCIe anyway, so this is
- * something of a moot point).
  */
 
 /**
  * Read Linda qword register
  *
  * @v linda		Linda device
- * @v dwords		Register buffer to read into
+ * @v qword		Register buffer to read into
  * @v offset		Register offset
  */
-static void linda_readq ( struct linda *linda, uint32_t *dwords,
+static void linda_readq ( struct linda *linda, uint64_t *qword,
 			  unsigned long offset ) {
-	void *addr = ( linda->regs + offset );
-
-	__asm__ __volatile__ ( "movq (%1), %%mm0\n\t"
-			       "movq %%mm0, (%0)\n\t"
-			       : : "r" ( dwords ), "r" ( addr ) : "memory" );
-
-	DBGIO ( "[%08lx] => %08x%08x\n",
-		virt_to_phys ( addr ), dwords[1], dwords[0] );
+	*qword = readq ( linda->regs + offset );
 }
 #define linda_readq( _linda, _ptr, _offset ) \
-	linda_readq ( (_linda), (_ptr)->u.dwords, (_offset) )
+	linda_readq ( (_linda), (_ptr)->u.qwords, (_offset) )
 #define linda_readq_array8b( _linda, _ptr, _offset, _idx ) \
 	linda_readq ( (_linda), (_ptr), ( (_offset) + ( (_idx) * 8 ) ) )
 #define linda_readq_array64k( _linda, _ptr, _offset, _idx ) \
@@ -143,22 +136,15 @@ static void linda_readq ( struct linda *linda, uint32_t *dwords,
  * Write Linda qword register
  *
  * @v linda		Linda device
- * @v dwords		Register buffer to write
+ * @v qword		Register buffer to write
  * @v offset		Register offset
  */
-static void linda_writeq ( struct linda *linda, const uint32_t *dwords,
+static void linda_writeq ( struct linda *linda, const uint64_t *qword,
 			   unsigned long offset ) {
-	void *addr = ( linda->regs + offset );
-
-	DBGIO ( "[%08lx] <= %08x%08x\n",
-		virt_to_phys ( addr ), dwords[1], dwords[0] );
-
-	__asm__ __volatile__ ( "movq (%0), %%mm0\n\t"
-			       "movq %%mm0, (%1)\n\t"
-			       : : "r" ( dwords ), "r" ( addr ) : "memory" );
+	writeq ( *qword, ( linda->regs + offset ) );
 }
 #define linda_writeq( _linda, _ptr, _offset ) \
-	linda_writeq ( (_linda), (_ptr)->u.dwords, (_offset) )
+	linda_writeq ( (_linda), (_ptr)->u.qwords, (_offset) )
 #define linda_writeq_array8b( _linda, _ptr, _offset, _idx ) \
 	linda_writeq ( (_linda), (_ptr), ( (_offset) + ( (_idx) * 8 ) ) )
 #define linda_writeq_array64k( _linda, _ptr, _offset, _idx ) \
@@ -1285,8 +1271,15 @@ static void linda_complete_recv ( struct ib_device *ibdev,
 			/* Completing the eager buffer described in
 			 * this header entry.
 			 */
-			iob_put ( iobuf, payload_len );
-			rc = ( err ? -EIO : ( useegrbfr ? 0 : -ECANCELED ) );
+			if ( payload_len <= iob_tailroom ( iobuf ) ) {
+				iob_put ( iobuf, payload_len );
+				rc = ( err ?
+				       -EIO : ( useegrbfr ? 0 : -ECANCELED ) );
+			} else {
+				DBGC ( linda, "Linda %p bad payload len %zd\n",
+				       linda, payload_len );
+				rc = -EPROTO;
+			}
 			/* Redirect to target QP if necessary */
 			if ( qp != intended_qp ) {
 				DBGC ( linda, "Linda %p redirecting QPN %ld "
@@ -1297,7 +1290,7 @@ static void linda_complete_recv ( struct ib_device *ibdev,
 				intended_qp->recv.fill++;
 			}
 			ib_complete_recv ( ibdev, intended_qp, &dest, &source,
-					   iobuf, rc);
+					   iobuf, rc );
 		} else {
 			/* Completing on a skipped-over eager buffer */
 			ib_complete_recv ( ibdev, qp, &dest, &source, iobuf,
@@ -2341,7 +2334,7 @@ static int linda_probe ( struct pci_device *pci ) {
 	/* Fix up PCI device */
 	adjust_pci_device ( pci );
 
-	/* Get PCI BARs */
+	/* Map PCI BARs */
 	linda->regs = ioremap ( pci->membase, LINDA_BAR0_SIZE );
 	DBGC2 ( linda, "Linda %p has BAR at %08lx\n", linda, pci->membase );
 
@@ -2402,6 +2395,7 @@ static int linda_probe ( struct pci_device *pci ) {
  err_init_ib_serdes:
  err_read_eeprom:
  err_init_i2c:
+	iounmap ( linda->regs );
 	ibdev_put ( ibdev );
  err_alloc_ibdev:
 	return rc;
@@ -2419,6 +2413,7 @@ static void linda_remove ( struct pci_device *pci ) {
 	unregister_ibdev ( ibdev );
 	linda_fini_recv ( linda );
 	linda_fini_send ( linda );
+	iounmap ( linda->regs );
 	ibdev_put ( ibdev );
 }
 

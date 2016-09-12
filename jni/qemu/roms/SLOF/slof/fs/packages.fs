@@ -1,5 +1,5 @@
 \ *****************************************************************************
-\ * Copyright (c) 2004, 2008 IBM Corporation
+\ * Copyright (c) 2004, 2015 IBM Corporation
 \ * All rights reserved.
 \ * This program and the accompanying materials
 \ * are made available under the terms of the BSD License
@@ -50,13 +50,3 @@ finish-device
 new-device
 #include "packages/iso-9660.fs"
 finish-device
-
-\ new-device
-\ #include "packages/scsi.fs"
-\ finish-device
-
-new-device
-#include "packages/bulk.fs"
-finish-device
-
-

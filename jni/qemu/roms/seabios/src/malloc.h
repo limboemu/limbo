@@ -9,17 +9,19 @@ u32 rom_get_max(void);
 u32 rom_get_last(void);
 struct rom_header *rom_reserve(u32 size);
 int rom_confirm(u32 size);
-void csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm,
+void malloc_csm_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm,
                         u32 hi_pmm_size);
 void malloc_preinit(void);
 extern u32 LegacyRamSize;
 void malloc_init(void);
 void malloc_prepboot(void);
+u32 malloc_palloc(struct zone_s *zone, u32 size, u32 align);
 void *_malloc(struct zone_s *zone, u32 size, u32 align);
-int _free(void *data);
+int malloc_pfree(u32 data);
+void free(void *data);
 u32 malloc_getspace(struct zone_s *zone);
-void malloc_sethandle(void *data, u32 handle);
-void *malloc_findhandle(u32 handle);
+void malloc_sethandle(u32 data, u32 handle);
+u32 malloc_findhandle(u32 handle);
 
 #define MALLOC_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory
@@ -63,9 +65,6 @@ static inline void *memalign_tmp(u32 align, u32 size) {
     if (ret)
         return ret;
     return memalign_tmplow(align, size);
-}
-static inline void free(void *data) {
-    _free(data);
 }
 
 #endif // malloc.h

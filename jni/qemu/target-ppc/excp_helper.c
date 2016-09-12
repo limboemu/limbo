@@ -16,13 +16,16 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
 
 #include "helper_regs.h"
 
 //#define DEBUG_OP
+//#define DEBUG_SOFTWARE_TLB
 //#define DEBUG_EXCEPTIONS
 
 #ifdef DEBUG_EXCEPTIONS
@@ -74,18 +77,8 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
     CPUState *cs = CPU(cpu);
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
-    int srr0, srr1, asrr0, asrr1;
-    int lpes0, lpes1, lev;
-
-    if (0) {
-        /* XXX: find a suitable condition to enable the hypervisor mode */
-        lpes0 = (env->spr[SPR_LPCR] >> 1) & 1;
-        lpes1 = (env->spr[SPR_LPCR] >> 2) & 1;
-    } else {
-        /* Those values ensure we won't enter the hypervisor mode */
-        lpes0 = 0;
-        lpes1 = 1;
-    }
+    int srr0, srr1, asrr0, asrr1, lev, ail;
+    bool lpes0;
 
     qemu_log_mask(CPU_LOG_INT, "Raise exception at " TARGET_FMT_lx
                   " => %08x (%02x)\n", env->nip, excp, env->error_code);
@@ -97,14 +90,94 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         msr = env->msr & ~0x783f0000ULL;
     }
 
-    /* new interrupt handler msr */
-    new_msr = env->msr & ((target_ulong)1 << MSR_ME);
+    /* new interrupt handler msr preserves existing HV and ME unless
+     * explicitly overriden
+     */
+    new_msr = env->msr & (((target_ulong)1 << MSR_ME) | MSR_HVB);
 
     /* target registers */
     srr0 = SPR_SRR0;
     srr1 = SPR_SRR1;
     asrr0 = -1;
     asrr1 = -1;
+
+    /* check for special resume at 0x100 from doze/nap/sleep/winkle on P7/P8 */
+    if (env->in_pm_state) {
+        env->in_pm_state = false;
+
+        /* Pretend to be returning from doze always as we don't lose state */
+        msr |= (0x1ull << (63 - 47));
+
+        /* Non-machine check are routed to 0x100 with a wakeup cause
+         * encoded in SRR1
+         */
+        if (excp != POWERPC_EXCP_MCHECK) {
+            switch (excp) {
+            case POWERPC_EXCP_RESET:
+                msr |= 0x4ull << (63 - 45);
+                break;
+            case POWERPC_EXCP_EXTERNAL:
+                msr |= 0x8ull << (63 - 45);
+                break;
+            case POWERPC_EXCP_DECR:
+                msr |= 0x6ull << (63 - 45);
+                break;
+            case POWERPC_EXCP_SDOOR:
+                msr |= 0x5ull << (63 - 45);
+                break;
+            case POWERPC_EXCP_SDOOR_HV:
+                msr |= 0x3ull << (63 - 45);
+                break;
+            case POWERPC_EXCP_HV_MAINT:
+                msr |= 0xaull << (63 - 45);
+                break;
+            default:
+                cpu_abort(cs, "Unsupported exception %d in Power Save mode\n",
+                          excp);
+            }
+            excp = POWERPC_EXCP_RESET;
+        }
+    }
+
+    /* Exception targetting modifiers
+     *
+     * LPES0 is supported on POWER7/8
+     * LPES1 is not supported (old iSeries mode)
+     *
+     * On anything else, we behave as if LPES0 is 1
+     * (externals don't alter MSR:HV)
+     *
+     * AIL is initialized here but can be cleared by
+     * selected exceptions
+     */
+#if defined(TARGET_PPC64)
+    if (excp_model == POWERPC_EXCP_POWER7 ||
+        excp_model == POWERPC_EXCP_POWER8) {
+        lpes0 = !!(env->spr[SPR_LPCR] & LPCR_LPES0);
+        if (excp_model == POWERPC_EXCP_POWER8) {
+            ail = (env->spr[SPR_LPCR] & LPCR_AIL) >> LPCR_AIL_SHIFT;
+        } else {
+            ail = 0;
+        }
+    } else
+#endif /* defined(TARGET_PPC64) */
+    {
+        lpes0 = true;
+        ail = 0;
+    }
+
+    /* Hypervisor emulation assistance interrupt only exists on server
+     * arch 2.05 server or later. We also don't want to generate it if
+     * we don't have HVB in msr_mask (PAPR mode).
+     */
+    if (excp == POWERPC_EXCP_HV_EMU
+#if defined(TARGET_PPC64)
+        && !((env->mmu_model & POWERPC_MMU_64) && (env->msr_mask & MSR_HVB))
+#endif /* defined(TARGET_PPC64) */
+
+    ) {
+        excp = POWERPC_EXCP_PROGRAM;
+    }
 
     switch (excp) {
     case POWERPC_EXCP_NONE:
@@ -131,20 +204,17 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
             /* Machine check exception is not enabled.
              * Enter checkstop state.
              */
-            if (qemu_log_enabled()) {
+            fprintf(stderr, "Machine check while not allowed. "
+                    "Entering checkstop state\n");
+            if (qemu_log_separate()) {
                 qemu_log("Machine check while not allowed. "
-                        "Entering checkstop state\n");
-            } else {
-                fprintf(stderr, "Machine check while not allowed. "
                         "Entering checkstop state\n");
             }
             cs->halted = 1;
             cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
         }
-        if (0) {
-            /* XXX: find a suitable condition to enable the hypervisor mode */
-            new_msr |= (target_ulong)MSR_HVB;
-        }
+        new_msr |= (target_ulong)MSR_HVB;
+        ail = 0;
 
         /* machine check exceptions don't have ME set */
         new_msr &= ~((target_ulong)1 << MSR_ME);
@@ -169,23 +239,20 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
         LOG_EXCP("DSI exception: DSISR=" TARGET_FMT_lx" DAR=" TARGET_FMT_lx
                  "\n", env->spr[SPR_DSISR], env->spr[SPR_DAR]);
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_next;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
         LOG_EXCP("ISI exception: msr=" TARGET_FMT_lx ", nip=" TARGET_FMT_lx
                  "\n", msr, env->nip);
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         msr |= env->error_code;
         goto store_next;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
         cs = CPU(cpu);
 
-        if (lpes0 == 1) {
+        if (!lpes0) {
             new_msr |= (target_ulong)MSR_HVB;
+            new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+            srr0 = SPR_HSRR0;
+            srr1 = SPR_HSRR1;
         }
         if (env->mpic_proxy) {
             /* IACK the IRQ on delivery */
@@ -193,14 +260,11 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         }
         goto store_next;
     case POWERPC_EXCP_ALIGN:     /* Alignment exception                      */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         /* XXX: this is false */
         /* Get rS/rD and rA from faulting opcode */
         env->spr[SPR_DSISR] |= (cpu_ldl_code(env, (env->nip - 4))
                                 & 0x03FF0000) >> 16;
-        goto store_current;
+        goto store_next;
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
@@ -210,9 +274,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
                 env->error_code = 0;
                 return;
             }
-            if (lpes1 == 0) {
-                new_msr |= (target_ulong)MSR_HVB;
-            }
             msr |= 0x00100000;
             if (msr_fe0 == msr_fe1) {
                 goto store_next;
@@ -221,23 +282,14 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
             break;
         case POWERPC_EXCP_INVAL:
             LOG_EXCP("Invalid instruction at " TARGET_FMT_lx "\n", env->nip);
-            if (lpes1 == 0) {
-                new_msr |= (target_ulong)MSR_HVB;
-            }
             msr |= 0x00080000;
             env->spr[SPR_BOOKE_ESR] = ESR_PIL;
             break;
         case POWERPC_EXCP_PRIV:
-            if (lpes1 == 0) {
-                new_msr |= (target_ulong)MSR_HVB;
-            }
             msr |= 0x00040000;
             env->spr[SPR_BOOKE_ESR] = ESR_PPR;
             break;
         case POWERPC_EXCP_TRAP:
-            if (lpes1 == 0) {
-                new_msr |= (target_ulong)MSR_HVB;
-            }
             msr |= 0x00020000;
             env->spr[SPR_BOOKE_ESR] = ESR_PTR;
             break;
@@ -248,28 +300,30 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
             break;
         }
         goto store_current;
+    case POWERPC_EXCP_HV_EMU:
+        srr0 = SPR_HSRR0;
+        srr1 = SPR_HSRR1;
+        new_msr |= (target_ulong)MSR_HVB;
+        new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+        goto store_current;
     case POWERPC_EXCP_FPU:       /* Floating-point unavailable exception     */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_current;
     case POWERPC_EXCP_SYSCALL:   /* System call exception                    */
         dump_syscall(env);
         lev = env->error_code;
+
+        /* "PAPR mode" built-in hypercall emulation */
         if ((lev == 1) && cpu_ppc_hypercall) {
             cpu_ppc_hypercall(cpu);
             return;
         }
-        if (lev == 1 || (lpes0 == 0 && lpes1 == 0)) {
+        if (lev == 1) {
             new_msr |= (target_ulong)MSR_HVB;
         }
         goto store_next;
     case POWERPC_EXCP_APU:       /* Auxiliary processor unavailable          */
         goto store_current;
     case POWERPC_EXCP_DECR:      /* Decrementer exception                    */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_next;
     case POWERPC_EXCP_FIT:       /* Fixed-interval timer interrupt           */
         /* FIT on 4xx */
@@ -339,20 +393,12 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
             new_msr &= ~((target_ulong)1 << MSR_ME);
         }
 
-        if (0) {
-            /* XXX: find a suitable condition to enable the hypervisor mode */
-            new_msr |= (target_ulong)MSR_HVB;
-        }
+        new_msr |= (target_ulong)MSR_HVB;
+        ail = 0;
         goto store_next;
     case POWERPC_EXCP_DSEG:      /* Data segment exception                   */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_next;
     case POWERPC_EXCP_ISEG:      /* Instruction segment exception            */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_next;
     case POWERPC_EXCP_HDECR:     /* Hypervisor decrementer exception         */
         srr0 = SPR_HSRR0;
@@ -361,9 +407,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
         goto store_next;
     case POWERPC_EXCP_TRACE:     /* Trace exception                          */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_next;
     case POWERPC_EXCP_HDSI:      /* Hypervisor data storage exception        */
         srr0 = SPR_HSRR0;
@@ -390,19 +433,10 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
         goto store_next;
     case POWERPC_EXCP_VPU:       /* Vector unavailable exception             */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_current;
     case POWERPC_EXCP_VSXU:       /* VSX unavailable exception               */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_current;
     case POWERPC_EXCP_FU:         /* Facility unavailable exception          */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         goto store_current;
     case POWERPC_EXCP_PIT:       /* Programmable interval timer interrupt    */
         LOG_EXCP("PIT exception\n");
@@ -421,9 +455,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
                   "is not implemented yet !\n");
         goto store_next;
     case POWERPC_EXCP_IFTLB:     /* Instruction fetch TLB error              */
-        if (lpes1 == 0) { /* XXX: check this */
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         switch (excp_model) {
         case POWERPC_EXCP_602:
         case POWERPC_EXCP_603:
@@ -440,9 +471,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         }
         break;
     case POWERPC_EXCP_DLTLB:     /* Data load TLB miss                       */
-        if (lpes1 == 0) { /* XXX: check this */
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         switch (excp_model) {
         case POWERPC_EXCP_602:
         case POWERPC_EXCP_603:
@@ -459,9 +487,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         }
         break;
     case POWERPC_EXCP_DSTLB:     /* Data store TLB miss                      */
-        if (lpes1 == 0) { /* XXX: check this */
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         switch (excp_model) {
         case POWERPC_EXCP_602:
         case POWERPC_EXCP_603:
@@ -567,9 +592,6 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
                   "is not implemented yet !\n");
         goto store_next;
     case POWERPC_EXCP_PERFM:     /* Embedded performance monitor interrupt   */
-        if (lpes1 == 0) {
-            new_msr |= (target_ulong)MSR_HVB;
-        }
         /* XXX: TODO */
         cpu_abort(cs,
                   "Performance counter exception is not implemented yet !\n");
@@ -613,6 +635,13 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
     }
     /* Save MSR */
     env->spr[srr1] = msr;
+
+    /* Sanity check */
+    if (!(env->msr_mask & MSR_HVB) && (srr0 == SPR_HSRR0)) {
+        cpu_abort(cs, "Trying to deliver HV exception %d with "
+                  "no HV support\n", excp);
+    }
+
     /* If any alternate SRR register are defined, duplicate saved values */
     if (asrr0 != -1) {
         env->spr[asrr0] = env->spr[srr0];
@@ -621,16 +650,20 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         env->spr[asrr1] = env->spr[srr1];
     }
 
-    if (env->spr[SPR_LPCR] & LPCR_AIL) {
-        new_msr |= (1 << MSR_IR) | (1 << MSR_DR);
-    } else if (msr & ((1 << MSR_IR) | (1 << MSR_DR))) {
-        /* If we disactivated any translation, flush TLBs */
-        tlb_flush(cs, 1);
-    }
-
+    /* Sort out endianness of interrupt, this differs depending on the
+     * CPU, the HV mode, etc...
+     */
 #ifdef TARGET_PPC64
     if (excp_model == POWERPC_EXCP_POWER7) {
-        if (env->spr[SPR_LPCR] & LPCR_ILE) {
+        if (!(new_msr & MSR_HVB) && (env->spr[SPR_LPCR] & LPCR_ILE)) {
+            new_msr |= (target_ulong)1 << MSR_LE;
+        }
+    } else if (excp_model == POWERPC_EXCP_POWER8) {
+        if (new_msr & MSR_HVB) {
+            if (env->spr[SPR_HID0] & HID0_HILE) {
+                new_msr |= (target_ulong)1 << MSR_LE;
+            }
+        } else if (env->spr[SPR_LPCR] & LPCR_ILE) {
             new_msr |= (target_ulong)1 << MSR_LE;
         }
     } else if (msr_ile) {
@@ -649,6 +682,30 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
                   excp);
     }
     vector |= env->excp_prefix;
+
+    /* AIL only works if there is no HV transition and we are running with
+     * translations enabled
+     */
+    if (!((msr >> MSR_IR) & 1) || !((msr >> MSR_DR) & 1) ||
+        ((new_msr & MSR_HVB) && !(msr & MSR_HVB))) {
+        ail = 0;
+    }
+    /* Handle AIL */
+    if (ail) {
+        new_msr |= (1 << MSR_IR) | (1 << MSR_DR);
+        switch(ail) {
+        case AIL_0001_8000:
+            vector |= 0x18000;
+            break;
+        case AIL_C000_0000_0000_4000:
+            vector |= 0xc000000000004000ull;
+            break;
+        default:
+            cpu_abort(cs, "Invalid AIL combination %d\n", ail);
+            break;
+        }
+    }
+
 #if defined(TARGET_PPC64)
     if (excp_model == POWERPC_EXCP_BOOKE) {
         if (env->spr[SPR_BOOKE_EPCR] & EPCR_ICM) {
@@ -665,8 +722,12 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         }
     }
 #endif
-    /* XXX: we don't use hreg_store_msr here as already have treated
-     *      any special case that could occur. Just store MSR and update hflags
+    /* We don't use hreg_store_msr here as already have treated
+     * any special case that could occur. Just store MSR and update hflags
+     *
+     * Note: We *MUST* not use hreg_store_msr() as-is anyway because it
+     * will prevent setting of the HV bit which some exceptions might need
+     * to do.
      */
     env->msr = new_msr & env->msr_mask;
     hreg_compute_hflags(env);
@@ -675,13 +736,10 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
     cs->exception_index = POWERPC_EXCP_NONE;
     env->error_code = 0;
 
-    if ((env->mmu_model == POWERPC_MMU_BOOKE) ||
-        (env->mmu_model == POWERPC_MMU_BOOKE206)) {
-        /* XXX: The BookE changes address space when switching modes,
-                we should probably implement that as different MMU indexes,
-                but for the moment we do it the slow way and flush all.  */
-        tlb_flush(cs, 1);
-    }
+    /* Any interrupt is context synchronizing, check if TCG TLB
+     * needs a delayed flush on ppc64
+     */
+    check_tlb_flush(env);
 }
 
 void ppc_cpu_do_interrupt(CPUState *cs)
@@ -695,7 +753,6 @@ void ppc_cpu_do_interrupt(CPUState *cs)
 static void ppc_hw_interrupt(CPUPPCState *env)
 {
     PowerPCCPU *cpu = ppc_env_get_cpu(env);
-    int hdice;
 #if 0
     CPUState *cs = CPU(cpu);
 
@@ -723,16 +780,22 @@ static void ppc_hw_interrupt(CPUPPCState *env)
         return;
     }
 #endif
-    if (0) {
-        /* XXX: find a suitable condition to enable the hypervisor mode */
-        hdice = env->spr[SPR_LPCR] & 1;
-    } else {
-        hdice = 0;
-    }
-    if ((msr_ee != 0 || msr_hv == 0 || msr_pr != 0) && hdice != 0) {
-        /* Hypervisor decrementer exception */
-        if (env->pending_interrupts & (1 << PPC_INTERRUPT_HDECR)) {
+    /* Hypervisor decrementer exception */
+    if (env->pending_interrupts & (1 << PPC_INTERRUPT_HDECR)) {
+        /* LPCR will be clear when not supported so this will work */
+        bool hdice = !!(env->spr[SPR_LPCR] & LPCR_HDICE);
+        if ((msr_ee != 0 || msr_hv == 0) && hdice) {
+            /* HDEC clears on delivery */
+            env->pending_interrupts &= ~(1 << PPC_INTERRUPT_HDECR);
             powerpc_excp(cpu, env->excp_model, POWERPC_EXCP_HDECR);
+            return;
+        }
+    }
+    /* Extermal interrupt can ignore MSR:EE under some circumstances */
+    if (env->pending_interrupts & (1 << PPC_INTERRUPT_EXT)) {
+        bool lpes0 = !!(env->spr[SPR_LPCR] & LPCR_LPES0);
+        if (msr_ee != 0 || (env->has_hv_mode && msr_hv == 0 && !lpes0)) {
+            powerpc_excp(cpu, env->excp_model, POWERPC_EXCP_EXTERNAL);
             return;
         }
     }
@@ -779,17 +842,6 @@ static void ppc_hw_interrupt(CPUPPCState *env)
                 env->pending_interrupts &= ~(1 << PPC_INTERRUPT_DECR);
             }
             powerpc_excp(cpu, env->excp_model, POWERPC_EXCP_DECR);
-            return;
-        }
-        /* External interrupt */
-        if (env->pending_interrupts & (1 << PPC_INTERRUPT_EXT)) {
-            /* Taking an external interrupt does not clear the external
-             * interrupt status
-             */
-#if 0
-            env->pending_interrupts &= ~(1 << PPC_INTERRUPT_EXT);
-#endif
-            powerpc_excp(cpu, env->excp_model, POWERPC_EXCP_EXTERNAL);
             return;
         }
         if (env->pending_interrupts & (1 << PPC_INTERRUPT_DOORBELL)) {
@@ -877,25 +929,46 @@ void helper_store_msr(CPUPPCState *env, target_ulong val)
     }
 }
 
-static inline void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr,
-                          target_ulong msrm, int keep_msrh)
+#if defined(TARGET_PPC64)
+void helper_pminsn(CPUPPCState *env, powerpc_pm_insn_t insn)
+{
+    CPUState *cs;
+
+    cs = CPU(ppc_env_get_cpu(env));
+    cs->halted = 1;
+    env->in_pm_state = true;
+
+    /* The architecture specifies that HDEC interrupts are
+     * discarded in PM states
+     */
+    env->pending_interrupts &= ~(1 << PPC_INTERRUPT_HDECR);
+
+    /* Technically, nap doesn't set EE, but if we don't set it
+     * then ppc_hw_interrupt() won't deliver. We could add some
+     * other tests there based on LPCR but it's simpler to just
+     * whack EE in. It will be cleared by the 0x100 at wakeup
+     * anyway. It will still be observable by the guest in SRR1
+     * but this doesn't seem to be a problem.
+     */
+    env->msr |= (1ull << MSR_EE);
+    helper_raise_exception(env, EXCP_HLT);
+}
+#endif /* defined(TARGET_PPC64) */
+
+static inline void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr)
 {
     CPUState *cs = CPU(ppc_env_get_cpu(env));
 
+    /* MSR:POW cannot be set by any form of rfi */
+    msr &= ~(1ULL << MSR_POW);
+
 #if defined(TARGET_PPC64)
-    if (msr_is_64bit(env, msr)) {
-        nip = (uint64_t)nip;
-        msr &= (uint64_t)msrm;
-    } else {
+    /* Switching to 32-bit ? Crop the nip */
+    if (!msr_is_64bit(env, msr)) {
         nip = (uint32_t)nip;
-        msr = (uint32_t)(msr & msrm);
-        if (keep_msrh) {
-            msr |= env->msr & ~((uint64_t)0xFFFFFFFF);
-        }
     }
 #else
     nip = (uint32_t)nip;
-    msr &= (uint32_t)msrm;
 #endif
     /* XXX: beware: this is false if VLE is supported */
     env->nip = nip & ~((target_ulong)0x00000003);
@@ -907,30 +980,31 @@ static inline void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr,
      * as rfi is always the last insn of a TB
      */
     cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
+
+    /* Context synchronizing: check if TCG TLB needs flush */
+    check_tlb_flush(env);
 }
 
 void helper_rfi(CPUPPCState *env)
 {
-    if (env->excp_model == POWERPC_EXCP_BOOKE) {
-        do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1],
-               ~((target_ulong)0), 0);
-    } else {
-        do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1],
-               ~((target_ulong)0x783F0000), 1);
-    }
+    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffffffful);
 }
 
+#define MSR_BOOK3S_MASK
 #if defined(TARGET_PPC64)
 void helper_rfid(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1],
-           ~((target_ulong)0x783F0000), 0);
+    /* The architeture defines a number of rules for which bits
+     * can change but in practice, we handle this in hreg_store_msr()
+     * which will be called by do_rfi(), so there is no need to filter
+     * here
+     */
+    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1]);
 }
 
 void helper_hrfid(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_HSRR0], env->spr[SPR_HSRR1],
-           ~((target_ulong)0x783F0000), 0);
+    do_rfi(env, env->spr[SPR_HSRR0], env->spr[SPR_HSRR1]);
 }
 #endif
 
@@ -938,28 +1012,24 @@ void helper_hrfid(CPUPPCState *env)
 /* Embedded PowerPC specific helpers */
 void helper_40x_rfci(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_40x_SRR2], env->spr[SPR_40x_SRR3],
-           ~((target_ulong)0xFFFF0000), 0);
+    do_rfi(env, env->spr[SPR_40x_SRR2], env->spr[SPR_40x_SRR3]);
 }
 
 void helper_rfci(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_BOOKE_CSRR0], env->spr[SPR_BOOKE_CSRR1],
-           ~((target_ulong)0), 0);
+    do_rfi(env, env->spr[SPR_BOOKE_CSRR0], env->spr[SPR_BOOKE_CSRR1]);
 }
 
 void helper_rfdi(CPUPPCState *env)
 {
     /* FIXME: choose CSRR1 or DSRR1 based on cpu type */
-    do_rfi(env, env->spr[SPR_BOOKE_DSRR0], env->spr[SPR_BOOKE_DSRR1],
-           ~((target_ulong)0), 0);
+    do_rfi(env, env->spr[SPR_BOOKE_DSRR0], env->spr[SPR_BOOKE_DSRR1]);
 }
 
 void helper_rfmci(CPUPPCState *env)
 {
     /* FIXME: choose CSRR1 or MCSRR1 based on cpu type */
-    do_rfi(env, env->spr[SPR_BOOKE_MCSRR0], env->spr[SPR_BOOKE_MCSRR1],
-           ~((target_ulong)0), 0);
+    do_rfi(env, env->spr[SPR_BOOKE_MCSRR0], env->spr[SPR_BOOKE_MCSRR1]);
 }
 #endif
 
@@ -997,7 +1067,7 @@ void helper_td(CPUPPCState *env, target_ulong arg1, target_ulong arg2,
 
 void helper_rfsvc(CPUPPCState *env)
 {
-    do_rfi(env, env->lr, env->ctr, 0x0000FFFF, 0);
+    do_rfi(env, env->lr, env->ctr & 0x0000FFFF);
 }
 
 /* Embedded.Processor Control */

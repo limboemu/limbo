@@ -9,7 +9,7 @@
  * (at your option) any later version.
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "e500.h"
 #include "hw/boards.h"
@@ -50,16 +50,11 @@ static void mpc8544ds_init(MachineState *machine)
 }
 
 
-static QEMUMachine ppce500_machine = {
-    .name = "mpc8544ds",
-    .desc = "mpc8544ds",
-    .init = mpc8544ds_init,
-    .max_cpus = 15,
-};
-
-static void ppce500_machine_init(void)
+static void ppce500_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&ppce500_machine);
+    mc->desc = "mpc8544ds";
+    mc->init = mpc8544ds_init;
+    mc->max_cpus = 15;
 }
 
-machine_init(ppce500_machine_init);
+DEFINE_MACHINE("mpc8544ds", ppce500_machine_init)

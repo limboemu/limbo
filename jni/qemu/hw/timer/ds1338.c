@@ -10,7 +10,10 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
 #include "hw/i2c/i2c.h"
+#include "qemu/bcd.h"
 
 /* Size of NVRAM including both the user-accessible area and the
  * secondary register area.

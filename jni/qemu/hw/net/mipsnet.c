@@ -1,3 +1,4 @@
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "net/net.h"
 #include "trace.h"
@@ -80,8 +81,11 @@ static ssize_t mipsnet_receive(NetClientState *nc, const uint8_t *buf, size_t si
 
     trace_mipsnet_receive(size);
     if (!mipsnet_can_receive(nc))
-        return -1;
+        return 0;
 
+    if (size >= sizeof(s->rx_buffer)) {
+        return 0;
+    }
     s->busy = 1;
 
     /* Just accept everything. */
@@ -134,6 +138,9 @@ static uint64_t mipsnet_ioport_read(void *opaque, hwaddr addr,
         if (s->rx_count) {
             s->rx_count--;
             ret = s->rx_buffer[s->rx_read++];
+            if (mipsnet_can_receive(s->nic->ncs)) {
+                qemu_flush_queued_packets(qemu_get_queue(s->nic));
+            }
         }
         break;
     /* Reads as zero. */
@@ -170,13 +177,18 @@ static void mipsnet_ioport_write(void *opaque, hwaddr addr,
         }
         s->busy = !!s->intctl;
         mipsnet_update_irq(s);
+        if (mipsnet_can_receive(s->nic->ncs)) {
+            qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        }
         break;
     case MIPSNET_TX_DATA_BUFFER:
         s->tx_buffer[s->tx_written++] = val;
-        if (s->tx_written == s->tx_count) {
+        if ((s->tx_written >= MAX_ETH_FRAME_SIZE)
+            || (s->tx_written == s->tx_count)) {
             /* Send buffer. */
-            trace_mipsnet_send(s->tx_count);
-            qemu_send_packet(qemu_get_queue(s->nic), s->tx_buffer, s->tx_count);
+            trace_mipsnet_send(s->tx_written);
+            qemu_send_packet(qemu_get_queue(s->nic),
+                                s->tx_buffer, s->tx_written);
             s->tx_count = s->tx_written = 0;
             s->intctl |= MIPSNET_INTCTL_TXDONE;
             s->busy = 1;
@@ -212,9 +224,8 @@ static const VMStateDescription vmstate_mipsnet = {
 };
 
 static NetClientInfo net_mipsnet_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
+    .type = NET_CLIENT_DRIVER_NIC,
     .size = sizeof(NICState),
-    .can_receive = mipsnet_can_receive,
     .receive = mipsnet_receive,
 };
 

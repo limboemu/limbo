@@ -7,7 +7,7 @@
  * Transport Layer Security Protocol
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <ipxe/refcnt.h>
@@ -20,6 +20,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/x509.h>
 #include <ipxe/pending.h>
 #include <ipxe/iobuf.h>
+#include <ipxe/tables.h>
 
 /** A TLS header */
 struct tls_header {
@@ -85,7 +86,10 @@ struct tls_header {
 /* TLS hash algorithm identifiers */
 #define TLS_MD5_ALGORITHM 1
 #define TLS_SHA1_ALGORITHM 2
+#define TLS_SHA224_ALGORITHM 3
 #define TLS_SHA256_ALGORITHM 4
+#define TLS_SHA384_ALGORITHM 5
+#define TLS_SHA512_ALGORITHM 6
 
 /* TLS signature algorithm identifiers */
 #define TLS_RSA_ALGORITHM 1
@@ -100,6 +104,9 @@ struct tls_header {
 #define TLS_MAX_FRAGMENT_LENGTH_1024 2
 #define TLS_MAX_FRAGMENT_LENGTH_2048 3
 #define TLS_MAX_FRAGMENT_LENGTH_4096 4
+
+/* TLS signature algorithms extension */
+#define TLS_SIGNATURE_ALGORITHMS 13
 
 /** TLS RX state machine state */
 enum tls_rx_state {
@@ -130,6 +137,14 @@ struct tls_cipher_suite {
 	/** Numeric code (in network-endian order) */
 	uint16_t code;
 };
+
+/** TLS cipher suite table */
+#define TLS_CIPHER_SUITES						\
+	__table ( struct tls_cipher_suite, "tls_cipher_suites" )
+
+/** Declare a TLS cipher suite */
+#define __tls_cipher_suite( pref )					\
+	__table_entry ( TLS_CIPHER_SUITES, pref )
 
 /** A TLS cipher specification */
 struct tls_cipherspec {
@@ -164,6 +179,19 @@ struct tls_signature_hash_algorithm {
 	/** Numeric code */
 	struct tls_signature_hash_id code;
 };
+
+/** TLS signature hash algorithm table
+ *
+ * Note that the default (TLSv1.1 and earlier) algorithm using
+ * MD5+SHA1 is never explicitly specified.
+ */
+#define TLS_SIG_HASH_ALGORITHMS						\
+	__table ( struct tls_signature_hash_algorithm,			\
+		  "tls_sig_hash_algorithms" )
+
+/** Declare a TLS signature hash algorithm */
+#define __tls_sig_hash_algorithm					\
+	__table_entry ( TLS_SIG_HASH_ALGORITHMS, 01 )
 
 /** TLS pre-master secret */
 struct tls_pre_master_secret {

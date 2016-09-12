@@ -297,13 +297,6 @@ static struct mii_chip_info {
 	{ NULL, { 0x00, 0x00 }, 0, 0 }
 };
 
-static const struct {
-	const char *name;
-} sis_chip_info[] = {
-	{ "SiS 190 PCI Fast Ethernet adapter" },
-	{ "SiS 191 PCI Gigabit Ethernet adapter" },
-};
-
 static void sis190_phy_task(struct sis190_private *tp);
 static void sis190_free(struct net_device *dev);
 static inline void sis190_init_rxfilter(struct net_device *dev);

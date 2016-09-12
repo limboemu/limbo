@@ -239,6 +239,14 @@ static const char *ansi_sequences[] = {
 	[SCAN_DELETE] = "[3~",
 	[SCAN_PAGE_UP] = "[5~",
 	[SCAN_PAGE_DOWN] = "[6~",
+	[SCAN_F5] = "[15~",
+	[SCAN_F6] = "[17~",
+	[SCAN_F7] = "[18~",
+	[SCAN_F8] = "[19~",
+	[SCAN_F9] = "[20~",
+	[SCAN_F10] = "[21~",
+	[SCAN_F11] = "[23~",
+	[SCAN_F12] = "[24~",
 	/* EFI translates some (but not all) incoming escape sequences
 	 * via the serial console into equivalent scancodes.  When it
 	 * doesn't recognise a sequence, it helpfully(!) translates

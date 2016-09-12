@@ -1,15 +1,17 @@
-#ifndef _QEMU_DISAS_H
-#define _QEMU_DISAS_H
+#ifndef QEMU_DISAS_H
+#define QEMU_DISAS_H
 
 #include "qemu-common.h"
 
 #ifdef NEED_CPU_H
+#include "cpu.h"
+
 /* Disassemble this for me please... (debugging). */
 void disas(FILE *out, void *code, unsigned long size);
-void target_disas(FILE *out, CPUArchState *env, target_ulong code,
+void target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size, int flags);
 
-void monitor_disas(Monitor *mon, CPUArchState *env,
+void monitor_disas(Monitor *mon, CPUState *cpu,
                    target_ulong pc, int nb_insn, int is_physical, int flags);
 
 /* Look up symbol for debugging purpose.  Returns "" if unknown. */
@@ -40,4 +42,4 @@ struct syminfo {
 /* Filled in by elfload.c.  Simplistic, but will do for now. */
 extern struct syminfo *syminfos;
 
-#endif /* _QEMU_DISAS_H */
+#endif /* QEMU_DISAS_H */

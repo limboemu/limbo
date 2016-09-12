@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/ppc/ppc.h"
 #include "qemu/timer.h"
@@ -162,7 +165,7 @@ static void booke_update_fixed_timer(CPUPPCState         *env,
         ticks += delta_tick;
     }
 
-    *next = now + muldiv64(ticks, get_ticks_per_sec(), tb_env->tb_freq);
+    *next = now + muldiv64(ticks, NANOSECONDS_PER_SECOND, tb_env->tb_freq);
     if ((*next < now) || (*next > INT64_MAX)) {
         /* Overflow, so assume the biggest number the qemu timer supports. */
         *next = INT64_MAX;

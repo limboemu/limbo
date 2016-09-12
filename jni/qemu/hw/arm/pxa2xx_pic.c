@@ -8,6 +8,9 @@
  * This code is licensed under the GPL.
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/arm/pxa.h"
 #include "hw/sysbus.h"
@@ -232,7 +235,7 @@ static void pxa2xx_pic_cp_write(CPUARMState *env, const ARMCPRegInfo *ri,
 
 #define REGINFO_FOR_PIC_CP(NAME, CRN) \
     { .name = NAME, .cp = 6, .crn = CRN, .crm = 0, .opc1 = 0, .opc2 = 0, \
-      .access = PL1_RW, \
+      .access = PL1_RW, .type = ARM_CP_IO, \
       .readfn = pxa2xx_pic_cp_read, .writefn = pxa2xx_pic_cp_write }
 
 static const ARMCPRegInfo pxa_pic_cp_reginfo[] = {
@@ -307,17 +310,10 @@ static VMStateDescription vmstate_pxa2xx_pic_regs = {
     },
 };
 
-static int pxa2xx_pic_initfn(SysBusDevice *dev)
-{
-    return 0;
-}
-
 static void pxa2xx_pic_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = pxa2xx_pic_initfn;
     dc->desc = "PXA2xx PIC";
     dc->vmsd = &vmstate_pxa2xx_pic_regs;
 }

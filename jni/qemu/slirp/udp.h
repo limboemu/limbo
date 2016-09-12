@@ -30,8 +30,8 @@
  * udp.h,v 1.3 1994/08/21 05:27:41 paul Exp
  */
 
-#ifndef _UDP_H_
-#define _UDP_H_
+#ifndef UDP_H
+#define UDP_H
 
 #define UDP_TTL 0x60
 #define UDP_UDPDATALEN 16192
@@ -76,12 +76,16 @@ struct mbuf;
 void udp_init(Slirp *);
 void udp_cleanup(Slirp *);
 void udp_input(register struct mbuf *, int);
-int udp_output(struct socket *, struct mbuf *, struct sockaddr_in *);
-int udp_attach(struct socket *);
+int udp_attach(struct socket *, unsigned short af);
 void udp_detach(struct socket *);
 struct socket * udp_listen(Slirp *, uint32_t, u_int, uint32_t, u_int,
                            int);
-int udp_output2(struct socket *so, struct mbuf *m,
+int udp_output(struct socket *so, struct mbuf *m,
                 struct sockaddr_in *saddr, struct sockaddr_in *daddr,
                 int iptos);
+
+void udp6_input(register struct mbuf *);
+int udp6_output(struct socket *so, struct mbuf *m,
+                struct sockaddr_in6 *saddr, struct sockaddr_in6 *daddr);
+
 #endif

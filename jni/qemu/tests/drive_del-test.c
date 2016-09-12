@@ -10,34 +10,23 @@
  * See the COPYING.LIB file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
+#include "qemu/osdep.h"
 #include "libqtest.h"
 
 static void drive_add(void)
 {
-    QDict *response;
+    char *resp = hmp("drive_add 0 if=none,id=drive0");
 
-    response = qmp("{'execute': 'human-monitor-command',"
-                   " 'arguments': {"
-                   "   'command-line': 'drive_add 0 if=none,id=drive0'"
-                   "}}");
-    g_assert(response);
-    g_assert_cmpstr(qdict_get_try_str(response, "return"), ==, "OK\r\n");
-    QDECREF(response);
+    g_assert_cmpstr(resp, ==, "OK\r\n");
+    g_free(resp);
 }
 
 static void drive_del(void)
 {
-    QDict *response;
+    char *resp = hmp("drive_del drive0");
 
-    response = qmp("{'execute': 'human-monitor-command',"
-                   " 'arguments': {"
-                   "   'command-line': 'drive_del drive0'"
-                   "}}");
-    g_assert(response);
-    g_assert_cmpstr(qdict_get_try_str(response, "return"), ==, "");
-    QDECREF(response);
+    g_assert_cmpstr(resp, ==, "");
+    g_free(resp);
 }
 
 static void device_del(void)
@@ -126,7 +115,8 @@ int main(int argc, char **argv)
     qtest_add_func("/drive_del/without-dev", test_drive_without_dev);
 
     /* TODO I guess any arch with PCI would do */
-    if (!strcmp(arch, "i386") || !strcmp(arch, "x86_64")) {
+    if (!strcmp(arch, "i386") || !strcmp(arch, "x86_64") ||
+        !strcmp(arch, "ppc") || !strcmp(arch, "ppc64")) {
         qtest_add_func("/drive_del/after_failed_device_add",
                        test_after_failed_device_add);
         qtest_add_func("/blockdev/drive_del_device_del",

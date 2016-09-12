@@ -158,7 +158,8 @@ TODO (no longer available)
 * pcsys_introduction:: Introduction
 * pcsys_quickstart::   Quick Start
 * sec_invocation::     Invocation
-* pcsys_keys::         Keys
+* pcsys_keys::         Keys in the graphical frontends
+* mux_keys::           Keys in the character backend multiplexer
 * pcsys_monitor::      QEMU Monitor
 * disk_images::        Disk Images
 * pcsys_network::      Network emulation
@@ -194,6 +195,8 @@ Floppy disk
 PCI and ISA network adapters
 @item
 Serial ports
+@item
+IPMI BMC, either and internal or external one
 @item
 Creative SoundBlaster 16 sound card
 @item
@@ -257,7 +260,7 @@ Linux should boot and give you a prompt.
 
 @example
 @c man begin SYNOPSIS
-usage: qemu-system-i386 [options] [@var{disk_image}]
+@command{qemu-system-i386} [@var{options}] [@var{disk_image}]
 @c man end
 @end example
 
@@ -270,7 +273,7 @@ targets do not need a disk image.
 @c man end
 
 @node pcsys_keys
-@section Keys
+@section Keys in the graphical frontends
 
 @c man begin OPTIONS
 
@@ -320,15 +323,23 @@ Toggle mouse and keyboard grab.
 In the virtual consoles, you can use @key{Ctrl-Up}, @key{Ctrl-Down},
 @key{Ctrl-PageUp} and @key{Ctrl-PageDown} to move in the back log.
 
-@kindex Ctrl-a h
-During emulation, if you are using the @option{-nographic} option, use
-@key{Ctrl-a h} to get terminal commands:
+@c man end
+
+@node mux_keys
+@section Keys in the character backend multiplexer
+
+@c man begin OPTIONS
+
+During emulation, if you are using a character backend multiplexer
+(which is the default if you are using @option{-nographic}) then
+several commands are available via an escape sequence. These
+key sequences all start with an escape character, which is @key{Ctrl-a}
+by default, but can be changed with @option{-echr}. The list below assumes
+you're using the default.
 
 @table @key
 @item Ctrl-a h
 @kindex Ctrl-a h
-@item Ctrl-a ?
-@kindex Ctrl-a ?
 Print this help
 @item Ctrl-a x
 @kindex Ctrl-a x
@@ -344,10 +355,11 @@ Toggle console timestamps
 Send break (magic sysrq in Linux)
 @item Ctrl-a c
 @kindex Ctrl-a c
-Switch between console and monitor
+Rotate between the frontends connected to the multiplexer (usually
+this switches between the monitor and the console)
 @item Ctrl-a Ctrl-a
-@kindex Ctrl-a a
-Send Ctrl-a
+@kindex Ctrl-a Ctrl-a
+Send the escape character to the frontend
 @end table
 @c man end
 
@@ -391,6 +403,8 @@ The following commands are available:
 
 @include qemu-monitor.texi
 
+@include qemu-monitor-info.texi
+
 @subsection Integer expressions
 
 The monitor understands integers expressions for every integer
@@ -412,6 +426,7 @@ snapshots.
 * vm_snapshots::              VM snapshots
 * qemu_img_invocation::       qemu-img Invocation
 * qemu_nbd_invocation::       qemu-nbd Invocation
+* qemu_ga_invocation::        qemu-ga Invocation
 * disk_images_formats::       Disk image file formats
 * host_drives::               Using host drives
 * disk_images_fat_images::    Virtual FAT disk images
@@ -504,6 +519,11 @@ state is not saved or restored properly (in particular USB).
 @subsection @code{qemu-nbd} Invocation
 
 @include qemu-nbd.texi
+
+@node qemu_ga_invocation
+@subsection @code{qemu-ga} Invocation
+
+@include qemu-ga.texi
 
 @node disk_images_formats
 @subsection Disk image file formats
@@ -673,6 +693,9 @@ Supported options:
 File name of a base image (see @option{create} subcommand).
 @item compat6
 Create a VMDK version 6 image (instead of version 4)
+@item hwversion
+Specify vmdk virtual hardware version. Compat6 flag cannot be enabled
+if hwversion is specified.
 @item subformat
 Specifies which VMDK subformat to use. Valid options are
 @code{monolithicSparse} (default),
@@ -1061,7 +1084,7 @@ type is assumed.
 @var{server} specifies the server where the volume file specification for
 the given volume resides. This can be either hostname, ipv4 address
 or ipv6 address. ipv6 address needs to be within square brackets [ ].
-If transport type is unix, then @var{server} field should not be specifed.
+If transport type is unix, then @var{server} field should not be specified.
 Instead @var{socket} field needs to be populated with the path to unix domain
 socket.
 
@@ -1227,9 +1250,9 @@ echo 100 100 > /proc/sys/net/ipv4/ping_group_range
 When using the built-in TFTP server, the router is also the TFTP
 server.
 
-When using the @option{-redir} option, TCP or UDP connections can be
-redirected from the host to the guest. It allows for example to
-redirect X11, telnet or SSH connections.
+When using the @option{'-netdev user,hostfwd=...'} option, TCP or UDP
+connections can be redirected from the host to the guest. It allows for
+example to redirect X11, telnet or SSH connections.
 
 @subsection Connecting VLANs between QEMU instances
 
@@ -1242,13 +1265,18 @@ basic example.
 
 @subsection Inter-VM Shared Memory device
 
-With KVM enabled on a Linux host, a shared memory device is available.  Guests
-map a POSIX shared memory region into the guest as a PCI device that enables
-zero-copy communication to the application level of the guests.  The basic
-syntax is:
+On Linux hosts, a shared memory device is available.  The basic syntax
+is:
 
 @example
-qemu-system-i386 -device ivshmem,size=<size in format accepted by -m>[,shm=<shm name>]
+qemu-system-x86_64 -device ivshmem-plain,memdev=@var{hostmem}
+@end example
+
+where @var{hostmem} names a host memory backend.  For a POSIX shared
+memory backend, use something like
+
+@example
+-object memory-backend-file,size=1M,share,mem-path=/dev/shm/ivshmem,id=@var{hostmem}
 @end example
 
 If desired, interrupts can be sent between guest VMs accessing the same shared
@@ -1258,28 +1286,41 @@ is qemu.git/contrib/ivshmem-server.  An example syntax when using the shared
 memory server is:
 
 @example
-qemu-system-i386 -device ivshmem,size=<size in format accepted by -m>[,chardev=<id>]
-                 [,msi=on][,ioeventfd=on][,vectors=n][,role=peer|master]
-qemu-system-i386 -chardev socket,path=<path>,id=<id>
+# First start the ivshmem server once and for all
+ivshmem-server -p @var{pidfile} -S @var{path} -m @var{shm-name} -l @var{shm-size} -n @var{vectors}
+
+# Then start your qemu instances with matching arguments
+qemu-system-x86_64 -device ivshmem-doorbell,vectors=@var{vectors},chardev=@var{id}
+                 -chardev socket,path=@var{path},id=@var{id}
 @end example
 
 When using the server, the guest will be assigned a VM ID (>=0) that allows guests
 using the same server to communicate via interrupts.  Guests can read their
-VM ID from a device register (see example code).  Since receiving the shared
-memory region from the server is asynchronous, there is a (small) chance the
-guest may boot before the shared memory is attached.  To allow an application
-to ensure shared memory is attached, the VM ID register will return -1 (an
-invalid VM ID) until the memory is attached.  Once the shared memory is
-attached, the VM ID will return the guest's valid VM ID.  With these semantics,
-the guest application can check to ensure the shared memory is attached to the
-guest before proceeding.
+VM ID from a device register (see ivshmem-spec.txt).
 
-The @option{role} argument can be set to either master or peer and will affect
-how the shared memory is migrated.  With @option{role=master}, the guest will
-copy the shared memory on migration to the destination host.  With
-@option{role=peer}, the guest will not be able to migrate with the device attached.
-With the @option{peer} case, the device should be detached and then reattached
-after migration using the PCI hotplug support.
+@subsubsection Migration with ivshmem
+
+With device property @option{master=on}, the guest will copy the shared
+memory on migration to the destination host.  With @option{master=off},
+the guest will not be able to migrate with the device attached.  In the
+latter case, the device should be detached and then reattached after
+migration using the PCI hotplug support.
+
+At most one of the devices sharing the same memory can be master.  The
+master must complete migration before you plug back the other devices.
+
+@subsubsection ivshmem and hugepages
+
+Instead of specifying the <shm size> using POSIX shm, you may specify
+a memory backend that has hugepage support:
+
+@example
+qemu-system-x86_64 -object memory-backend-file,size=1G,mem-path=/dev/hugepages/my-shmem-file,share,id=mb1
+                 -device ivshmem-plain,memdev=mb1
+@end example
+
+ivshmem-server also supports hugepages mount points with the
+@option{-m} memory path argument.
 
 @node direct_linux_boot
 @section Direct Linux Boot
@@ -1379,7 +1420,7 @@ no type is given, the HCI logic corresponds to @code{-bt hci,vlan=0}.
 This USB device implements the USB Transport Layer of HCI.  Example
 usage:
 @example
-qemu-system-i386 [...OPTIONS...] -usbdevice bt:hci,vlan=3 -bt device:keyboard,vlan=3
+@command{qemu-system-i386} [...@var{OPTIONS}...] @option{-usbdevice} bt:hci,vlan=3 @option{-bt} device:keyboard,vlan=3
 @end example
 @end table
 
@@ -1766,7 +1807,7 @@ Use @code{set architecture i8086} to dump 16 bit code. Then use
 
 Advanced debugging options:
 
-The default single stepping behavior is step with the IRQs and timer service routines off.  It is set this way because when gdb executes a single step it expects to advance beyond the current instruction.  With the IRQs and and timer service routines on, a single step might jump into the one of the interrupt or exception vectors instead of executing the current instruction. This means you may hit the same breakpoint a number of times before executing the instruction gdb wants to have executed.  Because there are rare circumstances where you want to single step into an interrupt vector the behavior can be controlled from GDB.  There are three commands you can query and set the single step behavior:
+The default single stepping behavior is step with the IRQs and timer service routines off.  It is set this way because when gdb executes a single step it expects to advance beyond the current instruction.  With the IRQs and timer service routines on, a single step might jump into the one of the interrupt or exception vectors instead of executing the current instruction. This means you may hit the same breakpoint a number of times before executing the instruction gdb wants to have executed.  Because there are rare circumstances where you want to single step into an interrupt vector the behavior can be controlled from GDB.  There are three commands you can query and set the single step behavior:
 @table @code
 @item maintenance packet qqemu.sstepbits
 
@@ -1862,7 +1903,8 @@ correctly instructs QEMU to shutdown at the appropriate moment.
 
 @subsubsection Share a directory between Unix and Windows
 
-See @ref{sec_invocation} about the help of the option @option{-smb}.
+See @ref{sec_invocation} about the help of the option
+@option{'-netdev user,smb=...'}.
 
 @subsubsection Windows XP security problem
 
@@ -2728,7 +2770,7 @@ qemu-i386 /usr/local/qemu-i386/wine/bin/wine \
 @subsection Command line options
 
 @example
-usage: qemu-i386 [-h] [-d] [-L path] [-s size] [-cpu model] [-g port] [-B offset] [-R size] program [arguments...]
+@command{qemu-i386} [@option{-h]} [@option{-d]} [@option{-L} @var{path}] [@option{-s} @var{size}] [@option{-cpu} @var{model}] [@option{-g} @var{port}] [@option{-B} @var{offset}] [@option{-R} @var{size}] @var{program} [@var{arguments}...]
 @end example
 
 @table @option
@@ -2870,7 +2912,7 @@ qemu-sparc64 /bin/ls
 @subsection Command line options
 
 @example
-usage: qemu-sparc64 [-h] [-d] [-L path] [-s size] [-bsd type] program [arguments...]
+@command{qemu-sparc64} [@option{-h]} [@option{-d]} [@option{-L} @var{path}] [@option{-s} @var{size}] [@option{-bsd} @var{type}] @var{program} [@var{arguments}...]
 @end example
 
 @table @option
@@ -3021,9 +3063,62 @@ and all other qemu-system-@var{target}.exe compiled for Win32.
 @node Mac OS X
 @section Mac OS X
 
-The Mac OS X patches are not fully merged in QEMU, so you should look
-at the QEMU mailing list archive to have all the necessary
-information.
+System Requirements:
+@itemize
+@item Mac OS 10.5 or higher
+@item The clang compiler shipped with Xcode 4.2 or higher,
+or GCC 4.3 or higher
+@end itemize
+
+Additional Requirements (install in order):
+@enumerate
+@item libffi: @uref{https://sourceware.org/libffi/}
+@item gettext: @uref{http://www.gnu.org/software/gettext/}
+@item glib: @uref{http://ftp.gnome.org/pub/GNOME/sources/glib/}
+@item pkg-config: @uref{http://www.freedesktop.org/wiki/Software/pkg-config/}
+@item autoconf: @uref{http://www.gnu.org/software/autoconf/autoconf.html}
+@item automake: @uref{http://www.gnu.org/software/automake/}
+@item pixman: @uref{http://www.pixman.org/}
+@end enumerate
+
+* You may find it easiest to get these from a third-party packager
+such as Homebrew, Macports, or Fink.
+
+After downloading the QEMU source code, double-click it to expand it.
+
+Then configure and make QEMU:
+@example
+./configure
+make
+@end example
+
+If you have a recent version of Mac OS X (OSX 10.7 or better
+with Xcode 4.2 or better) we recommend building QEMU with the
+default compiler provided by Apple, for your version of Mac OS X
+(which will be 'clang'). The configure script will
+automatically pick this.
+
+Note: If after the configure step you see a message like this:
+@example
+ERROR: Your compiler does not support the __thread specifier for
+       Thread-Local Storage (TLS). Please upgrade to a version that does.
+@end example
+you may have to build your own version of gcc from source. Expect that to take
+several hours. More information can be found here:
+@uref{https://gcc.gnu.org/install/} @*
+
+These are some of the third party binaries of gcc available for download:
+@itemize
+@item Homebrew: @uref{http://brew.sh/}
+@item @uref{https://www.litebeam.net/gcc/gcc_472.pkg}
+@item @uref{http://www.macports.org/ports.php?by=name&substr=gcc}
+@end itemize
+
+You can have several versions of GCC on your system. To specify a certain version,
+use the --cc and --cxx options.
+@example
+./configure --cxx=<path of your c++ compiler> --cc=<path of your c compiler> <other options>
+@end example
 
 @node Make targets
 @section Make targets

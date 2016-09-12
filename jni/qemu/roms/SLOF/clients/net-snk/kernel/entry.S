@@ -44,7 +44,7 @@ C_ENTRY(_entry)
 	bcl	20,31,over	# branch after pointer table
 base:	
 	.align  3
-.LCgot:		.quad   _got-base+0x8000
+.LCgot:		.quad   _got-base
 .LCstack:	.quad   _stack+STACKSIZE-0x80-base
 over:	
 	mflr	r8		# gpr 8 is the base

@@ -7,7 +7,9 @@
  * This code is licensed under the GPL.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
+#include "qemu/log.h"
 
 /* The number of virtual priority levels.  16 user vectors plus the
    unvectored IRQ.  Chained interrupts would require an additional level
@@ -235,17 +237,17 @@ static void pl190_reset(DeviceState *d)
     pl190_update_vectors(s);
 }
 
-static int pl190_init(SysBusDevice *sbd)
+static void pl190_init(Object *obj)
 {
-    DeviceState *dev = DEVICE(sbd);
-    PL190State *s = PL190(dev);
+    DeviceState *dev = DEVICE(obj);
+    PL190State *s = PL190(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &pl190_ops, s, "pl190", 0x1000);
+    memory_region_init_io(&s->iomem, obj, &pl190_ops, s, "pl190", 0x1000);
     sysbus_init_mmio(sbd, &s->iomem);
     qdev_init_gpio_in(dev, pl190_set_irq, 32);
     sysbus_init_irq(sbd, &s->irq);
     sysbus_init_irq(sbd, &s->fiq);
-    return 0;
 }
 
 static const VMStateDescription vmstate_pl190 = {
@@ -270,9 +272,7 @@ static const VMStateDescription vmstate_pl190 = {
 static void pl190_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = pl190_init;
     dc->reset = pl190_reset;
     dc->vmsd = &vmstate_pl190;
 }
@@ -281,6 +281,7 @@ static const TypeInfo pl190_info = {
     .name          = TYPE_PL190,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(PL190State),
+    .instance_init = pl190_init,
     .class_init    = pl190_class_init,
 };
 

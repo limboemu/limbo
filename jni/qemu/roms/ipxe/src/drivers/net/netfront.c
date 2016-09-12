@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -135,7 +139,7 @@ static int netfront_read_mac ( struct netfront_nic *netfront, void *hw_addr ) {
 		xendev->key, mac );
 
 	/* Decode MAC address */
-	len = hex_decode ( mac, ':', hw_addr, ETH_ALEN );
+	len = hex_decode ( ':', mac, hw_addr, ETH_ALEN );
 	if ( len < 0 ) {
 		rc = len;
 		DBGC ( netfront, "NETFRONT %s could not decode MAC address "
@@ -593,6 +597,11 @@ static int netfront_open ( struct net_device *netdev ) {
 					  "feature-no-csum-offload" ) ) != 0 )
 		goto err_feature_no_csum_offload;
 
+	/* Inform backend that we will send notifications for RX requests */
+	if ( ( rc = netfront_write_flag ( netfront,
+					  "feature-rx-notify" ) ) != 0 )
+		goto err_feature_rx_notify;
+
 	/* Set state to Connected */
 	if ( ( rc = xenbus_set_state ( xendev, XenbusStateConnected ) ) != 0 ) {
 		DBGC ( netfront, "NETFRONT %s could not set state=\"%d\": %s\n",
@@ -618,6 +627,8 @@ static int netfront_open ( struct net_device *netdev ) {
  err_backend_wait:
 	netfront_reset ( netfront );
  err_set_state:
+	netfront_rm ( netfront, "feature-rx-notify" );
+ err_feature_rx_notify:
 	netfront_rm ( netfront, "feature-no-csum-offload" );
  err_feature_no_csum_offload:
 	netfront_rm ( netfront, "request-rx-copy" );
@@ -661,6 +672,7 @@ static void netfront_close ( struct net_device *netdev ) {
 	}
 
 	/* Delete flags */
+	netfront_rm ( netfront, "feature-rx-notify" );
 	netfront_rm ( netfront, "feature-no-csum-offload" );
 	netfront_rm ( netfront, "request-rx-copy" );
 

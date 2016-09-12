@@ -366,6 +366,14 @@ find_dev( const char *path )
 	return ret;
 }
 
+char *
+get_path_from_ph( phandle_t ph )
+{
+	PUSH(ph);
+	fword("get-package-path");
+	return pop_fstr_copy();
+}
+
 phandle_t
 dt_iter_begin( void )
 {

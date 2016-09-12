@@ -17,22 +17,20 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef CPU_M68K_H
-#define CPU_M68K_H
+
+#ifndef M68K_CPU_H
+#define M68K_CPU_H
 
 #define TARGET_LONG_BITS 32
 
 #define CPUArchState struct CPUM68KState
 
-#include "config.h"
 #include "qemu-common.h"
 #include "exec/cpu-defs.h"
-
+#include "cpu-qom.h"
 #include "fpu/softfloat.h"
 
 #define MAX_QREGS 32
-
-#define ELF_MACHINE	EM_68K
 
 #define EXCP_ACCESS         2   /* Access (MMU) error.  */
 #define EXCP_ADDRESS        3   /* Address error.  */
@@ -112,12 +110,43 @@ typedef struct CPUM68KState {
     uint32_t features;
 } CPUM68KState;
 
-#include "cpu-qom.h"
+/**
+ * M68kCPU:
+ * @env: #CPUM68KState
+ *
+ * A Motorola 68k CPU.
+ */
+struct M68kCPU {
+    /*< private >*/
+    CPUState parent_obj;
+    /*< public >*/
+
+    CPUM68KState env;
+};
+
+static inline M68kCPU *m68k_env_get_cpu(CPUM68KState *env)
+{
+    return container_of(env, M68kCPU, env);
+}
+
+#define ENV_GET_CPU(e) CPU(m68k_env_get_cpu(e))
+
+#define ENV_OFFSET offsetof(M68kCPU, env)
+
+void m68k_cpu_do_interrupt(CPUState *cpu);
+bool m68k_cpu_exec_interrupt(CPUState *cpu, int int_req);
+void m68k_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
+                         int flags);
+hwaddr m68k_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int m68k_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
+int m68k_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
+
+void m68k_cpu_exec_enter(CPUState *cs);
+void m68k_cpu_exec_exit(CPUState *cs);
 
 void m68k_tcg_init(void);
 void m68k_cpu_init_gdb(M68kCPU *cpu);
 M68kCPU *cpu_m68k_init(const char *cpu_model);
-int cpu_m68k_exec(CPUM68KState *s);
 /* you can call this signal handler from your SIGBUS and SIGSEGV
    signal handlers to inform the virtual CPU of exceptions. non zero
    is returned if the signal was handled by the virtual CPU.  */
@@ -214,8 +243,6 @@ void register_m68k_insns (CPUM68KState *env);
 
 #define cpu_init(cpu_model) CPU(cpu_m68k_init(cpu_model))
 
-#define cpu_exec cpu_m68k_exec
-#define cpu_gen_code cpu_m68k_gen_code
 #define cpu_signal_handler cpu_m68k_signal_handler
 #define cpu_list m68k_cpu_list
 
@@ -223,7 +250,7 @@ void register_m68k_insns (CPUM68KState *env);
 #define MMU_MODE0_SUFFIX _kernel
 #define MMU_MODE1_SUFFIX _user
 #define MMU_USER_IDX 1
-static inline int cpu_mmu_index (CPUM68KState *env)
+static inline int cpu_mmu_index (CPUM68KState *env, bool ifetch)
 {
     return (env->sr & SR_S) == 0 ? 1 : 0;
 }
@@ -234,7 +261,7 @@ int m68k_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
 #include "exec/cpu-all.h"
 
 static inline void cpu_get_tb_cpu_state(CPUM68KState *env, target_ulong *pc,
-                                        target_ulong *cs_base, int *flags)
+                                        target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->pc;
     *cs_base = 0;
@@ -242,7 +269,5 @@ static inline void cpu_get_tb_cpu_state(CPUM68KState *env, target_ulong *pc,
             | (env->sr & SR_S)                  /* Bit  13 */
             | ((env->macsr >> 4) & 0xf);        /* Bits 0-3 */
 }
-
-#include "exec/exec-all.h"
 
 #endif

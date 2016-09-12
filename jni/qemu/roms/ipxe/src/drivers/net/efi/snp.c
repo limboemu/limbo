@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <errno.h>
 #include <ipxe/efi/efi.h>
@@ -44,8 +48,8 @@ static int snp_supported ( EFI_HANDLE device ) {
 
 	/* Check that this is not a device we are providing ourselves */
 	if ( find_snpdev ( device ) != NULL ) {
-		DBGCP ( device, "SNP %p %s is provided by this binary\n",
-			device, efi_handle_name ( device ) );
+		DBGCP ( device, "SNP %s is provided by this binary\n",
+			efi_handle_name ( device ) );
 		return -ENOTTY;
 	}
 
@@ -54,12 +58,12 @@ static int snp_supported ( EFI_HANDLE device ) {
 					  &efi_simple_network_protocol_guid,
 					  NULL, efi_image_handle, device,
 					  EFI_OPEN_PROTOCOL_TEST_PROTOCOL))!=0){
-		DBGCP ( device, "SNP %p %s is not an SNP device\n",
-			device, efi_handle_name ( device ) );
+		DBGCP ( device, "SNP %s is not an SNP device\n",
+			efi_handle_name ( device ) );
 		return -EEFI ( efirc );
 	}
-	DBGC ( device, "SNP %p %s is an SNP device\n",
-	       device, efi_handle_name ( device ) );
+	DBGC ( device, "SNP %s is an SNP device\n",
+	       efi_handle_name ( device ) );
 
 	return 0;
 }
@@ -76,8 +80,8 @@ static int nii_supported ( EFI_HANDLE device ) {
 
 	/* Check that this is not a device we are providing ourselves */
 	if ( find_snpdev ( device ) != NULL ) {
-		DBGCP ( device, "NII %p %s is provided by this binary\n",
-			device, efi_handle_name ( device ) );
+		DBGCP ( device, "NII %s is provided by this binary\n",
+			efi_handle_name ( device ) );
 		return -ENOTTY;
 	}
 
@@ -86,12 +90,12 @@ static int nii_supported ( EFI_HANDLE device ) {
 					  &efi_nii31_protocol_guid,
 					  NULL, efi_image_handle, device,
 					  EFI_OPEN_PROTOCOL_TEST_PROTOCOL))!=0){
-		DBGCP ( device, "NII %p %s is not an NII device\n",
-			device, efi_handle_name ( device ) );
+		DBGCP ( device, "NII %s is not an NII device\n",
+			efi_handle_name ( device ) );
 		return -EEFI ( efirc );
 	}
-	DBGC ( device, "NII %p %s is an NII device\n",
-	       device, efi_handle_name ( device ) );
+	DBGC ( device, "NII %s is an NII device\n",
+	       efi_handle_name ( device ) );
 
 	return 0;
 }

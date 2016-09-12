@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -384,6 +388,10 @@ int vlan_create ( struct net_device *trunk, unsigned int tag,
 	/* Construct VLAN device name */
 	snprintf ( netdev->name, sizeof ( netdev->name ), "%s-%d",
 		   trunk->name, vlan->tag );
+
+	/* Mark device as not supporting interrupts, if applicable */
+	if ( ! netdev_irq_supported ( trunk ) )
+		netdev->state |= NETDEV_IRQ_UNSUPPORTED;
 
 	/* Register VLAN device */
 	if ( ( rc = register_netdev ( netdev ) ) != 0 ) {

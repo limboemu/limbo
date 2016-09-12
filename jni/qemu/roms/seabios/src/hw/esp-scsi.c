@@ -76,10 +76,19 @@ esp_scsi_dma(u32 iobase, u32 buf, u32 len, int read)
     outb(read ? 0x83 : 0x03, iobase + ESP_DMA_CMD);
 }
 
-static int
-esp_scsi_cmd(struct esp_lun_s *llun_gf, struct disk_op_s *op,
-             u8 *cdbcmd, u16 target, u16 lun, u16 blocksize)
+int
+esp_scsi_process_op(struct disk_op_s *op)
 {
+    if (!CONFIG_ESP_SCSI)
+        return DISK_RET_EBADTRACK;
+    struct esp_lun_s *llun_gf =
+        container_of(op->drive_gf, struct esp_lun_s, drive);
+    u16 target = GET_GLOBALFLAT(llun_gf->target);
+    u16 lun = GET_GLOBALFLAT(llun_gf->lun);
+    u8 cdbcmd[16];
+    int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
+    if (blocksize < 0)
+        return default_process_op(op);
     u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
     int i, state;
     u8 status;
@@ -113,8 +122,7 @@ esp_scsi_cmd(struct esp_lun_s *llun_gf, struct disk_op_s *op,
             if (op->count && blocksize) {
                 /* Data phase.  */
                 u32 count = (u32)op->count * blocksize;
-                esp_scsi_dma(iobase, (u32)op->buf_fl, count,
-                             cdb_is_read(cdbcmd, blocksize));
+                esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_read(op));
                 outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
                 continue;
             }
@@ -142,21 +150,6 @@ esp_scsi_cmd(struct esp_lun_s *llun_gf, struct disk_op_s *op,
     }
 
     return DISK_RET_EBADTRACK;
-}
-
-int
-esp_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
-{
-    if (!CONFIG_ESP_SCSI)
-        return DISK_RET_EBADTRACK;
-
-    struct esp_lun_s *llun_gf =
-        container_of(op->drive_gf, struct esp_lun_s, drive);
-
-    return esp_scsi_cmd(llun_gf, op, cdbcmd,
-                        GET_GLOBALFLAT(llun_gf->target),
-                        GET_GLOBALFLAT(llun_gf->lun),
-                        blocksize);
 }
 
 static int

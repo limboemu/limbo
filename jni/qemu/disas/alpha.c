@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with this file; see the file COPYING.  If not, see
 <http://www.gnu.org/licenses/>. */
 
-#include <stdio.h>
+#include "qemu/osdep.h"
 #include "disas/bfd.h"
 
 /* MAX is redefined below, so remove any previous definition. */
@@ -521,7 +521,7 @@ static unsigned
 insert_bdisp(unsigned insn, int value, const char **errmsg)
 {
   if (errmsg != (const char **)NULL && (value & 3))
-    *errmsg = _("branch operand unaligned");
+    *errmsg = "branch operand unaligned";
   return insn | ((value / 4) & 0x1FFFFF);
 }
 
@@ -539,7 +539,7 @@ static unsigned
 insert_jhint(unsigned insn, int value, const char **errmsg)
 {
   if (errmsg != (const char **)NULL && (value & 3))
-    *errmsg = _("jump hint unaligned");
+    *errmsg = "jump hint unaligned";
   return insn | ((value / 4) & 0x3FFF);
 }
 
@@ -556,7 +556,7 @@ static unsigned
 insert_ev6hwjhint(unsigned insn, int value, const char **errmsg)
 {
   if (errmsg != (const char **)NULL && (value & 3))
-    *errmsg = _("jump hint unaligned");
+    *errmsg = "jump hint unaligned";
   return insn | ((value / 4) & 0x1FFF);
 }
 

@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -266,12 +266,16 @@ enum dhcp_client_architecture_values {
 	DHCP_CLIENT_ARCHITECTURE_LC = 0x0005,
 	/** EFI IA32 */
 	DHCP_CLIENT_ARCHITECTURE_IA32 = 0x0006,
-	/** EFI BC */
-	DHCP_CLIENT_ARCHITECTURE_EFI = 0x0007,
+	/** EFI x86-64 */
+	DHCP_CLIENT_ARCHITECTURE_X86_64 = 0x0007,
 	/** EFI Xscale */
 	DHCP_CLIENT_ARCHITECTURE_XSCALE = 0x0008,
-	/** EFI x86-64 */
-	DHCP_CLIENT_ARCHITECTURE_X86_64 = 0x0009,
+	/** EFI BC */
+	DHCP_CLIENT_ARCHITECTURE_EFI = 0x0009,
+	/** EFI 32-bit ARM */
+	DHCP_CLIENT_ARCHITECTURE_ARM32 = 0x000a,
+	/** EFI 64-bit ARM */
+	DHCP_CLIENT_ARCHITECTURE_ARM64 = 0x000b,
 };
 
 /** Client network device interface */
@@ -403,12 +407,12 @@ struct dhcp_netdev_desc {
 /** Use cached network settings (obsolete; do not reuse this value) */
 #define DHCP_EB_USE_CACHED DHCP_ENCAP_OPT ( DHCP_EB_ENCAP, 0xb2 )
 
-/** BIOS drive number
+/** SAN drive number
  *
- * This is the drive number for a drive emulated via INT 13.  0x80 is
+ * This is the drive number for a SAN-hooked drive.  For BIOS, 0x80 is
  * the first hard disk, 0x81 is the second hard disk, etc.
  */
-#define DHCP_EB_BIOS_DRIVE DHCP_ENCAP_OPT ( DHCP_EB_ENCAP, 0xbd )
+#define DHCP_EB_SAN_DRIVE DHCP_ENCAP_OPT ( DHCP_EB_ENCAP, 0xbd )
 
 /** Username
  *
@@ -638,16 +642,6 @@ struct dhcphdr {
  * must be prepared to receive.
  */
 #define DHCP_MIN_LEN 552
-
-/** Timeouts for sending DHCP packets */
-#define DHCP_MIN_TIMEOUT ( 1 * TICKS_PER_SEC )
-#define DHCP_MAX_TIMEOUT ( 10 * TICKS_PER_SEC )
-
-/** Maximum time that we will wait for ProxyDHCP responses */
-#define PROXYDHCP_MAX_TIMEOUT ( 2 * TICKS_PER_SEC )
-
-/** Maximum time that we will wait for Boot Server responses */
-#define PXEBS_MAX_TIMEOUT ( 3 * TICKS_PER_SEC )
 
 /** Settings block name used for DHCP responses */
 #define DHCP_SETTINGS_NAME "dhcp"

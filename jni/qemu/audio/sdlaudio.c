@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include <SDL.h>
 #include <SDL_thread.h>
 #include "qemu-common.h"
@@ -55,10 +56,10 @@ static struct SDLAudioState {
     SDL_mutex *mutex;
     SDL_sem *sem;
     int initialized;
+    bool driver_created;
 } glob_sdl;
 typedef struct SDLAudioState SDLAudioState;
 
-#ifndef __LIMBO__
 static void GCC_FMT_ATTR (1, 2) sdl_logerr (const char *fmt, ...)
 {
     va_list ap;
@@ -69,7 +70,7 @@ static void GCC_FMT_ATTR (1, 2) sdl_logerr (const char *fmt, ...)
 
     AUD_log (AUDIO_CAP, "Reason: %s\n", SDL_GetError ());
 }
-#endif //__LIMBO__
+
 static int sdl_lock (SDLAudioState *s, const char *forfn)
 {
     if (SDL_LockMutex (s->mutex)) {
@@ -195,7 +196,6 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
     }
     err = pthread_sigmask (SIG_BLOCK, &new, &old);
     if (err) {
-    	LOGE("sdl_open: pthread_sigmask failed: %s\n", strerror (err));
         dolog ("sdl_open: pthread_sigmask failed: %s\n", strerror (err));
         return -1;
     }
@@ -209,8 +209,6 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
 #ifndef _WIN32
     err = pthread_sigmask (SIG_SETMASK, &old, NULL);
     if (err) {
-    	LOGE("sdl_open: pthread_sigmask (restore) failed: %s\n",
-               strerror (errno));
         dolog ("sdl_open: pthread_sigmask (restore) failed: %s\n",
                strerror (errno));
         /* We have failed to restore original signal mask, all bets are off,
@@ -336,7 +334,8 @@ static void sdl_fini_out (HWVoiceOut *hw)
     sdl_close (&glob_sdl);
 }
 
-static int sdl_init_out (HWVoiceOut *hw, struct audsettings *as)
+static int sdl_init_out(HWVoiceOut *hw, struct audsettings *as,
+                        void *drv_opaque)
 {
     SDLVoiceOut *sdl = (SDLVoiceOut *) hw;
     SDLAudioState *s = &glob_sdl;
@@ -396,6 +395,10 @@ static int sdl_ctl_out (HWVoiceOut *hw, int cmd, ...)
 static void *sdl_audio_init (void)
 {
     SDLAudioState *s = &glob_sdl;
+    if (s->driver_created) {
+        sdl_logerr("Can't create multiple sdl backends\n");
+        return NULL;
+    }
 
     if (SDL_InitSubSystem (SDL_INIT_AUDIO)) {
         sdl_logerr ("SDL failed to initialize audio subsystem\n");
@@ -417,6 +420,7 @@ static void *sdl_audio_init (void)
         return NULL;
     }
 
+    s->driver_created = true;
     return s;
 }
 
@@ -427,6 +431,7 @@ static void sdl_audio_fini (void *opaque)
     SDL_DestroySemaphore (s->sem);
     SDL_DestroyMutex (s->mutex);
     SDL_QuitSubSystem (SDL_INIT_AUDIO);
+    s->driver_created = false;
 }
 
 static struct audio_option sdl_options[] = {

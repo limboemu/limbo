@@ -61,6 +61,16 @@ hlist_add_after(struct hlist_node *n, struct hlist_node *prev)
     hlist_add(n, &prev->next);
 }
 
+static inline void
+hlist_replace(struct hlist_node *old, struct hlist_node *new)
+{
+    new->next = old->next;
+    if (new->next)
+        new->next->pprev = &new->next;
+    new->pprev = old->pprev;
+    *new->pprev = new;
+}
+
 #define hlist_for_each_entry(pos, head, member)                         \
     for (pos = container_of((head)->first, typeof(*pos), member)        \
          ; pos != container_of(NULL, typeof(*pos), member)              \

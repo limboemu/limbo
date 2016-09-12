@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -26,7 +30,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
  *
  */
 
-#include <stddef.h>
 #include <ipxe/open.h>
 #include <ipxe/tls.h>
 #include <ipxe/http.h>
@@ -34,19 +37,15 @@ FILE_LICENCE ( GPL2_OR_LATER );
 
 FEATURE ( FEATURE_PROTOCOL, "HTTPS", DHCP_EB_FEATURE_HTTPS, 1 );
 
-/**
- * Initiate an HTTPS connection
- *
- * @v xfer		Data transfer interface
- * @v uri		Uniform Resource Identifier
- * @ret rc		Return status code
- */
-static int https_open ( struct interface *xfer, struct uri *uri ) {
-	return http_open_filter ( xfer, uri, HTTPS_PORT, add_tls );
-}
-
 /** HTTPS URI opener */
 struct uri_opener https_uri_opener __uri_opener = {
 	.scheme	= "https",
-	.open	= https_open,
+	.open	= http_open_uri,
+};
+
+/** HTTP URI scheme */
+struct http_scheme https_scheme __http_scheme = {
+	.name = "https",
+	.port = HTTPS_PORT,
+	.filter = add_tls,
 };

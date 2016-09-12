@@ -13,12 +13,16 @@
 u16
 pic_irqmask_read(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return 0;
     return inb(PORT_PIC1_DATA) | (inb(PORT_PIC2_DATA) << 8);
 }
 
 void
 pic_irqmask_write(u16 mask)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     outb(mask, PORT_PIC1_DATA);
     outb(mask >> 8, PORT_PIC2_DATA);
 }
@@ -26,6 +30,8 @@ pic_irqmask_write(u16 mask)
 void
 pic_irqmask_mask(u16 off, u16 on)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     u8 pic1off = off, pic1on = on, pic2off = off>>8, pic2on = on>>8;
     outb((inb(PORT_PIC1_DATA) & ~pic1off) | pic1on, PORT_PIC1_DATA);
     outb((inb(PORT_PIC2_DATA) & ~pic2off) | pic2on, PORT_PIC2_DATA);
@@ -34,6 +40,8 @@ pic_irqmask_mask(u16 off, u16 on)
 void
 pic_reset(u8 irq0, u8 irq8)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     // Send ICW1 (select OCW1 + will send ICW4)
     outb(0x11, PORT_PIC1_CMD);
     outb(0x11, PORT_PIC2_CMD);
@@ -60,6 +68,8 @@ pic_setup(void)
 void
 enable_hwirq(int hwirq, struct segoff_s func)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     pic_irqmask_mask(1 << hwirq, 0);
     int vector;
     if (hwirq < 8)
@@ -72,6 +82,8 @@ enable_hwirq(int hwirq, struct segoff_s func)
 static u8
 pic_isr1_read(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return 0;
     // 0x0b == select OCW1 + read ISR
     outb(0x0b, PORT_PIC1_CMD);
     return inb(PORT_PIC1_CMD);
@@ -80,6 +92,8 @@ pic_isr1_read(void)
 static u8
 pic_isr2_read(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return 0;
     // 0x0b == select OCW1 + read ISR
     outb(0x0b, PORT_PIC2_CMD);
     return inb(PORT_PIC2_CMD);

@@ -17,8 +17,10 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include "config.h"
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "cpu.h"
+#include "exec/exec-all.h"
 #include "exec/gdbstub.h"
 #include "qemu/bitops.h"
 
@@ -92,6 +94,7 @@ static int cpu_write_ac_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
     switch (n) {
     case S390_A0_REGNUM ... S390_A15_REGNUM:
         env->aregs[n] = ldl_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
         return 4;
     default:
         return 0;
@@ -111,7 +114,7 @@ static int cpu_read_fp_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
     case S390_FPC_REGNUM:
         return gdb_get_reg32(mem_buf, env->fpc);
     case S390_F0_REGNUM ... S390_F15_REGNUM:
-        return gdb_get_reg64(mem_buf, env->fregs[n - S390_F0_REGNUM].ll);
+        return gdb_get_reg64(mem_buf, get_freg(env, n - S390_F0_REGNUM)->ll);
     default:
         return 0;
     }
@@ -124,12 +127,163 @@ static int cpu_write_fp_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
         env->fpc = ldl_p(mem_buf);
         return 4;
     case S390_F0_REGNUM ... S390_F15_REGNUM:
-        env->fregs[n - S390_F0_REGNUM].ll = ldtul_p(mem_buf);
+        get_freg(env, n - S390_F0_REGNUM)->ll = ldtul_p(mem_buf);
         return 8;
     default:
         return 0;
     }
 }
+
+/* the values represent the positions in s390-vx.xml */
+#define S390_V0L_REGNUM 0
+#define S390_V15L_REGNUM 15
+#define S390_V16_REGNUM 16
+#define S390_V31_REGNUM 31
+/* total number of registers in s390-vx.xml */
+#define S390_NUM_VREGS 32
+
+static int cpu_read_vreg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    int ret;
+
+    switch (n) {
+    case S390_V0L_REGNUM ... S390_V15L_REGNUM:
+        ret = gdb_get_reg64(mem_buf, env->vregs[n][1].ll);
+        break;
+    case S390_V16_REGNUM ... S390_V31_REGNUM:
+        ret = gdb_get_reg64(mem_buf, env->vregs[n][0].ll);
+        ret += gdb_get_reg64(mem_buf + 8, env->vregs[n][1].ll);
+        break;
+    default:
+        ret = 0;
+    }
+
+    return ret;
+}
+
+static int cpu_write_vreg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+    case S390_V0L_REGNUM ... S390_V15L_REGNUM:
+        env->vregs[n][1].ll = ldtul_p(mem_buf + 8);
+        return 8;
+    case S390_V16_REGNUM ... S390_V31_REGNUM:
+        env->vregs[n][0].ll = ldtul_p(mem_buf);
+        env->vregs[n][1].ll = ldtul_p(mem_buf + 8);
+        return 16;
+    default:
+        return 0;
+    }
+}
+
+/* the values represent the positions in s390-cr.xml */
+#define S390_C0_REGNUM 0
+#define S390_C15_REGNUM 15
+/* total number of registers in s390-cr.xml */
+#define S390_NUM_C_REGS 16
+
+#ifndef CONFIG_USER_ONLY
+static int cpu_read_c_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+    case S390_C0_REGNUM ... S390_C15_REGNUM:
+        return gdb_get_regl(mem_buf, env->cregs[n]);
+    default:
+        return 0;
+    }
+}
+
+static int cpu_write_c_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+    case S390_C0_REGNUM ... S390_C15_REGNUM:
+        env->cregs[n] = ldtul_p(mem_buf);
+        if (tcg_enabled()) {
+            tlb_flush(ENV_GET_CPU(env), 1);
+        }
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    default:
+        return 0;
+    }
+}
+
+/* the values represent the positions in s390-virt.xml */
+#define S390_VIRT_CKC_REGNUM    0
+#define S390_VIRT_CPUTM_REGNUM  1
+#define S390_VIRT_BEA_REGNUM    2
+#define S390_VIRT_PREFIX_REGNUM 3
+#define S390_VIRT_PP_REGNUM     4
+#define S390_VIRT_PFT_REGNUM    5
+#define S390_VIRT_PFS_REGNUM    6
+#define S390_VIRT_PFC_REGNUM    7
+/* total number of registers in s390-virt.xml */
+#define S390_NUM_VIRT_REGS 8
+
+static int cpu_read_virt_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+    case S390_VIRT_CKC_REGNUM:
+        return gdb_get_regl(mem_buf, env->ckc);
+    case S390_VIRT_CPUTM_REGNUM:
+        return gdb_get_regl(mem_buf, env->cputm);
+    case S390_VIRT_BEA_REGNUM:
+        return gdb_get_regl(mem_buf, env->gbea);
+    case S390_VIRT_PREFIX_REGNUM:
+        return gdb_get_regl(mem_buf, env->psa);
+    case S390_VIRT_PP_REGNUM:
+        return gdb_get_regl(mem_buf, env->pp);
+    case S390_VIRT_PFT_REGNUM:
+        return gdb_get_regl(mem_buf, env->pfault_token);
+    case S390_VIRT_PFS_REGNUM:
+        return gdb_get_regl(mem_buf, env->pfault_select);
+    case S390_VIRT_PFC_REGNUM:
+        return gdb_get_regl(mem_buf, env->pfault_compare);
+    default:
+        return 0;
+    }
+}
+
+static int cpu_write_virt_reg(CPUS390XState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+    case S390_VIRT_CKC_REGNUM:
+        env->ckc = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_CPUTM_REGNUM:
+        env->cputm = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_BEA_REGNUM:
+        env->gbea = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_PREFIX_REGNUM:
+        env->psa = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_PP_REGNUM:
+        env->pp = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_PFT_REGNUM:
+        env->pfault_token = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_PFS_REGNUM:
+        env->pfault_select = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    case S390_VIRT_PFC_REGNUM:
+        env->pfault_compare = ldtul_p(mem_buf);
+        cpu_synchronize_post_init(ENV_GET_CPU(env));
+        return 8;
+    default:
+        return 0;
+    }
+}
+#endif
 
 void s390_cpu_gdb_init(CPUState *cs)
 {
@@ -140,4 +294,20 @@ void s390_cpu_gdb_init(CPUState *cs)
     gdb_register_coprocessor(cs, cpu_read_fp_reg,
                              cpu_write_fp_reg,
                              S390_NUM_FP_REGS, "s390-fpr.xml", 0);
+
+    gdb_register_coprocessor(cs, cpu_read_vreg,
+                             cpu_write_vreg,
+                             S390_NUM_VREGS, "s390-vx.xml", 0);
+
+#ifndef CONFIG_USER_ONLY
+    gdb_register_coprocessor(cs, cpu_read_c_reg,
+                             cpu_write_c_reg,
+                             S390_NUM_C_REGS, "s390-cr.xml", 0);
+
+    if (kvm_enabled()) {
+        gdb_register_coprocessor(cs, cpu_read_virt_reg,
+                                 cpu_write_virt_reg,
+                                 S390_NUM_VIRT_REGS, "s390-virt.xml", 0);
+    }
+#endif
 }

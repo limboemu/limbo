@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -191,8 +191,11 @@ uri_put ( struct uri *uri ) {
 
 extern struct uri *cwuri;
 
-extern size_t uri_encode ( const char *string, unsigned int field,
+extern size_t uri_decode ( const char *encoded, void *buf, size_t len );
+extern size_t uri_encode ( unsigned int field, const void *raw, size_t raw_len,
 			   char *buf, ssize_t len );
+extern size_t uri_encode_string ( unsigned int field, const char *string,
+				  char *buf, ssize_t len );
 extern struct uri * parse_uri ( const char *uri_string );
 extern size_t format_uri ( const struct uri *uri, char *buf, size_t len );
 extern char * format_uri_alloc ( const struct uri *uri );
@@ -203,8 +206,8 @@ extern char * resolve_path ( const char *base_path,
 			     const char *relative_path );
 extern struct uri * resolve_uri ( const struct uri *base_uri,
 				  struct uri *relative_uri );
-extern struct uri * tftp_uri ( struct in_addr next_server,
-			       const char *filename );
+extern struct uri * pxe_uri ( struct sockaddr *sa_server,
+			      const char *filename );
 extern void churi ( struct uri *uri );
 
 #endif /* _IPXE_URI_H */

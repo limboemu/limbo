@@ -84,9 +84,6 @@ static struct net_device_operations skge_operations = {
 /* Avoid conditionals by using array */
 static const int txqaddr[] = { Q_XA1, Q_XA2 };
 static const int rxqaddr[] = { Q_R1, Q_R2 };
-static const u32 rxirqmask[] = { IS_R1_F, IS_R2_F };
-static const u32 txirqmask[] = { IS_XA1_F, IS_XA2_F };
-static const u32 napimask[] = { IS_R1_F|IS_XA1_F, IS_R2_F|IS_XA2_F };
 static const u32 portmask[] = { IS_PORT_1, IS_PORT_2 };
 
 /* Determine supported/advertised modes based on hardware.
@@ -1921,8 +1918,6 @@ static void skge_tx_clean(struct net_device *dev)
 
 	skge->tx_ring.to_clean = e;
 }
-
-static const u8 pause_mc_addr[ETH_ALEN] = { 0x1, 0x80, 0xc2, 0x0, 0x0, 0x1 };
 
 static inline u16 phy_length(const struct skge_hw *hw, u32 status)
 {

@@ -1,0 +1,2 @@
+# unions cannot be empty
+{ 'union': 'Union', 'data': { } }

@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/exec-all.h"
 #include "exec/gdbstub.h"
@@ -49,6 +50,20 @@ static void xtensa_core_class_init(ObjectClass *oc, void *data)
      * in the gdb/xtensa-config.c inside gdb source tree or inside gdb overlay.
      */
     cc->gdb_num_core_regs = config->gdb_regmap.num_regs;
+}
+
+void xtensa_finalize_config(XtensaConfig *config)
+{
+    unsigned i, n = 0;
+
+    if (config->gdb_regmap.num_regs) {
+        return;
+    }
+
+    for (i = 0; config->gdb_regmap.reg[i].targno >= 0; ++i) {
+        n += (config->gdb_regmap.reg[i].type != 6);
+    }
+    config->gdb_regmap.num_regs = n;
 }
 
 void xtensa_register_core(XtensaConfigList *node)
@@ -93,7 +108,7 @@ void xtensa_breakpoint_handler(CPUState *cs)
             if (cause) {
                 debug_exception_env(env, cause);
             }
-            cpu_resume_from_signal(cs, NULL);
+            cpu_loop_exit_noexc(cs);
         }
     }
 }
@@ -240,8 +255,8 @@ void xtensa_cpu_do_interrupt(CPUState *cs)
                     env->config->exception_vector[cs->exception_index]);
             env->exception_taken = 1;
         } else {
-            qemu_log("%s(pc = %08x) bad exception_index: %d\n",
-                    __func__, env->pc, cs->exception_index);
+            qemu_log_mask(CPU_LOG_INT, "%s(pc = %08x) bad exception_index: %d\n",
+                          __func__, env->pc, cs->exception_index);
         }
         break;
 
@@ -527,8 +542,8 @@ static int get_physical_addr_mmu(CPUXtensaState *env, bool update_tlb,
             wi = ++env->autorefill_idx & 0x3;
             xtensa_tlb_set_entry(env, dtlb, wi, ei, vpn, pte);
             env->sregs[EXCVADDR] = vaddr;
-            qemu_log("%s: autorefill(%08x): %08x -> %08x\n",
-                    __func__, vaddr, vpn, pte);
+            qemu_log_mask(CPU_LOG_MMU, "%s: autorefill(%08x): %08x -> %08x\n",
+                          __func__, vaddr, vpn, pte);
         } else {
             xtensa_tlb_set_entry_mmu(env, &tmp_entry, dtlb, wi, ei, vpn, pte);
             entry = &tmp_entry;
@@ -576,8 +591,8 @@ static int get_pte(CPUXtensaState *env, uint32_t vaddr, uint32_t *pte)
     int ret = get_physical_addr_mmu(env, false, pt_vaddr, 0, 0,
             &paddr, &page_size, &access, false);
 
-    qemu_log("%s: trying autorefill(%08x) -> %08x\n", __func__,
-            vaddr, ret ? ~0 : paddr);
+    qemu_log_mask(CPU_LOG_MMU, "%s: trying autorefill(%08x) -> %08x\n",
+                  __func__, vaddr, ret ? ~0 : paddr);
 
     if (ret == 0) {
         *pte = ldl_phys(cs->as, paddr);

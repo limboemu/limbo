@@ -22,7 +22,7 @@ my $tst_only;
 my $emacs = 0;
 my $terse = 0;
 my $file = 0;
-my $check = 0;
+my $no_warnings = 0;
 my $summary = 1;
 my $mailback = 0;
 my $summary_file = 0;
@@ -45,7 +45,7 @@ Options:
   --emacs                    emacs compile window format
   --terse                    one line per report
   -f, --file                 treat FILE as regular source file
-  --subjective, --strict     enable more subjective tests
+  --strict                   fail if only warnings are found
   --root=PATH                PATH to the kernel tree root
   --no-summary               suppress the per-file summary
   --mailback                 only produce a report in case of warnings/errors
@@ -71,8 +71,7 @@ GetOptions(
 	'emacs!'	=> \$emacs,
 	'terse!'	=> \$terse,
 	'f|file!'	=> \$file,
-	'subjective!'	=> \$check,
-	'strict!'	=> \$check,
+	'strict!'	=> \$no_warnings,
 	'root=s'	=> \$root,
 	'summary!'	=> \$summary,
 	'mailback!'	=> \$mailback,
@@ -141,44 +140,22 @@ our $Ident	= qr{
 		}x;
 our $Storage	= qr{extern|static|asmlinkage};
 our $Sparse	= qr{
-			__user|
-			__kernel|
-			__force|
-			__iomem|
-			__must_check|
-			__init_refok|
-			__kprobes|
-			__ref
+			__force
 		}x;
 
 # Notes to $Attribute:
-# We need \b after 'init' otherwise 'initconst' will cause a false positive in a check
 our $Attribute	= qr{
 			const|
-			__percpu|
-			__nocast|
-			__safe|
-			__bitwise__|
-			__packed__|
-			__packed2__|
-			__naked|
-			__maybe_unused|
-			__always_unused|
-			__noreturn|
-			__used|
-			__cold|
-			__noclone|
-			__deprecated|
-			__read_mostly|
-			__kprobes|
-			__(?:mem|cpu|dev|)(?:initdata|initconst|init\b)|
-			____cacheline_aligned|
-			____cacheline_aligned_in_smp|
-			____cacheline_internodealigned_in_smp|
-			__weak
+			volatile|
+			QEMU_NORETURN|
+			QEMU_WARN_UNUSED_RESULT|
+			QEMU_SENTINEL|
+			QEMU_ARTIFICIAL|
+			QEMU_PACKED|
+			GCC_FMT_ATTR
 		  }x;
 our $Modifier;
-our $Inline	= qr{inline|__always_inline|noinline};
+our $Inline	= qr{inline};
 our $Member	= qr{->$Ident|\.$Ident|\[[^]]*\]};
 our $Lval	= qr{$Ident(?:$Member)*};
 
@@ -215,14 +192,6 @@ our $typeTypedefs = qr{(?x:
         | QEMUBH                            # all uppercase
 )};
 
-our $logFunctions = qr{(?x:
-	printk|
-	pr_(debug|dbg|vdbg|devel|info|warning|err|notice|alert|crit|emerg|cont)|
-	(dev|netdev|netif)_(printk|dbg|vdbg|info|warn|err|notice|alert|crit|emerg|WARN)|
-	WARN|
-	panic
-)};
-
 our @typeList = (
 	qr{void},
 	qr{(?:unsigned\s+)?char},
@@ -242,21 +211,22 @@ our @typeList = (
 	qr{${Ident}_t},
 	qr{${Ident}_handler},
 	qr{${Ident}_handler_fn},
-);
-our @modifierList = (
-	qr{fastcall},
+	qr{target_(?:u)?long},
 );
 
-our $allowed_asm_includes = qr{(?x:
-	irq|
-	memory
-)};
-# memory.h: ARM has a custom one
+# This can be modified by sub possible.  Since it can be empty, be careful
+# about regexes that always match, because they can cause infinite loops.
+our @modifierList = (
+);
 
 sub build_types {
-	my $mods = "(?x:  \n" . join("|\n  ", @modifierList) . "\n)";
 	my $all = "(?x:  \n" . join("|\n  ", @typeList) . "\n)";
-	$Modifier	= qr{(?:$Attribute|$Sparse|$mods)};
+	if (@modifierList > 0) {
+		my $mods = "(?x:  \n" . join("|\n  ", @modifierList) . "\n)";
+		$Modifier = qr{(?:$Attribute|$Sparse|$mods)};
+	} else {
+		$Modifier = qr{(?:$Attribute|$Sparse)};
+	}
 	$NonptrType	= qr{
 			(?:$Modifier\s+|const\s+)*
 			(?:
@@ -276,27 +246,6 @@ sub build_types {
 build_types();
 
 $chk_signoff = 0 if ($file);
-
-my @dep_includes = ();
-my @dep_functions = ();
-my $removal = "Documentation/feature-removal-schedule.txt";
-if ($tree && -f "$root/$removal") {
-	open(my $REMOVE, '<', "$root/$removal") ||
-				die "$P: $removal: open failed - $!\n";
-	while (<$REMOVE>) {
-		if (/^Check:\s+(.*\S)/) {
-			for my $entry (split(/[, ]+/, $1)) {
-				if ($entry =~ m@include/(.*)@) {
-					push(@dep_includes, $1);
-
-				} elsif ($entry !~ m@/@) {
-					push(@dep_functions, $entry);
-				}
-			}
-		}
-	}
-	close($REMOVE);
-}
 
 my @rawlines = ();
 my @lines = ();
@@ -413,7 +362,7 @@ sub sanitise_line {
 	for ($off = 1; $off < length($line); $off++) {
 		$c = substr($line, $off, 1);
 
-		# Comments we are wacking completly including the begin
+		# Comments we are wacking completely including the begin
 		# and end, all to $;.
 		if ($sanitise_quote eq '' && substr($line, $off, 2) eq '/*') {
 			$sanitise_quote = '*/';
@@ -633,7 +582,7 @@ sub statement_block_size {
 	my ($stmt) = @_;
 
 	$stmt =~ s/(^|\n)./$1/g;
-	$stmt =~ s/^\s*{//;
+	$stmt =~ s/^\s*\{//;
 	$stmt =~ s/}\s*$//;
 	$stmt =~ s/^\s*//;
 	$stmt =~ s/\s*$//;
@@ -1061,7 +1010,9 @@ sub possible {
 			case|
 			else|
 			asm|__asm__|
-			do
+			do|
+			\#|
+			\#\#
 		)(?:\s|$)|
 		^(?:typedef|struct|enum)\b
 	    )}x;
@@ -1120,39 +1071,6 @@ sub WARN {
 		our $cnt_warn++;
 	}
 }
-sub CHK {
-	if ($check && report("CHECK: $_[0]\n")) {
-		our $clean = 0;
-		our $cnt_chk++;
-	}
-}
-
-sub check_absolute_file {
-	my ($absolute, $herecurr) = @_;
-	my $file = $absolute;
-
-	##print "absolute<$absolute>\n";
-
-	# See if any suffix of this path is a path within the tree.
-	while ($file =~ s@^[^/]*/@@) {
-		if (-f "$root/$file") {
-			##print "file<$file>\n";
-			last;
-		}
-	}
-	if (! -f _)  {
-		return 0;
-	}
-
-	# It is, so see if the prefix is acceptable.
-	my $prefix = $absolute;
-	substr($prefix, -length($file)) = '';
-
-	##print "prefix<$prefix>\n";
-	if ($prefix ne ".../") {
-		WARN("use relative pathname instead of absolute in changelog text\n" . $herecurr);
-	}
-}
 
 sub process {
 	my $filename = shift;
@@ -1196,10 +1114,6 @@ sub process {
 	my %suppress_export;
 
 	# Pre-scan the patch sanitizing the lines.
-	# Pre-scan the patch looking for any __setup documentation.
-	#
-	my @setup_docs = ();
-	my $setup_docs = 0;
 
 	sanitise_line_reset();
 	my $line;
@@ -1207,13 +1121,6 @@ sub process {
 		$linenr++;
 		$line = $rawline;
 
-		if ($rawline=~/^\+\+\+\s+(\S+)/) {
-			$setup_docs = 0;
-			if ($1 =~ m@Documentation/kernel-parameters.txt$@) {
-				$setup_docs = 1;
-			}
-			#next;
-		}
 		if ($rawline=~/^\@\@ -\d+(?:,\d+)? \+(\d+)(,(\d+))? \@\@/) {
 			$realline=$1-1;
 			if (defined $2) {
@@ -1272,10 +1179,6 @@ sub process {
 
 		#print "==>$rawline\n";
 		#print "-->$line\n";
-
-		if ($setup_docs && $line =~ /^\+/) {
-			push(@setup_docs, $line);
-		}
 	}
 
 	$prefix = '';
@@ -1350,9 +1253,6 @@ sub process {
 				WARN("patch prefix '$p1_prefix' exists, appears to be a -p0 patch\n");
 			}
 
-			if ($realfile =~ m@^include/asm/@) {
-				ERROR("do not modify files in include/asm, change architecture specific files in include/asm-<architecture>\n" . "$here$rawline\n");
-			}
 			next;
 		}
 
@@ -1367,9 +1267,14 @@ sub process {
 # Check for incorrect file permissions
 		if ($line =~ /^new (file )?mode.*[7531]\d{0,2}$/) {
 			my $permhere = $here . "FILE: $realfile\n";
-			if ($realfile =~ /(Makefile|Kconfig|\.c|\.cpp|\.h|\.S|\.tmpl)$/) {
+			if ($realfile =~ /(\bMakefile(?:\.objs)?|\.c|\.cc|\.cpp|\.h|\.mak|\.[sS])$/) {
 				ERROR("do not set execute permissions for source files\n" . $permhere);
 			}
+		}
+
+# Accept git diff extended headers as valid patches
+		if ($line =~ /^(?:rename|copy) (?:from|to) [\w\/\.\-]+\s*$/) {
+			$is_patch = 1;
 		}
 
 #check the patch for a signoff:
@@ -1377,11 +1282,11 @@ sub process {
 			# This is a signoff, if ugly, so do not double report.
 			$signoff++;
 			if (!($line =~ /^\s*Signed-off-by:/)) {
-				WARN("Signed-off-by: is the preferred form\n" .
+				ERROR("The correct form is \"Signed-off-by\"\n" .
 					$herecurr);
 			}
 			if ($line =~ /^\s*signed-off-by:\S/i) {
-				WARN("space required after Signed-off-by:\n" .
+				ERROR("space required after Signed-off-by:\n" .
 					$herecurr);
 			}
 		}
@@ -1390,20 +1295,6 @@ sub process {
 		if ($realcnt != 0 && $line !~ m{^(?:\+|-| |\\ No newline|$)}) {
 			ERROR("patch seems to be corrupt (line wrapped?)\n" .
 				$herecurr) if (!$emitted_corrupt++);
-		}
-
-# Check for absolute kernel paths.
-		if ($tree) {
-			while ($line =~ m{(?:^|\s)(/\S*)}g) {
-				my $file = $1;
-
-				if ($file =~ m{^(.*?)(?::\d+)+:?$} &&
-				    check_absolute_file($1, $herecurr)) {
-					#
-				} else {
-					check_absolute_file($file, $herecurr);
-				}
-			}
 		}
 
 # UTF-8 regex found at http://www.w3.org/International/questions/qa-forms-utf-8.en.php
@@ -1421,6 +1312,9 @@ sub process {
 # ignore non-hunk lines and lines being removed
 		next if (!$hunk_line || $line =~ /^-/);
 
+# ignore files that are being periodically imported from Linux
+		next if ($realfile =~ /^(linux-headers|include\/standard-headers)\//);
+
 #trailing whitespace
 		if ($line =~ /^\+.*\015/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
@@ -1432,76 +1326,41 @@ sub process {
 			$rpt_cleaners = 1;
 		}
 
-# check for Kconfig help text having a real description
-# Only applies when adding the entry originally, after that we do not have
-# sufficient context to determine whether it is indeed long enough.
-		if ($realfile =~ /Kconfig/ &&
-		    $line =~ /\+\s*(?:---)?help(?:---)?$/) {
-			my $length = 0;
-			my $cnt = $realcnt;
-			my $ln = $linenr + 1;
-			my $f;
-			my $is_end = 0;
-			while ($cnt > 0 && defined $lines[$ln - 1]) {
-				$f = $lines[$ln - 1];
-				$cnt-- if ($lines[$ln - 1] !~ /^-/);
-				$is_end = $lines[$ln - 1] =~ /^\+/;
-				$ln++;
-
-				next if ($f =~ /^-/);
-				$f =~ s/^.//;
-				$f =~ s/#.*//;
-				$f =~ s/^\s+//;
-				next if ($f =~ /^$/);
-				if ($f =~ /^\s*config\s/) {
-					$is_end = 1;
-					last;
-				}
-				$length++;
-			}
-			WARN("please write a paragraph that describes the config symbol fully\n" . $herecurr) if ($is_end && $length < 4);
-			#print "is_end<$is_end> length<$length>\n";
-		}
-
 # check we are in a valid source file if not then ignore this hunk
-		next if ($realfile !~ /\.(h|c|cpp|s|S|pl|sh)$/);
+		next if ($realfile !~ /\.(h|c|cpp|s|S|pl|py|sh)$/);
 
-#80 column limit
-		if ($line =~ /^\+/ && $prevrawline !~ /\/\*\*/ &&
-		    $rawline !~ /^.\s*\*\s*\@$Ident\s/ &&
-		    !($line =~ /^\+\s*$logFunctions\s*\(\s*(?:(KERN_\S+\s*|[^"]*))?"[X\t]*"\s*(?:,|\)\s*;)\s*$/ ||
-		    $line =~ /^\+\s*"[^"]*"\s*(?:\s*|,|\)\s*;)\s*$/) &&
+#90 column limit
+		if ($line =~ /^\+/ &&
+		    !($line =~ /^\+\s*"[^"]*"\s*(?:\s*|,|\)\s*;)\s*$/) &&
 		    $length > 80)
 		{
-			WARN("line over 80 characters\n" . $herecurr);
+			if ($length > 90) {
+				ERROR("line over 90 characters\n" . $herecurr);
+			} else {
+				WARN("line over 80 characters\n" . $herecurr);
+			}
 		}
 
 # check for spaces before a quoted newline
 		if ($rawline =~ /^.*\".*\s\\n/) {
-			WARN("unnecessary whitespace before a quoted newline\n" . $herecurr);
+			ERROR("unnecessary whitespace before a quoted newline\n" . $herecurr);
 		}
 
 # check for adding lines without a newline.
 		if ($line =~ /^\+/ && defined $lines[$linenr] && $lines[$linenr] =~ /^\\ No newline at end of file/) {
-			WARN("adding a line without newline at end of file\n" . $herecurr);
+			ERROR("adding a line without newline at end of file\n" . $herecurr);
 		}
 
-# Blackfin: use hi/lo macros
-		if ($realfile =~ m@arch/blackfin/.*\.S$@) {
-			if ($line =~ /\.[lL][[:space:]]*=.*&[[:space:]]*0x[fF][fF][fF][fF]/) {
-				my $herevet = "$here\n" . cat_vet($line) . "\n";
-				ERROR("use the LO() macro, not (... & 0xFFFF)\n" . $herevet);
-			}
-			if ($line =~ /\.[hH][[:space:]]*=.*>>[[:space:]]*16/) {
-				my $herevet = "$here\n" . cat_vet($line) . "\n";
-				ERROR("use the HI() macro, not (... >> 16)\n" . $herevet);
-			}
+# check for RCS/CVS revision markers
+		if ($rawline =~ /^\+.*\$(Revision|Log|Id)(?:\$|\b)/) {
+			ERROR("CVS style keyword markers, these will _not_ be updated\n". $herecurr);
 		}
 
-# check we are in a valid source file C or perl if not then ignore this hunk
-		next if ($realfile !~ /\.(h|c|cpp|pl)$/);
+# tabs are only allowed in assembly source code, and in
+# some scripts we imported from other projects.
+		next if ($realfile =~ /\.(s|S)$/);
+		next if ($realfile =~ /(checkpatch|get_maintainer|texi2pod)\.pl$/);
 
-# in QEMU, no tabs are allowed
 		if ($rawline =~ /^\+.*\t/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
 			ERROR("code indent should never use tabs\n" . $herevet);
@@ -1510,21 +1369,6 @@ sub process {
 
 # check we are in a valid C source file if not then ignore this hunk
 		next if ($realfile !~ /\.(h|c|cpp)$/);
-
-# check for RCS/CVS revision markers
-		if ($rawline =~ /^\+.*\$(Revision|Log|Id)(?:\$|)/) {
-			WARN("CVS style keyword markers, these will _not_ be updated\n". $herecurr);
-		}
-
-# Blackfin: don't use __builtin_bfin_[cs]sync
-		if ($line =~ /__builtin_bfin_csync/) {
-			my $herevet = "$here\n" . cat_vet($line) . "\n";
-			ERROR("use the CSYNC() macro in asm/blackfin.h\n" . $herevet);
-		}
-		if ($line =~ /__builtin_bfin_ssync/) {
-			my $herevet = "$here\n" . cat_vet($line) . "\n";
-			ERROR("use the SSYNC() macro in asm/blackfin.h\n" . $herevet);
-		}
 
 # Check for potential 'bare' types
 		my ($stat, $cond, $line_nr_next, $remain_next, $off_next,
@@ -1644,7 +1488,7 @@ sub process {
 			# 79 or 80 characters, it is no longer possible to add a space and an
 			# opening brace there)
 			if ($#ctx == 0 && $ctx !~ /{\s*/ &&
-			    defined($lines[$ctx_ln - 1]) && $lines[$ctx_ln - 1] =~ /^\+\s*{/ &&
+			    defined($lines[$ctx_ln - 1]) && $lines[$ctx_ln - 1] =~ /^\+\s*\{/ &&
 			    defined($lines[$ctx_ln - 2]) && length($lines[$ctx_ln - 2]) < 80) {
 				ERROR("that open brace { should be on the previous line\n" .
 					"$here\n$ctx\n$rawlines[$ctx_ln - 1]\n");
@@ -1655,7 +1499,7 @@ sub process {
 			{
 				my ($nlength, $nindent) = line_stats($lines[$ctx_ln - 1]);
 				if ($nindent > $indent) {
-					WARN("trailing semicolon indicates no statements, indent implies otherwise\n" .
+					ERROR("trailing semicolon indicates no statements, indent implies otherwise\n" .
 						"$here\n$ctx\n$rawlines[$ctx_ln - 1]\n");
 				}
 			}
@@ -1684,7 +1528,7 @@ sub process {
 			my $continuation = 0;
 			my $check = 0;
 			$s =~ s/^.*\bdo\b//;
-			$s =~ s/^\s*{//;
+			$s =~ s/^\s*\{//;
 			if ($s =~ s/^\s*\\//) {
 				$continuation = 1;
 			}
@@ -1743,7 +1587,7 @@ sub process {
 
 			if ($check && (($sindent % 4) != 0 ||
 			    ($sindent <= $indent && $s ne ''))) {
-				WARN("suspect code indent for conditional statements ($indent, $sindent)\n" . $herecurr . "$stat_real\n");
+				ERROR("suspect code indent for conditional statements ($indent, $sindent)\n" . $herecurr . "$stat_real\n");
 			}
 		}
 
@@ -1783,7 +1627,7 @@ sub process {
 		}
 
 # check for initialisation to aggregates open brace on the next line
-		if ($line =~ /^.\s*{/ &&
+		if ($line =~ /^.\s*\{/ &&
 		    $prevline =~ /(?:^|[^=])=\s*$/) {
 			ERROR("that open brace { should be on the previous line\n" . $hereprev);
 		}
@@ -1808,50 +1652,6 @@ sub process {
 		# Remove C99 comments.
 		$line =~ s@//.*@@;
 		$opline =~ s@//.*@@;
-
-# EXPORT_SYMBOL should immediately follow the thing it is exporting, consider
-# the whole statement.
-#print "APW <$lines[$realline_next - 1]>\n";
-		if (defined $realline_next &&
-		    exists $lines[$realline_next - 1] &&
-		    !defined $suppress_export{$realline_next} &&
-		    ($lines[$realline_next - 1] =~ /EXPORT_SYMBOL.*\((.*)\)/ ||
-		     $lines[$realline_next - 1] =~ /EXPORT_UNUSED_SYMBOL.*\((.*)\)/)) {
-			# Handle definitions which produce identifiers with
-			# a prefix:
-			#   XXX(foo);
-			#   EXPORT_SYMBOL(something_foo);
-			my $name = $1;
-			if ($stat =~ /^.([A-Z_]+)\s*\(\s*($Ident)/ &&
-			    $name =~ /^${Ident}_$2/) {
-#print "FOO C name<$name>\n";
-				$suppress_export{$realline_next} = 1;
-
-			} elsif ($stat !~ /(?:
-				\n.}\s*$|
-				^.DEFINE_$Ident\(\Q$name\E\)|
-				^.DECLARE_$Ident\(\Q$name\E\)|
-				^.LIST_HEAD\(\Q$name\E\)|
-				^.(?:$Storage\s+)?$Type\s*\(\s*\*\s*\Q$name\E\s*\)\s*\(|
-				\b\Q$name\E(?:\s+$Attribute)*\s*(?:;|=|\[|\()
-			    )/x) {
-#print "FOO A<$lines[$realline_next - 1]> stat<$stat> name<$name>\n";
-				$suppress_export{$realline_next} = 2;
-			} else {
-				$suppress_export{$realline_next} = 1;
-			}
-		}
-		if (!defined $suppress_export{$linenr} &&
-		    $prevline =~ /^.\s*$/ &&
-		    ($line =~ /EXPORT_SYMBOL.*\((.*)\)/ ||
-		     $line =~ /EXPORT_UNUSED_SYMBOL.*\((.*)\)/)) {
-#print "FOO B <$lines[$linenr - 1]>\n";
-			$suppress_export{$linenr} = 2;
-		}
-		if (defined $suppress_export{$linenr} &&
-		    $suppress_export{$linenr} == 2) {
-			WARN("EXPORT_SYMBOL(foo); should immediately follow its function/variable\n" . $herecurr);
-		}
 
 # check for global initialisers.
 		if ($line =~ /^.$Type\s*$Ident\s*(?:\s+$Modifier)*\s*=\s*(0|NULL|false)\s*;/) {
@@ -1900,67 +1700,37 @@ sub process {
 			}
 		}
 
-# # no BUG() or BUG_ON()
-# 		if ($line =~ /\b(BUG|BUG_ON)\b/) {
-# 			print "Try to use WARN_ON & Recovery code rather than BUG() or BUG_ON()\n";
-# 			print "$herecurr";
-# 			$clean = 0;
-# 		}
-
-		if ($line =~ /\bLINUX_VERSION_CODE\b/) {
-			WARN("LINUX_VERSION_CODE should be avoided, code should be for the version to which it is merged\n" . $herecurr);
-		}
-
-# printk should use KERN_* levels.  Note that follow on printk's on the
-# same line do not need a level, so we use the current block context
-# to try and find and validate the current printk.  In summary the current
-# printk includes all preceding printk's which have no newline on the end.
-# we assume the first bad printk is the one to report.
-		if ($line =~ /\bprintk\((?!KERN_)\s*"/) {
-			my $ok = 0;
-			for (my $ln = $linenr - 1; $ln >= $first_line; $ln--) {
-				#print "CHECK<$lines[$ln - 1]\n";
-				# we have a preceding printk if it ends
-				# with "\n" ignore it, else it is to blame
-				if ($lines[$ln - 1] =~ m{\bprintk\(}) {
-					if ($rawlines[$ln - 1] !~ m{\\n"}) {
-						$ok = 1;
-					}
-					last;
-				}
-			}
-			if ($ok == 0) {
-				WARN("printk() should include KERN_ facility level\n" . $herecurr);
-			}
-		}
-
 # function brace can't be on same line, except for #defines of do while,
 # or if closed on same line
-		if (($line=~/$Type\s*$Ident\(.*\).*\s{/) and
-		    !($line=~/\#\s*define.*do\s{/) and !($line=~/}/)) {
+		if (($line=~/$Type\s*$Ident\(.*\).*\s\{/) and
+		    !($line=~/\#\s*define.*do\s\{/) and !($line=~/}/)) {
 			ERROR("open brace '{' following function declarations go on the next line\n" . $herecurr);
 		}
 
 # open braces for enum, union and struct go on the same line.
-		if ($line =~ /^.\s*{/ &&
+		if ($line =~ /^.\s*\{/ &&
 		    $prevline =~ /^.\s*(?:typedef\s+)?(enum|union|struct)(?:\s+$Ident)?\s*$/) {
 			ERROR("open brace '{' following $1 go on the same line\n" . $hereprev);
 		}
 
 # missing space after union, struct or enum definition
 		if ($line =~ /^.\s*(?:typedef\s+)?(enum|union|struct)(?:\s+$Ident)?(?:\s+$Ident)?[=\{]/) {
-		    WARN("missing space after $1 definition\n" . $herecurr);
+		    ERROR("missing space after $1 definition\n" . $herecurr);
 		}
 
 # check for spacing round square brackets; allowed:
 #  1. with a type on the left -- int [] a;
 #  2. at the beginning of a line for slice initialisers -- [0...10] = 5,
 #  3. inside a curly brace -- = { [0...10] = 5 }
+#  4. after a comma -- [1] = 5, [2] = 6
+#  5. in a macro definition -- #define abc(x) [x] = y
 		while ($line =~ /(.*?\s)\[/g) {
 			my ($where, $prefix) = ($-[1], $1);
 			if ($prefix !~ /$Type\s+$/ &&
 			    ($where != 0 || $prefix !~ /^.\s+$/) &&
-			    $prefix !~ /{\s+$/) {
+			    $prefix !~ /{\s+$/ &&
+			    $prefix !~ /\#\s*define[^(]*\([^)]*\)\s+$/ &&
+			    $prefix !~ /,\s+$/) {
 				ERROR("space prohibited before open square bracket '['\n" . $herecurr);
 			}
 		}
@@ -1995,7 +1765,7 @@ sub process {
 			} elsif ($ctx =~ /$Type$/) {
 
 			} else {
-				WARN("space prohibited between function name and open parenthesis '('\n" . $herecurr);
+				ERROR("space prohibited between function name and open parenthesis '('\n" . $herecurr);
 			}
 		}
 # Check operator spacing.
@@ -2091,7 +1861,7 @@ sub process {
                                 # not required when having a single },{ on one line
 				} elsif ($op eq ',') {
 					if ($ctx !~ /.x[WEC]/ && $cc !~ /^}/ &&
-                                            ($elements[$n] . $elements[$n + 2]) !~ " *}{") {
+                                            ($elements[$n] . $elements[$n + 2]) !~ " *}\\{") {
 						ERROR("space required after that '$op' $at\n" . $hereptr);
 					}
 
@@ -2129,19 +1899,6 @@ sub process {
 					}
 					if ($ctx =~ /ExW/) {
 						ERROR("space prohibited after that '$op' $at\n" . $hereptr);
-					}
-
-
-				# << and >> may either have or not have spaces both sides
-				} elsif ($op eq '<<' or $op eq '>>' or
-					 $op eq '&' or $op eq '^' or $op eq '|' or
-					 $op eq '+' or $op eq '-' or
-					 $op eq '*' or $op eq '/' or
-					 $op eq '%')
-				{
-					if ($ctx =~ /Wx[^WCE]|[^WCE]xW/) {
-						ERROR("need consistent spacing around '$op' $at\n" .
-							$hereptr);
 					}
 
 				# A colon needs no spaces before when it is
@@ -2190,29 +1947,9 @@ sub process {
 			}
 		}
 
-# check for multiple assignments
-		if ($line =~ /^.\s*$Lval\s*=\s*$Lval\s*=(?!=)/) {
-			CHK("multiple assignments should be avoided\n" . $herecurr);
-		}
-
-## # check for multiple declarations, allowing for a function declaration
-## # continuation.
-## 		if ($line =~ /^.\s*$Type\s+$Ident(?:\s*=[^,{]*)?\s*,\s*$Ident.*/ &&
-## 		    $line !~ /^.\s*$Type\s+$Ident(?:\s*=[^,{]*)?\s*,\s*$Type\s*$Ident.*/) {
-##
-## 			# Remove any bracketed sections to ensure we do not
-## 			# falsly report the parameters of functions.
-## 			my $ln = $line;
-## 			while ($ln =~ s/\([^\(\)]*\)//g) {
-## 			}
-## 			if ($ln =~ /,/) {
-## 				WARN("declaring multiple variables together should be avoided\n" . $herecurr);
-## 			}
-## 		}
-
 #need space before brace following if, while, etc
-		if (($line =~ /\(.*\){/ && $line !~ /\($Type\){/) ||
-		    $line =~ /do{/) {
+		if (($line =~ /\(.*\)\{/ && $line !~ /\($Type\)\{/) ||
+		    $line =~ /do\{/) {
 			ERROR("space required before the open brace '{'\n" . $herecurr);
 		}
 
@@ -2267,7 +2004,7 @@ sub process {
 		if ($line =~ /^.\s*return\s*(E[A-Z]*)\s*;/) {
 			my $name = $1;
 			if ($name ne 'EOF' && $name ne 'ERROR') {
-				CHK("return of an errno should typically be -ve (return -$1)\n" . $herecurr);
+				ERROR("return of an errno should typically be -ve (return -$1)\n" . $herecurr);
 			}
 		}
 
@@ -2339,7 +2076,7 @@ sub process {
 				(?:\&\&|\|\||\)|\])
 			)/x)
 		{
-			WARN("boolean test with hexadecimal, perhaps just 1 \& or \|?\n" . $herecurr);
+			ERROR("boolean test with hexadecimal, perhaps just 1 \& or \|?\n" . $herecurr);
 		}
 
 # if and else should not have general statements after it
@@ -2395,23 +2132,7 @@ sub process {
 
 #no spaces allowed after \ in define
 		if ($line=~/\#\s*define.*\\\s$/) {
-			WARN("Whitepspace after \\ makes next lines useless\n" . $herecurr);
-		}
-
-#warn if <asm/foo.h> is #included and <linux/foo.h> is available (uses RAW line)
-		if ($tree && $rawline =~ m{^.\s*\#\s*include\s*\<asm\/(.*)\.h\>}) {
-			my $file = "$1.h";
-			my $checkfile = "include/linux/$file";
-			if (-f "$root/$checkfile" &&
-			    $realfile ne $checkfile &&
-			    $1 !~ /$allowed_asm_includes/)
-			{
-				if ($realfile =~ m{^arch/}) {
-					CHK("Consider using #include <linux/$file> instead of <asm/$file>\n" . $herecurr);
-				} else {
-					WARN("Use #include <linux/$file> instead of <asm/$file>\n" . $herecurr);
-				}
-			}
+			ERROR("Whitespace after \\ makes next lines useless\n" . $herecurr);
 		}
 
 # multi-statement macros should be enclosed in a do while loop, grab the
@@ -2508,15 +2229,6 @@ sub process {
 			}
 		}
 
-# make sure symbols are always wrapped with VMLINUX_SYMBOL() ...
-# all assignments may have only one of the following with an assignment:
-#	.
-#	ALIGN(...)
-#	VMLINUX_SYMBOL(...)
-		if ($realfile eq 'vmlinux.lds.h' && $line =~ /(?:(?:^|\s)$Ident\s*=|=\s*$Ident(?:\s|$))/) {
-			WARN("vmlinux.lds.h needs VMLINUX_SYMBOL() around C-visible symbols\n" . $herecurr);
-		}
-
 # check for missing bracing round if etc
 		if ($line =~ /(^.*)\bif\b/ && $line !~ /\#\s*if/) {
 			my ($level, $endln, @chunks) =
@@ -2551,7 +2263,7 @@ sub process {
 					my $spaced_block = $block;
 					$spaced_block =~ s/\n\+/ /g;
 
-					$seen++ if ($spaced_block =~ /^\s*{/);
+					$seen++ if ($spaced_block =~ /^\s*\{/);
 
                                         print "APW: cond<$cond> block<$block> allowed<$allowed>\n"
                                             if $dbg_adv_apw;
@@ -2572,7 +2284,7 @@ sub process {
 					}
 				}
 				if ($seen != ($#chunks + 1)) {
-					WARN("braces {} are necessary for all arms of this statement\n" . $herectx);
+					ERROR("braces {} are necessary for all arms of this statement\n" . $herectx);
 				}
 			}
 		}
@@ -2640,68 +2352,27 @@ sub process {
 					$herectx .= raw_line($linenr, $n) . "\n";;
 				}
 
-				WARN("braces {} are necessary even for single statement blocks\n" . $herectx);
-			}
-		}
-
-# don't include deprecated include files (uses RAW line)
-		for my $inc (@dep_includes) {
-			if ($rawline =~ m@^.\s*\#\s*include\s*\<$inc>@) {
-				ERROR("Don't use <$inc>: see Documentation/feature-removal-schedule.txt\n" . $herecurr);
-			}
-		}
-
-# don't use deprecated functions
-		for my $func (@dep_functions) {
-			if ($line =~ /\b$func\b/) {
-				ERROR("Don't use $func(): see Documentation/feature-removal-schedule.txt\n" . $herecurr);
+				ERROR("braces {} are necessary even for single statement blocks\n" . $herectx);
 			}
 		}
 
 # no volatiles please
 		my $asm_volatile = qr{\b(__asm__|asm)\s+(__volatile__|volatile)\b};
 		if ($line =~ /\bvolatile\b/ && $line !~ /$asm_volatile/) {
-			WARN("Use of volatile is usually wrong: see Documentation/volatile-considered-harmful.txt\n" . $herecurr);
-		}
-
-# SPIN_LOCK_UNLOCKED & RW_LOCK_UNLOCKED are deprecated
-		if ($line =~ /\b(SPIN_LOCK_UNLOCKED|RW_LOCK_UNLOCKED)/) {
-			ERROR("Use of $1 is deprecated: see Documentation/spinlocks.txt\n" . $herecurr);
+			ERROR("Use of volatile is usually wrong: see Documentation/volatile-considered-harmful.txt\n" . $herecurr);
 		}
 
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
-			CHK("if this code is redundant consider removing it\n" .
+			ERROR("if this code is redundant consider removing it\n" .
 				$herecurr);
 		}
 
-# check for needless kfree() checks
+# check for needless g_free() checks
 		if ($prevline =~ /\bif\s*\(([^\)]*)\)/) {
 			my $expr = $1;
-			if ($line =~ /\bkfree\(\Q$expr\E\);/) {
-				WARN("kfree(NULL) is safe this check is probably not required\n" . $hereprev);
-			}
-		}
-# check for needless usb_free_urb() checks
-		if ($prevline =~ /\bif\s*\(([^\)]*)\)/) {
-			my $expr = $1;
-			if ($line =~ /\busb_free_urb\(\Q$expr\E\);/) {
-				WARN("usb_free_urb(NULL) is safe this check is probably not required\n" . $hereprev);
-			}
-		}
-
-# prefer usleep_range over udelay
-		if ($line =~ /\budelay\s*\(\s*(\w+)\s*\)/) {
-			# ignore udelay's < 10, however
-			if (! (($1 =~ /(\d+)/) && ($1 < 10)) ) {
-				CHK("usleep_range is preferred over udelay; see Documentation/timers/timers-howto.txt\n" . $line);
-			}
-		}
-
-# warn about unexpectedly long msleep's
-		if ($line =~ /\bmsleep\s*\((\d+)\);/) {
-			if ($1 < 20) {
-				WARN("msleep < 20ms can sleep for up to 20ms; see Documentation/timers/timers-howto.txt\n" . $line);
+			if ($line =~ /\bg_free\(\Q$expr\E\);/) {
+				ERROR("g_free(NULL) is safe this check is probably not required\n" . $hereprev);
 			}
 		}
 
@@ -2716,29 +2387,22 @@ sub process {
 		if ($line =~ /^.\s*\#\s*(ifdef|ifndef|elif)\s\s+/) {
 			ERROR("exactly one space required after that #$1\n" . $herecurr);
 		}
-
-# check for spinlock_t definitions without a comment.
-		if ($line =~ /^.\s*(struct\s+mutex|spinlock_t)\s+\S+;/ ||
-		    $line =~ /^.\s*(DEFINE_MUTEX)\s*\(/) {
-			my $which = $1;
-			if (!ctx_has_comment($first_line, $linenr)) {
-				CHK("$1 definition without comment\n" . $herecurr);
-			}
-		}
 # check for memory barriers without a comment.
-		if ($line =~ /\b(mb|rmb|wmb|read_barrier_depends|smp_mb|smp_rmb|smp_wmb|smp_read_barrier_depends)\(/) {
+		if ($line =~ /\b(smp_mb|smp_rmb|smp_wmb|smp_read_barrier_depends)\(/) {
 			if (!ctx_has_comment($first_line, $linenr)) {
-				CHK("memory barrier without comment\n" . $herecurr);
+				ERROR("memory barrier without comment\n" . $herecurr);
 			}
 		}
 # check of hardware specific defines
-		if ($line =~ m@^.\s*\#\s*if.*\b(__i386__|__powerpc64__|__sun__|__s390x__)\b@ && $realfile !~ m@include/asm-@) {
-			CHK("architecture specific defines should be avoided\n" .  $herecurr);
+# we have e.g. CONFIG_LINUX and CONFIG_WIN32 for common cases
+# where they might be necessary.
+		if ($line =~ m@^.\s*\#\s*if.*\b__@) {
+			ERROR("architecture specific defines should be avoided\n" .  $herecurr);
 		}
 
 # Check that the storage class is at the beginning of a declaration
 		if ($line =~ /\b$Storage\b/ && $line !~ /^.\s*$Storage\b/) {
-			WARN("storage class should be at the beginning of the declaration\n" . $herecurr)
+			ERROR("storage class should be at the beginning of the declaration\n" . $herecurr)
 		}
 
 # check the location of the inline attribute, that it is between
@@ -2748,14 +2412,9 @@ sub process {
 			ERROR("inline keyword should sit between storage class and type\n" . $herecurr);
 		}
 
-# Check for __inline__ and __inline, prefer inline
-		if ($line =~ /\b(__inline__|__inline)\b/) {
-			WARN("plain inline is preferred over $1\n" . $herecurr);
-		}
-
 # check for sizeof(&)
 		if ($line =~ /\bsizeof\s*\(\s*\&/) {
-			WARN("sizeof(& should be avoided\n" . $herecurr);
+			ERROR("sizeof(& should be avoided\n" . $herecurr);
 		}
 
 # check for new externs in .c files.
@@ -2772,109 +2431,66 @@ sub process {
 			if ($s =~ /^\s*;/ &&
 			    $function_name ne 'uninitialized_var')
 			{
-				WARN("externs should be avoided in .c files\n" .  $herecurr);
+				ERROR("externs should be avoided in .c files\n" .  $herecurr);
 			}
 
 			if ($paren_space =~ /\n/) {
-				WARN("arguments for function declarations should follow identifier\n" . $herecurr);
+				ERROR("arguments for function declarations should follow identifier\n" . $herecurr);
 			}
 
 		} elsif ($realfile =~ /\.c$/ && defined $stat &&
 		    $stat =~ /^.\s*extern\s+/)
 		{
-			WARN("externs should be avoided in .c files\n" .  $herecurr);
+			ERROR("externs should be avoided in .c files\n" .  $herecurr);
 		}
 
-# checks for new __setup's
-		if ($rawline =~ /\b__setup\("([^"]*)"/) {
-			my $name = $1;
-
-			if (!grep(/$name/, @setup_docs)) {
-				CHK("__setup appears un-documented -- check Documentation/kernel-parameters.txt\n" . $herecurr);
+# check for pointless casting of g_malloc return
+		if ($line =~ /\*\s*\)\s*g_(try)?(m|re)alloc(0?)(_n)?\b/) {
+			if ($2 == 'm') {
+				ERROR("unnecessary cast may hide bugs, use g_$1new$3 instead\n" . $herecurr);
+			} else {
+				ERROR("unnecessary cast may hide bugs, use g_$1renew$3 instead\n" . $herecurr);
 			}
-		}
-
-# check for pointless casting of kmalloc return
-		if ($line =~ /\*\s*\)\s*k[czm]alloc\b/) {
-			WARN("unnecessary cast may hide bugs, see http://c-faq.com/malloc/mallocnocast.html\n" . $herecurr);
 		}
 
 # check for gcc specific __FUNCTION__
 		if ($line =~ /__FUNCTION__/) {
-			WARN("__func__ should be used instead of gcc specific __FUNCTION__\n"  . $herecurr);
+			ERROR("__func__ should be used instead of gcc specific __FUNCTION__\n"  . $herecurr);
 		}
 
-# check for semaphores used as mutexes
-		if ($line =~ /^.\s*(DECLARE_MUTEX|init_MUTEX)\s*\(/) {
-			WARN("mutexes are preferred for single holder semaphores\n" . $herecurr);
+# recommend qemu_strto* over strto* for numeric conversions
+		if ($line =~ /\b(strto[^kd].*?)\s*\(/) {
+			ERROR("consider using qemu_$1 in preference to $1\n" . $herecurr);
 		}
-# check for semaphores used as mutexes
-		if ($line =~ /^.\s*init_MUTEX_LOCKED\s*\(/) {
-			WARN("consider using a completion\n" . $herecurr);
-
-		}
-# recommend strict_strto* over simple_strto*
-		if ($line =~ /\bsimple_(strto.*?)\s*\(/) {
-			WARN("consider using strict_$1 in preference to simple_$1\n" . $herecurr);
-		}
-# check for __initcall(), use device_initcall() explicitly please
-		if ($line =~ /^.\s*__initcall\s*\(/) {
-			WARN("please use device_initcall() instead of __initcall()\n" . $herecurr);
+# check for module_init(), use category-specific init macros explicitly please
+		if ($line =~ /^module_init\s*\(/) {
+			ERROR("please use block_init(), type_init() etc. instead of module_init()\n" . $herecurr);
 		}
 # check for various ops structs, ensure they are const.
-		my $struct_ops = qr{acpi_dock_ops|
-				address_space_operations|
-				backlight_ops|
-				block_device_operations|
-				dentry_operations|
-				dev_pm_ops|
-				dma_map_ops|
-				extent_io_ops|
-				file_lock_operations|
-				file_operations|
-				hv_ops|
-				ide_dma_ops|
-				intel_dvo_dev_ops|
-				item_operations|
-				iwl_ops|
-				kgdb_arch|
-				kgdb_io|
-				kset_uevent_ops|
-				lock_manager_operations|
-				microcode_ops|
-				mtrr_ops|
-				neigh_ops|
-				nlmsvc_binding|
-				pci_raw_ops|
-				pipe_buf_operations|
-				platform_hibernation_ops|
-				platform_suspend_ops|
-				proto_ops|
-				rpc_pipe_ops|
-				seq_operations|
-				snd_ac97_build_ops|
-				soc_pcmcia_socket_ops|
-				stacktrace_ops|
-				sysfs_ops|
-				tty_operations|
-				usb_mon_operations|
-				wd_ops}x;
+		my $struct_ops = qr{AIOCBInfo|
+				BdrvActionOps|
+				BlockDevOps|
+				BlockJobDriver|
+				DisplayChangeListenerOps|
+				GraphicHwOps|
+				IDEDMAOps|
+				KVMCapabilityInfo|
+				MemoryRegionIOMMUOps|
+				MemoryRegionOps|
+				MemoryRegionPortio|
+				QEMUFileOps|
+				SCSIBusInfo|
+				SCSIReqOps|
+				Spice[A-Z][a-zA-Z0-9]*Interface|
+				TPMDriverOps|
+				USBDesc[A-Z][a-zA-Z0-9]*|
+				VhostOps|
+				VMStateDescription|
+				VMStateInfo}x;
 		if ($line !~ /\bconst\b/ &&
-		    $line =~ /\bstruct\s+($struct_ops)\b/) {
-			WARN("struct $1 should normally be const\n" .
+		    $line =~ /\b($struct_ops)\b/) {
+			ERROR("struct $1 should normally be const\n" .
 				$herecurr);
-		}
-
-# use of NR_CPUS is usually wrong
-# ignore definitions of NR_CPUS and usage to define arrays as likely right
-		if ($line =~ /\bNR_CPUS\b/ &&
-		    $line !~ /^.\s*\s*#\s*if\b.*\bNR_CPUS\b/ &&
-		    $line !~ /^.\s*\s*#\s*define\b.*\bNR_CPUS\b/ &&
-		    $line !~ /^.\s*$Declare\s.*\[[^\]]*NR_CPUS[^\]]*\]/ &&
-		    $line !~ /\[[^\]]*\.\.\.[^\]]*NR_CPUS[^\]]*\]/ &&
-		    $line !~ /\[[^\]]*NR_CPUS[^\]]*\.\.\.[^\]]*\]/)
-		{
-			WARN("usage of NR_CPUS is often wrong - consider using cpu_possible(), num_possible_cpus(), for_each_possible_cpu(), etc\n" . $herecurr);
 		}
 
 # check for %L{u,d,i} in strings
@@ -2883,33 +2499,67 @@ sub process {
 			$string = substr($rawline, $-[1], $+[1] - $-[1]);
 			$string =~ s/%%/__/g;
 			if ($string =~ /(?<!%)%L[udi]/) {
-				WARN("\%Ld/%Lu are not-standard C, use %lld/%llu\n" . $herecurr);
+				ERROR("\%Ld/%Lu are not-standard C, use %lld/%llu\n" . $herecurr);
 				last;
-			}
-		}
-
-# whine mightly about in_atomic
-		if ($line =~ /\bin_atomic\s*\(/) {
-			if ($realfile =~ m@^drivers/@) {
-				ERROR("do not use in_atomic in drivers\n" . $herecurr);
-			} elsif ($realfile !~ m@^kernel/@) {
-				WARN("use of in_atomic() is incorrect outside core kernel code\n" . $herecurr);
-			}
-		}
-
-# check for lockdep_set_novalidate_class
-		if ($line =~ /^.\s*lockdep_set_novalidate_class\s*\(/ ||
-		    $line =~ /__lockdep_no_validate__\s*\)/ ) {
-			if ($realfile !~ m@^kernel/lockdep@ &&
-			    $realfile !~ m@^include/linux/lockdep@ &&
-			    $realfile !~ m@^drivers/base/core@) {
-				ERROR("lockdep_no_validate class is reserved for device->mutex.\n" . $herecurr);
 			}
 		}
 
 # QEMU specific tests
 		if ($rawline =~ /\b(?:Qemu|QEmu)\b/) {
-			WARN("use QEMU instead of Qemu or QEmu\n" . $herecurr);
+			ERROR("use QEMU instead of Qemu or QEmu\n" . $herecurr);
+		}
+
+# Qemu error function tests
+
+	# Find newlines in error messages
+	my $qemu_error_funcs = qr{error_setg|
+				error_setg_errno|
+				error_setg_win32|
+				error_setg_file_open|
+				error_set|
+				error_prepend|
+				error_reportf_err|
+				error_vreport|
+				error_report}x;
+
+	if ($rawline =~ /\b(?:$qemu_error_funcs)\s*\(.*\".*\\n/) {
+		ERROR("Error messages should not contain newlines\n" . $herecurr);
+	}
+
+	# Continue checking for error messages that contains newlines. This
+	# check handles cases where string literals are spread over multiple lines.
+	# Example:
+	# error_report("Error msg line #1"
+	#              "Error msg line #2\n");
+	my $quoted_newline_regex = qr{\+\s*\".*\\n.*\"};
+	my $continued_str_literal = qr{\+\s*\".*\"};
+
+	if ($rawline =~ /$quoted_newline_regex/) {
+		# Backtrack to first line that does not contain only a quoted literal
+		# and assume that it is the start of the statement.
+		my $i = $linenr - 2;
+
+		while (($i >= 0) & $rawlines[$i] =~ /$continued_str_literal/) {
+			$i--;
+		}
+
+		if ($rawlines[$i] =~ /\b(?:$qemu_error_funcs)\s*\(/) {
+			ERROR("Error messages should not contain newlines\n" . $herecurr);
+		}
+	}
+
+# check for non-portable libc calls that have portable alternatives in QEMU
+		if ($line =~ /\bffs\(/) {
+			ERROR("use ctz32() instead of ffs()\n" . $herecurr);
+		}
+		if ($line =~ /\bffsl\(/) {
+			ERROR("use ctz32() or ctz64() instead of ffsl()\n" . $herecurr);
+		}
+		if ($line =~ /\bffsll\(/) {
+			ERROR("use ctz64() instead of ffsll()\n" . $herecurr);
+		}
+		if ($line =~ /\bbzero\(/) {
+			ERROR("use memset() instead of bzero()\n" . $herecurr);
 		}
 	}
 
@@ -2942,7 +2592,6 @@ sub process {
 	if ($summary && !($clean == 1 && $quiet == 1)) {
 		print "$filename " if ($summary_file);
 		print "total: $cnt_error errors, $cnt_warn warnings, " .
-			(($check)? "$cnt_chk checks, " : "") .
 			"$cnt_lines lines checked\n";
 		print "\n" if ($quiet == 0);
 	}
@@ -2965,5 +2614,5 @@ sub process {
 		print "CHECKPATCH in MAINTAINERS.\n";
 	}
 
-	return $clean;
+	return ($no_warnings ? $clean : $cnt_error == 0);
 }

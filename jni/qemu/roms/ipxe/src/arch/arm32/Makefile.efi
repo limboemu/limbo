@@ -1,0 +1,14 @@
+# -*- makefile -*- : Force emacs to use Makefile mode
+
+# Specify EFI image builder
+#
+ELF2EFI		= $(ELF2EFI32)
+
+# Specify EFI boot file
+#
+EFI_BOOT_FILE	= bootarm.efi
+
+# Include generic EFI Makefile
+#
+MAKEDEPS	+= arch/arm/Makefile.efi
+include arch/arm/Makefile.efi

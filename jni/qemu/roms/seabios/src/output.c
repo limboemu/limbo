@@ -30,6 +30,7 @@ void
 debug_banner(void)
 {
     dprintf(1, "SeaBIOS (version %s)\n", VERSION);
+    dprintf(1, "BUILD: %s\n", BUILDINFO);
 }
 
 // Write a character to debug port(s).

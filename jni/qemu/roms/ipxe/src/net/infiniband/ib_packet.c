@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -59,8 +63,8 @@ int ib_push ( struct ib_device *ibdev, struct io_buffer *iobuf,
 	unsigned int vl;
 	unsigned int lnh;
 
-	DBGC2 ( ibdev, "IBDEV %p TX %04x:%08lx => %04x:%08lx (key %08lx)\n",
-		ibdev, ibdev->lid, qp->ext_qpn, dest->lid, dest->qpn,
+	DBGC2 ( ibdev, "IBDEV %s TX %04x:%08lx => %04x:%08lx (key %08lx)\n",
+		ibdev->name, ibdev->lid, qp->ext_qpn, dest->lid, dest->qpn,
 		dest->qkey );
 
 	/* Calculate packet length */
@@ -148,8 +152,8 @@ int ib_pull ( struct ib_device *ibdev, struct io_buffer *iobuf,
 
 	/* Extract LRH */
 	if ( iob_len ( iobuf ) < sizeof ( *lrh ) ) {
-		DBGC ( ibdev, "IBDEV %p RX too short (%zd bytes) for LRH\n",
-		       ibdev, iob_len ( iobuf ) );
+		DBGC ( ibdev, "IBDEV %s RX too short (%zd bytes) for LRH\n",
+		       ibdev->name, iob_len ( iobuf ) );
 		return -EINVAL;
 	}
 	lrh = iobuf->data;
@@ -162,16 +166,16 @@ int ib_pull ( struct ib_device *ibdev, struct io_buffer *iobuf,
 
 	/* Reject unsupported packets */
 	if ( ! ( ( lnh == IB_LNH_BTH ) || ( lnh == IB_LNH_GRH ) ) ) {
-		DBGC ( ibdev, "IBDEV %p RX unsupported LNH %x\n",
-		       ibdev, lnh );
+		DBGC ( ibdev, "IBDEV %s RX unsupported LNH %x\n",
+		       ibdev->name, lnh );
 		return -ENOTSUP;
 	}
 
 	/* Extract GRH, if present */
 	if ( lnh == IB_LNH_GRH ) {
 		if ( iob_len ( iobuf ) < sizeof ( *grh ) ) {
-			DBGC ( ibdev, "IBDEV %p RX too short (%zd bytes) "
-			       "for GRH\n", ibdev, iob_len ( iobuf ) );
+			DBGC ( ibdev, "IBDEV %s RX too short (%zd bytes) "
+			       "for GRH\n", ibdev->name, iob_len ( iobuf ) );
 			return -EINVAL;
 		}
 		grh = iobuf->data;
@@ -186,23 +190,23 @@ int ib_pull ( struct ib_device *ibdev, struct io_buffer *iobuf,
 
 	/* Extract BTH */
 	if ( iob_len ( iobuf ) < sizeof ( *bth ) ) {
-		DBGC ( ibdev, "IBDEV %p RX too short (%zd bytes) for BTH\n",
-		       ibdev, iob_len ( iobuf ) );
+		DBGC ( ibdev, "IBDEV %s RX too short (%zd bytes) for BTH\n",
+		       ibdev->name, iob_len ( iobuf ) );
 		return -EINVAL;
 	}
 	bth = iobuf->data;
 	iob_pull ( iobuf, sizeof ( *bth ) );
 	if ( bth->opcode != BTH_OPCODE_UD_SEND ) {
-		DBGC ( ibdev, "IBDEV %p unsupported BTH opcode %x\n",
-		       ibdev, bth->opcode );
+		DBGC ( ibdev, "IBDEV %s unsupported BTH opcode %x\n",
+		       ibdev->name, bth->opcode );
 		return -ENOTSUP;
 	}
 	dest->qpn = ntohl ( bth->dest_qp );
 
 	/* Extract DETH */
 	if ( iob_len ( iobuf ) < sizeof ( *deth ) ) {
-		DBGC ( ibdev, "IBDEV %p RX too short (%zd bytes) for DETH\n",
-		       ibdev, iob_len ( iobuf ) );
+		DBGC ( ibdev, "IBDEV %s RX too short (%zd bytes) for DETH\n",
+		       ibdev->name, iob_len ( iobuf ) );
 		return -EINVAL;
 	}
 	deth = iobuf->data;
@@ -222,24 +226,25 @@ int ib_pull ( struct ib_device *ibdev, struct io_buffer *iobuf,
 	if ( qp ) {
 		if ( IB_LID_MULTICAST ( dest->lid ) && grh ) {
 			if ( ! ( *qp = ib_find_qp_mgid ( ibdev, &grh->dgid ))){
-				DBGC ( ibdev, "IBDEV %p RX for unknown MGID "
-				       IB_GID_FMT "\n",
-				       ibdev, IB_GID_ARGS ( &grh->dgid ) );
+				DBGC ( ibdev, "IBDEV %s RX for unknown MGID "
+				       IB_GID_FMT "\n", ibdev->name,
+				       IB_GID_ARGS ( &grh->dgid ) );
 				return -ENODEV;
 			}
 		} else {
 			if ( ! ( *qp = ib_find_qp_qpn ( ibdev, dest->qpn ) ) ) {
-				DBGC ( ibdev, "IBDEV %p RX for nonexistent "
-				       "QPN %lx\n", ibdev, dest->qpn );
+				DBGC ( ibdev, "IBDEV %s RX for nonexistent "
+				       "QPN %#lx\n", ibdev->name, dest->qpn );
 				return -ENODEV;
 			}
 		}
 		assert ( *qp );
 	}
 
-	DBGC2 ( ibdev, "IBDEV %p RX %04x:%08lx <= %04x:%08lx (key %08x)\n",
-		ibdev, dest->lid, ( IB_LID_MULTICAST ( dest->lid ) ?
-			      ( qp ? (*qp)->ext_qpn : -1UL ) : dest->qpn ),
+	DBGC2 ( ibdev, "IBDEV %s RX %04x:%08lx <= %04x:%08lx (key %08x)\n",
+		ibdev->name, dest->lid,
+		( IB_LID_MULTICAST ( dest->lid ) ?
+		  ( qp ? (*qp)->ext_qpn : -1UL ) : dest->qpn ),
 		source->lid, source->qpn, ntohl ( deth->qkey ) );
 	DBGCP_HDA ( ibdev, 0,
 		    ( iobuf->data - ( orig_iob_len - iob_len ( iobuf ) ) ),

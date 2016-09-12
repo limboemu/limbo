@@ -18,6 +18,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>. */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "disas/bfd.h"
 //#include "sysdep.h"
@@ -2492,7 +2493,7 @@ print_with_operands (const struct cris_opcode *opcodep,
 	  = spec_reg_info ((insn >> 12) & 15, disdata->distype);
 
 	if (sregp->name == NULL)
-	  /* Should have been caught as a non-match eariler.  */
+	  /* Should have been caught as a non-match earlier.  */
 	  *tp++ = '?';
 	else
 	  {
@@ -2575,9 +2576,9 @@ print_insn_cris_generic (bfd_vma memaddr,
      If we can't get any data, or we do not get enough data, we print
      the error message.  */
 
-  nbytes = info->buffer_length;
-  if (nbytes > MAX_BYTES_PER_CRIS_INSN)
-	  nbytes = MAX_BYTES_PER_CRIS_INSN;
+  nbytes = info->buffer_length ? info->buffer_length
+                               : MAX_BYTES_PER_CRIS_INSN;
+  nbytes = MIN(nbytes, MAX_BYTES_PER_CRIS_INSN);
   status = (*info->read_memory_func) (memaddr, buffer, nbytes, info);  
 
   /* If we did not get all we asked for, then clear the rest.

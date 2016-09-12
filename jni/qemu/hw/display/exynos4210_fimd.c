@@ -22,6 +22,7 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "hw/sysbus.h"
 #include "ui/console.h"
@@ -337,7 +338,7 @@ static inline void fimd_swap_data(unsigned int swap_ctl, uint64_t *data)
     if (swap_ctl & FIMD_WINCON_SWAP_BITS) {
         res = 0;
         for (i = 0; i < 64; i++) {
-            if (x & (1ULL << (64 - i))) {
+            if (x & (1ULL << (63 - i))) {
                 res |= (1ULL << i);
             }
         }
@@ -1109,6 +1110,12 @@ static inline int fimd_get_buffer_id(Exynos4210fimdWindow *w)
     }
 }
 
+static void exynos4210_fimd_invalidate(void *opaque)
+{
+    Exynos4210fimdState *s = (Exynos4210fimdState *)opaque;
+    s->invalidate = true;
+}
+
 /* Updates specified window's MemorySection based on values of WINCON,
  * VIDOSDA, VIDOSDB, VIDWADDx and SHADOWCON registers */
 static void fimd_update_memory_section(Exynos4210fimdState *s, unsigned win)
@@ -1136,7 +1143,11 @@ static void fimd_update_memory_section(Exynos4210fimdState *s, unsigned win)
     /* TODO: add .exit and unref the region there.  Not needed yet since sysbus
      * does not support hot-unplug.
      */
-    memory_region_unref(w->mem_section.mr);
+    if (w->mem_section.mr) {
+        memory_region_set_log(w->mem_section.mr, false, DIRTY_MEMORY_VGA);
+        memory_region_unref(w->mem_section.mr);
+    }
+
     w->mem_section = memory_region_find(sysbus_address_space(sbd),
                                         fb_start_addr, w->fb_len);
     assert(w->mem_section.mr);
@@ -1162,6 +1173,8 @@ static void fimd_update_memory_section(Exynos4210fimdState *s, unsigned win)
         cpu_physical_memory_unmap(w->host_fb_addr, fb_mapped_len, 0, 0);
         goto error_return;
     }
+    memory_region_set_log(w->mem_section.mr, true, DIRTY_MEMORY_VGA);
+    exynos4210_fimd_invalidate(s);
     return;
 
 error_return:
@@ -1222,12 +1235,6 @@ static void exynos4210_fimd_update_irq(Exynos4210fimdState *s)
     } else {
         qemu_irq_lower(s->irq[2]);
     }
-}
-
-static void exynos4210_fimd_invalidate(void *opaque)
-{
-    Exynos4210fimdState *s = (Exynos4210fimdState *)opaque;
-    s->invalidate = true;
 }
 
 static void exynos4210_update_resolution(Exynos4210fimdState *s)
@@ -1348,9 +1355,7 @@ static void exynos4210_fimd_reset(DeviceState *d)
         fimd_update_get_alpha(s, w);
     }
 
-    if (s->ifb != NULL) {
-        g_free(s->ifb);
-    }
+    g_free(s->ifb);
     s->ifb = NULL;
 
     exynos4210_fimd_invalidate(s);
@@ -1904,9 +1909,10 @@ static const GraphicHwOps exynos4210_fimd_ops = {
     .gfx_update  = exynos4210_fimd_update,
 };
 
-static int exynos4210_fimd_init(SysBusDevice *dev)
+static void exynos4210_fimd_init(Object *obj)
 {
-    Exynos4210fimdState *s = EXYNOS4210_FIMD(dev);
+    Exynos4210fimdState *s = EXYNOS4210_FIMD(obj);
+    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
 
     s->ifb = NULL;
 
@@ -1914,28 +1920,32 @@ static int exynos4210_fimd_init(SysBusDevice *dev)
     sysbus_init_irq(dev, &s->irq[1]);
     sysbus_init_irq(dev, &s->irq[2]);
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &exynos4210_fimd_mmio_ops, s,
+    memory_region_init_io(&s->iomem, obj, &exynos4210_fimd_mmio_ops, s,
             "exynos4210.fimd", FIMD_REGS_SIZE);
     sysbus_init_mmio(dev, &s->iomem);
-    s->console = graphic_console_init(DEVICE(dev), 0, &exynos4210_fimd_ops, s);
+}
 
-    return 0;
+static void exynos4210_fimd_realize(DeviceState *dev, Error **errp)
+{
+    Exynos4210fimdState *s = EXYNOS4210_FIMD(dev);
+
+    s->console = graphic_console_init(dev, 0, &exynos4210_fimd_ops, s);
 }
 
 static void exynos4210_fimd_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
     dc->vmsd = &exynos4210_fimd_vmstate;
     dc->reset = exynos4210_fimd_reset;
-    k->init = exynos4210_fimd_init;
+    dc->realize = exynos4210_fimd_realize;
 }
 
 static const TypeInfo exynos4210_fimd_info = {
     .name = TYPE_EXYNOS4210_FIMD,
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(Exynos4210fimdState),
+    .instance_init = exynos4210_fimd_init,
     .class_init = exynos4210_fimd_class_init,
 };
 

@@ -17,12 +17,15 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "sysemu/kvm.h"
 #include "kvm_i386.h"
 #ifndef CONFIG_USER_ONLY
 #include "sysemu/sysemu.h"
 #include "monitor/monitor.h"
+#include "hw/i386/apic_internal.h"
 #endif
 
 static void cpu_x86_version(CPUX86State *env, int *family, int *model)
@@ -176,6 +179,196 @@ cpu_x86_dump_seg_cache(CPUX86State *env, FILE *f, fprintf_function cpu_fprintf,
 done:
     cpu_fprintf(f, "\n");
 }
+
+#ifndef CONFIG_USER_ONLY
+
+/* ARRAY_SIZE check is not required because
+ * DeliveryMode(dm) has a size of 3 bit.
+ */
+static inline const char *dm2str(uint32_t dm)
+{
+    static const char *str[] = {
+        "Fixed",
+        "...",
+        "SMI",
+        "...",
+        "NMI",
+        "INIT",
+        "...",
+        "ExtINT"
+    };
+    return str[dm];
+}
+
+static void dump_apic_lvt(FILE *f, fprintf_function cpu_fprintf,
+                          const char *name, uint32_t lvt, bool is_timer)
+{
+    uint32_t dm = (lvt & APIC_LVT_DELIV_MOD) >> APIC_LVT_DELIV_MOD_SHIFT;
+    cpu_fprintf(f,
+                "%s\t 0x%08x %s %-5s %-6s %-7s %-12s %-6s",
+                name, lvt,
+                lvt & APIC_LVT_INT_POLARITY ? "active-lo" : "active-hi",
+                lvt & APIC_LVT_LEVEL_TRIGGER ? "level" : "edge",
+                lvt & APIC_LVT_MASKED ? "masked" : "",
+                lvt & APIC_LVT_DELIV_STS ? "pending" : "",
+                !is_timer ?
+                    "" : lvt & APIC_LVT_TIMER_PERIODIC ?
+                            "periodic" : lvt & APIC_LVT_TIMER_TSCDEADLINE ?
+                                            "tsc-deadline" : "one-shot",
+                dm2str(dm));
+    if (dm != APIC_DM_NMI) {
+        cpu_fprintf(f, " (vec %u)\n", lvt & APIC_VECTOR_MASK);
+    } else {
+        cpu_fprintf(f, "\n");
+    }
+}
+
+/* ARRAY_SIZE check is not required because
+ * destination shorthand has a size of 2 bit.
+ */
+static inline const char *shorthand2str(uint32_t shorthand)
+{
+    const char *str[] = {
+        "no-shorthand", "self", "all-self", "all"
+    };
+    return str[shorthand];
+}
+
+static inline uint8_t divider_conf(uint32_t divide_conf)
+{
+    uint8_t divide_val = ((divide_conf & 0x8) >> 1) | (divide_conf & 0x3);
+
+    return divide_val == 7 ? 1 : 2 << divide_val;
+}
+
+static inline void mask2str(char *str, uint32_t val, uint8_t size)
+{
+    while (size--) {
+        *str++ = (val >> size) & 1 ? '1' : '0';
+    }
+    *str = 0;
+}
+
+#define MAX_LOGICAL_APIC_ID_MASK_SIZE 16
+
+static void dump_apic_icr(FILE *f, fprintf_function cpu_fprintf,
+                          APICCommonState *s, CPUX86State *env)
+{
+    uint32_t icr = s->icr[0], icr2 = s->icr[1];
+    uint8_t dest_shorthand = \
+        (icr & APIC_ICR_DEST_SHORT) >> APIC_ICR_DEST_SHORT_SHIFT;
+    bool logical_mod = icr & APIC_ICR_DEST_MOD;
+    char apic_id_str[MAX_LOGICAL_APIC_ID_MASK_SIZE + 1];
+    uint32_t dest_field;
+    bool x2apic;
+
+    cpu_fprintf(f, "ICR\t 0x%08x %s %s %s %s\n",
+                icr,
+                logical_mod ? "logical" : "physical",
+                icr & APIC_ICR_TRIGGER_MOD ? "level" : "edge",
+                icr & APIC_ICR_LEVEL ? "assert" : "de-assert",
+                shorthand2str(dest_shorthand));
+
+    cpu_fprintf(f, "ICR2\t 0x%08x", icr2);
+    if (dest_shorthand != 0) {
+        cpu_fprintf(f, "\n");
+        return;
+    }
+    x2apic = env->features[FEAT_1_ECX] & CPUID_EXT_X2APIC;
+    dest_field = x2apic ? icr2 : icr2 >> APIC_ICR_DEST_SHIFT;
+
+    if (!logical_mod) {
+        if (x2apic) {
+            cpu_fprintf(f, " cpu %u (X2APIC ID)\n", dest_field);
+        } else {
+            cpu_fprintf(f, " cpu %u (APIC ID)\n",
+                        dest_field & APIC_LOGDEST_XAPIC_ID);
+        }
+        return;
+    }
+
+    if (s->dest_mode == 0xf) { /* flat mode */
+        mask2str(apic_id_str, icr2 >> APIC_ICR_DEST_SHIFT, 8);
+        cpu_fprintf(f, " mask %s (APIC ID)\n", apic_id_str);
+    } else if (s->dest_mode == 0) { /* cluster mode */
+        if (x2apic) {
+            mask2str(apic_id_str, dest_field & APIC_LOGDEST_X2APIC_ID, 16);
+            cpu_fprintf(f, " cluster %u mask %s (X2APIC ID)\n",
+                        dest_field >> APIC_LOGDEST_X2APIC_SHIFT, apic_id_str);
+        } else {
+            mask2str(apic_id_str, dest_field & APIC_LOGDEST_XAPIC_ID, 4);
+            cpu_fprintf(f, " cluster %u mask %s (APIC ID)\n",
+                        dest_field >> APIC_LOGDEST_XAPIC_SHIFT, apic_id_str);
+        }
+    }
+}
+
+static void dump_apic_interrupt(FILE *f, fprintf_function cpu_fprintf,
+                                const char *name, uint32_t *ireg_tab,
+                                uint32_t *tmr_tab)
+{
+    int i, empty = true;
+
+    cpu_fprintf(f, "%s\t ", name);
+    for (i = 0; i < 256; i++) {
+        if (apic_get_bit(ireg_tab, i)) {
+            cpu_fprintf(f, "%u%s ", i,
+                        apic_get_bit(tmr_tab, i) ? "(level)" : "");
+            empty = false;
+        }
+    }
+    cpu_fprintf(f, "%s\n", empty ? "(none)" : "");
+}
+
+void x86_cpu_dump_local_apic_state(CPUState *cs, FILE *f,
+                                   fprintf_function cpu_fprintf, int flags)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    APICCommonState *s = APIC_COMMON(cpu->apic_state);
+    uint32_t *lvt = s->lvt;
+
+    cpu_fprintf(f, "dumping local APIC state for CPU %-2u\n\n",
+                CPU(cpu)->cpu_index);
+    dump_apic_lvt(f, cpu_fprintf, "LVT0", lvt[APIC_LVT_LINT0], false);
+    dump_apic_lvt(f, cpu_fprintf, "LVT1", lvt[APIC_LVT_LINT1], false);
+    dump_apic_lvt(f, cpu_fprintf, "LVTPC", lvt[APIC_LVT_PERFORM], false);
+    dump_apic_lvt(f, cpu_fprintf, "LVTERR", lvt[APIC_LVT_ERROR], false);
+    dump_apic_lvt(f, cpu_fprintf, "LVTTHMR", lvt[APIC_LVT_THERMAL], false);
+    dump_apic_lvt(f, cpu_fprintf, "LVTT", lvt[APIC_LVT_TIMER], true);
+
+    cpu_fprintf(f, "Timer\t DCR=0x%x (divide by %u) initial_count = %u\n",
+                s->divide_conf & APIC_DCR_MASK,
+                divider_conf(s->divide_conf),
+                s->initial_count);
+
+    cpu_fprintf(f, "SPIV\t 0x%08x APIC %s, focus=%s, spurious vec %u\n",
+                s->spurious_vec,
+                s->spurious_vec & APIC_SPURIO_ENABLED ? "enabled" : "disabled",
+                s->spurious_vec & APIC_SPURIO_FOCUS ? "on" : "off",
+                s->spurious_vec & APIC_VECTOR_MASK);
+
+    dump_apic_icr(f, cpu_fprintf, s, &cpu->env);
+
+    cpu_fprintf(f, "ESR\t 0x%08x\n", s->esr);
+
+    dump_apic_interrupt(f, cpu_fprintf, "ISR", s->isr, s->tmr);
+    dump_apic_interrupt(f, cpu_fprintf, "IRR", s->irr, s->tmr);
+
+    cpu_fprintf(f, "\nAPR 0x%02x TPR 0x%02x DFR 0x%02x LDR 0x%02x",
+                s->arb_id, s->tpr, s->dest_mode, s->log_dest);
+    if (s->dest_mode == 0) {
+        cpu_fprintf(f, "(cluster %u: id %u)",
+                    s->log_dest >> APIC_LOGDEST_XAPIC_SHIFT,
+                    s->log_dest & APIC_LOGDEST_XAPIC_ID);
+    }
+    cpu_fprintf(f, " PPR 0x%02x\n", apic_get_ppr(s));
+}
+#else
+void x86_cpu_dump_local_apic_state(CPUState *cs, FILE *f,
+                                   fprintf_function cpu_fprintf, int flags)
+{
+}
+#endif /* !CONFIG_USER_ONLY */
 
 #define DUMP_CODE_BYTES_TOTAL    50
 #define DUMP_CODE_BYTES_BACKWARD 20
@@ -344,10 +537,10 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         for(i=0;i<nb;i++) {
             cpu_fprintf(f, "XMM%02d=%08x%08x%08x%08x",
                         i,
-                        env->xmm_regs[i].XMM_L(3),
-                        env->xmm_regs[i].XMM_L(2),
-                        env->xmm_regs[i].XMM_L(1),
-                        env->xmm_regs[i].XMM_L(0));
+                        env->xmm_regs[i].ZMM_L(3),
+                        env->xmm_regs[i].ZMM_L(2),
+                        env->xmm_regs[i].ZMM_L(1),
+                        env->xmm_regs[i].ZMM_L(0));
             if ((i & 1) == 1)
                 cpu_fprintf(f, "\n");
             else
@@ -455,6 +648,7 @@ void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
 void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
 {
     X86CPU *cpu = x86_env_get_cpu(env);
+    uint32_t hflags;
 
 #if defined(DEBUG_MMU)
     printf("CR4 update: CR4=%08x\n", (uint32_t)env->cr[4]);
@@ -464,24 +658,33 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
          CR4_SMEP_MASK | CR4_SMAP_MASK)) {
         tlb_flush(CPU(cpu), 1);
     }
+
+    /* Clear bits we're going to recompute.  */
+    hflags = env->hflags & ~(HF_OSFXSR_MASK | HF_SMAP_MASK);
+
     /* SSE handling */
     if (!(env->features[FEAT_1_EDX] & CPUID_SSE)) {
         new_cr4 &= ~CR4_OSFXSR_MASK;
     }
-    env->hflags &= ~HF_OSFXSR_MASK;
     if (new_cr4 & CR4_OSFXSR_MASK) {
-        env->hflags |= HF_OSFXSR_MASK;
+        hflags |= HF_OSFXSR_MASK;
     }
 
     if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_SMAP)) {
         new_cr4 &= ~CR4_SMAP_MASK;
     }
-    env->hflags &= ~HF_SMAP_MASK;
     if (new_cr4 & CR4_SMAP_MASK) {
-        env->hflags |= HF_SMAP_MASK;
+        hflags |= HF_SMAP_MASK;
+    }
+
+    if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_PKU)) {
+        new_cr4 &= ~CR4_PKE_MASK;
     }
 
     env->cr[4] = new_cr4;
+    env->hflags = hflags;
+
+    cpu_sync_bndcs_hflags(env);
 }
 
 #if defined(CONFIG_USER_ONLY)
@@ -498,6 +701,8 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
     env->error_code = (is_write << PG_ERROR_W_BIT);
     env->error_code |= PG_ERROR_U_MASK;
     cs->exception_index = EXCP0E_PAGE;
+    env->exception_is_int = 0;
+    env->exception_next_eip = -1;
     return 1;
 }
 
@@ -565,7 +770,7 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
 
             pml4e_addr = ((env->cr[3] & ~0xfff) + (((addr >> 39) & 0x1ff) << 3)) &
                 env->a20_mask;
-            pml4e = ldq_phys(cs->as, pml4e_addr);
+            pml4e = x86_ldq_phys(cs, pml4e_addr);
             if (!(pml4e & PG_PRESENT_MASK)) {
                 goto do_fault;
             }
@@ -574,12 +779,12 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
             }
             if (!(pml4e & PG_ACCESSED_MASK)) {
                 pml4e |= PG_ACCESSED_MASK;
-                stl_phys_notdirty(cs->as, pml4e_addr, pml4e);
+                x86_stl_phys_notdirty(cs, pml4e_addr, pml4e);
             }
             ptep = pml4e ^ PG_NX_MASK;
             pdpe_addr = ((pml4e & PG_ADDRESS_MASK) + (((addr >> 30) & 0x1ff) << 3)) &
                 env->a20_mask;
-            pdpe = ldq_phys(cs->as, pdpe_addr);
+            pdpe = x86_ldq_phys(cs, pdpe_addr);
             if (!(pdpe & PG_PRESENT_MASK)) {
                 goto do_fault;
             }
@@ -589,7 +794,7 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
             ptep &= pdpe ^ PG_NX_MASK;
             if (!(pdpe & PG_ACCESSED_MASK)) {
                 pdpe |= PG_ACCESSED_MASK;
-                stl_phys_notdirty(cs->as, pdpe_addr, pdpe);
+                x86_stl_phys_notdirty(cs, pdpe_addr, pdpe);
             }
             if (pdpe & PG_PSE_MASK) {
                 /* 1 GB page */
@@ -604,7 +809,7 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
             /* XXX: load them when cr3 is loaded ? */
             pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 27) & 0x18)) &
                 env->a20_mask;
-            pdpe = ldq_phys(cs->as, pdpe_addr);
+            pdpe = x86_ldq_phys(cs, pdpe_addr);
             if (!(pdpe & PG_PRESENT_MASK)) {
                 goto do_fault;
             }
@@ -617,7 +822,7 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
 
         pde_addr = ((pdpe & PG_ADDRESS_MASK) + (((addr >> 21) & 0x1ff) << 3)) &
             env->a20_mask;
-        pde = ldq_phys(cs->as, pde_addr);
+        pde = x86_ldq_phys(cs, pde_addr);
         if (!(pde & PG_PRESENT_MASK)) {
             goto do_fault;
         }
@@ -635,11 +840,11 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
         /* 4 KB page */
         if (!(pde & PG_ACCESSED_MASK)) {
             pde |= PG_ACCESSED_MASK;
-            stl_phys_notdirty(cs->as, pde_addr, pde);
+            x86_stl_phys_notdirty(cs, pde_addr, pde);
         }
         pte_addr = ((pde & PG_ADDRESS_MASK) + (((addr >> 12) & 0x1ff) << 3)) &
             env->a20_mask;
-        pte = ldq_phys(cs->as, pte_addr);
+        pte = x86_ldq_phys(cs, pte_addr);
         if (!(pte & PG_PRESENT_MASK)) {
             goto do_fault;
         }
@@ -655,7 +860,7 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
         /* page directory entry */
         pde_addr = ((env->cr[3] & ~0xfff) + ((addr >> 20) & 0xffc)) &
             env->a20_mask;
-        pde = ldl_phys(cs->as, pde_addr);
+        pde = x86_ldl_phys(cs, pde_addr);
         if (!(pde & PG_PRESENT_MASK)) {
             goto do_fault;
         }
@@ -669,20 +874,20 @@ int x86_cpu_handle_mmu_fault(CPUState *cs, vaddr addr,
             /* Bits 20-13 provide bits 39-32 of the address, bit 21 is reserved.
              * Leave bits 20-13 in place for setting accessed/dirty bits below.
              */
-            pte = pde | ((pde & 0x1fe000) << (32 - 13));
+            pte = pde | ((pde & 0x1fe000LL) << (32 - 13));
             rsvd_mask = 0x200000;
             goto do_check_protect_pse36;
         }
 
         if (!(pde & PG_ACCESSED_MASK)) {
             pde |= PG_ACCESSED_MASK;
-            stl_phys_notdirty(cs->as, pde_addr, pde);
+            x86_stl_phys_notdirty(cs, pde_addr, pde);
         }
 
         /* page directory entry */
         pte_addr = ((pde & ~0xfff) + ((addr >> 10) & 0xffc)) &
             env->a20_mask;
-        pte = ldl_phys(cs->as, pte_addr);
+        pte = x86_ldl_phys(cs, pte_addr);
         if (!(pte & PG_PRESENT_MASK)) {
             goto do_fault;
         }
@@ -699,66 +904,66 @@ do_check_protect_pse36:
         goto do_fault_rsvd;
     }
     ptep ^= PG_NX_MASK;
-    if ((ptep & PG_NX_MASK) && is_write1 == 2) {
+
+    /* can the page can be put in the TLB?  prot will tell us */
+    if (is_user && !(ptep & PG_USER_MASK)) {
         goto do_fault_protect;
     }
-    switch (mmu_idx) {
-    case MMU_USER_IDX:
-        if (!(ptep & PG_USER_MASK)) {
-            goto do_fault_protect;
-        }
-        if (is_write && !(ptep & PG_RW_MASK)) {
-            goto do_fault_protect;
-        }
-        break;
 
-    case MMU_KSMAP_IDX:
-        if (is_write1 != 2 && (ptep & PG_USER_MASK)) {
-            goto do_fault_protect;
+    prot = 0;
+    if (mmu_idx != MMU_KSMAP_IDX || !(ptep & PG_USER_MASK)) {
+        prot |= PAGE_READ;
+        if ((ptep & PG_RW_MASK) || (!is_user && !(env->cr[0] & CR0_WP_MASK))) {
+            prot |= PAGE_WRITE;
         }
-        /* fall through */
-    case MMU_KNOSMAP_IDX:
-        if (is_write1 == 2 && (env->cr[4] & CR4_SMEP_MASK) &&
-            (ptep & PG_USER_MASK)) {
-            goto do_fault_protect;
-        }
-        if ((env->cr[0] & CR0_WP_MASK) &&
-            is_write && !(ptep & PG_RW_MASK)) {
-            goto do_fault_protect;
-        }
-        break;
-
-    default: /* cannot happen */
-        break;
     }
+    if (!(ptep & PG_NX_MASK) &&
+        (mmu_idx == MMU_USER_IDX ||
+         !((env->cr[4] & CR4_SMEP_MASK) && (ptep & PG_USER_MASK)))) {
+        prot |= PAGE_EXEC;
+    }
+    if ((env->cr[4] & CR4_PKE_MASK) && (env->hflags & HF_LMA_MASK) &&
+        (ptep & PG_USER_MASK) && env->pkru) {
+        uint32_t pk = (pte & PG_PKRU_MASK) >> PG_PKRU_BIT;
+        uint32_t pkru_ad = (env->pkru >> pk * 2) & 1;
+        uint32_t pkru_wd = (env->pkru >> pk * 2) & 2;
+        uint32_t pkru_prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+
+        if (pkru_ad) {
+            pkru_prot &= ~(PAGE_READ | PAGE_WRITE);
+        } else if (pkru_wd && (is_user || env->cr[0] & CR0_WP_MASK)) {
+            pkru_prot &= ~PAGE_WRITE;
+        }
+
+        prot &= pkru_prot;
+        if ((pkru_prot & (1 << is_write1)) == 0) {
+            assert(is_write1 != 2);
+            error_code |= PG_ERROR_PK_MASK;
+            goto do_fault_protect;
+        }
+    }
+
+    if ((prot & (1 << is_write1)) == 0) {
+        goto do_fault_protect;
+    }
+
+    /* yes, it can! */
     is_dirty = is_write && !(pte & PG_DIRTY_MASK);
     if (!(pte & PG_ACCESSED_MASK) || is_dirty) {
         pte |= PG_ACCESSED_MASK;
         if (is_dirty) {
             pte |= PG_DIRTY_MASK;
         }
-        stl_phys_notdirty(cs->as, pte_addr, pte);
+        x86_stl_phys_notdirty(cs, pte_addr, pte);
     }
 
-    /* the page can be put in the TLB */
-    prot = PAGE_READ;
-    if (!(ptep & PG_NX_MASK) &&
-        (mmu_idx == MMU_USER_IDX ||
-         !((env->cr[4] & CR4_SMEP_MASK) && (ptep & PG_USER_MASK)))) {
-        prot |= PAGE_EXEC;
-    }
-    if (pte & PG_DIRTY_MASK) {
+    if (!(pte & PG_DIRTY_MASK)) {
         /* only set write access if already dirty... otherwise wait
            for dirty access */
-        if (is_user) {
-            if (ptep & PG_RW_MASK)
-                prot |= PAGE_WRITE;
-        } else {
-            if (!(env->cr[0] & CR0_WP_MASK) ||
-                (ptep & PG_RW_MASK))
-                prot |= PAGE_WRITE;
-        }
+        assert(!is_write);
+        prot &= ~PAGE_WRITE;
     }
+
  do_mapping:
     pte = pte & env->a20_mask;
 
@@ -771,7 +976,9 @@ do_check_protect_pse36:
     page_offset = vaddr & (page_size - 1);
     paddr = pte + page_offset;
 
-    tlb_set_page(cs, vaddr, paddr, prot, mmu_idx, page_size);
+    assert(prot & (1 << is_write1));
+    tlb_set_page_with_attrs(cs, vaddr, paddr, cpu_get_mem_attrs(env),
+                            prot, mmu_idx, page_size);
     return 0;
  do_fault_rsvd:
     error_code |= PG_ERROR_RSVD_MASK;
@@ -788,7 +995,7 @@ do_check_protect_pse36:
         error_code |= PG_ERROR_I_D_MASK;
     if (env->intercept_exceptions & (1 << EXCP0E_PAGE)) {
         /* cr2 is not modified in case of exceptions */
-        stq_phys(cs->as,
+        x86_stq_phys(cs,
                  env->vm_vmcb + offsetof(struct vmcb, control.exit_info_2),
                  addr);
     } else {
@@ -827,13 +1034,13 @@ hwaddr x86_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
             }
             pml4e_addr = ((env->cr[3] & ~0xfff) + (((addr >> 39) & 0x1ff) << 3)) &
                 env->a20_mask;
-            pml4e = ldq_phys(cs->as, pml4e_addr);
+            pml4e = x86_ldq_phys(cs, pml4e_addr);
             if (!(pml4e & PG_PRESENT_MASK)) {
                 return -1;
             }
             pdpe_addr = ((pml4e & PG_ADDRESS_MASK) +
                          (((addr >> 30) & 0x1ff) << 3)) & env->a20_mask;
-            pdpe = ldq_phys(cs->as, pdpe_addr);
+            pdpe = x86_ldq_phys(cs, pdpe_addr);
             if (!(pdpe & PG_PRESENT_MASK)) {
                 return -1;
             }
@@ -848,14 +1055,14 @@ hwaddr x86_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
         {
             pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 27) & 0x18)) &
                 env->a20_mask;
-            pdpe = ldq_phys(cs->as, pdpe_addr);
+            pdpe = x86_ldq_phys(cs, pdpe_addr);
             if (!(pdpe & PG_PRESENT_MASK))
                 return -1;
         }
 
         pde_addr = ((pdpe & PG_ADDRESS_MASK) +
                     (((addr >> 21) & 0x1ff) << 3)) & env->a20_mask;
-        pde = ldq_phys(cs->as, pde_addr);
+        pde = x86_ldq_phys(cs, pde_addr);
         if (!(pde & PG_PRESENT_MASK)) {
             return -1;
         }
@@ -868,7 +1075,7 @@ hwaddr x86_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
             pte_addr = ((pde & PG_ADDRESS_MASK) +
                         (((addr >> 12) & 0x1ff) << 3)) & env->a20_mask;
             page_size = 4096;
-            pte = ldq_phys(cs->as, pte_addr);
+            pte = x86_ldq_phys(cs, pte_addr);
         }
         if (!(pte & PG_PRESENT_MASK)) {
             return -1;
@@ -878,16 +1085,16 @@ hwaddr x86_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 
         /* page directory entry */
         pde_addr = ((env->cr[3] & ~0xfff) + ((addr >> 20) & 0xffc)) & env->a20_mask;
-        pde = ldl_phys(cs->as, pde_addr);
+        pde = x86_ldl_phys(cs, pde_addr);
         if (!(pde & PG_PRESENT_MASK))
             return -1;
         if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
-            pte = pde | ((pde & 0x1fe000) << (32 - 13));
+            pte = pde | ((pde & 0x1fe000LL) << (32 - 13));
             page_size = 4096 * 1024;
         } else {
             /* page directory entry */
             pte_addr = ((pde & ~0xfff) + ((addr >> 10) & 0xffc)) & env->a20_mask;
-            pte = ldl_phys(cs->as, pte_addr);
+            pte = x86_ldl_phys(cs, pte_addr);
             if (!(pte & PG_PRESENT_MASK)) {
                 return -1;
             }
@@ -902,134 +1109,6 @@ out:
     pte &= PG_ADDRESS_MASK & ~(page_size - 1);
     page_offset = (addr & TARGET_PAGE_MASK) & (page_size - 1);
     return pte | page_offset;
-}
-
-void hw_breakpoint_insert(CPUX86State *env, int index)
-{
-    CPUState *cs = CPU(x86_env_get_cpu(env));
-    int type = 0, err = 0;
-
-    switch (hw_breakpoint_type(env->dr[7], index)) {
-    case DR7_TYPE_BP_INST:
-        if (hw_breakpoint_enabled(env->dr[7], index)) {
-            err = cpu_breakpoint_insert(cs, env->dr[index], BP_CPU,
-                                        &env->cpu_breakpoint[index]);
-        }
-        break;
-    case DR7_TYPE_DATA_WR:
-        type = BP_CPU | BP_MEM_WRITE;
-        break;
-    case DR7_TYPE_IO_RW:
-        /* No support for I/O watchpoints yet */
-        break;
-    case DR7_TYPE_DATA_RW:
-        type = BP_CPU | BP_MEM_ACCESS;
-        break;
-    }
-
-    if (type != 0) {
-        err = cpu_watchpoint_insert(cs, env->dr[index],
-                                    hw_breakpoint_len(env->dr[7], index),
-                                    type, &env->cpu_watchpoint[index]);
-    }
-
-    if (err) {
-        env->cpu_breakpoint[index] = NULL;
-    }
-}
-
-void hw_breakpoint_remove(CPUX86State *env, int index)
-{
-    CPUState *cs;
-
-    if (!env->cpu_breakpoint[index]) {
-        return;
-    }
-    cs = CPU(x86_env_get_cpu(env));
-    switch (hw_breakpoint_type(env->dr[7], index)) {
-    case DR7_TYPE_BP_INST:
-        if (hw_breakpoint_enabled(env->dr[7], index)) {
-            cpu_breakpoint_remove_by_ref(cs, env->cpu_breakpoint[index]);
-        }
-        break;
-    case DR7_TYPE_DATA_WR:
-    case DR7_TYPE_DATA_RW:
-        cpu_watchpoint_remove_by_ref(cs, env->cpu_watchpoint[index]);
-        break;
-    case DR7_TYPE_IO_RW:
-        /* No support for I/O watchpoints yet */
-        break;
-    }
-}
-
-bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
-{
-    target_ulong dr6;
-    int reg;
-    bool hit_enabled = false;
-
-    dr6 = env->dr[6] & ~0xf;
-    for (reg = 0; reg < DR7_MAX_BP; reg++) {
-        bool bp_match = false;
-        bool wp_match = false;
-
-        switch (hw_breakpoint_type(env->dr[7], reg)) {
-        case DR7_TYPE_BP_INST:
-            if (env->dr[reg] == env->eip) {
-                bp_match = true;
-            }
-            break;
-        case DR7_TYPE_DATA_WR:
-        case DR7_TYPE_DATA_RW:
-            if (env->cpu_watchpoint[reg] &&
-                env->cpu_watchpoint[reg]->flags & BP_WATCHPOINT_HIT) {
-                wp_match = true;
-            }
-            break;
-        case DR7_TYPE_IO_RW:
-            break;
-        }
-        if (bp_match || wp_match) {
-            dr6 |= 1 << reg;
-            if (hw_breakpoint_enabled(env->dr[7], reg)) {
-                hit_enabled = true;
-            }
-        }
-    }
-
-    if (hit_enabled || force_dr6_update) {
-        env->dr[6] = dr6;
-    }
-
-    return hit_enabled;
-}
-
-void breakpoint_handler(CPUState *cs)
-{
-    X86CPU *cpu = X86_CPU(cs);
-    CPUX86State *env = &cpu->env;
-    CPUBreakpoint *bp;
-
-    if (cs->watchpoint_hit) {
-        if (cs->watchpoint_hit->flags & BP_CPU) {
-            cs->watchpoint_hit = NULL;
-            if (check_hw_breakpoints(env, false)) {
-                raise_exception(env, EXCP01_DB);
-            } else {
-                cpu_resume_from_signal(cs, NULL);
-            }
-        }
-    } else {
-        QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
-            if (bp->pc == env->eip) {
-                if (bp->flags & BP_CPU) {
-                    check_hw_breakpoints(env, true);
-                    raise_exception(env, EXCP01_DB);
-                }
-                break;
-            }
-        }
-    }
 }
 
 typedef struct MCEInjectionParams {
@@ -1276,3 +1355,95 @@ void x86_cpu_exec_exit(CPUState *cs)
 
     env->eflags = cpu_compute_eflags(env);
 }
+
+#ifndef CONFIG_USER_ONLY
+uint8_t x86_ldub_phys(CPUState *cs, hwaddr addr)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    return address_space_ldub(cs->as, addr,
+                              cpu_get_mem_attrs(env),
+                              NULL);
+}
+
+uint32_t x86_lduw_phys(CPUState *cs, hwaddr addr)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    return address_space_lduw(cs->as, addr,
+                              cpu_get_mem_attrs(env),
+                              NULL);
+}
+
+uint32_t x86_ldl_phys(CPUState *cs, hwaddr addr)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    return address_space_ldl(cs->as, addr,
+                             cpu_get_mem_attrs(env),
+                             NULL);
+}
+
+uint64_t x86_ldq_phys(CPUState *cs, hwaddr addr)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    return address_space_ldq(cs->as, addr,
+                             cpu_get_mem_attrs(env),
+                             NULL);
+}
+
+void x86_stb_phys(CPUState *cs, hwaddr addr, uint8_t val)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    address_space_stb(cs->as, addr, val,
+                      cpu_get_mem_attrs(env),
+                      NULL);
+}
+
+void x86_stl_phys_notdirty(CPUState *cs, hwaddr addr, uint32_t val)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    address_space_stl_notdirty(cs->as, addr, val,
+                               cpu_get_mem_attrs(env),
+                               NULL);
+}
+
+void x86_stw_phys(CPUState *cs, hwaddr addr, uint32_t val)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    address_space_stw(cs->as, addr, val,
+                      cpu_get_mem_attrs(env),
+                      NULL);
+}
+
+void x86_stl_phys(CPUState *cs, hwaddr addr, uint32_t val)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    address_space_stl(cs->as, addr, val,
+                      cpu_get_mem_attrs(env),
+                      NULL);
+}
+
+void x86_stq_phys(CPUState *cs, hwaddr addr, uint64_t val)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+
+    address_space_stq(cs->as, addr, val,
+                      cpu_get_mem_attrs(env),
+                      NULL);
+}
+#endif

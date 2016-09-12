@@ -53,9 +53,8 @@ __make_bios_writable_intel(u16 bdf, u32 pam0)
         return;
 
     // Copy bios.
-    extern u8 code32flat_start[], code32flat_end[];
-    memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
-           , code32flat_end - code32flat_start);
+    memcpy(VSYMBOL(code32flat_start), VSYMBOL(code32flat_start) + BIOS_SRC_OFFSET
+           , SYMBOL(code32flat_end) - SYMBOL(code32flat_start));
 }
 
 static void
@@ -65,7 +64,7 @@ make_bios_writable_intel(u16 bdf, u32 pam0)
     if (!(reg & 0x10)) {
         // QEMU doesn't fully implement the piix shadow capabilities -
         // if ram isn't backing the bios segment when shadowing is
-        // disabled, the code itself wont be in memory.  So, run the
+        // disabled, the code itself won't be in memory.  So, run the
         // code from the high-memory flash location.
         u32 pos = (u32)__make_bios_writable_intel + BIOS_SRC_OFFSET;
         void (*func)(u16 bdf, u32 pam0) = (void*)pos;
@@ -165,7 +164,6 @@ qemu_prep_reset(void)
     // QEMU doesn't map 0xc0000-0xfffff back to the original rom on a
     // reset, so do that manually before invoking a hard reset.
     make_bios_writable();
-    extern u8 code32flat_start[], code32flat_end[];
-    memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
-           , code32flat_end - code32flat_start);
+    memcpy(VSYMBOL(code32flat_start), VSYMBOL(code32flat_start) + BIOS_SRC_OFFSET
+           , SYMBOL(code32flat_end) - SYMBOL(code32flat_start));
 }

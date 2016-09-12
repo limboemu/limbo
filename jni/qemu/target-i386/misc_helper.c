@@ -17,39 +17,74 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
-#include "exec/ioport.h"
 #include "exec/helper-proto.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
+#include "exec/address-spaces.h"
 
-void helper_outb(uint32_t port, uint32_t data)
+void helper_outb(CPUX86State *env, uint32_t port, uint32_t data)
 {
-    cpu_outb(port, data & 0xff);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "outb: port=0x%04x, data=%02x\n", port, data);
+#else
+    address_space_stb(&address_space_io, port, data,
+                      cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
-target_ulong helper_inb(uint32_t port)
+target_ulong helper_inb(CPUX86State *env, uint32_t port)
 {
-    return cpu_inb(port);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "inb: port=0x%04x\n", port);
+    return 0;
+#else
+    return address_space_ldub(&address_space_io, port,
+                              cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
-void helper_outw(uint32_t port, uint32_t data)
+void helper_outw(CPUX86State *env, uint32_t port, uint32_t data)
 {
-    cpu_outw(port, data & 0xffff);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "outw: port=0x%04x, data=%04x\n", port, data);
+#else
+    address_space_stw(&address_space_io, port, data,
+                      cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
-target_ulong helper_inw(uint32_t port)
+target_ulong helper_inw(CPUX86State *env, uint32_t port)
 {
-    return cpu_inw(port);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "inw: port=0x%04x\n", port);
+    return 0;
+#else
+    return address_space_lduw(&address_space_io, port,
+                              cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
-void helper_outl(uint32_t port, uint32_t data)
+void helper_outl(CPUX86State *env, uint32_t port, uint32_t data)
 {
-    cpu_outl(port, data);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "outw: port=0x%04x, data=%08x\n", port, data);
+#else
+    address_space_stl(&address_space_io, port, data,
+                      cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
-target_ulong helper_inl(uint32_t port)
+target_ulong helper_inl(CPUX86State *env, uint32_t port)
 {
-    return cpu_inl(port);
+#ifdef CONFIG_USER_ONLY
+    fprintf(stderr, "inl: port=0x%04x\n", port);
+    return 0;
+#else
+    return address_space_ldl(&address_space_io, port,
+                             cpu_get_mem_attrs(env), NULL);
+#endif
 }
 
 void helper_into(CPUX86State *env, int next_eip_addend)
@@ -60,15 +95,6 @@ void helper_into(CPUX86State *env, int next_eip_addend)
     if (eflags & CC_O) {
         raise_interrupt(env, EXCP04_INTO, 1, 0, next_eip_addend);
     }
-}
-
-void helper_single_step(CPUX86State *env)
-{
-#ifndef CONFIG_USER_ONLY
-    check_hw_breakpoints(env, true);
-    env->dr[6] |= DR6_BS;
-#endif
-    raise_exception(env, EXCP01_DB);
 }
 
 void helper_cpuid(CPUX86State *env)
@@ -92,10 +118,6 @@ target_ulong helper_read_crN(CPUX86State *env, int reg)
 }
 
 void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
-{
-}
-
-void helper_movl_drN_T0(CPUX86State *env, int reg, target_ulong t0)
 {
 }
 #else
@@ -143,27 +165,6 @@ void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
         break;
     }
 }
-
-void helper_movl_drN_T0(CPUX86State *env, int reg, target_ulong t0)
-{
-    int i;
-
-    if (reg < 4) {
-        hw_breakpoint_remove(env, reg);
-        env->dr[reg] = t0;
-        hw_breakpoint_insert(env, reg);
-    } else if (reg == 7) {
-        for (i = 0; i < DR7_MAX_BP; i++) {
-            hw_breakpoint_remove(env, i);
-        }
-        env->dr[7] = t0;
-        for (i = 0; i < DR7_MAX_BP; i++) {
-            hw_breakpoint_insert(env, i);
-        }
-    } else {
-        env->dr[reg] = t0;
-    }
-}
 #endif
 
 void helper_lmsw(CPUX86State *env, target_ulong t0)
@@ -187,7 +188,7 @@ void helper_rdtsc(CPUX86State *env)
     uint64_t val;
 
     if ((env->cr[4] & CR4_TSD_MASK) && ((env->hflags & HF_CPL_MASK) != 0)) {
-        raise_exception(env, EXCP0D_GPF);
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_RDTSC, 0);
 
@@ -205,7 +206,7 @@ void helper_rdtscp(CPUX86State *env)
 void helper_rdpmc(CPUX86State *env)
 {
     if ((env->cr[4] & CR4_PCE_MASK) && ((env->hflags & HF_CPL_MASK) != 0)) {
-        raise_exception(env, EXCP0D_GPF);
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_RDPMC, 0);
 
@@ -361,6 +362,12 @@ void helper_wrmsr(CPUX86State *env)
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
         break;
+    case MSR_IA32_BNDCFGS:
+        /* FIXME: #GP if reserved bits are set.  */
+        /* FIXME: Extend highest implemented bit of linear address.  */
+        env->msr_bndcfgs = val;
+        cpu_sync_bndcs_hflags(env);
+        break;
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
             && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL +
@@ -506,6 +513,9 @@ void helper_rdmsr(CPUX86State *env)
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;
         break;
+    case MSR_IA32_BNDCFGS:
+        val = env->msr_bndcfgs;
+        break;
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
             && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL +
@@ -556,7 +566,7 @@ void helper_hlt(CPUX86State *env, int next_eip_addend)
 void helper_monitor(CPUX86State *env, target_ulong ptr)
 {
     if ((uint32_t)env->regs[R_ECX] != 0) {
-        raise_exception(env, EXCP0D_GPF);
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     /* XXX: store address? */
     cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0);
@@ -568,7 +578,7 @@ void helper_mwait(CPUX86State *env, int next_eip_addend)
     X86CPU *cpu;
 
     if ((uint32_t)env->regs[R_ECX] != 0) {
-        raise_exception(env, EXCP0D_GPF);
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0);
     env->eip += next_eip_addend;
@@ -599,4 +609,31 @@ void helper_debug(CPUX86State *env)
 
     cs->exception_index = EXCP_DEBUG;
     cpu_loop_exit(cs);
+}
+
+uint64_t helper_rdpkru(CPUX86State *env, uint32_t ecx)
+{
+    if ((env->cr[4] & CR4_PKE_MASK) == 0) {
+        raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
+    }
+    if (ecx != 0) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+
+    return env->pkru;
+}
+
+void helper_wrpkru(CPUX86State *env, uint32_t ecx, uint64_t val)
+{
+    CPUState *cs = CPU(x86_env_get_cpu(env));
+
+    if ((env->cr[4] & CR4_PKE_MASK) == 0) {
+        raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
+    }
+    if (ecx != 0 || (val & 0xFFFFFFFF00000000ull)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+
+    env->pkru = val;
+    tlb_flush(cs, 1);
 }

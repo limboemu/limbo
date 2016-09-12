@@ -7,12 +7,11 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
+#include "qemu/osdep.h"
 
 #include "qemu-common.h"
+#include "qemu/cutils.h"
 #include "libqtest.h"
-#include "qemu/osdep.h"
 #include "qapi/qmp/types.h"
 
 static const char *blacklist_x86[] = {
@@ -47,7 +46,7 @@ static bool is_blacklisted(const char *arch, const char *mach)
 static void test_properties(const char *path, bool recurse)
 {
     char *child_path;
-    QDict *response, *tuple;
+    QDict *response, *tuple, *tmp;
     QList *list;
     QListEntry *entry;
 
@@ -57,6 +56,7 @@ static void test_properties(const char *path, bool recurse)
     g_assert(response);
 
     if (!recurse) {
+        QDECREF(response);
         return;
     }
 
@@ -75,14 +75,16 @@ static void test_properties(const char *path, bool recurse)
         } else {
             const char *prop = qdict_get_str(tuple, "name");
             g_test_message("Testing property %s.%s", path, prop);
-            response = qmp("{ 'execute': 'qom-get',"
-                           "  'arguments': { 'path': %s,"
-                           "                 'property': %s } }",
-                           path, prop);
+            tmp = qmp("{ 'execute': 'qom-get',"
+                      "  'arguments': { 'path': %s,"
+                      "                 'property': %s } }",
+                      path, prop);
             /* qom-get may fail but should not, e.g., segfault. */
-            g_assert(response);
+            g_assert(tmp);
+            QDECREF(tmp);
         }
     }
+    QDECREF(response);
 }
 
 static void test_machine(gconstpointer data)
@@ -98,9 +100,11 @@ static void test_machine(gconstpointer data)
 
     response = qmp("{ 'execute': 'quit' }");
     g_assert(qdict_haskey(response, "return"));
+    QDECREF(response);
 
     qtest_end();
     g_free(args);
+    g_free((void *)machine);
 }
 
 static void add_machine_test_cases(void)
@@ -128,11 +132,13 @@ static void add_machine_test_cases(void)
         g_assert(qstr);
         mname = qstring_get_str(qstr);
         if (!is_blacklisted(arch, mname)) {
-            path = g_strdup_printf("/%s/qom/%s", arch, mname);
-            g_test_add_data_func(path, mname, test_machine);
+            path = g_strdup_printf("qom/%s", mname);
+            qtest_add_data_func(path, g_strdup(mname), test_machine);
         }
     }
+
     qtest_end();
+    QDECREF(response);
 }
 
 int main(int argc, char **argv)

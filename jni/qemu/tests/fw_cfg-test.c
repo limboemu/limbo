@@ -10,12 +10,10 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <string.h>
-#include <glib.h>
+#include "qemu/osdep.h"
 
 #include "libqtest.h"
-#define NO_QEMU_PROTOS
-#include "hw/nvram/fw_cfg.h"
+#include "hw/nvram/fw_cfg_keys.h"
 #include "libqos/fw_cfg.h"
 
 static uint64_t ram_size = 128 << 20;
@@ -37,7 +35,9 @@ static void test_fw_cfg_signature(void)
 
 static void test_fw_cfg_id(void)
 {
-    g_assert_cmpint(qfw_cfg_get_u32(fw_cfg, FW_CFG_ID), ==, 1);
+    uint32_t id = qfw_cfg_get_u32(fw_cfg, FW_CFG_ID);
+    g_assert((id == 1) ||
+             (id == 3));
 }
 
 static void test_fw_cfg_uuid(void)

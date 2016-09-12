@@ -14,9 +14,12 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "sysemu/dma.h"
+#include "qemu/log.h"
 
 #ifndef PL330_ERR_DEBUG
 #define PL330_ERR_DEBUG 0

@@ -20,12 +20,9 @@
 #define VERSION_FLAT_HEADER         (1)    /* version of flattened format */
 #define END_FLAG_FLAT_HEADER        (-1)
 
+#ifndef ARCH_PFN_OFFSET
 #define ARCH_PFN_OFFSET             (0)
-
-#define paddr_to_pfn(X) \
-    (((unsigned long long)(X) >> TARGET_PAGE_BITS) - ARCH_PFN_OFFSET)
-#define pfn_to_paddr(X) \
-    (((unsigned long long)(X) + ARCH_PFN_OFFSET) << TARGET_PAGE_BITS)
+#endif
 
 /*
  * flag for compressed format
@@ -36,15 +33,12 @@
 
 #define KDUMP_SIGNATURE             "KDUMP   "
 #define SIG_LEN                     (sizeof(KDUMP_SIGNATURE) - 1)
-#define PHYS_BASE                   (0)
 #define DUMP_LEVEL                  (1)
 #define DISKDUMP_HEADER_BLOCKS      (1)
-#define BUFSIZE_BITMAP              (TARGET_PAGE_SIZE)
-#define PFN_BUFBITMAP               (CHAR_BIT * BUFSIZE_BITMAP)
-#define BUFSIZE_DATA_CACHE          (TARGET_PAGE_SIZE * 4)
 
 #include "sysemu/dump-arch.h"
 #include "sysemu/memory_mapping.h"
+#include "qapi-types.h"
 
 typedef struct QEMU_PACKED MakedumpfileHeader {
     char signature[16];     /* = "makedumpfile" */
@@ -183,6 +177,20 @@ typedef struct DumpState {
     off_t offset_page;          /* offset of page part in vmcore */
     size_t num_dumpable;        /* number of page that can be dumped */
     uint32_t flag_compress;     /* indicate the compression format */
+    DumpStatus status;          /* current dump status */
+
+    bool has_format;              /* whether format is provided */
+    DumpGuestMemoryFormat format; /* valid only if has_format == true */
+    QemuThread dump_thread;       /* thread for detached dump */
+
+    int64_t total_size;          /* total memory size (in bytes) to
+                                  * be dumped. When filter is
+                                  * enabled, this will only count
+                                  * those to be written. */
+    int64_t written_size;        /* written memory size (in bytes),
+                                  * this could be used to calculate
+                                  * how much work we have
+                                  * finished. */
 } DumpState;
 
 uint16_t cpu_to_dump16(DumpState *s, uint16_t val);

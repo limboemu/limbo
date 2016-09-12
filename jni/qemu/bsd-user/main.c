@@ -16,31 +16,30 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
+#include "qemu/osdep.h"
+#include "qemu-version.h"
 #include <machine/trap.h>
-#include <sys/types.h>
-#include <sys/mman.h>
 
+#include "qapi/error.h"
 #include "qemu.h"
-#include "qemu-common.h"
+#include "qemu/config-file.h"
+#include "qemu/path.h"
+#include "qemu/help_option.h"
 /* For tb_lock */
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "tcg.h"
 #include "qemu/timer.h"
 #include "qemu/envlist.h"
+#include "exec/log.h"
+#include "trace/control.h"
+#include "glib-compat.h"
 
 int singlestep;
-#if defined(CONFIG_USE_GUEST_BASE)
 unsigned long mmap_min_addr;
 unsigned long guest_base;
 int have_guest_base;
 unsigned long reserved_va;
-#endif
 
 static const char *interp_prefix = CONFIG_QEMU_INTERP_PREFIX;
 const char *qemu_uname_release;
@@ -92,7 +91,7 @@ void fork_start(void)
 void fork_end(int child)
 {
     if (child) {
-        gdbserver_fork((CPUArchState *)thread_cpu->env_ptr);
+        gdbserver_fork(thread_cpu);
     }
 }
 
@@ -108,13 +107,9 @@ void cpu_list_unlock(void)
 /***********************************************************/
 /* CPUX86 core interface */
 
-void cpu_smm_update(CPUX86State *env)
-{
-}
-
 uint64_t cpu_get_tsc(CPUX86State *env)
 {
-    return cpu_get_real_ticks();
+    return cpu_get_host_ticks();
 }
 
 static void write_dt(void *ptr, unsigned long addr, unsigned long limit,
@@ -170,12 +165,14 @@ static void set_idt(int n, unsigned int dpl)
 
 void cpu_loop(CPUX86State *env)
 {
+    X86CPU *cpu = x86_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
     int trapnr;
     abi_ulong pc;
     //target_siginfo_t info;
 
     for(;;) {
-        trapnr = cpu_x86_exec(env);
+        trapnr = cpu_exec(cs);
         switch(trapnr) {
         case 0x80:
             /* syscall from int $0x80 */
@@ -516,7 +513,7 @@ void cpu_loop(CPUSPARCState *env)
     //target_siginfo_t info;
 
     while (1) {
-        trapnr = cpu_sparc_exec (env);
+        trapnr = cpu_exec(cs);
 
         switch (trapnr) {
 #ifndef TARGET_SPARC64
@@ -671,7 +668,8 @@ void cpu_loop(CPUSPARCState *env)
 
 static void usage(void)
 {
-    printf("qemu-" TARGET_NAME " version " QEMU_VERSION ", Copyright (c) 2003-2008 Fabrice Bellard\n"
+    printf("qemu-" TARGET_NAME " version " QEMU_VERSION QEMU_PKGVERSION
+           ", " QEMU_COPYRIGHT "\n"
            "usage: qemu-" TARGET_NAME " [options] program [arguments...]\n"
            "BSD CPU emulator (compiled for %s emulation)\n"
            "\n"
@@ -684,9 +682,7 @@ static void usage(void)
            "-drop-ld-preload  drop LD_PRELOAD for target process\n"
            "-E var=value      sets/modifies targets environment variable(s)\n"
            "-U var            unsets targets environment variable(s)\n"
-#if defined(CONFIG_USE_GUEST_BASE)
            "-B address        set guest_base address to address\n"
-#endif
            "-bsd type         select emulated BSD type FreeBSD/NetBSD/OpenBSD (default)\n"
            "\n"
            "Debug options:\n"
@@ -696,6 +692,8 @@ static void usage(void)
            "-p pagesize       set the host page size to 'pagesize'\n"
            "-singlestep       always run in singlestep mode\n"
            "-strace           log system calls\n"
+           "-trace            [[enable=]<pattern>][,events=<file>][,file=<file>]\n"
+           "                  specify tracing options\n"
            "\n"
            "Environment variables:\n"
            "QEMU_STRACE       Print system calls and arguments similar to the\n"
@@ -744,6 +742,7 @@ int main(int argc, char **argv)
     int gdbstub_port = 0;
     char **target_environ, **wrk;
     envlist_t *envlist = NULL;
+    char *trace_file = NULL;
     bsd_type = target_openbsd;
 
     if (argc <= 1)
@@ -762,12 +761,11 @@ int main(int argc, char **argv)
     }
 
     cpu_model = NULL;
-#if defined(cpudef_setup)
-    cpudef_setup(); /* parse cpu definitions in target config file (TBD) */
-#endif
+
+    qemu_add_opts(&qemu_trace_opts);
 
     optind = 1;
-    for(;;) {
+    for (;;) {
         if (optind >= argc)
             break;
         r = argv[optind];
@@ -832,11 +830,9 @@ int main(int argc, char **argv)
 #endif
                 exit(1);
             }
-#if defined(CONFIG_USE_GUEST_BASE)
         } else if (!strcmp(r, "B")) {
            guest_base = strtol(argv[optind++], NULL, 0);
            have_guest_base = 1;
-#endif
         } else if (!strcmp(r, "drop-ld-preload")) {
             (void) envlist_unsetenv(envlist, "LD_PRELOAD");
         } else if (!strcmp(r, "bsd")) {
@@ -854,14 +850,17 @@ int main(int argc, char **argv)
             singlestep = 1;
         } else if (!strcmp(r, "strace")) {
             do_strace = 1;
-        } else
-        {
+        } else if (!strcmp(r, "trace")) {
+            g_free(trace_file);
+            trace_file = trace_opt_parse(optarg);
+        } else {
             usage();
         }
     }
 
     /* init debug */
-    qemu_set_log_filename(log_file);
+    qemu_log_needs_buffers();
+    qemu_set_log_filename(log_file, &error_fatal);
     if (log_mask) {
         int mask;
 
@@ -877,6 +876,11 @@ int main(int argc, char **argv)
         usage();
     }
     filename = argv[optind];
+
+    if (!trace_init_backends()) {
+        exit(1);
+    }
+    trace_init_file(trace_file);
 
     /* Zero out regs */
     memset(regs, 0, sizeof(struct target_pt_regs));
@@ -905,7 +909,6 @@ int main(int argc, char **argv)
 #endif
     }
     tcg_exec_init(0);
-    cpu_exec_init_all();
     /* NOTE: we need to init the CPU at this stage to get
        qemu_host_page_size */
     cpu = cpu_init(cpu_model);
@@ -926,7 +929,6 @@ int main(int argc, char **argv)
     target_environ = envlist_to_environ(envlist, NULL);
     envlist_free(envlist);
 
-#if defined(CONFIG_USE_GUEST_BASE)
     /*
      * Now that page sizes are configured in cpu_init() we can do
      * proper page alignment for guest_base.
@@ -948,12 +950,11 @@ int main(int argc, char **argv)
             unsigned long tmp;
             if (fscanf(fp, "%lu", &tmp) == 1) {
                 mmap_min_addr = tmp;
-                qemu_log("host mmap_min_addr=0x%lx\n", mmap_min_addr);
+                qemu_log_mask(CPU_LOG_PAGE, "host mmap_min_addr=0x%lx\n", mmap_min_addr);
             }
             fclose(fp);
         }
     }
-#endif /* CONFIG_USE_GUEST_BASE */
 
     if (loader_exec(filename, argv+optind, target_environ, regs, info) != 0) {
         printf("Error loading %s\n", filename);
@@ -966,10 +967,8 @@ int main(int argc, char **argv)
 
     free(target_environ);
 
-    if (qemu_log_enabled()) {
-#if defined(CONFIG_USE_GUEST_BASE)
+    if (qemu_loglevel_mask(CPU_LOG_PAGE)) {
         qemu_log("guest_base  0x%lx\n", guest_base);
-#endif
         log_page_dump();
 
         qemu_log("start_brk   0x" TARGET_ABI_FMT_lx "\n", info->start_brk);
@@ -989,12 +988,10 @@ int main(int argc, char **argv)
     syscall_init();
     signal_init();
 
-#if defined(CONFIG_USE_GUEST_BASE)
     /* Now that we've loaded the binary, GUEST_BASE is fixed.  Delay
        generating the prologue until now so that the prologue can take
        the real value of GUEST_BASE into account.  */
     tcg_prologue_init(&tcg_ctx);
-#endif
 
     /* build Task State */
     memset(ts, 0, sizeof(TaskState));
@@ -1136,6 +1133,7 @@ int main(int argc, char **argv)
         gdbserver_start (gdbstub_port);
         gdb_handlesig(cpu, 0);
     }
+    trace_init_vcpu_events();
     cpu_loop(env);
     /* never exits */
     return 0;

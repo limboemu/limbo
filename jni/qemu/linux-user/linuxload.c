@@ -1,12 +1,6 @@
 /* Code for loading Linux executables.  Mostly linux kernel code.  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "qemu/osdep.h"
 
 #include "qemu.h"
 
@@ -135,10 +129,7 @@ int loader_exec(int fdexec, const char *filename, char **argv, char **envp,
              struct linux_binprm *bprm)
 {
     int retval;
-    int i;
 
-    bprm->p = TARGET_PAGE_SIZE*MAX_ARG_PAGES-sizeof(unsigned int);
-    memset(bprm->page, 0, sizeof(bprm->page));
     bprm->fd = fdexec;
     bprm->filename = (char *)filename;
     bprm->argc = count(argv);
@@ -172,9 +163,5 @@ int loader_exec(int fdexec, const char *filename, char **argv, char **envp,
         return retval;
     }
 
-    /* Something went wrong, return the inode and free the argument pages*/
-    for (i=0 ; i<MAX_ARG_PAGES ; i++) {
-        g_free(bprm->page[i]);
-    }
     return(retval);
 }

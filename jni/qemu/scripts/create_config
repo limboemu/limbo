@@ -9,14 +9,10 @@ case $line in
     version=${line#*=}
     echo "#define QEMU_VERSION \"$version\""
     ;;
- PKGVERSION=*) # configuration
-    pkgversion=${line#*=}
-    echo "#define QEMU_PKGVERSION \"$pkgversion\""
-    ;;
  qemu_*dir=*) # qemu-specific directory configuration
     name=${line%=*}
     value=${line#*=}
-    define_name=`echo $name | LC_ALL=C tr '[a-z]' '[A-Z]'`
+    define_name=$(echo $name | LC_ALL=C tr '[a-z]' '[A-Z]')
     eval "define_value=\"$value\""
     echo "#define CONFIG_$define_name \"$define_value\""
     # save for the next definitions
@@ -52,7 +48,7 @@ case $line in
     done
     echo "    NULL"
     ;;
- CONFIG_*=y) # configuration
+ CONFIG_*='$(CONFIG_SOFTMMU)'|CONFIG_*=y) # configuration
     name=${line%=*}
     echo "#define $name 1"
     ;;
@@ -61,9 +57,18 @@ case $line in
     value=${line#*=}
     echo "#define $name $value"
     ;;
+ HAVE_*=y) # configuration
+    name=${line%=*}
+    echo "#define $name 1"
+    ;;
+ HAVE_*=*) # configuration
+    name=${line%=*}
+    value=${line#*=}
+    echo "#define $name $value"
+    ;;
  ARCH=*) # configuration
     arch=${line#*=}
-    arch_name=`echo $arch | LC_ALL=C tr '[a-z]' '[A-Z]'`
+    arch_name=$(echo $arch | LC_ALL=C tr '[a-z]' '[A-Z]')
     echo "#define HOST_$arch_name 1"
     ;;
  HOST_USB=*)
@@ -83,7 +88,7 @@ case $line in
     ;;
  TARGET_BASE_ARCH=*) # configuration
     target_base_arch=${line#*=}
-    base_arch_name=`echo $target_base_arch | LC_ALL=C tr '[a-z]' '[A-Z]'`
+    base_arch_name=$(echo $target_base_arch | LC_ALL=C tr '[a-z]' '[A-Z]')
     echo "#define TARGET_$base_arch_name 1"
     ;;
  TARGET_XML_FILES=*)

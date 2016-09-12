@@ -259,7 +259,7 @@ bda_save_restore(int cmd, u16 seg, void *data)
                    , sizeof(info->bda_0x84));
         u16 vbe_mode = GET_FARVAR(seg, info->vbe_mode);
         SET_BDA_EXT(vbe_mode, vbe_mode);
-        struct vgamode_s *vmode_g = vgahw_find_mode(vbe_mode);
+        struct vgamode_s *vmode_g = vgahw_find_mode(vbe_mode & ~MF_VBEFLAGS);
         SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
         SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
         SET_IVT(0x43, GET_FARVAR(seg, info->font1));
@@ -304,6 +304,12 @@ vga_set_mode(int mode, int flags)
         SET_BDA(video_mode, 0xff);
     SET_BDA_EXT(vbe_mode, mode | (flags & MF_VBEFLAGS));
     SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
+    if (CONFIG_VGA_ALLOCATE_EXTRA_STACK)
+        // Disable extra stack if it appears a modern OS is in use.
+        // This works around bugs in some versions of Windows (Vista
+        // and possibly later) when the stack is in the e-segment.
+        MASK_BDA_EXT(flags, BF_EXTRA_STACK
+                     , (flags & MF_LEGACY) ? BF_EXTRA_STACK : 0);
     if (memmodel == MM_TEXT) {
         SET_BDA(video_cols, width);
         SET_BDA(video_rows, height-1);

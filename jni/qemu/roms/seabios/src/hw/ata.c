@@ -552,7 +552,7 @@ ata_readwrite(struct disk_op_s *op, int iswrite)
 
 // 16bit command demuxer for ATA harddrives.
 int
-process_ata_op(struct disk_op_s *op)
+ata_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_ATA)
         return 0;
@@ -569,12 +569,8 @@ process_ata_op(struct disk_op_s *op)
         return DISK_RET_SUCCESS;
     case CMD_ISREADY:
         return isready(adrive_gf);
-    case CMD_FORMAT:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 
@@ -587,10 +583,17 @@ process_ata_op(struct disk_op_s *op)
 
 // Low-level atapi command transmit function.
 int
-atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+ata_atapi_process_op(struct disk_op_s *op)
 {
     if (! CONFIG_ATA)
         return 0;
+
+    if (op->command == CMD_WRITE || op->command == CMD_FORMAT)
+        return DISK_RET_EWRITEPROTECT;
+    u8 cdbcmd[CDROM_CDB_SIZE];
+    int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
+    if (blocksize < 0)
+        return default_process_op(op);
 
     struct atadrive_s *adrive_gf = container_of(
         op->drive_gf, struct atadrive_s, drive);
@@ -715,7 +718,7 @@ init_atadrive(struct atadrive_s *dummy, u16 *buffer)
     memset(adrive, 0, sizeof(*adrive));
     adrive->chan_gf = dummy->chan_gf;
     adrive->slave = dummy->slave;
-    adrive->drive.cntl_id = adrive->chan_gf->chanid * 2 + dummy->slave;
+    adrive->drive.cntl_id = adrive->chan_gf->ataid * 2 + dummy->slave;
     adrive->drive.removable = (buffer[0] & 0x80) ? 1 : 0;
     return adrive;
 }
@@ -740,7 +743,7 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     char model[MAXMODEL+1];
     char *desc = znprintf(MAXDESCSIZE
                           , "DVD/CD [ata%d-%d: %s ATAPI-%d %s]"
-                          , adrive->chan_gf->chanid, adrive->slave
+                          , adrive->chan_gf->ataid, adrive->slave
                           , ata_extract_model(model, MAXMODEL, buffer)
                           , ata_extract_version(buffer)
                           , (iscd ? "DVD/CD" : "Device"));
@@ -792,7 +795,7 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     char model[MAXMODEL+1];
     char *desc = znprintf(MAXDESCSIZE
                           , "ata%d-%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
-                          , adrive->chan_gf->chanid, adrive->slave
+                          , adrive->chan_gf->ataid, adrive->slave
                           , ata_extract_model(model, MAXMODEL, buffer)
                           , ata_extract_version(buffer)
                           , (u32)adjsize, adjprefix);
@@ -866,7 +869,7 @@ ata_detect(void *data)
         u8 sc = inb(iobase1+ATA_CB_SC);
         u8 sn = inb(iobase1+ATA_CB_SN);
         dprintf(6, "ata_detect ata%d-%d: sc=%x sn=%x dh=%x\n"
-                , chan_gf->chanid, slave, sc, sn, dh);
+                , chan_gf->ataid, slave, sc, sn, dh);
         if (sc != 0x55 || sn != 0xaa || dh != newdh)
             continue;
 
@@ -913,16 +916,17 @@ ata_detect(void *data)
 
 // Initialize an ata controller and detect its drives.
 static void
-init_controller(struct pci_device *pci, int irq
+init_controller(struct pci_device *pci, int chanid, int irq
                 , u32 port1, u32 port2, u32 master)
 {
-    static int chanid = 0;
+    static int ataid = 0;
     struct ata_channel_s *chan_gf = malloc_fseg(sizeof(*chan_gf));
     if (!chan_gf) {
         warn_noalloc();
         return;
     }
-    chan_gf->chanid = chanid++;
+    chan_gf->ataid = ataid++;
+    chan_gf->chanid = chanid;
     chan_gf->irq = irq;
     chan_gf->pci_bdf = pci ? pci->bdf : -1;
     chan_gf->pci_tmp = pci;
@@ -930,7 +934,7 @@ init_controller(struct pci_device *pci, int irq
     chan_gf->iobase2 = port2;
     chan_gf->iomaster = master;
     dprintf(1, "ATA controller %d at %x/%x/%x (irq %d dev %x)\n"
-            , chanid, port1, port2, master, irq, chan_gf->pci_bdf);
+            , ataid, port1, port2, master, irq, chan_gf->pci_bdf);
     run_thread(ata_detect, chan_gf);
 }
 
@@ -966,7 +970,7 @@ init_pciata(struct pci_device *pci, u8 prog_if)
         port2 = PORT_ATA1_CTRL_BASE;
         irq = IRQ_ATA1;
     }
-    init_controller(pci, irq, port1, port2, master);
+    init_controller(pci, 0, irq, port1, port2, master);
 
     if (prog_if & 4) {
         port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
@@ -979,7 +983,7 @@ init_pciata(struct pci_device *pci, u8 prog_if)
         port2 = PORT_ATA2_CTRL_BASE;
         irq = IRQ_ATA2;
     }
-    init_controller(pci, irq, port1, port2, master ? master + 8 : 0);
+    init_controller(pci, 1, irq, port1, port2, master ? master + 8 : 0);
 }
 
 static void
@@ -1011,9 +1015,9 @@ ata_scan(void)
     if (CONFIG_QEMU && hlist_empty(&PCIDevices)) {
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
-        init_controller(NULL, IRQ_ATA1
+        init_controller(NULL, 0, IRQ_ATA1
                         , PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE, 0);
-        init_controller(NULL, IRQ_ATA2
+        init_controller(NULL, 1, IRQ_ATA2
                         , PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE, 0);
         return;
     }

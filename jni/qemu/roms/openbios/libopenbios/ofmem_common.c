@@ -334,8 +334,8 @@ static void ofmem_update_memory_available( phandle_t ph, range_t *range,
 	}
 
 	/* tail */
-	if (start < top_address) {
-		ofmem_arch_create_available_entry(ph, &prop[ncells], start, top_address - start);
+	if ((start - 1) < top_address) {
+		ofmem_arch_create_available_entry(ph, &prop[ncells], start, top_address - start + 1);
 		ncells += ofmem_arch_get_available_entry_size(ph);
 	}
 
@@ -348,7 +348,7 @@ static void ofmem_update_translations( void )
 	ofmem_t *ofmem = ofmem_arch_get_private();
 
 	ofmem_update_memory_available(s_phandle_memory, ofmem->phys_range, 
-			&phys_range_prop, &phys_range_prop_size, &phys_range_prop_used, ofmem_arch_get_phys_top());
+			&phys_range_prop, &phys_range_prop_size, &phys_range_prop_used, get_ram_size() - 1);
 	ofmem_update_memory_available(s_phandle_mmu, ofmem->virt_range, 
 			&virt_range_prop, &virt_range_prop_size, &virt_range_prop_used, (ucell)-1);
 	ofmem_update_mmu_translations();
@@ -521,7 +521,7 @@ phys_addr_t ofmem_claim_phys( phys_addr_t phys, ucell size, ucell align )
                 " align=" FMT_ucellx "\n",
                 phys, size, align);
 
-	return ofmem_claim_phys_( phys, size, align, 0, ofmem_arch_get_phys_top(), 1 );
+	return ofmem_claim_phys_( phys, size, align, 0, get_ram_size(), 1 );
 }
 
 static ucell ofmem_claim_virt_( ucell virt, ucell size, ucell align,
@@ -634,7 +634,7 @@ ucell ofmem_claim( ucell addr, ucell size, ucell align )
 	} else {
 		if( align < PAGE_SIZE )
 			align = PAGE_SIZE;
-		phys = ofmem_claim_phys_( -1, size, align, 0, ofmem_arch_get_phys_top(), 1 /* reverse */ );
+		phys = ofmem_claim_phys_( -1, size, align, 0, get_ram_size(), 1 /* reverse */ );
 		virt = ofmem_claim_virt_( phys, size, 0, 0, 0, 0 );
 		if( phys == -1 || virt == -1 ) {
 			OFMEM_TRACE("ofmem_claim failed\n");

@@ -73,13 +73,13 @@ static inline void ide_add_channel(struct ide_channel *chan)
 	channels = chan;
 }
 
-static struct ide_channel *ide_seek_channel(const char *name)
+static struct ide_channel *ide_seek_channel(phandle_t ph)
 {
 	struct ide_channel *current;
 
 	current = channels;
 	while (current) {
-		if (!strcmp(current->name, name))
+		if (current->ph == ph)
 			return current;
 		current = current->next;
 	}
@@ -1247,11 +1247,10 @@ ob_ide_initialize(int *idx)
 static void
 ob_ide_open(int *idx)
 {
-	int ret=1, len;
+	int ret=1;
 	phandle_t ph;
 	struct ide_drive *drive;
 	struct ide_channel *chan;
-	char *idename;
 	int unit;
 
 	fword("my-unit");
@@ -1260,9 +1259,8 @@ ob_ide_open(int *idx)
 	fword("my-parent");
 	fword("ihandle>phandle");
 	ph=(phandle_t)POP();
-	idename=get_property(ph, "name", &len);
 
-	chan = ide_seek_channel(idename);
+	chan = ide_seek_channel(ph);
 	drive = &chan->drives[unit];
 	*(struct ide_drive **)idx = drive;
 
@@ -1380,9 +1378,6 @@ int ob_ide_init(const char *path, uint32_t io_port0, uint32_t ctl_port0,
 
 		chan = malloc(sizeof(struct ide_channel));
 
-		snprintf(chan->name, sizeof(chan->name),
-			 DEV_NAME, current_channel);
-
 		chan->mmio = 0;
 
 		for (j = 0; j < 8; j++)
@@ -1424,9 +1419,9 @@ int ob_ide_init(const char *path, uint32_t io_port0, uint32_t ctl_port0,
 
                 snprintf(nodebuff, sizeof(nodebuff), "%s/" DEV_NAME, path,
                          current_channel);
-		REGISTER_NAMED_NODE(ob_ide_ctrl, nodebuff);
+		REGISTER_NAMED_NODE_PHANDLE(ob_ide_ctrl, nodebuff, dnode);
 
-		dnode = find_dev(nodebuff);
+		chan->ph = dnode;
 
 #if !defined(CONFIG_PPC) && !defined(CONFIG_SPARC64)
 		props[0]=14; props[1]=0;
@@ -1468,11 +1463,9 @@ int ob_ide_init(const char *path, uint32_t io_port0, uint32_t ctl_port0,
 					break;
 			}
 			IDE_DPRINTF("%s]: %s\n", media, drive->model);
-                        snprintf(nodebuff, sizeof(nodebuff),
-                                 "%s/" DEV_NAME "/%s", path, current_channel,
-                                 media);
-			REGISTER_NAMED_NODE(ob_ide, nodebuff);
-			dnode=find_dev(nodebuff);
+			snprintf(nodebuff, sizeof(nodebuff), "%s/%s",
+				 get_path_from_ph(dnode), media);
+			REGISTER_NAMED_NODE_PHANDLE(ob_ide, nodebuff, dnode);
 			set_int_property(dnode, "reg", j);
 
 			/* create aliases */
@@ -1486,6 +1479,28 @@ int ob_ide_init(const char *path, uint32_t io_port0, uint32_t ctl_port0,
 	}
 
 	return 0;
+}
+
+void ob_ide_quiesce(void)
+{
+	struct ide_channel *channel;
+	int i;
+
+	channel = channels;
+	while (channel) {
+		for (i = 0; i < 2; i++) {
+			struct ide_drive *drive = &channel->drives[i];
+
+			if (!drive->present)
+				continue;
+
+			ob_ide_select_drive(drive);
+			ob_ide_software_reset(drive);
+			ob_ide_device_type_check(drive);
+		}
+
+		channel = channel->next;
+	}
 }
 
 #if defined(CONFIG_DRIVER_MACIO)
@@ -1527,15 +1542,12 @@ int macio_ide_init(const char *path, uint32_t addr, int nb_channels)
 	struct ide_channel *chan;
 
 	/* IDE ports on Macs are numbered from 3.
-	 * Also see comments in macio.c:openpic_init() */
+	 * Also see comments in pci.c:ob_pci_host_set_interrupt_map() */
 	current_channel = 3;
 
-	for (i = 0; i < nb_channels; i++, current_channel++) {
+	for (i = 0; i < nb_channels; i++) {
 
 		chan = malloc(sizeof(struct ide_channel));
-
-		snprintf(chan->name, sizeof(chan->name),
-			 DEV_NAME, current_channel);
 
 		chan->mmio = addr + MACIO_IDE_OFFSET + i * MACIO_IDE_SIZE;
 
@@ -1574,12 +1586,18 @@ int macio_ide_init(const char *path, uint32_t addr, int nb_channels)
 
                 snprintf(nodebuff, sizeof(nodebuff), "%s/" DEV_NAME, path,
                          current_channel);
-		REGISTER_NAMED_NODE(ob_ide_ctrl, nodebuff);
+		REGISTER_NAMED_NODE_PHANDLE(ob_ide_ctrl, nodebuff, dnode);
 
-		dnode = find_dev(nodebuff);
+		chan->ph = dnode;
 
 		set_property(dnode, "compatible", (is_oldworld() ?
 			     "heathrow-ata" : "keylargo-ata"), 13);
+
+		set_property(dnode, "model", ((current_channel == 3) ?
+			     "ata-3" : "ata-4"), strlen("ata-*") + 1);
+
+		set_property(dnode, "AAPL,connector", "ata",
+                             strlen("ata") + 1);
 
 		props[0] = 0x00000526;
 		props[1] = 0x00000085;
@@ -1589,8 +1607,8 @@ int macio_ide_init(const char *path, uint32_t addr, int nb_channels)
 		props[5] = 0x00000000;
 		props[6] = 0x00000000;
 		props[7] = 0x00000000;
-		OLDWORLD(set_property(dnode, "AAPL,pio-timing",
-				      (char *)&props, 8*sizeof(props[0])));
+		set_property(dnode, "AAPL,pio-timing",
+				      (char *)&props, 8*sizeof(props[0]));
 
 		/* The first interrupt entry is the ide interrupt, the second
 		   the dbdma interrupt */
@@ -1633,9 +1651,9 @@ int macio_ide_init(const char *path, uint32_t addr, int nb_channels)
 		OLDWORLD(set_property(dnode, "AAPL,address",
 				      (char *)&props, 2*sizeof(props[0])));
 
-		props[0] = 0;
-		OLDWORLD(set_property(dnode, "AAPL,bus-id", (char*)props,
-			 1 * sizeof(props[0])));
+		props[0] = i;
+		set_property(dnode, "AAPL,bus-id", (char*)props,
+			 1 * sizeof(props[0]));
 		IDE_DPRINTF(DEV_NAME": [io ports 0x%lx]\n",
 		            current_channel, chan->mmio);
 
@@ -1663,11 +1681,9 @@ int macio_ide_init(const char *path, uint32_t addr, int nb_channels)
 					break;
 			}
 			IDE_DPRINTF("%s]: %s\n", media, drive->model);
-                        snprintf(nodebuff, sizeof(nodebuff),
-                                 "%s/" DEV_NAME "/%s", path, current_channel,
-                                 media);
-			REGISTER_NAMED_NODE(ob_ide, nodebuff);
-			dnode = find_dev(nodebuff);
+			snprintf(nodebuff, sizeof(nodebuff), "%s/%s",
+				 get_path_from_ph(dnode), media);
+			REGISTER_NAMED_NODE_PHANDLE(ob_ide, nodebuff, dnode);
 			set_int_property(dnode, "reg", j);
 
 			/* create aliases */

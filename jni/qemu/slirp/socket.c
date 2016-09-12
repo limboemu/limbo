@@ -5,8 +5,9 @@
  * terms and conditions of the copyright.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
-#include <slirp.h>
+#include "slirp.h"
 #include "ip_icmp.h"
 #ifdef __sun__
 #include <sys/filio.h>
@@ -15,24 +16,26 @@
 static void sofcantrcvmore(struct socket *so);
 static void sofcantsendmore(struct socket *so);
 
-struct socket *
-solookup(struct socket *head, struct in_addr laddr, u_int lport,
-         struct in_addr faddr, u_int fport)
+struct socket *solookup(struct socket **last, struct socket *head,
+        struct sockaddr_storage *lhost, struct sockaddr_storage *fhost)
 {
-	struct socket *so;
+    struct socket *so = *last;
 
-	for (so = head->so_next; so != head; so = so->so_next) {
-		if (so->so_lport == lport &&
-		    so->so_laddr.s_addr == laddr.s_addr &&
-		    so->so_faddr.s_addr == faddr.s_addr &&
-		    so->so_fport == fport)
-		   break;
-	}
+    /* Optimisation */
+    if (so != head && sockaddr_equal(&(so->lhost.ss), lhost)
+            && (!fhost || sockaddr_equal(&so->fhost.ss, fhost))) {
+        return so;
+    }
 
-	if (so == head)
-	   return (struct socket *)NULL;
-	return so;
+    for (so = head->so_next; so != head; so = so->so_next) {
+        if (sockaddr_equal(&(so->lhost.ss), lhost)
+                && (!fhost || sockaddr_equal(&so->fhost.ss, fhost))) {
+            *last = so;
+            return so;
+        }
+    }
 
+    return (struct socket *)NULL;
 }
 
 /*
@@ -91,7 +94,7 @@ size_t sopreprbuf(struct socket *so, struct iovec *iov, int *np)
 	int mss = so->so_tcpcb->t_maxseg;
 
 	DEBUG_CALL("sopreprbuf");
-	DEBUG_ARG("so = %lx", (long )so);
+	DEBUG_ARG("so = %p", so);
 
 	if (len <= 0)
 		return 0;
@@ -155,7 +158,7 @@ soread(struct socket *so)
 	struct iovec iov[2];
 
 	DEBUG_CALL("soread");
-	DEBUG_ARG("so = %lx", (long )so);
+	DEBUG_ARG("so = %p", so);
 
 	/*
 	 * No need to check if there's enough room to read.
@@ -173,9 +176,24 @@ soread(struct socket *so)
 		if (nn < 0 && (errno == EINTR || errno == EAGAIN))
 			return 0;
 		else {
+			int err;
+			socklen_t slen = sizeof err;
+
+			err = errno;
+			if (nn == 0) {
+				getsockopt(so->s, SOL_SOCKET, SO_ERROR,
+					   &err, &slen);
+			}
+
 			DEBUG_MISC((dfd, " --- soread() disconnected, nn = %d, errno = %d-%s\n", nn, errno,strerror(errno)));
 			sofcantrcvmore(so);
-			tcp_sockclosed(sototcpcb(so));
+
+			if (err == ECONNRESET || err == ECONNREFUSED
+			    || err == ENOTCONN || err == EPIPE) {
+				tcp_drop(sototcpcb(so), err);
+			} else {
+				tcp_sockclosed(sototcpcb(so));
+			}
 			return -1;
 		}
 	}
@@ -188,7 +206,7 @@ soread(struct socket *so)
 	 * We don't test for <= 0 this time, because there legitimately
 	 * might not be any more data (since the socket is non-blocking),
 	 * a close will be detected on next iteration.
-	 * A return of -1 wont (shouldn't) happen, since it didn't happen above
+	 * A return of -1 won't (shouldn't) happen, since it didn't happen above
 	 */
 	if (n == 2 && nn == iov[0].iov_len) {
             int ret;
@@ -215,7 +233,7 @@ int soreadbuf(struct socket *so, const char *buf, int size)
 	struct iovec iov[2];
 
 	DEBUG_CALL("soreadbuf");
-	DEBUG_ARG("so = %lx", (long )so);
+	DEBUG_ARG("so = %p", so);
 
 	/*
 	 * No need to check if there's enough room to read.
@@ -257,13 +275,14 @@ err:
  * so when OOB data arrives, we soread() it and everything
  * in the send buffer is sent as urgent data
  */
-void
+int
 sorecvoob(struct socket *so)
 {
 	struct tcpcb *tp = sototcpcb(so);
+	int ret;
 
 	DEBUG_CALL("sorecvoob");
-	DEBUG_ARG("so = %lx", (long)so);
+	DEBUG_ARG("so = %p", so);
 
 	/*
 	 * We take a guess at how much urgent data has arrived.
@@ -273,11 +292,15 @@ sorecvoob(struct socket *so)
 	 * urgent data, or the read() doesn't return all the
 	 * urgent data.
 	 */
-	soread(so);
-	tp->snd_up = tp->snd_una + so->so_snd.sb_cc;
-	tp->t_force = 1;
-	tcp_output(tp);
-	tp->t_force = 0;
+	ret = soread(so);
+	if (ret > 0) {
+	    tp->snd_up = tp->snd_una + so->so_snd.sb_cc;
+	    tp->t_force = 1;
+	    tcp_output(tp);
+	    tp->t_force = 0;
+	}
+
+	return ret;
 }
 
 /*
@@ -293,7 +316,7 @@ sosendoob(struct socket *so)
 	int n, len;
 
 	DEBUG_CALL("sosendoob");
-	DEBUG_ARG("so = %lx", (long)so);
+	DEBUG_ARG("so = %p", so);
 	DEBUG_ARG("sb->sb_cc = %d", sb->sb_cc);
 
 	if (so->so_urgc > 2048)
@@ -351,7 +374,7 @@ sowrite(struct socket *so)
 	struct iovec iov[2];
 
 	DEBUG_CALL("sowrite");
-	DEBUG_ARG("so = %lx", (long)so);
+	DEBUG_ARG("so = %p", so);
 
 	if (so->so_urgc) {
 		sosendoob(so);
@@ -437,11 +460,12 @@ sowrite(struct socket *so)
 void
 sorecvfrom(struct socket *so)
 {
-	struct sockaddr_in addr;
-	socklen_t addrlen = sizeof(struct sockaddr_in);
+	struct sockaddr_storage addr;
+	struct sockaddr_storage saddr, daddr;
+	socklen_t addrlen = sizeof(struct sockaddr_storage);
 
 	DEBUG_CALL("sorecvfrom");
-	DEBUG_ARG("so = %lx", (long)so);
+	DEBUG_ARG("so = %p", so);
 
 	if (so->so_type == IPPROTO_ICMP) {   /* This is a "ping" reply */
 	  char buff[256];
@@ -459,7 +483,7 @@ sorecvfrom(struct socket *so)
 
 	    DEBUG_MISC((dfd," udp icmp rx errno = %d-%s\n",
 			errno,strerror(errno)));
-	    icmp_error(so->so_m, ICMP_UNREACH,code, 0,strerror(errno));
+	    icmp_send_error(so->so_m, ICMP_UNREACH, code, 0, strerror(errno));
 	  } else {
 	    icmp_reflect(so->so_m);
             so->so_m = NULL; /* Don't m_free() it again! */
@@ -479,7 +503,18 @@ sorecvfrom(struct socket *so)
 	  if (!m) {
 	      return;
 	  }
-	  m->m_data += IF_MAXLINKHDR;
+	  switch (so->so_ffamily) {
+	  case AF_INET:
+	      m->m_data += IF_MAXLINKHDR + sizeof(struct udpiphdr);
+	      break;
+	  case AF_INET6:
+	      m->m_data += IF_MAXLINKHDR + sizeof(struct ip6)
+	                                 + sizeof(struct udphdr);
+	      break;
+	  default:
+	      g_assert_not_reached();
+	      break;
+	  }
 
 	  /*
 	   * XXX Shouldn't FIONREAD packets destined for port 53,
@@ -501,13 +536,37 @@ sorecvfrom(struct socket *so)
 	  DEBUG_MISC((dfd, " did recvfrom %d, errno = %d-%s\n",
 		      m->m_len, errno,strerror(errno)));
 	  if(m->m_len<0) {
-	    u_char code=ICMP_UNREACH_PORT;
+	    /* Report error as ICMP */
+	    switch (so->so_lfamily) {
+	    uint8_t code;
+	    case AF_INET:
+	      code = ICMP_UNREACH_PORT;
 
-	    if(errno == EHOSTUNREACH) code=ICMP_UNREACH_HOST;
-	    else if(errno == ENETUNREACH) code=ICMP_UNREACH_NET;
+	      if (errno == EHOSTUNREACH) {
+		code = ICMP_UNREACH_HOST;
+	      } else if (errno == ENETUNREACH) {
+		code = ICMP_UNREACH_NET;
+	      }
 
-	    DEBUG_MISC((dfd," rx error, tx icmp ICMP_UNREACH:%i\n", code));
-	    icmp_error(so->so_m, ICMP_UNREACH,code, 0,strerror(errno));
+	      DEBUG_MISC((dfd, " rx error, tx icmp ICMP_UNREACH:%i\n", code));
+	      icmp_send_error(so->so_m, ICMP_UNREACH, code, 0, strerror(errno));
+	      break;
+	    case AF_INET6:
+	      code = ICMP6_UNREACH_PORT;
+
+	      if (errno == EHOSTUNREACH) {
+		code = ICMP6_UNREACH_ADDRESS;
+	      } else if (errno == ENETUNREACH) {
+		code = ICMP6_UNREACH_NO_ROUTE;
+	      }
+
+	      DEBUG_MISC((dfd, " rx error, tx icmp6 ICMP_UNREACH:%i\n", code));
+	      icmp6_send_error(so->so_m, ICMP6_UNREACH, code);
+	      break;
+	    default:
+	      g_assert_not_reached();
+	      break;
+	    }
 	    m_free(m);
 	  } else {
 	  /*
@@ -525,9 +584,26 @@ sorecvfrom(struct socket *so)
 
 	    /*
 	     * If this packet was destined for CTL_ADDR,
-	     * make it look like that's where it came from, done by udp_output
+	     * make it look like that's where it came from
 	     */
-	    udp_output(so, m, &addr);
+	    saddr = addr;
+	    sotranslate_in(so, &saddr);
+	    daddr = so->lhost.ss;
+
+	    switch (so->so_ffamily) {
+	    case AF_INET:
+	        udp_output(so, m, (struct sockaddr_in *) &saddr,
+	                   (struct sockaddr_in *) &daddr,
+	                   so->so_iptos);
+	        break;
+	    case AF_INET6:
+	        udp6_output(so, m, (struct sockaddr_in6 *) &saddr,
+	                    (struct sockaddr_in6 *) &daddr);
+	        break;
+	    default:
+	        g_assert_not_reached();
+	        break;
+	    }
 	  } /* rx error */
 	} /* if ping packet */
 }
@@ -538,33 +614,20 @@ sorecvfrom(struct socket *so)
 int
 sosendto(struct socket *so, struct mbuf *m)
 {
-	Slirp *slirp = so->slirp;
 	int ret;
-	struct sockaddr_in addr;
+	struct sockaddr_storage addr;
 
 	DEBUG_CALL("sosendto");
-	DEBUG_ARG("so = %lx", (long)so);
-	DEBUG_ARG("m = %lx", (long)m);
+	DEBUG_ARG("so = %p", so);
+	DEBUG_ARG("m = %p", m);
 
-        addr.sin_family = AF_INET;
-	if ((so->so_faddr.s_addr & slirp->vnetwork_mask.s_addr) ==
-	    slirp->vnetwork_addr.s_addr) {
-	  /* It's an alias */
-	  if (so->so_faddr.s_addr == slirp->vnameserver_addr.s_addr) {
-	    if (get_dns_addr(&addr.sin_addr) < 0)
-	      addr.sin_addr = loopback_addr;
-	  } else {
-	    addr.sin_addr = loopback_addr;
-	  }
-	} else
-	  addr.sin_addr = so->so_faddr;
-	addr.sin_port = so->so_fport;
-
-	DEBUG_MISC((dfd, " sendto()ing, addr.sin_port=%d, addr.sin_addr.s_addr=%.16s\n", ntohs(addr.sin_port), inet_ntoa(addr.sin_addr)));
+	addr = so->fhost.ss;
+	DEBUG_CALL(" sendto()ing)");
+	sotranslate_out(so, &addr);
 
 	/* Don't care what port we get */
 	ret = sendto(so->s, m->m_data, m->m_len, 0,
-		     (struct sockaddr *)&addr, sizeof (struct sockaddr));
+		     (struct sockaddr *)&addr, sockaddr_size(&addr));
 	if (ret < 0)
 		return -1;
 
@@ -619,6 +682,7 @@ tcp_listen(Slirp *slirp, uint32_t haddr, u_int hport, uint32_t laddr,
 
 	so->so_state &= SS_PERSISTENT_MASK;
 	so->so_state |= (SS_FACCEPTCONN | flags);
+	so->so_lfamily = AF_INET;
 	so->so_lport = lport; /* Kept in network format */
 	so->so_laddr.s_addr = laddr; /* Ditto */
 
@@ -645,6 +709,7 @@ tcp_listen(Slirp *slirp, uint32_t haddr, u_int hport, uint32_t laddr,
 	qemu_setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &opt, sizeof(int));
 
 	getsockname(s,(struct sockaddr *)&addr,&addrlen);
+	so->so_ffamily = AF_INET;
 	so->so_fport = addr.sin_port;
 	if (addr.sin_addr.s_addr == 0 || addr.sin_addr.s_addr == loopback_addr.s_addr)
 	   so->so_faddr = slirp->vhost_addr;
@@ -717,4 +782,117 @@ sofwdrain(struct socket *so)
 		so->so_state |= SS_FWDRAIN;
 	else
 		sofcantsendmore(so);
+}
+
+/*
+ * Translate addr in host addr when it is a virtual address
+ */
+void sotranslate_out(struct socket *so, struct sockaddr_storage *addr)
+{
+    Slirp *slirp = so->slirp;
+    struct sockaddr_in *sin = (struct sockaddr_in *)addr;
+    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)addr;
+
+    switch (addr->ss_family) {
+    case AF_INET:
+        if ((so->so_faddr.s_addr & slirp->vnetwork_mask.s_addr) ==
+                slirp->vnetwork_addr.s_addr) {
+            /* It's an alias */
+            if (so->so_faddr.s_addr == slirp->vnameserver_addr.s_addr) {
+                if (get_dns_addr(&sin->sin_addr) < 0) {
+                    sin->sin_addr = loopback_addr;
+                }
+            } else {
+                sin->sin_addr = loopback_addr;
+            }
+        }
+
+        DEBUG_MISC((dfd, " addr.sin_port=%d, "
+            "addr.sin_addr.s_addr=%.16s\n",
+            ntohs(sin->sin_port), inet_ntoa(sin->sin_addr)));
+        break;
+
+    case AF_INET6:
+        if (in6_equal_net(&so->so_faddr6, &slirp->vprefix_addr6,
+                    slirp->vprefix_len)) {
+            if (in6_equal(&so->so_faddr6, &slirp->vnameserver_addr6)) {
+                uint32_t scope_id;
+                if (get_dns6_addr(&sin6->sin6_addr, &scope_id) >= 0) {
+                    sin6->sin6_scope_id = scope_id;
+                } else {
+                    sin6->sin6_addr = in6addr_loopback;
+                }
+            } else {
+                sin6->sin6_addr = in6addr_loopback;
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+void sotranslate_in(struct socket *so, struct sockaddr_storage *addr)
+{
+    Slirp *slirp = so->slirp;
+    struct sockaddr_in *sin = (struct sockaddr_in *)addr;
+    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)addr;
+
+    switch (addr->ss_family) {
+    case AF_INET:
+        if ((so->so_faddr.s_addr & slirp->vnetwork_mask.s_addr) ==
+            slirp->vnetwork_addr.s_addr) {
+            uint32_t inv_mask = ~slirp->vnetwork_mask.s_addr;
+
+            if ((so->so_faddr.s_addr & inv_mask) == inv_mask) {
+                sin->sin_addr = slirp->vhost_addr;
+            } else if (sin->sin_addr.s_addr == loopback_addr.s_addr ||
+                       so->so_faddr.s_addr != slirp->vhost_addr.s_addr) {
+                sin->sin_addr = so->so_faddr;
+            }
+        }
+        break;
+
+    case AF_INET6:
+        if (in6_equal_net(&so->so_faddr6, &slirp->vprefix_addr6,
+                    slirp->vprefix_len)) {
+            if (in6_equal(&sin6->sin6_addr, &in6addr_loopback)
+                    || !in6_equal(&so->so_faddr6, &slirp->vhost_addr6)) {
+                sin6->sin6_addr = so->so_faddr6;
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+/*
+ * Translate connections from localhost to the real hostname
+ */
+void sotranslate_accept(struct socket *so)
+{
+    Slirp *slirp = so->slirp;
+
+    switch (so->so_ffamily) {
+    case AF_INET:
+        if (so->so_faddr.s_addr == INADDR_ANY ||
+            (so->so_faddr.s_addr & loopback_mask) ==
+            (loopback_addr.s_addr & loopback_mask)) {
+           so->so_faddr = slirp->vhost_addr;
+        }
+        break;
+
+   case AF_INET6:
+        if (in6_equal(&so->so_faddr6, &in6addr_any) ||
+                in6_equal(&so->so_faddr6, &in6addr_loopback)) {
+           so->so_faddr6 = slirp->vhost_addr6;
+        }
+        break;
+
+    default:
+        break;
+    }
 }

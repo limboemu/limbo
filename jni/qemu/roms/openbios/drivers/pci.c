@@ -144,9 +144,16 @@ static void dump_reg_property(const char* description, int nreg, u32 *reg)
 }
 #endif
 
-static unsigned long pci_bus_addr_to_host_addr(uint32_t ba)
+static unsigned long pci_bus_addr_to_host_addr(int space, uint32_t ba)
 {
-    return arch->host_pci_base + (unsigned long)ba;
+    if (space == IO_SPACE) {
+        return arch->io_base + (unsigned long)ba;
+    } else if (space == MEMORY_SPACE_32) {
+        return arch->host_pci_base + (unsigned long)ba;
+    } else {
+        /* Return unaltered to aid debugging property values */
+        return (unsigned long)ba;
+    }
 }
 
 static void
@@ -340,22 +347,27 @@ ob_pci_encode_unit(int *idx)
 	        ss, dev, fn, buf);
 }
 
-/* ( pci-addr.lo pci-addr.hi size -- virt ) */
+/* ( pci-addr.lo pci-addr.mid pci-addr.hi size -- virt ) */
 
 static void
 ob_pci_map_in(int *idx)
 {
 	phys_addr_t phys;
 	uint32_t ba;
-	ucell size, virt;
+	ucell size, virt, tmp;
+	int space;
 
 	PCI_DPRINTF("ob_pci_bar_map_in idx=%p\n", idx);
 
 	size = POP();
+	tmp = POP();
 	POP();
 	ba = POP();
 
-	phys = pci_bus_addr_to_host_addr(ba);
+	/* Get the space from the pci-addr.hi */
+	space = ((tmp & PCI_RANGE_TYPE_MASK) >> 24);
+
+	phys = pci_bus_addr_to_host_addr(space, ba);
 
 #if defined(CONFIG_OFMEM)
 	ofmem_claim_phys(phys, size, 0);
@@ -448,13 +460,18 @@ static void pci_host_set_ranges(const pci_config_t *config)
 	int ncells;
 
 	ncells = 0;
-	/* first encode PCI configuration space */
-	{
-	    ncells += pci_encode_phys_addr(props + ncells, 0, CONFIGURATION_SPACE,
+	
+#ifdef CONFIG_SPARC64
+        /* While configuration space isn't mentioned in the IEEE-1275 PCI
+           bindings, it appears in the PCI host bridge ranges property in
+           real device trees. Hence we disable this range for all host
+           bridges except for SPARC, particularly as it causes Darwin/OS X
+           to incorrectly calculated PCI memory space ranges on PPC. */
+	ncells += pci_encode_phys_addr(props + ncells, 0, CONFIGURATION_SPACE,
                      config->dev, 0, 0);
         ncells += host_encode_phys_addr(props + ncells, arch->cfg_addr);
         ncells += pci_encode_size(props + ncells, arch->cfg_len);
-	}
+#endif
 
 	if (arch->io_base) {
 	    ncells += pci_encode_phys_addr(props + ncells, 0, IO_SPACE,
@@ -585,13 +602,18 @@ static void pci_set_AAPL_address(const pci_config_t *config)
 {
 	phandle_t dev = get_cur_dev();
 	cell props[7];
-	int ncells, i;
+	uint32_t mask;
+	int ncells, i, flags, space_code;
 
 	ncells = 0;
 	for (i = 0; i < 6; i++) {
 		if (!config->assigned[i] || !config->sizes[i])
 			continue;
-		props[ncells++] = config->assigned[i] & ~0x0000000F;
+		pci_decode_pci_addr(config->assigned[i],
+				    &flags, &space_code, &mask);
+
+		props[ncells++] = pci_bus_addr_to_host_addr(space_code,
+					config->assigned[i] & ~mask);
 	}
 	if (ncells)
 		set_property(dev, "AAPL,address", (char *)props,
@@ -752,13 +774,19 @@ int macio_keylargo_config_cb (const pci_config_t *config)
 int vga_config_cb (const pci_config_t *config)
 {
         unsigned long rom;
-        uint32_t rom_size, size;
+        uint32_t rom_size, size, mask;
+        int flags, space_code;
         phandle_t ph;
 
         if (config->assigned[0] != 0x00000000) {
             setup_video();
 
-            rom = pci_bus_addr_to_host_addr(config->assigned[1] & ~0x0000000F);
+            pci_decode_pci_addr(config->assigned[1],
+                &flags, &space_code, &mask);
+
+            rom = pci_bus_addr_to_host_addr(space_code,
+                                            config->assigned[1] & ~0x0000000F);
+
             rom_size = config->sizes[1];
 
             ph = get_cur_dev();
@@ -824,7 +852,7 @@ int ebus_config_cb(const pci_config_t *config)
         ncells += pci_encode_phys_addr(props + ncells,
                                        flags, space_code, config->dev,
                                        PCI_BASE_ADDR_0 + (i * sizeof(uint32_t)),
-                                       0);
+                                       config->assigned[i] & ~mask);
 
         props[ncells++] = config->sizes[i];
     }
@@ -997,7 +1025,10 @@ static void ob_pci_add_properties(phandle_t phandle,
 	}
 
 	pci_set_assigned_addresses(phandle, config, num_bars);
-	OLDWORLD(pci_set_AAPL_address(config));
+	
+	if (is_apple()) {
+		pci_set_AAPL_address(config);
+	}
 
 	PCI_DPRINTF("\n");
 }
@@ -1397,9 +1428,11 @@ static void ob_pci_set_available(phandle_t host, unsigned long mem_base, unsigne
 
 static void ob_pci_host_set_interrupt_map(phandle_t host)
 {
-    phandle_t dnode = 0;
-    u32 props[128];
-    int i;
+    phandle_t dnode = 0, pci_childnode = 0;
+    u32 props[128], intno;
+    int i, ncells, len;
+    u32 *val, addr;
+    char *reg;
 
 #if defined(CONFIG_PPC)
     phandle_t target_node;
@@ -1420,16 +1453,22 @@ static void ob_pci_host_set_interrupt_map(phandle_t host)
         target_node = find_dev("/pci/mac-io/escc/ch-b");
         set_int_property(target_node, "interrupt-parent", dnode);
 
+        target_node = find_dev("/pci/mac-io/escc-legacy/ch-a");
+        set_int_property(target_node, "interrupt-parent", dnode);
+
+        target_node = find_dev("/pci/mac-io/escc-legacy/ch-b");
+        set_int_property(target_node, "interrupt-parent", dnode);
+
         /* QEMU only emulates 2 of the 3 ata buses currently */
         /* On a new world Mac these are not numbered but named by the
          * ATA version they support. Thus we have: ata-3, ata-3, ata-4
          * On g3beige they all called just ide.
-         * We take ata-3 and ata-4 which seems to work for both
-         * at least for clients we care about */
-        target_node = find_dev("/pci/mac-io/ata-3");
+         * We take 2 x ata-3 buses which seems to work for
+         * at least the clients we care about */
+        target_node = find_dev("/pci/mac-io/ata-3@20000");
         set_int_property(target_node, "interrupt-parent", dnode);
 
-        target_node = find_dev("/pci/mac-io/ata-4");
+        target_node = find_dev("/pci/mac-io/ata-3@21000");
         set_int_property(target_node, "interrupt-parent", dnode);
 
         target_node = find_dev("/pci/mac-io/via-cuda");
@@ -1437,69 +1476,61 @@ static void ob_pci_host_set_interrupt_map(phandle_t host)
 
         target_node = find_dev("/pci");
         set_int_property(target_node, "interrupt-parent", dnode);
-
-        /* openpic interrupt mapping */
-        for (i = 0; i < (7*8); i += 7) {
-            props[i + PCI_INT_MAP_PCI0] = 0;
-            props[i + PCI_INT_MAP_PCI1] = 0;
-            props[i + PCI_INT_MAP_PCI2] = 0;
-            props[i + PCI_INT_MAP_PCI_INT] = (i / 7) + 1; // starts at PINA=1
-            props[i + PCI_INT_MAP_PIC_HANDLE] = dnode;
-            props[i + PCI_INT_MAP_PIC_INT] = arch->irqs[i / 7];
-            props[i + PCI_INT_MAP_PIC_POL] = 3;
-        }
-        set_property(host, "interrupt-map", (char *)props, 7 * 8 * sizeof(props[0]));
-
-        props[PCI_INT_MAP_PCI0] = 0;
-        props[PCI_INT_MAP_PCI1] = 0;
-        props[PCI_INT_MAP_PCI2] = 0;
-        props[PCI_INT_MAP_PCI_INT] = 0x7;
-
-        set_property(host, "interrupt-map-mask", (char *)props, 4 * sizeof(props[0]));
     }
-#elif defined(CONFIG_SPARC64)
-    int ncells, len;
-    u32 *val, addr;
-    char *reg;
+#else
+    /* PCI host bridge is the default interrupt controller */
+    dnode = host;
+#endif
 
     /* Set interrupt-map for PCI devices with an interrupt pin present */
     ncells = 0;
 
     PUSH(host);
     fword("child");
-    dnode = POP();
-    while (dnode) {
-        if (get_int_property(dnode, "interrupts", &len)) {
-            reg = get_property(dnode, "reg", &len);
-            if (reg) {
+    pci_childnode = POP();
+    while (pci_childnode) {
+        intno = get_int_property(pci_childnode, "interrupts", &len);
+        if (len && intno) {
+            reg = get_property(pci_childnode, "reg", &len);
+            if (len && reg) {
                 val = (u32 *)reg;
 
                 for (i = 0; i < (len / sizeof(u32)); i += 5) {
                     addr = val[i];
 
                     /* Device address is in 1st 32-bit word of encoded PCI address for config space */
-                    if (!(addr & 0x03000000)) {
+                    if ((addr & PCI_RANGE_TYPE_MASK) == PCI_RANGE_CONFIG) {
+#if defined(CONFIG_SPARC64)
                         ncells += pci_encode_phys_addr(props + ncells, 0, 0, addr, 0, 0);
-                        props[ncells++] = 1;    /* always interrupt pin 1 for QEMU */
-                        props[ncells++] = host;
-                        props[ncells++] = SUN4U_INTERRUPT(addr, 1);
+                        props[ncells++] = intno;
+                        props[ncells++] = dnode;
+                        props[ncells++] = SUN4U_INTERRUPT(addr, intno);
+#elif defined(CONFIG_PPC)
+                        ncells += pci_encode_phys_addr(props + ncells, 0, 0, addr, 0, 0);
+                        props[ncells++] = intno;
+                        props[ncells++] = dnode;
+                        props[ncells++] = arch->irqs[intno - 1];
+                        props[ncells++] = 3;
+#else
+                        /* Keep compiler quiet */
+                        dnode = dnode;
+#endif
                     }
                 }
             }
         }
 
-        PUSH(dnode);
+        PUSH(pci_childnode);
         fword("peer");
-        dnode = POP();
+        pci_childnode = POP();
     }
     set_property(host, "interrupt-map", (char *)props, ncells * sizeof(props[0]));
 
     props[0] = 0x0000f800;
     props[1] = 0x0;
     props[2] = 0x0;
-    props[3] = 7;
+    props[3] = 0x7;
     set_property(host, "interrupt-map-mask", (char *)props, 4 * sizeof(props[0]));
-#endif
 }
 
 int ob_pci_init(void)

@@ -18,6 +18,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "qemu/timer.h"
 #include "hw/usb.h"
@@ -25,6 +26,7 @@
 #include "hw/pci/msi.h"
 #include "hw/pci/msix.h"
 #include "trace.h"
+#include "qapi/error.h"
 
 //#define DEBUG_XHCI
 //#define DEBUG_DATA
@@ -460,6 +462,8 @@ struct XHCIState {
     uint32_t numslots;
     uint32_t flags;
     uint32_t max_pstreams_mask;
+    OnOffAuto msi;
+    OnOffAuto msix;
 
     /* Operational Registers */
     uint32_t usbcmd;
@@ -497,9 +501,7 @@ typedef struct XHCIEvRingSeg {
 } XHCIEvRingSeg;
 
 enum xhci_flags {
-    XHCI_FLAG_USE_MSI = 1,
-    XHCI_FLAG_USE_MSI_X,
-    XHCI_FLAG_SS_FIRST,
+    XHCI_FLAG_SS_FIRST = 1,
     XHCI_FLAG_FORCE_PCIE_ENDCAP,
     XHCI_FLAG_ENABLE_STREAMS,
 };
@@ -697,11 +699,13 @@ static inline void xhci_dma_write_u32s(XHCIState *xhci, dma_addr_t addr,
                                        uint32_t *buf, size_t len)
 {
     int i;
-    uint32_t tmp[len / sizeof(uint32_t)];
+    uint32_t tmp[5];
+    uint32_t n = len / sizeof(uint32_t);
 
     assert((len % sizeof(uint32_t)) == 0);
+    assert(n <= ARRAY_SIZE(tmp));
 
-    for (i = 0; i < (len / sizeof(uint32_t)); i++) {
+    for (i = 0; i < n; i++) {
         tmp[i] = cpu_to_le32(buf[i]);
     }
     pci_dma_write(PCI_DEVICE(xhci), addr, tmp, len);
@@ -1453,9 +1457,7 @@ static int xhci_ep_nuke_one_xfer(XHCITransfer *t, TRBCCode report)
         t->running_retry = 0;
         killed = 1;
     }
-    if (t->trbs) {
-        g_free(t->trbs);
-    }
+    g_free(t->trbs);
 
     t->trbs = NULL;
     t->trb_count = t->trb_alloced = 0;
@@ -1530,7 +1532,10 @@ static TRBCCode xhci_disable_ep(XHCIState *xhci, unsigned int slotid,
         usb_packet_cleanup(&epctx->transfers[i].packet);
     }
 
-    xhci_set_ep_state(xhci, epctx, NULL, EP_DISABLED);
+    /* only touch guest RAM if we're not resetting the HC */
+    if (xhci->dcbaap_low || xhci->dcbaap_high) {
+        xhci_set_ep_state(xhci, epctx, NULL, EP_DISABLED);
+    }
 
     timer_free(epctx->kick_timer);
     g_free(epctx);
@@ -1767,18 +1772,9 @@ static void xhci_xfer_report(XHCITransfer *xfer)
             break;
         }
 
-        /*
-         * XHCI 1.1, 4.11.3.1 Transfer Event TRB -- "each Transfer TRB
-         * encountered with its IOC flag set to '1' shall generate a Transfer
-         * Event."
-         *
-         * Otherwise, longer transfers can have multiple data TRBs (for scatter
-         * gather). Short transfers and errors should be reported once per
-         * transfer only.
-         */
-        if ((trb->control & TRB_TR_IOC) ||
-            (!reported && ((shortpkt && (trb->control & TRB_TR_ISP)) ||
-                           (xfer->status != CC_SUCCESS && left == 0)))) {
+        if (!reported && ((trb->control & TRB_TR_IOC) ||
+                          (shortpkt && (trb->control & TRB_TR_ISP)) ||
+                          (xfer->status != CC_SUCCESS && left == 0))) {
             event.slotid = xfer->slotid;
             event.epid = xfer->epid;
             event.length = (trb->status & 0x1ffff) - chunk;
@@ -1802,6 +1798,14 @@ static void xhci_xfer_report(XHCITransfer *xfer)
                 return;
             }
         }
+
+        switch (TRB_TYPE(*trb)) {
+        case TR_SETUP:
+            reported = 0;
+            shortpkt = 0;
+            break;
+        }
+
     }
 }
 
@@ -2191,20 +2195,21 @@ static void xhci_kick_ep(XHCIState *xhci, unsigned int slotid,
             xfer->trbs = NULL;
         }
         if (!xfer->trbs) {
-            xfer->trbs = g_malloc(sizeof(XHCITRB) * length);
+            xfer->trbs = g_new(XHCITRB, length);
             xfer->trb_alloced = length;
         }
         xfer->trb_count = length;
 
         for (i = 0; i < length; i++) {
-            assert(xhci_ring_fetch(xhci, ring, &xfer->trbs[i], NULL));
+            TRBType type;
+            type = xhci_ring_fetch(xhci, ring, &xfer->trbs[i], NULL);
+            assert(type);
         }
         xfer->streamid = streamid;
 
         if (epid == 1) {
             if (xhci_fire_ctl_transfer(xhci, xfer) >= 0) {
                 epctx->next_xfer = (epctx->next_xfer + 1) % TD_QUEUE;
-                ep = xfer->packet.ep;
             } else {
                 DPRINTF("xhci: error firing CTL transfer\n");
             }
@@ -2361,6 +2366,8 @@ static TRBCCode xhci_address_slot(XHCIState *xhci, unsigned int slotid,
     slot->uport = uport;
     slot->ctx = octx;
 
+    /* Make sure device is in USB_STATE_DEFAULT state */
+    usb_device_reset(dev);
     if (bsr) {
         slot_ctx[3] = SLOT_DEFAULT << SLOT_STATE_SHIFT;
     } else {
@@ -2368,7 +2375,6 @@ static TRBCCode xhci_address_slot(XHCIState *xhci, unsigned int slotid,
         uint8_t buf[1];
 
         slot_ctx[3] = (SLOT_ADDRESSED << SLOT_STATE_SHIFT) | slotid;
-        usb_device_reset(dev);
         memset(&p, 0, sizeof(p));
         usb_packet_addbuf(&p, buf, sizeof(buf));
         usb_packet_setup(&p, USB_TOKEN_OUT,
@@ -3579,6 +3585,7 @@ static void usb_xhci_init(XHCIState *xhci)
 static void usb_xhci_realize(struct PCIDevice *dev, Error **errp)
 {
     int i, ret;
+    Error *err = NULL;
 
     XHCIState *xhci = XHCI(dev);
 
@@ -3588,6 +3595,23 @@ static void usb_xhci_realize(struct PCIDevice *dev, Error **errp)
     dev->config[0x60] = 0x30; /* release number */
 
     usb_xhci_init(xhci);
+
+    if (xhci->msi != ON_OFF_AUTO_OFF) {
+        ret = msi_init(dev, 0x70, xhci->numintrs, true, false, &err);
+        /* Any error other than -ENOTSUP(board's MSI support is broken)
+         * is a programming error */
+        assert(!ret || ret == -ENOTSUP);
+        if (ret && xhci->msi == ON_OFF_AUTO_ON) {
+            /* Can't satisfy user's explicit msi=on request, fail */
+            error_append_hint(&err, "You have to use msi=auto (default) or "
+                    "msi=off with this machine type.\n");
+            error_propagate(errp, err);
+            return;
+        }
+        assert(!err || xhci->msi == ON_OFF_AUTO_AUTO);
+        /* With msi=auto, we fall back to MSI off silently */
+        error_free(err);
+    }
 
     if (xhci->numintrs > MAXINTRS) {
         xhci->numintrs = MAXINTRS;
@@ -3646,10 +3670,8 @@ static void usb_xhci_realize(struct PCIDevice *dev, Error **errp)
         assert(ret >= 0);
     }
 
-    if (xhci_get_flag(xhci, XHCI_FLAG_USE_MSI)) {
-        msi_init(dev, 0x70, xhci->numintrs, true, false);
-    }
-    if (xhci_get_flag(xhci, XHCI_FLAG_USE_MSI_X)) {
+    if (xhci->msix != ON_OFF_AUTO_OFF) {
+        /* TODO check for errors */
         msix_init(dev, xhci->numintrs,
                   &xhci->mem, 0, OFF_MSIX_TABLE,
                   &xhci->mem, 0, OFF_MSIX_PBA,
@@ -3870,8 +3892,8 @@ static const VMStateDescription vmstate_xhci = {
 };
 
 static Property xhci_properties[] = {
-    DEFINE_PROP_BIT("msi",      XHCIState, flags, XHCI_FLAG_USE_MSI, true),
-    DEFINE_PROP_BIT("msix",     XHCIState, flags, XHCI_FLAG_USE_MSI_X, true),
+    DEFINE_PROP_ON_OFF_AUTO("msi", XHCIState, msi, ON_OFF_AUTO_AUTO),
+    DEFINE_PROP_ON_OFF_AUTO("msix", XHCIState, msix, ON_OFF_AUTO_AUTO),
     DEFINE_PROP_BIT("superspeed-ports-first",
                     XHCIState, flags, XHCI_FLAG_SS_FIRST, true),
     DEFINE_PROP_BIT("force-pcie-endcap", XHCIState, flags,

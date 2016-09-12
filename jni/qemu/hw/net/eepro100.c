@@ -40,7 +40,7 @@
  *      * Wake-on-LAN is not implemented.
  */
 
-#include <stddef.h>             /* offsetof */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/pci/pci.h"
 #include "net/net.h"
@@ -352,14 +352,14 @@ static unsigned e100_compute_mcast_idx(const uint8_t *ep)
 static uint16_t e100_read_reg2(EEPRO100State *s, E100RegisterOffset addr)
 {
     assert(!((uintptr_t)&s->mem[addr] & 1));
-    return le16_to_cpup((uint16_t *)&s->mem[addr]);
+    return lduw_le_p(&s->mem[addr]);
 }
 
 /* Read a 32 bit control/status (CSR) register. */
 static uint32_t e100_read_reg4(EEPRO100State *s, E100RegisterOffset addr)
 {
     assert(!((uintptr_t)&s->mem[addr] & 3));
-    return le32_to_cpup((uint32_t *)&s->mem[addr]);
+    return ldl_le_p(&s->mem[addr]);
 }
 
 /* Write a 16 bit control/status (CSR) register. */
@@ -367,7 +367,7 @@ static void e100_write_reg2(EEPRO100State *s, E100RegisterOffset addr,
                             uint16_t val)
 {
     assert(!((uintptr_t)&s->mem[addr] & 1));
-    cpu_to_le16w((uint16_t *)&s->mem[addr], val);
+    stw_le_p(&s->mem[addr], val);
 }
 
 /* Read a 32 bit control/status (CSR) register. */
@@ -375,7 +375,7 @@ static void e100_write_reg4(EEPRO100State *s, E100RegisterOffset addr,
                             uint32_t val)
 {
     assert(!((uintptr_t)&s->mem[addr] & 3));
-    cpu_to_le32w((uint32_t *)&s->mem[addr], val);
+    stl_le_p(&s->mem[addr], val);
 }
 
 #if defined(DEBUG_EEPRO100)
@@ -774,6 +774,11 @@ static void tx_command(EEPRO100State *s)
 #if 0
         uint16_t tx_buffer_el = lduw_le_pci_dma(&s->dev, tbd_address + 6);
 #endif
+        if (tx_buffer_size == 0) {
+            /* Prevent an endless loop. */
+            logout("loop in %s:%u\n", __FILE__, __LINE__);
+            break;
+        }
         tbd_address += 8;
         TRACE(RXTX, logout
             ("TBD (simplified mode): buffer address 0x%08x, size 0x%04x\n",
@@ -855,6 +860,10 @@ static void set_multicast_list(EEPRO100State *s)
 
 static void action_command(EEPRO100State *s)
 {
+    /* The loop below won't stop if it gets special handcrafted data.
+       Therefore we limit the number of iterations. */
+    unsigned max_loop_count = 16;
+
     for (;;) {
         bool bit_el;
         bool bit_s;
@@ -870,6 +879,13 @@ static void action_command(EEPRO100State *s)
 #if 0
         bool bit_sf = ((s->tx.command & COMMAND_SF) != 0);
 #endif
+
+        if (max_loop_count-- == 0) {
+            /* Prevent an endless loop. */
+            logout("loop in %s:%u\n", __FILE__, __LINE__);
+            break;
+        }
+
         s->cu_offset = s->tx.link;
         TRACE(OTHER,
               logout("val=(cu start), status=0x%04x, command=0x%04x, link=0x%08x\n",
@@ -1617,16 +1633,6 @@ static const MemoryRegionOps eepro100_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-static int nic_can_receive(NetClientState *nc)
-{
-    EEPRO100State *s = qemu_get_nic_opaque(nc);
-    TRACE(RXTX, logout("%p\n", s));
-    return get_ru_state(s) == ru_ready;
-#if 0
-    return !eepro100_buffer_full(s);
-#endif
-}
-
 static ssize_t nic_receive(NetClientState *nc, const uint8_t * buf, size_t size)
 {
     /* TODO:
@@ -1842,9 +1848,8 @@ static void pci_nic_uninit(PCIDevice *pci_dev)
 }
 
 static NetClientInfo net_eepro100_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
+    .type = NET_CLIENT_DRIVER_NIC,
     .size = sizeof(NICState),
-    .can_receive = nic_can_receive,
     .receive = nic_receive,
 };
 

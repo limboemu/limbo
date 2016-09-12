@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "keymaps.h"
 #include "sysemu/sysemu.h"
 
@@ -100,7 +101,6 @@ static kbd_layout_t *parse_keyboard_layout(const name2keysym_t *table,
     char line[1024];
     int len;
 
-    LOGV("Start Read keymap file: '%s'\n", language);
     filename = qemu_find_file(QEMU_FILE_TYPE_KEYMAP, language);
     f = filename ? fopen(filename, "r") : NULL;
     g_free(filename);
@@ -110,7 +110,7 @@ static kbd_layout_t *parse_keyboard_layout(const name2keysym_t *table,
     }
 
     if (!k) {
-        k = g_malloc0(sizeof(kbd_layout_t));
+        k = g_new0(kbd_layout_t, 1);
     }
 
     for(;;) {
@@ -179,7 +179,6 @@ static kbd_layout_t *parse_keyboard_layout(const name2keysym_t *table,
         }
     }
     fclose(f);
-    LOGV("Read keymap file: '%s'\n", language);
     return k;
 }
 

@@ -897,7 +897,7 @@ arch_init( void )
 		push_str("floppy");
 		break;
 	case 'c':
-		push_str("disk");
+		push_str("disk:a disk");
 		break;
 	default:
 	case 'd':

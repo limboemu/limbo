@@ -1219,12 +1219,12 @@ static int ath5k_hw_rf5110_calibrate(struct ath5k_hw *ah,
 
 	/* Update radio registers */
 	ath5k_hw_reg_write(ah, (phy_sig & ~(AR5K_PHY_SIG_FIRPWR)) |
-		AR5K_REG_SM(-1, AR5K_PHY_SIG_FIRPWR), AR5K_PHY_SIG);
+		AR5K_REG_SM(-1U, AR5K_PHY_SIG_FIRPWR), AR5K_PHY_SIG);
 
 	ath5k_hw_reg_write(ah, (phy_agc & ~(AR5K_PHY_AGCCOARSE_HI |
 			AR5K_PHY_AGCCOARSE_LO)) |
-		AR5K_REG_SM(-1, AR5K_PHY_AGCCOARSE_HI) |
-		AR5K_REG_SM(-127, AR5K_PHY_AGCCOARSE_LO), AR5K_PHY_AGCCOARSE);
+		AR5K_REG_SM(-1U, AR5K_PHY_AGCCOARSE_HI) |
+		AR5K_REG_SM(-127U, AR5K_PHY_AGCCOARSE_LO), AR5K_PHY_AGCCOARSE);
 
 	ath5k_hw_reg_write(ah, (phy_sat & ~(AR5K_PHY_ADCSAT_ICNT |
 			AR5K_PHY_ADCSAT_THR)) |

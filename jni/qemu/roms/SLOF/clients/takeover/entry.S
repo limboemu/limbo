@@ -21,7 +21,7 @@ _wrapclient:
 	bcl	20,31,over	# branch after pointer table
 base:
 	.align  3
-.LCgot:		.quad   _got-base+0x8000
+.LCgot:		.quad   _got-base
 over:
 	mflr	r8		# gpr 8 is the base
 	ld	r2, .LCgot-base(r8)	# load got pointer

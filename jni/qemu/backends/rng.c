@@ -10,7 +10,9 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
 #include "sysemu/rng.h"
+#include "qapi/error.h"
 #include "qapi/qmp/qerror.h"
 #include "qom/object_interfaces.h"
 
@@ -19,18 +21,20 @@ void rng_backend_request_entropy(RngBackend *s, size_t size,
                                  void *opaque)
 {
     RngBackendClass *k = RNG_BACKEND_GET_CLASS(s);
+    RngRequest *req;
 
     if (k->request_entropy) {
-        k->request_entropy(s, size, receive_entropy, opaque);
-    }
-}
+        req = g_malloc(sizeof(*req));
 
-void rng_backend_cancel_requests(RngBackend *s)
-{
-    RngBackendClass *k = RNG_BACKEND_GET_CLASS(s);
+        req->offset = 0;
+        req->size = size;
+        req->receive_entropy = receive_entropy;
+        req->opaque = opaque;
+        req->data = g_malloc(req->size);
 
-    if (k->cancel_requests) {
-        k->cancel_requests(s);
+        k->request_entropy(s, req);
+
+        QSIMPLEQ_INSERT_TAIL(&s->requests, req, next);
     }
 }
 
@@ -57,7 +61,7 @@ static void rng_backend_prop_set_opened(Object *obj, bool value, Error **errp)
     }
 
     if (!value && s->opened) {
-        error_set(errp, QERR_PERMISSION_DENIED);
+        error_setg(errp, QERR_PERMISSION_DENIED);
         return;
     }
 
@@ -72,12 +76,46 @@ static void rng_backend_prop_set_opened(Object *obj, bool value, Error **errp)
     s->opened = true;
 }
 
+static void rng_backend_free_request(RngRequest *req)
+{
+    g_free(req->data);
+    g_free(req);
+}
+
+static void rng_backend_free_requests(RngBackend *s)
+{
+    RngRequest *req, *next;
+
+    QSIMPLEQ_FOREACH_SAFE(req, &s->requests, next, next) {
+        rng_backend_free_request(req);
+    }
+
+    QSIMPLEQ_INIT(&s->requests);
+}
+
+void rng_backend_finalize_request(RngBackend *s, RngRequest *req)
+{
+    QSIMPLEQ_REMOVE(&s->requests, req, RngRequest, next);
+    rng_backend_free_request(req);
+}
+
 static void rng_backend_init(Object *obj)
 {
+    RngBackend *s = RNG_BACKEND(obj);
+
+    QSIMPLEQ_INIT(&s->requests);
+
     object_property_add_bool(obj, "opened",
                              rng_backend_prop_get_opened,
                              rng_backend_prop_set_opened,
                              NULL);
+}
+
+static void rng_backend_finalize(Object *obj)
+{
+    RngBackend *s = RNG_BACKEND(obj);
+
+    rng_backend_free_requests(s);
 }
 
 static void rng_backend_class_init(ObjectClass *oc, void *data)
@@ -92,6 +130,7 @@ static const TypeInfo rng_backend_info = {
     .parent = TYPE_OBJECT,
     .instance_size = sizeof(RngBackend),
     .instance_init = rng_backend_init,
+    .instance_finalize = rng_backend_finalize,
     .class_size = sizeof(RngBackendClass),
     .class_init = rng_backend_class_init,
     .abstract = true,

@@ -61,7 +61,7 @@ _rtas_start:
 ._rtas_entry_offset:	.quad   rtas_entry-_rtas_start
 ._rtas_config_offset:	.quad   rtas_config-_rtas_start
 ._rtas_stack:	        .quad   .stack-_rtas_start+RTAS_STACKSIZE-0x60
-._rtas_toc:	        .quad   _got-_rtas_start+0x8000
+._rtas_toc:	        .quad   _got-_rtas_start
 
 .over:	
 	mflr r8			# gpr 8 is the base

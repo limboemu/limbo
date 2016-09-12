@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,12 +43,16 @@ FILE_LICENCE ( GPL2_OR_LATER );
 struct lotest_options {
 	/** MTU */
 	unsigned int mtu;
+	/** Broadcast */
+	int broadcast;
 };
 
 /** "lotest" option list */
 static struct option_descriptor lotest_opts[] = {
 	OPTION_DESC ( "mtu", 'm', required_argument,
 		      struct lotest_options, mtu, parse_integer ),
+	OPTION_DESC ( "broadcast", 'b', no_argument,
+		      struct lotest_options, broadcast, parse_flag ),
 };
 
 /** "lotest" command descriptor */
@@ -82,7 +90,8 @@ static int lotest_exec ( int argc, char **argv ) {
 		opts.mtu = ETH_MAX_MTU;
 
 	/* Perform loopback test */
-	if ( ( rc = loopback_test ( sender, receiver, opts.mtu ) ) != 0 ) {
+	if ( ( rc = loopback_test ( sender, receiver, opts.mtu,
+				    opts.broadcast ) ) != 0 ) {
 		printf ( "Test failed: %s\n", strerror ( rc ) );
 		return rc;
 	}

@@ -21,14 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "qemu-common.h"
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu/cutils.h"
 #include "qemu/timer.h"
 #include "block/block_int.h"
 #include "qemu/module.h"
-#include "raw-aio.h"
+#include "block/raw-aio.h"
 #include "trace.h"
 #include "block/thread-pool.h"
 #include "qemu/iov.h"
+#include "qapi/qmp/qstring.h"
 #include <windows.h>
 #include <winioctl.h>
 
@@ -118,9 +121,9 @@ static int aio_worker(void *arg)
     case QEMU_AIO_WRITE:
         count = handle_aiocb_rw(aiocb);
         if (count == aiocb->aio_nbytes) {
-            count = 0;
+            ret = 0;
         } else {
-            count = -EINVAL;
+            ret = -EINVAL;
         }
         break;
     case QEMU_AIO_FLUSH:
@@ -134,15 +137,15 @@ static int aio_worker(void *arg)
         break;
     }
 
-    g_slice_free(RawWin32AIOData, aiocb);
+    g_free(aiocb);
     return ret;
 }
 
 static BlockAIOCB *paio_submit(BlockDriverState *bs, HANDLE hfile,
-        int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
+        int64_t offset, QEMUIOVector *qiov, int count,
         BlockCompletionFunc *cb, void *opaque, int type)
 {
-    RawWin32AIOData *acb = g_slice_new(RawWin32AIOData);
+    RawWin32AIOData *acb = g_new(RawWin32AIOData, 1);
     ThreadPool *pool;
 
     acb->bs = bs;
@@ -152,11 +155,12 @@ static BlockAIOCB *paio_submit(BlockDriverState *bs, HANDLE hfile,
     if (qiov) {
         acb->aio_iov = qiov->iov;
         acb->aio_niov = qiov->niov;
+        assert(qiov->size == count);
     }
-    acb->aio_nbytes = nb_sectors * 512;
-    acb->aio_offset = sector_num * 512;
+    acb->aio_nbytes = count;
+    acb->aio_offset = offset;
 
-    trace_paio_submit(acb, opaque, sector_num, nb_sectors, type);
+    trace_paio_submit(acb, opaque, offset, count, type);
     pool = aio_get_thread_pool(bdrv_get_aio_context(bs));
     return thread_pool_submit_aio(pool, aio_worker, acb, cb, opaque);
 }
@@ -219,7 +223,7 @@ static void raw_attach_aio_context(BlockDriverState *bs,
     }
 }
 
-static void raw_probe_alignment(BlockDriverState *bs)
+static void raw_probe_alignment(BlockDriverState *bs, Error **errp)
 {
     BDRVRawState *s = bs->opaque;
     DWORD sectorsPerCluster, freeClusters, totalClusters, count;
@@ -227,14 +231,14 @@ static void raw_probe_alignment(BlockDriverState *bs)
     BOOL status;
 
     if (s->type == FTYPE_CD) {
-        bs->request_alignment = 2048;
+        bs->bl.request_alignment = 2048;
         return;
     }
     if (s->type == FTYPE_HARDDISK) {
         status = DeviceIoControl(s->hfile, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
                                  NULL, 0, &dg, sizeof(dg), &count, NULL);
         if (status != 0) {
-            bs->request_alignment = dg.Geometry.BytesPerSector;
+            bs->bl.request_alignment = dg.Geometry.BytesPerSector;
             return;
         }
         /* try GetDiskFreeSpace too */
@@ -244,7 +248,7 @@ static void raw_probe_alignment(BlockDriverState *bs)
         GetDiskFreeSpace(s->drive_path, &sectorsPerCluster,
                          &dg.Geometry.BytesPerSector,
                          &freeClusters, &totalClusters);
-        bs->request_alignment = dg.Geometry.BytesPerSector;
+        bs->bl.request_alignment = dg.Geometry.BytesPerSector;
     }
 }
 
@@ -362,7 +366,6 @@ static int raw_open(BlockDriverState *bs, QDict *options, int flags,
         win32_aio_attach_aio_context(s->aio, bdrv_get_aio_context(bs));
     }
 
-    raw_probe_alignment(bs);
     ret = 0;
 fail:
     qemu_opts_del(opts);
@@ -376,9 +379,10 @@ static BlockAIOCB *raw_aio_readv(BlockDriverState *bs,
     BDRVRawState *s = bs->opaque;
     if (s->aio) {
         return win32_aio_submit(bs, s->aio, s->hfile, sector_num, qiov,
-                                nb_sectors, cb, opaque, QEMU_AIO_READ); 
+                                nb_sectors, cb, opaque, QEMU_AIO_READ);
     } else {
-        return paio_submit(bs, s->hfile, sector_num, qiov, nb_sectors,
+        return paio_submit(bs, s->hfile, sector_num << BDRV_SECTOR_BITS, qiov,
+                           nb_sectors << BDRV_SECTOR_BITS,
                            cb, opaque, QEMU_AIO_READ);
     }
 }
@@ -390,9 +394,10 @@ static BlockAIOCB *raw_aio_writev(BlockDriverState *bs,
     BDRVRawState *s = bs->opaque;
     if (s->aio) {
         return win32_aio_submit(bs, s->aio, s->hfile, sector_num, qiov,
-                                nb_sectors, cb, opaque, QEMU_AIO_WRITE); 
+                                nb_sectors, cb, opaque, QEMU_AIO_WRITE);
     } else {
-        return paio_submit(bs, s->hfile, sector_num, qiov, nb_sectors,
+        return paio_submit(bs, s->hfile, sector_num << BDRV_SECTOR_BITS, qiov,
+                           nb_sectors << BDRV_SECTOR_BITS,
                            cb, opaque, QEMU_AIO_WRITE);
     }
 }
@@ -547,6 +552,7 @@ BlockDriver bdrv_file = {
     .bdrv_needs_filename = true,
     .bdrv_parse_filename = raw_parse_filename,
     .bdrv_file_open     = raw_open,
+    .bdrv_refresh_limits = raw_probe_alignment,
     .bdrv_close         = raw_close,
     .bdrv_create        = raw_create,
     .bdrv_has_zero_init = bdrv_has_zero_init_1,

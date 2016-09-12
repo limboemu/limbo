@@ -3,7 +3,7 @@
 
 // usb-msc.c
 struct disk_op_s;
-int usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int usb_process_op(struct disk_op_s *op);
 struct usbdevice_s;
 int usb_msc_setup(struct usbdevice_s *usbdev);
 

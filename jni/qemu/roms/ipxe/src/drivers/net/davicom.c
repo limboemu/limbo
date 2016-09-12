@@ -340,6 +340,7 @@ static void davicom_media_chk(struct nic * nic __unused)
   csr6 = 0x00200000;	/* SF */
   outl(csr6, ioaddr + CSR6);
 
+#define PCI_VENDOR_ID_DAVICOM		0x1282
 #define	PCI_DEVICE_ID_DM9009		0x9009
   if (vendor == PCI_VENDOR_ID_DAVICOM && dev_id == PCI_DEVICE_ID_DM9009) {
     /* Set to 10BaseT mode for DM9009 */

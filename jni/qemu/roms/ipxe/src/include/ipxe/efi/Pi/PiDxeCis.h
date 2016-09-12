@@ -1,7 +1,7 @@
 /** @file
   Include file matches things in PI.
 
-Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under
 the terms and conditions of the BSD License that accompanies this distribution.
 The full text of the license may be found at
@@ -11,7 +11,7 @@ THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
   @par Revision Reference:
-  PI Version 1.2
+  PI Version 1.4
 
 **/
 
@@ -50,6 +50,16 @@ typedef enum {
   /// access I/O devices in the platform.
   ///
   EfiGcdMemoryTypeMemoryMappedIo,
+  ///
+  /// A memory region that is visible to the boot processor.
+  /// This memory supports byte-addressable non-volatility.
+  ///
+  EfiGcdMemoryTypePersistentMemory,
+  ///
+  /// A memory region that provides higher reliability relative to other memory in the
+  /// system. If all memory has the same reliability, then this bit is not used.
+  ///
+  EfiGcdMemoryTypeMoreReliable,
   EfiGcdMemoryTypeMaximum
 } EFI_GCD_MEMORY_TYPE;
 
@@ -367,7 +377,7 @@ EFI_STATUS
                                 resource range specified by BaseAddress and Length.
   @retval EFI_UNSUPPORTED       The bit mask of attributes is not support for the memory resource
                                 range specified by BaseAddress and Length.
-  @retval EFI_ACCESS_DEFINED    The attributes for the memory resource range specified by
+  @retval EFI_ACCESS_DENIED     The attributes for the memory resource range specified by
                                 BaseAddress and Length cannot be modified.
   @retval EFI_OUT_OF_RESOURCES  There are not enough system resources to modify the attributes of
                                 the memory resource range.
@@ -380,6 +390,31 @@ EFI_STATUS
   IN EFI_PHYSICAL_ADDRESS         BaseAddress,
   IN UINT64                       Length,
   IN UINT64                       Attributes
+  );
+
+/**
+  Modifies the capabilities for a memory region in the global coherency domain of the
+  processor.
+
+  @param  BaseAddress      The physical address that is the start address of a memory region.
+  @param  Length           The size in bytes of the memory region.
+  @param  Capabilities     The bit mask of capabilities that the memory region supports.
+
+  @retval EFI_SUCCESS           The capabilities were set for the memory region.
+  @retval EFI_INVALID_PARAMETER Length is zero.
+  @retval EFI_UNSUPPORTED       The capabilities specified by Capabilities do not include the
+                                memory region attributes currently in use.
+  @retval EFI_ACCESS_DENIED     The capabilities for the memory resource range specified by
+                                BaseAddress and Length cannot be modified.
+  @retval EFI_OUT_OF_RESOURCES  There are not enough system resources to modify the capabilities
+                                of the memory resource range.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *EFI_SET_MEMORY_SPACE_CAPABILITIES) (
+  IN EFI_PHYSICAL_ADDRESS  BaseAddress,
+  IN UINT64                Length,
+  IN UINT64                Capabilities
   );
 
 /**
@@ -659,7 +694,7 @@ EFI_STATUS
 //
 #define DXE_SERVICES_SIGNATURE            0x565245535f455844ULL
 #define DXE_SPECIFICATION_MAJOR_REVISION  1
-#define DXE_SPECIFICATION_MINOR_REVISION  30
+#define DXE_SPECIFICATION_MINOR_REVISION  40
 #define DXE_SERVICES_REVISION             ((DXE_SPECIFICATION_MAJOR_REVISION<<16) | (DXE_SPECIFICATION_MINOR_REVISION))
 
 typedef struct {
@@ -696,23 +731,12 @@ typedef struct {
   // Service to process a single firmware volume found in a capsule
   //
   EFI_PROCESS_FIRMWARE_VOLUME     ProcessFirmwareVolume;
+  //
+  // Extensions to Global Coherency Domain Services
+  //
+  EFI_SET_MEMORY_SPACE_CAPABILITIES SetMemorySpaceCapabilities;
 } DXE_SERVICES;
 
 typedef DXE_SERVICES EFI_DXE_SERVICES;
-
-
-/**
-  The function prototype for invoking a function on an Application Processor.
-
-  This definition is used by the UEFI MP Serices Protocol, and the
-  PI SMM System Table.
-
-  @param[in,out] Buffer  The pointer to private data buffer.
-**/
-typedef
-VOID
-(EFIAPI *EFI_AP_PROCEDURE)(
-  IN OUT VOID  *Buffer
-  );
 
 #endif

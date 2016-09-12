@@ -28,7 +28,6 @@ seq=`basename $0`
 echo "QA output created by $seq"
 
 here=`pwd`
-tmp=/tmp/$$
 status=1	# failure is the default!
 
 _cleanup()
@@ -60,6 +59,9 @@ base_size=$(( image_size - 1024 * 1024 * 1024 ))
 
 offset=$(( base_size - 32 * 1024 ))
 
+TEST_IMG_SAVE="$TEST_IMG"
+TEST_IMG="$TEST_IMG.base"
+
 _make_test_img $base_size
 
 echo "Filling base image"
@@ -73,7 +75,7 @@ _check_test_img
 echo "Creating test image with backing file"
 echo
 
-mv "$TEST_IMG" "$TEST_IMG.base"
+TEST_IMG="$TEST_IMG_SAVE"
 _make_test_img -b "$TEST_IMG.base" $image_size
 
 echo "Filling test image"
@@ -111,10 +113,12 @@ h=$QEMU_HANDLE
 QEMU_COMM_TIMEOUT=1
 
 # Silence output since it contains the disk image path and QEMU's readline
-# character echoing makes it very hard to filter the output
+# character echoing makes it very hard to filter the output. Plus, there
+# is no telling how many times the command will repeat before succeeding.
 _send_qemu_cmd $h "drive_backup disk ${TEST_IMG}.copy" "(qemu)" >/dev/null
 _send_qemu_cmd $h "" "Formatting" | _filter_img_create
-qemu_cmd_repeat=20 _send_qemu_cmd $h "info block-jobs" "No active jobs"
+qemu_cmd_repeat=20 _send_qemu_cmd $h "info block-jobs" "No active jobs" >/dev/null
+_send_qemu_cmd $h "info block-jobs" "No active jobs"
 _send_qemu_cmd $h 'quit' ""
 
 # Base image sectors

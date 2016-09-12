@@ -192,7 +192,9 @@ static void ohci_hub_check_ports(struct ohci_hcd *ohcd)
 			dev = usb_devpool_get();
 			dprintf("usb-ohci: Device reset, setting up %p\n", dev);
 			dev->hcidev = ohcd->hcidev;
-			if (!setup_new_device(dev, i))
+			if (usb_setup_new_device(dev, i))
+				usb_slof_populate_new_device(dev);
+			else
 				printf("usb-ohci: unable to setup device on port %d\n", i);
 		}
 		if (port_status & RH_PS_PESC) {
@@ -252,7 +254,7 @@ static int ohci_alloc_pipe_pool(struct ohci_hcd *ohcd)
 		return false;
 
 	ohcd->pool_phys = opipe_phys = SLOF_dma_map_in(opipe, OHCI_PIPE_POOL_SIZE, true);
-	dprintf("usb-ohci: %s opipe %x, opipe_phys %x size %d count %d\n",
+	dprintf("usb-ohci: %s opipe %p, opipe_phys %lx size %ld count %d\n",
 		__func__, opipe, opipe_phys, sizeof(*opipe), count);
 	/* Although an array, link them*/
 	for (i = 0, curr = opipe, prev = NULL; i < count; i++, curr++) {
@@ -446,7 +448,7 @@ again:
 	/* Interrupt is there, read from done_head pointer */
 	td_phys = (struct ohci_td *)(uint64_t) le32_to_cpu(hcca->done_head);
 	if (!td_phys) {
-		dprintf("Again td_phys null %ld\n");
+		dprintf("Again td_phys null\n");
 		goto again;
 	}
 	hcca->done_head = 0;
@@ -553,7 +555,7 @@ static int ohci_send_ctrl(struct usb_pipe *pipe, struct usb_dev_req *req, void *
 	attr = EDA_FADDR(pipe->dev->addr) | EDA_MPS(pipe->mps) | EDA_SKIP;
 	ohci_fill_ed(ed, PTR_U32(td_phys), td_next, attr, 0);
 	ed->tailp = 0; /* HACK */
-	dprintf("usb-ohci: %s - td_start %x td_end %x req %x\n", __func__,
+	dprintf("usb-ohci: %s - td_start %p td_end %lx req %lx\n", __func__,
 		td_phys, td_next, req_phys);
 	mb();
 	ed->attr &= cpu_to_le32(~EDA_SKIP);
@@ -642,7 +644,7 @@ static int ohci_transfer_bulk(struct usb_pipe *pipe, void *td_ptr,
 
 	td = tds = (struct ohci_td *) td_ptr;
 	td_phys = (long)td_phys_ptr;
-	dprintf("usb-ohci: %s pipe %p data_phys %p len %d DIR_IN %d td %p td_phys %p\n",
+	dprintf("usb-ohci: %s pipe %p data_phys %p len %d DIR_IN %d td %p td_phys %lx\n",
 		__func__, pipe, data_phys, datalen, dir, td, td_phys);
 
 	if (!tds) {
@@ -672,7 +674,7 @@ static int ohci_transfer_bulk(struct usb_pipe *pipe, void *td_ptr,
 		| EDA_SKIP | pipe->dev->speed | EDA_EP(pipe->epno);
 	td_next = ohci_get_td_phys(td, tds, td_phys);
 	ohci_fill_ed(ed, td_phys, td_next, attr, 0);
-	dprintf("usb-ohci: %s - tds %p td %p\n", __func__, td_phys, td_next);
+	dprintf("usb-ohci: %s - tds %lx td %lx\n", __func__, td_phys, td_next);
 	mb();
 	ed->attr &= cpu_to_le32(~EDA_SKIP);
 
@@ -778,7 +780,7 @@ static int ohci_get_pipe_intr(struct usb_pipe *pipe, struct ohci_hcd *ohcd,
 		td->attr = cpu_to_le32(TDA_DP_IN | TDA_ROUNDING | TDA_CC);
 		td->next_td = cpu_to_le32(td_next);
 		td->be = cpu_to_le32(PTR_U32(ptr) + mps - 1);
-		dprintf("td %x td++ %x ptr %x be %x\n",
+		dprintf("td %p td++ %x ptr %p be %x\n",
 			td, le32_to_cpu(td->next_td),
 			ptr, (PTR_U32(ptr) + mps - 1));
 	}

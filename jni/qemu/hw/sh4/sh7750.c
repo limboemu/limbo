@@ -22,7 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <stdio.h>
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/sh4/sh.h"
 #include "sysemu/sysemu.h"
@@ -30,6 +30,7 @@
 #include "sh7750_regnames.h"
 #include "hw/sh4/sh_intc.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "exec/address-spaces.h"
 
 #define NB_DEVICES 4

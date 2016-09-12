@@ -22,13 +22,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <hw/hw.h>
-#include <hw/i386/pc.h>
-#include <hw/pcmcia.h>
+#include "qemu/osdep.h"
+#include "hw/hw.h"
+#include "hw/i386/pc.h"
+#include "hw/pcmcia.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/dma.h"
 
-#include <hw/ide/internal.h>
+#include "hw/ide/internal.h"
 
 #define TYPE_MICRODRIVE "microdrive"
 #define MICRODRIVE(obj) OBJECT_CHECK(MicroDriveState, (obj), TYPE_MICRODRIVE)

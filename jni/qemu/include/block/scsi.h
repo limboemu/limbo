@@ -19,8 +19,9 @@
  * This header file contains public constants and structures used by
  * the scsi code for linux.
  */
-#ifndef HW_SCSI_DEFS_H
-#define HW_SCSI_DEFS_H 1
+
+#ifndef BLOCK_SCSI_H
+#define BLOCK_SCSI_H
 
 /*
  *      SCSI opcodes
@@ -48,13 +49,17 @@
 #define ERASE                 0x19
 #define MODE_SENSE            0x1a
 #define LOAD_UNLOAD           0x1b
+#define SCAN                  0x1b
 #define START_STOP            0x1b
 #define RECEIVE_DIAGNOSTIC    0x1c
 #define SEND_DIAGNOSTIC       0x1d
 #define ALLOW_MEDIUM_REMOVAL  0x1e
+#define SET_WINDOW            0x24
 #define READ_CAPACITY_10      0x25
+#define GET_WINDOW            0x25
 #define READ_10               0x28
 #define WRITE_10              0x2a
+#define SEND                  0x2a
 #define SEEK_10               0x2b
 #define LOCATE_10             0x2b
 #define POSITION_TO_ELEMENT   0x2b
@@ -62,10 +67,12 @@
 #define VERIFY_10             0x2f
 #define SEARCH_HIGH           0x30
 #define SEARCH_EQUAL          0x31
+#define OBJECT_POSITION       0x31
 #define SEARCH_LOW            0x32
 #define SET_LIMITS            0x33
 #define PRE_FETCH             0x34
 #define READ_POSITION         0x34
+#define GET_DATA_BUFFER_STATUS 0x34
 #define SYNCHRONIZE_CACHE     0x35
 #define LOCK_UNLOCK_CACHE     0x36
 #define INITIALIZE_ELEMENT_STATUS_WITH_RANGE 0x37
@@ -229,7 +236,7 @@ const char *scsi_command_name(uint8_t cmd);
 #define MODE_PAGE_TO_PROTECT                  0x1d
 #define MODE_PAGE_CAPABILITIES                0x2a
 #define MODE_PAGE_ALLS                        0x3f
-/* Not in Mt. Fuji, but in ATAPI 2.6 -- depricated now in favor
+/* Not in Mt. Fuji, but in ATAPI 2.6 -- deprecated now in favor
  * of MODE_PAGE_SENSE_POWER */
 #define MODE_PAGE_CDROM                       0x0d
 

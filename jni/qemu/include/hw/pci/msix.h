@@ -29,6 +29,7 @@ int msix_present(PCIDevice *dev);
 
 bool msix_is_masked(PCIDevice *dev, unsigned vector);
 void msix_set_pending(PCIDevice *dev, unsigned vector);
+void msix_clr_pending(PCIDevice *dev, int vector);
 
 int msix_vector_use(PCIDevice *dev, unsigned vector);
 void msix_vector_unuse(PCIDevice *dev, unsigned vector);
@@ -46,12 +47,16 @@ void msix_unset_vector_notifiers(PCIDevice *dev);
 
 extern const VMStateDescription vmstate_msix;
 
-#define VMSTATE_MSIX(_field, _state) {                               \
-    .name       = (stringify(_field)),                               \
-    .size       = sizeof(PCIDevice),                                 \
-    .vmsd       = &vmstate_msix,                                     \
-    .flags      = VMS_STRUCT,                                        \
-    .offset     = vmstate_offset_value(_state, _field, PCIDevice),   \
+#define VMSTATE_MSIX_TEST(_field, _state, _test) {                   \
+    .name         = (stringify(_field)),                             \
+    .size         = sizeof(PCIDevice),                               \
+    .vmsd         = &vmstate_msix,                                   \
+    .flags        = VMS_STRUCT,                                      \
+    .offset       = vmstate_offset_value(_state, _field, PCIDevice), \
+    .field_exists = (_test)                                          \
 }
+
+#define VMSTATE_MSIX(_f, _s)                                         \
+    VMSTATE_MSIX_TEST(_f, _s, NULL)
 
 #endif

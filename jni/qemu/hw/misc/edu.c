@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/pci/pci.h"
 #include "qemu/timer.h"
 #include "qemu/main-loop.h" /* iothread mutex */
@@ -279,7 +280,7 @@ static const MemoryRegionOps edu_mmio_ops = {
 };
 
 /*
- * We purposedly use a thread, so that users are forced to wait for the status
+ * We purposely use a thread, so that users are forced to wait for the status
  * register.
  */
 static void *edu_fact_thread(void *opaque)
@@ -327,7 +328,7 @@ static void *edu_fact_thread(void *opaque)
     return NULL;
 }
 
-static int pci_edu_init(PCIDevice *pdev)
+static void pci_edu_realize(PCIDevice *pdev, Error **errp)
 {
     EduState *edu = DO_UPCAST(EduState, pdev, pdev);
     uint8_t *pci_conf = pdev->config;
@@ -344,8 +345,6 @@ static int pci_edu_init(PCIDevice *pdev)
     memory_region_init_io(&edu->mmio, OBJECT(edu), &edu_mmio_ops, edu,
                     "edu-mmio", 1 << 20);
     pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &edu->mmio);
-
-    return 0;
 }
 
 static void pci_edu_uninit(PCIDevice *pdev)
@@ -364,12 +363,12 @@ static void pci_edu_uninit(PCIDevice *pdev)
     timer_del(&edu->dma_timer);
 }
 
-static void edu_obj_uint64(Object *obj, struct Visitor *v, void *opaque,
-                const char *name, Error **errp)
+static void edu_obj_uint64(Object *obj, Visitor *v, const char *name,
+                           void *opaque, Error **errp)
 {
     uint64_t *val = opaque;
 
-    visit_type_uint64(v, val, name, errp);
+    visit_type_uint64(v, name, val, errp);
 }
 
 static void edu_instance_init(Object *obj)
@@ -385,7 +384,7 @@ static void edu_class_init(ObjectClass *class, void *data)
 {
     PCIDeviceClass *k = PCI_DEVICE_CLASS(class);
 
-    k->init = pci_edu_init;
+    k->realize = pci_edu_realize;
     k->exit = pci_edu_uninit;
     k->vendor_id = PCI_VENDOR_ID_QEMU;
     k->device_id = 0x11e8;

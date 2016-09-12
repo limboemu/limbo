@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "config-host.h"
+#include "qemu/osdep.h"
 
 #include <libvdeplug.h>
 
@@ -68,7 +68,7 @@ static void vde_cleanup(NetClientState *nc)
 }
 
 static NetClientInfo net_vde_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_VDE,
+    .type = NET_CLIENT_DRIVER_VDE,
     .size = sizeof(VDEState),
     .receive = vde_receive,
     .cleanup = vde_cleanup,
@@ -109,13 +109,14 @@ static int net_vde_init(NetClientState *peer, const char *model,
     return 0;
 }
 
-int net_init_vde(const NetClientOptions *opts, const char *name,
-                 NetClientState *peer)
+int net_init_vde(const Netdev *netdev, const char *name,
+                 NetClientState *peer, Error **errp)
 {
+    /* FIXME error_setg(errp, ...) on failure */
     const NetdevVdeOptions *vde;
 
-    assert(opts->kind == NET_CLIENT_OPTIONS_KIND_VDE);
-    vde = opts->vde;
+    assert(netdev->type == NET_CLIENT_DRIVER_VDE);
+    vde = &netdev->u.vde;
 
     /* missing optional values have been initialized to "all bits zero" */
     if (net_vde_init(peer, "vde", name, vde->sock, vde->port, vde->group,

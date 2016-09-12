@@ -22,11 +22,15 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
+#include "cpu.h" /* FIXME shouldn't use TARGET_PAGE_SIZE */
 #include "ui/console.h"
 #include "ui/pixel_ops.h"
 #include "hw/loader.h"
 #include "hw/sysbus.h"
+#include "qemu/error-report.h"
 
 #define TCX_ROM_FILE "QEMU,tcx.bin"
 #define FCODE_MAX_ROM_SIZE 0x10000
@@ -353,6 +357,7 @@ static void tcx_update_display(void *opaque)
         return;
     }
 
+    memory_region_sync_dirty_bitmap(&ts->vram_mem);
     for (y = 0; y < ts->height; page += TARGET_PAGE_SIZE) {
         if (memory_region_get_dirty(&ts->vram_mem, page, TARGET_PAGE_SIZE,
                                     DIRTY_MEMORY_VGA)) {
@@ -446,6 +451,7 @@ static void tcx24_update_display(void *opaque)
     dd = surface_stride(surface);
     ds = 1024;
 
+    memory_region_sync_dirty_bitmap(&ts->vram_mem);
     for (y = 0; y < ts->height; page += TARGET_PAGE_SIZE,
             page24 += TARGET_PAGE_SIZE, cpage += TARGET_PAGE_SIZE) {
         if (tcx24_check_dirty(ts, page, page24, cpage)) {
@@ -941,57 +947,55 @@ static void tcx_initfn(Object *obj)
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     TCXState *s = TCX(obj);
 
-    memory_region_init_ram(&s->rom, NULL, "tcx.prom", FCODE_MAX_ROM_SIZE,
-                           &error_abort);
+    memory_region_init_ram(&s->rom, obj, "tcx.prom", FCODE_MAX_ROM_SIZE,
+                           &error_fatal);
     memory_region_set_readonly(&s->rom, true);
     sysbus_init_mmio(sbd, &s->rom);
 
     /* 2/STIP : Stippler */
-    memory_region_init_io(&s->stip, OBJECT(s), &tcx_stip_ops, s, "tcx.stip",
+    memory_region_init_io(&s->stip, obj, &tcx_stip_ops, s, "tcx.stip",
                           TCX_STIP_NREGS);
     sysbus_init_mmio(sbd, &s->stip);
 
     /* 3/BLIT : Blitter */
-    memory_region_init_io(&s->blit, OBJECT(s), &tcx_blit_ops, s, "tcx.blit",
+    memory_region_init_io(&s->blit, obj, &tcx_blit_ops, s, "tcx.blit",
                           TCX_BLIT_NREGS);
     sysbus_init_mmio(sbd, &s->blit);
 
     /* 5/RSTIP : Raw Stippler */
-    memory_region_init_io(&s->rstip, OBJECT(s), &tcx_rstip_ops, s, "tcx.rstip",
+    memory_region_init_io(&s->rstip, obj, &tcx_rstip_ops, s, "tcx.rstip",
                           TCX_RSTIP_NREGS);
     sysbus_init_mmio(sbd, &s->rstip);
 
     /* 6/RBLIT : Raw Blitter */
-    memory_region_init_io(&s->rblit, OBJECT(s), &tcx_rblit_ops, s, "tcx.rblit",
+    memory_region_init_io(&s->rblit, obj, &tcx_rblit_ops, s, "tcx.rblit",
                           TCX_RBLIT_NREGS);
     sysbus_init_mmio(sbd, &s->rblit);
 
     /* 7/TEC : ??? */
-    memory_region_init_io(&s->tec, OBJECT(s), &tcx_dummy_ops, s,
-                          "tcx.tec", TCX_TEC_NREGS);
+    memory_region_init_io(&s->tec, obj, &tcx_dummy_ops, s, "tcx.tec",
+                          TCX_TEC_NREGS);
     sysbus_init_mmio(sbd, &s->tec);
 
     /* 8/CMAP : DAC */
-    memory_region_init_io(&s->dac, OBJECT(s), &tcx_dac_ops, s,
-                          "tcx.dac", TCX_DAC_NREGS);
+    memory_region_init_io(&s->dac, obj, &tcx_dac_ops, s, "tcx.dac",
+                          TCX_DAC_NREGS);
     sysbus_init_mmio(sbd, &s->dac);
 
     /* 9/THC : Cursor */
-    memory_region_init_io(&s->thc, OBJECT(s), &tcx_thc_ops, s, "tcx.thc",
+    memory_region_init_io(&s->thc, obj, &tcx_thc_ops, s, "tcx.thc",
                           TCX_THC_NREGS);
     sysbus_init_mmio(sbd, &s->thc);
 
     /* 11/DHC : ??? */
-    memory_region_init_io(&s->dhc, OBJECT(s), &tcx_dummy_ops, s, "tcx.dhc",
+    memory_region_init_io(&s->dhc, obj, &tcx_dummy_ops, s, "tcx.dhc",
                           TCX_DHC_NREGS);
     sysbus_init_mmio(sbd, &s->dhc);
 
     /* 12/ALT : ??? */
-    memory_region_init_io(&s->alt, OBJECT(s), &tcx_dummy_ops, s, "tcx.alt",
+    memory_region_init_io(&s->alt, obj, &tcx_dummy_ops, s, "tcx.alt",
                           TCX_ALT_NREGS);
     sysbus_init_mmio(sbd, &s->alt);
-
-    return;
 }
 
 static void tcx_realizefn(DeviceState *dev, Error **errp)
@@ -1004,8 +1008,9 @@ static void tcx_realizefn(DeviceState *dev, Error **errp)
     char *fcode_filename;
 
     memory_region_init_ram(&s->vram_mem, OBJECT(s), "tcx.vram",
-                           s->vram_size * (1 + 4 + 4), &error_abort);
+                           s->vram_size * (1 + 4 + 4), &error_fatal);
     vmstate_register_ram_global(&s->vram_mem);
+    memory_region_set_log(&s->vram_mem, true, DIRTY_MEMORY_VGA);
     vram_base = memory_region_get_ram_ptr(&s->vram_mem);
 
     /* 10/ROM : FCode ROM */
@@ -1014,6 +1019,7 @@ static void tcx_realizefn(DeviceState *dev, Error **errp)
     if (fcode_filename) {
         ret = load_image_targphys(fcode_filename, s->prom_addr,
                                   FCODE_MAX_ROM_SIZE);
+        g_free(fcode_filename);
         if (ret < 0 || ret > FCODE_MAX_ROM_SIZE) {
             error_report("tcx: could not load prom '%s'", TCX_ROM_FILE);
         }

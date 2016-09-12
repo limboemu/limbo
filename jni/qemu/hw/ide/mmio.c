@@ -22,12 +22,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/dma.h"
 
-#include <hw/ide/internal.h>
+#include "hw/ide/internal.h"
 
 /***********************************************************/
 /* MMIO based ide port

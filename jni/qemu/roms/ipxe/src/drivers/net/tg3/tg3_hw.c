@@ -436,6 +436,7 @@ int tg3_get_invariants(struct tg3 *tp)
 			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57761 ||
 			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57762 ||
 			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57765 ||
+			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57766 ||
 			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57791 ||
 			 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57795)
 			pci_read_config_dword(tp->pdev,

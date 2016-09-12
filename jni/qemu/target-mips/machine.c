@@ -1,6 +1,9 @@
-#include "hw/hw.h"
-
+#include "qemu/osdep.h"
+#include "qemu-common.h"
 #include "cpu.h"
+#include "hw/hw.h"
+#include "cpu.h"
+#include "migration/cpu.h"
 
 static int cpu_post_load(void *opaque, int version_id)
 {
@@ -10,6 +13,7 @@ static int cpu_post_load(void *opaque, int version_id)
     restore_fp_status(env);
     restore_msa_fp_status(env);
     compute_hflags(env);
+    restore_pamask(env);
 
     return 0;
 }
@@ -128,7 +132,7 @@ static int get_tlb(QEMUFile *f, void *pv, size_t size)
 
     qemu_get_betls(f, &v->VPN);
     qemu_get_be32s(f, &v->PageMask);
-    qemu_get_8s(f, &v->ASID);
+    qemu_get_be16s(f, &v->ASID);
     qemu_get_be16s(f, &flags);
     v->G = (flags >> 10) & 1;
     v->C0 = (flags >> 7) & 3;
@@ -142,8 +146,8 @@ static int get_tlb(QEMUFile *f, void *pv, size_t size)
     v->RI0 = (flags >> 13) & 1;
     v->XI1 = (flags >> 12) & 1;
     v->XI0 = (flags >> 11) & 1;
-    qemu_get_betls(f, &v->PFN[0]);
-    qemu_get_betls(f, &v->PFN[1]);
+    qemu_get_be64s(f, &v->PFN[0]);
+    qemu_get_be64s(f, &v->PFN[1]);
 
     return 0;
 }
@@ -152,6 +156,7 @@ static void put_tlb(QEMUFile *f, void *pv, size_t size)
 {
     r4k_tlb_t *v = pv;
 
+    uint16_t asid = v->ASID;
     uint16_t flags = ((v->EHINV << 15) |
                       (v->RI1 << 14) |
                       (v->RI0 << 13) |
@@ -167,10 +172,10 @@ static void put_tlb(QEMUFile *f, void *pv, size_t size)
 
     qemu_put_betls(f, &v->VPN);
     qemu_put_be32s(f, &v->PageMask);
-    qemu_put_8s(f, &v->ASID);
+    qemu_put_be16s(f, &asid);
     qemu_put_be16s(f, &flags);
-    qemu_put_betls(f, &v->PFN[0]);
-    qemu_put_betls(f, &v->PFN[1]);
+    qemu_put_be64s(f, &v->PFN[0]);
+    qemu_put_be64s(f, &v->PFN[1]);
 }
 
 const VMStateInfo vmstate_info_tlb = {
@@ -187,8 +192,8 @@ const VMStateInfo vmstate_info_tlb = {
 
 const VMStateDescription vmstate_tlb = {
     .name = "cpu/tlb",
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (VMStateField[]) {
         VMSTATE_UINT32(nb_tlb, CPUMIPSTLBContext),
         VMSTATE_UINT32(tlb_in_use, CPUMIPSTLBContext),
@@ -201,8 +206,8 @@ const VMStateDescription vmstate_tlb = {
 
 const VMStateDescription vmstate_mips_cpu = {
     .name = "cpu",
-    .version_id = 6,
-    .minimum_version_id = 6,
+    .version_id = 8,
+    .minimum_version_id = 8,
     .post_load = cpu_post_load,
     .fields = (VMStateField[]) {
         /* Active TC */
@@ -237,8 +242,8 @@ const VMStateDescription vmstate_mips_cpu = {
         VMSTATE_UINTTL(env.CP0_VPESchedule, MIPSCPU),
         VMSTATE_UINTTL(env.CP0_VPEScheFBack, MIPSCPU),
         VMSTATE_INT32(env.CP0_VPEOpt, MIPSCPU),
-        VMSTATE_UINTTL(env.CP0_EntryLo0, MIPSCPU),
-        VMSTATE_UINTTL(env.CP0_EntryLo1, MIPSCPU),
+        VMSTATE_UINT64(env.CP0_EntryLo0, MIPSCPU),
+        VMSTATE_UINT64(env.CP0_EntryLo1, MIPSCPU),
         VMSTATE_UINTTL(env.CP0_Context, MIPSCPU),
         VMSTATE_INT32(env.CP0_PageMask, MIPSCPU),
         VMSTATE_INT32(env.CP0_PageGrain, MIPSCPU),
@@ -269,7 +274,9 @@ const VMStateDescription vmstate_mips_cpu = {
         VMSTATE_INT32(env.CP0_Config3, MIPSCPU),
         VMSTATE_INT32(env.CP0_Config6, MIPSCPU),
         VMSTATE_INT32(env.CP0_Config7, MIPSCPU),
-        VMSTATE_UINTTL(env.lladdr, MIPSCPU),
+        VMSTATE_UINT64_ARRAY(env.CP0_MAAR, MIPSCPU, MIPS_MAAR_MAX),
+        VMSTATE_INT32(env.CP0_MAARI, MIPSCPU),
+        VMSTATE_UINT64(env.lladdr, MIPSCPU),
         VMSTATE_UINTTL_ARRAY(env.CP0_WatchLo, MIPSCPU, 8),
         VMSTATE_INT32_ARRAY(env.CP0_WatchHi, MIPSCPU, 8),
         VMSTATE_UINTTL(env.CP0_XContext, MIPSCPU),
@@ -277,7 +284,7 @@ const VMStateDescription vmstate_mips_cpu = {
         VMSTATE_INT32(env.CP0_Debug, MIPSCPU),
         VMSTATE_UINTTL(env.CP0_DEPC, MIPSCPU),
         VMSTATE_INT32(env.CP0_Performance0, MIPSCPU),
-        VMSTATE_INT32(env.CP0_TagLo, MIPSCPU),
+        VMSTATE_UINT64(env.CP0_TagLo, MIPSCPU),
         VMSTATE_INT32(env.CP0_DataLo, MIPSCPU),
         VMSTATE_INT32(env.CP0_TagHi, MIPSCPU),
         VMSTATE_INT32(env.CP0_DataHi, MIPSCPU),

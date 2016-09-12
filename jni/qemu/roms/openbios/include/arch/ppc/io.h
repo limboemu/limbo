@@ -6,7 +6,7 @@
 #define NO_QEMU_PROTOS
 #include "arch/common/fw_cfg.h"
 
-extern char _start, _end;
+extern char _start, _end, _estack;
 extern unsigned long virt_offset;
 
 #define phys_to_virt(phys) ((void *) ((unsigned long) (phys) - virt_offset))

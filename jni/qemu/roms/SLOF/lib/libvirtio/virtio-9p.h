@@ -26,7 +26,7 @@ typedef struct {
 int virtio_9p_init(struct virtio_device *dev, void *tx_buf, void *rx_buf,
 		   int buf_size);
 void virtio_9p_shutdown(struct virtio_device *dev);
-int virtio_9p_load(struct virtio_device *dev, const char *file_name, uint8_t *buffer);
+long virtio_9p_load(struct virtio_device *dev, const char *file_name, uint8_t *buffer);
 
 
 #endif /* VIRTIO_9P_H_ */

@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/audio/audio.h"
 #include "audio/audio.h"
@@ -41,11 +43,6 @@
 #define GUS_ENDIANNESS 0
 #endif
 
-#define IO_READ_PROTO(name) \
-    static uint32_t name (void *opaque, uint32_t nport)
-#define IO_WRITE_PROTO(name) \
-    static void name (void *opaque, uint32_t nport, uint32_t val)
-
 #define TYPE_GUS "gus"
 #define GUS(obj) OBJECT_CHECK (GUSState, (obj), TYPE_GUS)
 
@@ -62,34 +59,21 @@ typedef struct GUSState {
     SWVoiceOut *voice;
     int64_t last_ticks;
     qemu_irq pic;
+    IsaDma *isa_dma;
 } GUSState;
 
-IO_READ_PROTO (gus_readb)
+static uint32_t gus_readb(void *opaque, uint32_t nport)
 {
     GUSState *s = opaque;
 
     return gus_read (&s->emu, nport, 1);
 }
 
-IO_READ_PROTO (gus_readw)
-{
-    GUSState *s = opaque;
-
-    return gus_read (&s->emu, nport, 2);
-}
-
-IO_WRITE_PROTO (gus_writeb)
+static void gus_writeb(void *opaque, uint32_t nport, uint32_t val)
 {
     GUSState *s = opaque;
 
     gus_write (&s->emu, nport, 1, val);
-}
-
-IO_WRITE_PROTO (gus_writew)
-{
-    GUSState *s = opaque;
-
-    gus_write (&s->emu, nport, 2, val);
 }
 
 static int write_audio (GUSState *s, int samples)
@@ -160,7 +144,7 @@ static void GUS_callback (void *opaque, int free)
     s->left = samples;
 
  reset:
-    gus_irqgen (&s->emu, muldiv64 (net, 1000000, s->freq));
+    gus_irqgen (&s->emu, (uint64_t)net * 1000000 / s->freq);
 }
 
 int GUS_irqrequest (GUSEmuState *emu, int hwirq, int n)
@@ -186,34 +170,36 @@ void GUS_irqclear (GUSEmuState *emu, int hwirq)
 #endif
 }
 
-void GUS_dmarequest (GUSEmuState *der)
+void GUS_dmarequest (GUSEmuState *emu)
 {
-    /* GUSState *s = (GUSState *) der; */
+    GUSState *s = emu->opaque;
+    IsaDmaClass *k = ISADMA_GET_CLASS(s->isa_dma);
     ldebug ("dma request %d\n", der->gusdma);
-    DMA_hold_DREQ (der->gusdma);
+    k->hold_DREQ(s->isa_dma, s->emu.gusdma);
 }
 
 static int GUS_read_DMA (void *opaque, int nchan, int dma_pos, int dma_len)
 {
     GUSState *s = opaque;
+    IsaDmaClass *k = ISADMA_GET_CLASS(s->isa_dma);
     char tmpbuf[4096];
     int pos = dma_pos, mode, left = dma_len - dma_pos;
 
     ldebug ("read DMA %#x %d\n", dma_pos, dma_len);
-    mode = DMA_get_channel_mode (s->emu.gusdma);
+    mode = k->has_autoinitialization(s->isa_dma, s->emu.gusdma);
     while (left) {
         int to_copy = audio_MIN ((size_t) left, sizeof (tmpbuf));
         int copied;
 
         ldebug ("left=%d to_copy=%d pos=%d\n", left, to_copy, pos);
-        copied = DMA_read_memory (nchan, tmpbuf, pos, to_copy);
+        copied = k->read_memory(s->isa_dma, nchan, tmpbuf, pos, to_copy);
         gus_dma_transferdata (&s->emu, tmpbuf, copied, left == copied);
         left -= copied;
         pos += copied;
     }
 
     if (((mode >> 4) & 1) == 0) {
-        DMA_release_DREQ (s->emu.gusdma);
+        k->release_DREQ(s->isa_dma, s->emu.gusdma);
     }
     return dma_len;
 }
@@ -236,17 +222,13 @@ static const VMStateDescription vmstate_gus = {
 
 static const MemoryRegionPortio gus_portio_list1[] = {
     {0x000,  1, 1, .write = gus_writeb },
-    {0x000,  1, 2, .write = gus_writew },
     {0x006, 10, 1, .read = gus_readb, .write = gus_writeb },
-    {0x006, 10, 2, .read = gus_readw, .write = gus_writew },
     {0x100,  8, 1, .read = gus_readb, .write = gus_writeb },
-    {0x100,  8, 2, .read = gus_readw, .write = gus_writew },
     PORTIO_END_OF_LIST (),
 };
 
 static const MemoryRegionPortio gus_portio_list2[] = {
-    {0, 1, 1, .read = gus_readb },
-    {0, 1, 2, .read = gus_readw },
+    {0, 2, 1, .read = gus_readb },
     PORTIO_END_OF_LIST (),
 };
 
@@ -254,6 +236,7 @@ static void gus_realizefn (DeviceState *dev, Error **errp)
 {
     ISADevice *d = ISA_DEVICE(dev);
     GUSState *s = GUS (dev);
+    IsaDmaClass *k;
     struct audsettings as;
 
     AUD_register_card ("gus", &s->card);
@@ -286,7 +269,9 @@ static void gus_realizefn (DeviceState *dev, Error **errp)
     isa_register_portio_list (d, (s->port + 0x100) & 0xf00,
                               gus_portio_list2, s, "gus");
 
-    DMA_register_channel (s->emu.gusdma, GUS_read_DMA, s);
+    s->isa_dma = isa_get_dma(isa_bus_from_device(d), s->emu.gusdma);
+    k = ISADMA_GET_CLASS(s->isa_dma);
+    k->register_channel(s->isa_dma, s->emu.gusdma, GUS_read_DMA, s);
     s->emu.himemaddr = s->himem;
     s->emu.gusdatapos = s->emu.himemaddr + 1024 * 1024 + 32;
     s->emu.opaque = s;

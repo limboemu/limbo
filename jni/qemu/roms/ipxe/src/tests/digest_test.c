@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -34,26 +38,46 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/profile.h>
 #include "digest_test.h"
 
+/** Maximum number of digest test fragments */
+#define NUM_DIGEST_TEST_FRAG 8
+
+/** A digest test fragment list */
+struct digest_test_fragments {
+	/** Fragment lengths */
+	size_t len[NUM_DIGEST_TEST_FRAG];
+};
+
+/** Digest test fragment lists */
+static struct digest_test_fragments digest_test_fragments[] = {
+	{ { 0, -1UL, } },
+	{ { 1, 1, 1, 1, 1, 1, 1, 1 } },
+	{ { 2, 0, 23, 4, 6, 1, 0 } },
+};
+
 /** Number of sample iterations for profiling */
 #define PROFILE_COUNT 16
 
 /**
- * Test digest algorithm
+ * Report a digest fragmented test result
  *
- * @v digest		Digest algorithm
- * @v fragments		Digest test fragment list, or NULL
- * @v data		Test data
- * @v len		Length of test data
- * @v expected		Expected digest value
- * @ret ok		Digest value is as expected
+ * @v test		Digest test
+ * @v fragments		Fragment list
+ * @v file		Test code file
+ * @v line		Test code line
  */
-int digest_test ( struct digest_algorithm *digest,
-		  struct digest_test_fragments *fragments,
-		  void *data, size_t len, void *expected ) {
+void digest_frag_okx ( struct digest_test *test,
+		       struct digest_test_fragments *fragments,
+		       const char *file, unsigned int line ) {
+	struct digest_algorithm *digest = test->digest;
 	uint8_t ctx[digest->ctxsize];
 	uint8_t out[digest->digestsize];
+	const void *data = test->data;
+	size_t len = test->len;
 	size_t frag_len = 0;
 	unsigned int i;
+
+	/* Sanity check */
+	okx ( test->expected_len == sizeof ( out ), file, line );
 
 	/* Initialise digest */
 	digest_init ( digest, ctx );
@@ -74,7 +98,28 @@ int digest_test ( struct digest_algorithm *digest,
 	digest_final ( digest, ctx, out );
 
 	/* Compare against expected output */
-	return ( memcmp ( expected, out, sizeof ( out ) ) == 0 );
+	okx ( memcmp ( test->expected, out, sizeof ( out ) ) == 0, file, line );
+}
+
+/**
+ * Report a digest test result
+ *
+ * @v test		Digest test
+ * @v file		Test code file
+ * @v line		Test code line
+ */
+void digest_okx ( struct digest_test *test, const char *file,
+		  unsigned int line ) {
+	unsigned int i;
+
+	/* Test with a single pass */
+	digest_frag_okx ( test, NULL, file, line );
+
+	/* Test with fragment lists */
+	for ( i = 0 ; i < ( sizeof ( digest_test_fragments ) /
+			    sizeof ( digest_test_fragments[0] ) ) ; i++ ) {
+		digest_frag_okx ( test, &digest_test_fragments[i], file, line );
+	}
 }
 
 /**

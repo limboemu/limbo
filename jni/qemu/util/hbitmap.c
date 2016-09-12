@@ -9,9 +9,6 @@
  * later.  See the COPYING file in the top-level directory.
  */
 
-#include <string.h>
-#include <glib.h>
-#include <assert.h>
 #include "qemu/osdep.h"
 #include "qemu/hbitmap.h"
 #include "qemu/host-utils.h"
@@ -90,6 +87,9 @@ struct HBitmap {
      * bitmap will still allocate HBITMAP_LEVELS arrays.
      */
     unsigned long *levels[HBITMAP_LEVELS];
+
+    /* The length of each levels[] array. */
+    uint64_t sizes[HBITMAP_LEVELS];
 };
 
 /* Advance hbi to the next nonzero word and return it.  hbi->pos
@@ -269,6 +269,7 @@ void hbitmap_set(HBitmap *hb, uint64_t start, uint64_t count)
     start >>= hb->granularity;
     last >>= hb->granularity;
     count = last - start + 1;
+    assert(last < hb->size);
 
     hb->count += count - hb_count_between(hb, start, last);
     hb_set_between(hb, HBITMAP_LEVELS - 1, start, last);
@@ -348,9 +349,23 @@ void hbitmap_reset(HBitmap *hb, uint64_t start, uint64_t count)
 
     start >>= hb->granularity;
     last >>= hb->granularity;
+    assert(last < hb->size);
 
     hb->count -= hb_count_between(hb, start, last);
     hb_reset_between(hb, HBITMAP_LEVELS - 1, start, last);
+}
+
+void hbitmap_reset_all(HBitmap *hb)
+{
+    unsigned int i;
+
+    /* Same as hbitmap_alloc() except for memset() instead of malloc() */
+    for (i = HBITMAP_LEVELS; --i >= 1; ) {
+        memset(hb->levels[i], 0, hb->sizes[i] * sizeof(unsigned long));
+    }
+
+    hb->levels[0][0] = 1UL << (BITS_PER_LONG - 1);
+    hb->count = 0;
 }
 
 bool hbitmap_get(const HBitmap *hb, uint64_t item)
@@ -358,6 +373,7 @@ bool hbitmap_get(const HBitmap *hb, uint64_t item)
     /* Compute position and bit in the last layer.  */
     uint64_t pos = item >> hb->granularity;
     unsigned long bit = 1UL << (pos & (BITS_PER_LONG - 1));
+    assert(pos < hb->size);
 
     return (hb->levels[HBITMAP_LEVELS - 1][pos >> BITS_PER_LEVEL] & bit) != 0;
 }
@@ -384,6 +400,7 @@ HBitmap *hbitmap_alloc(uint64_t size, int granularity)
     hb->granularity = granularity;
     for (i = HBITMAP_LEVELS; i-- > 0; ) {
         size = MAX((size + BITS_PER_LONG - 1) >> BITS_PER_LEVEL, 1);
+        hb->sizes[i] = size;
         hb->levels[i] = g_new0(unsigned long, size);
     }
 
@@ -394,4 +411,85 @@ HBitmap *hbitmap_alloc(uint64_t size, int granularity)
     assert(size == 1);
     hb->levels[0][0] |= 1UL << (BITS_PER_LONG - 1);
     return hb;
+}
+
+void hbitmap_truncate(HBitmap *hb, uint64_t size)
+{
+    bool shrink;
+    unsigned i;
+    uint64_t num_elements = size;
+    uint64_t old;
+
+    /* Size comes in as logical elements, adjust for granularity. */
+    size = (size + (1ULL << hb->granularity) - 1) >> hb->granularity;
+    assert(size <= ((uint64_t)1 << HBITMAP_LOG_MAX_SIZE));
+    shrink = size < hb->size;
+
+    /* bit sizes are identical; nothing to do. */
+    if (size == hb->size) {
+        return;
+    }
+
+    /* If we're losing bits, let's clear those bits before we invalidate all of
+     * our invariants. This helps keep the bitcount consistent, and will prevent
+     * us from carrying around garbage bits beyond the end of the map.
+     */
+    if (shrink) {
+        /* Don't clear partial granularity groups;
+         * start at the first full one. */
+        uint64_t start = QEMU_ALIGN_UP(num_elements, 1 << hb->granularity);
+        uint64_t fix_count = (hb->size << hb->granularity) - start;
+
+        assert(fix_count);
+        hbitmap_reset(hb, start, fix_count);
+    }
+
+    hb->size = size;
+    for (i = HBITMAP_LEVELS; i-- > 0; ) {
+        size = MAX(BITS_TO_LONGS(size), 1);
+        if (hb->sizes[i] == size) {
+            break;
+        }
+        old = hb->sizes[i];
+        hb->sizes[i] = size;
+        hb->levels[i] = g_realloc(hb->levels[i], size * sizeof(unsigned long));
+        if (!shrink) {
+            memset(&hb->levels[i][old], 0x00,
+                   (size - old) * sizeof(*hb->levels[i]));
+        }
+    }
+}
+
+
+/**
+ * Given HBitmaps A and B, let A := A (BITOR) B.
+ * Bitmap B will not be modified.
+ *
+ * @return true if the merge was successful,
+ *         false if it was not attempted.
+ */
+bool hbitmap_merge(HBitmap *a, const HBitmap *b)
+{
+    int i;
+    uint64_t j;
+
+    if ((a->size != b->size) || (a->granularity != b->granularity)) {
+        return false;
+    }
+
+    if (hbitmap_count(b) == 0) {
+        return true;
+    }
+
+    /* This merge is O(size), as BITS_PER_LONG and HBITMAP_LEVELS are constant.
+     * It may be possible to improve running times for sparsely populated maps
+     * by using hbitmap_iter_next, but this is suboptimal for dense maps.
+     */
+    for (i = HBITMAP_LEVELS - 1; i >= 0; i--) {
+        for (j = 0; j < a->sizes[i]; j++) {
+            a->levels[i][j] |= b->levels[i][j];
+        }
+    }
+
+    return true;
 }

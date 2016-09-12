@@ -28,6 +28,10 @@
 
 #include "hw/pci/pci.h"
 
+#define PCI_BRIDGE_DEV_PROP_CHASSIS_NR "chassis_nr"
+#define PCI_BRIDGE_DEV_PROP_MSI        "msi"
+#define PCI_BRIDGE_DEV_PROP_SHPC       "shpc"
+
 int pci_bridge_ssvid_init(PCIDevice *dev, uint8_t offset,
                           uint16_t svid, uint16_t ssid);
 
@@ -44,7 +48,7 @@ void pci_bridge_disable_base_limit(PCIDevice *dev);
 void pci_bridge_reset_reg(PCIDevice *dev);
 void pci_bridge_reset(DeviceState *qdev);
 
-int pci_bridge_initfn(PCIDevice *pci_dev, const char *typename);
+void pci_bridge_initfn(PCIDevice *pci_dev, const char *typename);
 void pci_bridge_exitfn(PCIDevice *pci_dev);
 
 
@@ -63,4 +67,4 @@ void pci_bridge_map_irq(PCIBridge *br, const char* bus_name,
 #define  PCI_BRIDGE_CTL_DISCARD_STATUS	0x400	/* Discard timer status */
 #define  PCI_BRIDGE_CTL_DISCARD_SERR	0x800	/* Discard timer SERR# enable */
 
-#endif  /* QEMU_PCI_BRIDGE_H */
+#endif /* QEMU_PCI_BRIDGE_H */

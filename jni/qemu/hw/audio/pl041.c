@@ -20,7 +20,9 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
+#include "qemu/log.h"
 
 #include "pl041.h"
 #include "lm4549.h"

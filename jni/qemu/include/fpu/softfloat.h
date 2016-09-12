@@ -86,25 +86,12 @@ this code that are retained.
 #include <sunmath.h>
 #endif
 
-#include <inttypes.h>
-#include "config-host.h"
-#include "qemu/osdep.h"
 
-/*----------------------------------------------------------------------------
-| Each of the following `typedef's defines the most convenient type that holds
-| integers of at least as many bits as specified.  For example, `uint8' should
-| be the most convenient type that can hold unsigned integers of as many as
-| 8 bits.  The `flag' type must be able to hold either a 0 or 1.  For most
-| implementations of C, `flag', `uint8', and `int8' should all be `typedef'ed
-| to the same as `int'.
-*----------------------------------------------------------------------------*/
+/* This 'flag' type must be able to hold at least 0 and 1. It should
+ * probably be replaced with 'bool' but the uses would need to be audited
+ * to check that they weren't accidentally relying on it being a larger type.
+ */
 typedef uint8_t flag;
-typedef uint8_t uint8;
-typedef int8_t int8;
-typedef unsigned int uint32;
-typedef signed int int32;
-typedef uint64_t uint64;
-typedef int64_t int64;
 
 #define LIT64( a ) a##LL
 
@@ -211,13 +198,14 @@ enum {
 typedef struct float_status {
     signed char float_detect_tininess;
     signed char float_rounding_mode;
-    signed char float_exception_flags;
+    uint8_t     float_exception_flags;
     signed char floatx80_rounding_precision;
     /* should denormalised results go to zero and set the inexact flag? */
     flag flush_to_zero;
     /* should denormalised inputs go to zero and set the input_denormal flag? */
     flag flush_inputs_to_zero;
     flag default_nan_mode;
+    flag snan_bit_is_one;
 } float_status;
 
 static inline void set_float_detect_tininess(int val, float_status *status)
@@ -248,6 +236,10 @@ static inline void set_flush_inputs_to_zero(flag val, float_status *status)
 static inline void set_default_nan_mode(flag val, float_status *status)
 {
     status->default_nan_mode = val;
+}
+static inline void set_snan_bit_is_one(flag val, float_status *status)
+{
+    status->snan_bit_is_one = val;
 }
 static inline int get_float_detect_tininess(float_status *status)
 {
@@ -282,7 +274,7 @@ static inline flag get_default_nan_mode(float_status *status)
 | Routine to raise any or all of the software IEC/IEEE floating-point
 | exception flags.
 *----------------------------------------------------------------------------*/
-void float_raise(int8 flags, float_status *status);
+void float_raise(uint8_t flags, float_status *status);
 
 /*----------------------------------------------------------------------------
 | If `a' is denormal and we are in flush-to-zero mode then set the
@@ -355,9 +347,9 @@ float64 float16_to_float64(float16 a, flag ieee, float_status *status);
 /*----------------------------------------------------------------------------
 | Software half-precision operations.
 *----------------------------------------------------------------------------*/
-int float16_is_quiet_nan( float16 );
-int float16_is_signaling_nan( float16 );
-float16 float16_maybe_silence_nan( float16 );
+int float16_is_quiet_nan(float16, float_status *status);
+int float16_is_signaling_nan(float16, float_status *status);
+float16 float16_maybe_silence_nan(float16, float_status *status);
 
 static inline int float16_is_any_nan(float16 a)
 {
@@ -367,23 +359,23 @@ static inline int float16_is_any_nan(float16 a)
 /*----------------------------------------------------------------------------
 | The pattern for a default generated half-precision NaN.
 *----------------------------------------------------------------------------*/
-extern const float16 float16_default_nan;
+float16 float16_default_nan(float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE single-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int_fast16_t float32_to_int16(float32, float_status *status);
-uint_fast16_t float32_to_uint16(float32, float_status *status);
-int_fast16_t float32_to_int16_round_to_zero(float32, float_status *status);
-uint_fast16_t float32_to_uint16_round_to_zero(float32, float_status *status);
-int32 float32_to_int32(float32, float_status *status);
-int32 float32_to_int32_round_to_zero(float32, float_status *status);
-uint32 float32_to_uint32(float32, float_status *status);
-uint32 float32_to_uint32_round_to_zero(float32, float_status *status);
-int64 float32_to_int64(float32, float_status *status);
-uint64 float32_to_uint64(float32, float_status *status);
-uint64 float32_to_uint64_round_to_zero(float32, float_status *status);
-int64 float32_to_int64_round_to_zero(float32, float_status *status);
+int16_t float32_to_int16(float32, float_status *status);
+uint16_t float32_to_uint16(float32, float_status *status);
+int16_t float32_to_int16_round_to_zero(float32, float_status *status);
+uint16_t float32_to_uint16_round_to_zero(float32, float_status *status);
+int32_t float32_to_int32(float32, float_status *status);
+int32_t float32_to_int32_round_to_zero(float32, float_status *status);
+uint32_t float32_to_uint32(float32, float_status *status);
+uint32_t float32_to_uint32_round_to_zero(float32, float_status *status);
+int64_t float32_to_int64(float32, float_status *status);
+uint64_t float32_to_uint64(float32, float_status *status);
+uint64_t float32_to_uint64_round_to_zero(float32, float_status *status);
+int64_t float32_to_int64_round_to_zero(float32, float_status *status);
 float64 float32_to_float64(float32, float_status *status);
 floatx80 float32_to_floatx80(float32, float_status *status);
 float128 float32_to_float128(float32, float_status *status);
@@ -417,9 +409,9 @@ float32 float32_minnum(float32, float32, float_status *status);
 float32 float32_maxnum(float32, float32, float_status *status);
 float32 float32_minnummag(float32, float32, float_status *status);
 float32 float32_maxnummag(float32, float32, float_status *status);
-int float32_is_quiet_nan( float32 );
-int float32_is_signaling_nan( float32 );
-float32 float32_maybe_silence_nan( float32 );
+int float32_is_quiet_nan(float32, float_status *status);
+int float32_is_signaling_nan(float32, float_status *status);
+float32 float32_maybe_silence_nan(float32, float_status *status);
 float32 float32_scalbn(float32, int, float_status *status);
 
 static inline float32 float32_abs(float32 a)
@@ -479,23 +471,23 @@ static inline float32 float32_set_sign(float32 a, int sign)
 /*----------------------------------------------------------------------------
 | The pattern for a default generated single-precision NaN.
 *----------------------------------------------------------------------------*/
-extern const float32 float32_default_nan;
+float32 float32_default_nan(float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE double-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int_fast16_t float64_to_int16(float64, float_status *status);
-uint_fast16_t float64_to_uint16(float64, float_status *status);
-int_fast16_t float64_to_int16_round_to_zero(float64, float_status *status);
-uint_fast16_t float64_to_uint16_round_to_zero(float64, float_status *status);
-int32 float64_to_int32(float64, float_status *status);
-int32 float64_to_int32_round_to_zero(float64, float_status *status);
-uint32 float64_to_uint32(float64, float_status *status);
-uint32 float64_to_uint32_round_to_zero(float64, float_status *status);
-int64 float64_to_int64(float64, float_status *status);
-int64 float64_to_int64_round_to_zero(float64, float_status *status);
-uint64 float64_to_uint64(float64 a, float_status *status);
-uint64 float64_to_uint64_round_to_zero(float64 a, float_status *status);
+int16_t float64_to_int16(float64, float_status *status);
+uint16_t float64_to_uint16(float64, float_status *status);
+int16_t float64_to_int16_round_to_zero(float64, float_status *status);
+uint16_t float64_to_uint16_round_to_zero(float64, float_status *status);
+int32_t float64_to_int32(float64, float_status *status);
+int32_t float64_to_int32_round_to_zero(float64, float_status *status);
+uint32_t float64_to_uint32(float64, float_status *status);
+uint32_t float64_to_uint32_round_to_zero(float64, float_status *status);
+int64_t float64_to_int64(float64, float_status *status);
+int64_t float64_to_int64_round_to_zero(float64, float_status *status);
+uint64_t float64_to_uint64(float64 a, float_status *status);
+uint64_t float64_to_uint64_round_to_zero(float64 a, float_status *status);
 float32 float64_to_float32(float64, float_status *status);
 floatx80 float64_to_floatx80(float64, float_status *status);
 float128 float64_to_float128(float64, float_status *status);
@@ -529,9 +521,9 @@ float64 float64_minnum(float64, float64, float_status *status);
 float64 float64_maxnum(float64, float64, float_status *status);
 float64 float64_minnummag(float64, float64, float_status *status);
 float64 float64_maxnummag(float64, float64, float_status *status);
-int float64_is_quiet_nan( float64 a );
-int float64_is_signaling_nan( float64 );
-float64 float64_maybe_silence_nan( float64 );
+int float64_is_quiet_nan(float64 a, float_status *status);
+int float64_is_signaling_nan(float64, float_status *status);
+float64 float64_maybe_silence_nan(float64, float_status *status);
 float64 float64_scalbn(float64, int, float_status *status);
 
 static inline float64 float64_abs(float64 a)
@@ -591,15 +583,15 @@ static inline float64 float64_set_sign(float64 a, int sign)
 /*----------------------------------------------------------------------------
 | The pattern for a default generated double-precision NaN.
 *----------------------------------------------------------------------------*/
-extern const float64 float64_default_nan;
+float64 float64_default_nan(float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE extended double-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int32 floatx80_to_int32(floatx80, float_status *status);
-int32 floatx80_to_int32_round_to_zero(floatx80, float_status *status);
-int64 floatx80_to_int64(floatx80, float_status *status);
-int64 floatx80_to_int64_round_to_zero(floatx80, float_status *status);
+int32_t floatx80_to_int32(floatx80, float_status *status);
+int32_t floatx80_to_int32_round_to_zero(floatx80, float_status *status);
+int64_t floatx80_to_int64(floatx80, float_status *status);
+int64_t floatx80_to_int64_round_to_zero(floatx80, float_status *status);
 float32 floatx80_to_float32(floatx80, float_status *status);
 float64 floatx80_to_float64(floatx80, float_status *status);
 float128 floatx80_to_float128(floatx80, float_status *status);
@@ -624,9 +616,9 @@ int floatx80_lt_quiet(floatx80, floatx80, float_status *status);
 int floatx80_unordered_quiet(floatx80, floatx80, float_status *status);
 int floatx80_compare(floatx80, floatx80, float_status *status);
 int floatx80_compare_quiet(floatx80, floatx80, float_status *status);
-int floatx80_is_quiet_nan( floatx80 );
-int floatx80_is_signaling_nan( floatx80 );
-floatx80 floatx80_maybe_silence_nan( floatx80 );
+int floatx80_is_quiet_nan(floatx80, float_status *status);
+int floatx80_is_signaling_nan(floatx80, float_status *status);
+floatx80 floatx80_maybe_silence_nan(floatx80, float_status *status);
 floatx80 floatx80_scalbn(floatx80, int, float_status *status);
 
 static inline floatx80 floatx80_abs(floatx80 a)
@@ -676,15 +668,15 @@ static inline int floatx80_is_any_nan(floatx80 a)
 /*----------------------------------------------------------------------------
 | The pattern for a default generated extended double-precision NaN.
 *----------------------------------------------------------------------------*/
-extern const floatx80 floatx80_default_nan;
+floatx80 floatx80_default_nan(float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE quadruple-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int32 float128_to_int32(float128, float_status *status);
-int32 float128_to_int32_round_to_zero(float128, float_status *status);
-int64 float128_to_int64(float128, float_status *status);
-int64 float128_to_int64_round_to_zero(float128, float_status *status);
+int32_t float128_to_int32(float128, float_status *status);
+int32_t float128_to_int32_round_to_zero(float128, float_status *status);
+int64_t float128_to_int64(float128, float_status *status);
+int64_t float128_to_int64_round_to_zero(float128, float_status *status);
 float32 float128_to_float32(float128, float_status *status);
 float64 float128_to_float64(float128, float_status *status);
 floatx80 float128_to_floatx80(float128, float_status *status);
@@ -709,9 +701,9 @@ int float128_lt_quiet(float128, float128, float_status *status);
 int float128_unordered_quiet(float128, float128, float_status *status);
 int float128_compare(float128, float128, float_status *status);
 int float128_compare_quiet(float128, float128, float_status *status);
-int float128_is_quiet_nan( float128 );
-int float128_is_signaling_nan( float128 );
-float128 float128_maybe_silence_nan( float128 );
+int float128_is_quiet_nan(float128, float_status *status);
+int float128_is_signaling_nan(float128, float_status *status);
+float128 float128_maybe_silence_nan(float128, float_status *status);
 float128 float128_scalbn(float128, int, float_status *status);
 
 static inline float128 float128_abs(float128 a)
@@ -757,6 +749,6 @@ static inline int float128_is_any_nan(float128 a)
 /*----------------------------------------------------------------------------
 | The pattern for a default generated quadruple-precision NaN.
 *----------------------------------------------------------------------------*/
-extern const float128 float128_default_nan;
+float128 float128_default_nan(float_status *status);
 
-#endif /* !SOFTFLOAT_H */
+#endif /* SOFTFLOAT_H */

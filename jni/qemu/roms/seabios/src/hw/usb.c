@@ -79,9 +79,8 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
     case USB_TYPE_EHCI:
         return ehci_poll_intr(pipe_fl, data);
     case USB_TYPE_XHCI: ;
-        extern void _cfunc32flat_xhci_poll_intr(void);
-        return call32_params(_cfunc32flat_xhci_poll_intr, (u32)pipe_fl
-                             , (u32)MAKE_FLATPTR(GET_SEG(SS), (u32)data), 0, -1);
+        return call32_params(xhci_poll_intr, pipe_fl
+                             , MAKE_FLATPTR(GET_SEG(SS), data), 0, -1);
     }
 }
 
@@ -249,8 +248,10 @@ get_device_config(struct usb_pipe *pipe)
         return NULL;
 
     void *config = malloc_tmphigh(cfg.wTotalLength);
-    if (!config)
+    if (!config) {
+        warn_noalloc();
         return NULL;
+    }
     req.wLength = cfg.wTotalLength;
     ret = usb_send_default_control(pipe, &req, config);
     if (ret) {

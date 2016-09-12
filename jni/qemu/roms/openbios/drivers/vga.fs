@@ -109,16 +109,17 @@ h# 1 constant VBE_DISPI_ENABLED
 \ PCI
 \
 
-" pci-bar>pci-region" (find-xt) value pci-bar>pci-region-xt
-: pci-bar>pci-region pci-bar>pci-region-xt execute ;
+" pci-bar>pci-addr" (find-xt) value pci-bar>pci-addr-xt
+: pci-bar>pci-addr pci-bar>pci-addr-xt execute ;
 
 h# 10 constant cfg-bar0    \ Framebuffer BAR
 -1 value fb-addr
 
 : map-fb ( -- )
-  cfg-bar0 pci-bar>pci-region   \ ( pci-addr.lo pci-addr.hi size )
-  " pci-map-in" $call-parent
-  to fb-addr
+  cfg-bar0 pci-bar>pci-addr if   \ ( pci-addr.lo pci-addr.mid pci-addr.hi size )
+    " pci-map-in" $call-parent
+    to fb-addr
+  then
 ;
 
 \

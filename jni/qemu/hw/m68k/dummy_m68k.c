@@ -6,6 +6,9 @@
  * This code is licensed under the GPL
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/boards.h"
 #include "hw/loader.h"
@@ -49,7 +52,7 @@ static void dummy_m68k_init(MachineState *machine)
     /* Load kernel.  */
     if (kernel_filename) {
         kernel_size = load_elf(kernel_filename, NULL, NULL, &elf_entry,
-                               NULL, NULL, 1, ELF_MACHINE, 0);
+                               NULL, NULL, 1, EM_68K, 0, 0);
         entry = elf_entry;
         if (kernel_size < 0) {
             kernel_size = load_uimage(kernel_filename, &entry, NULL, NULL,
@@ -72,15 +75,10 @@ static void dummy_m68k_init(MachineState *machine)
     env->pc = entry;
 }
 
-static QEMUMachine dummy_m68k_machine = {
-    .name = "dummy",
-    .desc = "Dummy board",
-    .init = dummy_m68k_init,
-};
-
-static void dummy_m68k_machine_init(void)
+static void dummy_m68k_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&dummy_m68k_machine);
+    mc->desc = "Dummy board";
+    mc->init = dummy_m68k_init;
 }
 
-machine_init(dummy_m68k_machine_init);
+DEFINE_MACHINE("dummy", dummy_m68k_machine_init)

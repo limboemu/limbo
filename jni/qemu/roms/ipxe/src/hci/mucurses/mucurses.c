@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 static void _wupdcurs ( WINDOW *win ) __nonnull;
 void _wputch ( WINDOW *win, chtype ch, int wrap ) __nonnull;

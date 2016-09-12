@@ -20,23 +20,32 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/mips/cpudevs.h"
 #include "qemu/timer.h"
 #include "sysemu/kvm.h"
 
-#define TIMER_FREQ	100 * 1000 * 1000
+#define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
 /* XXX: do not use a global */
 uint32_t cpu_mips_get_random (CPUMIPSState *env)
 {
-    static uint32_t lfsr = 1;
+    static uint32_t seed = 1;
     static uint32_t prev_idx = 0;
     uint32_t idx;
+    uint32_t nb_rand_tlb = env->tlb->nb_tlb - env->CP0_Wired;
+
+    if (nb_rand_tlb == 1) {
+        return env->tlb->nb_tlb - 1;
+    }
+
     /* Don't return same value twice, so get another value */
     do {
-        lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xd0000001u);
-        idx = lfsr % (env->tlb->nb_tlb - env->CP0_Wired) + env->CP0_Wired;
+        /* Use a simple algorithm of Linear Congruential Generator
+         * from ISO/IEC 9899 standard. */
+        seed = 1103515245 * seed + 12345;
+        idx = (seed >> 16) % nb_rand_tlb + env->CP0_Wired;
     } while (idx == prev_idx);
     prev_idx = idx;
     return idx;
@@ -49,9 +58,8 @@ static void cpu_mips_timer_update(CPUMIPSState *env)
     uint32_t wait;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    wait = env->CP0_Compare - env->CP0_Count -
-	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-    next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
+    wait = env->CP0_Compare - env->CP0_Count - (uint32_t)(now / TIMER_PERIOD);
+    next = now + (uint64_t)wait * TIMER_PERIOD;
     timer_mod(env->timer, next);
 }
 
@@ -79,8 +87,7 @@ uint32_t cpu_mips_get_count (CPUMIPSState *env)
             cpu_mips_timer_expire(env);
         }
 
-        return env->CP0_Count +
-            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+        return env->CP0_Count + (uint32_t)(now / TIMER_PERIOD);
     }
 }
 
@@ -95,9 +102,8 @@ void cpu_mips_store_count (CPUMIPSState *env, uint32_t count)
         env->CP0_Count = count;
     else {
         /* Store new count register */
-        env->CP0_Count =
-            count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                       TIMER_FREQ, get_ticks_per_sec());
+        env->CP0_Count = count -
+               (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
         /* Update timer timer */
         cpu_mips_timer_update(env);
     }
@@ -121,8 +127,8 @@ void cpu_mips_start_count(CPUMIPSState *env)
 void cpu_mips_stop_count(CPUMIPSState *env)
 {
     /* Store the current value */
-    env->CP0_Count += (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                         TIMER_FREQ, get_ticks_per_sec());
+    env->CP0_Count += (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) /
+                                 TIMER_PERIOD);
 }
 
 static void mips_timer_cb (void *opaque)
@@ -145,8 +151,10 @@ static void mips_timer_cb (void *opaque)
     env->CP0_Count--;
 }
 
-void cpu_mips_clock_init (CPUMIPSState *env)
+void cpu_mips_clock_init (MIPSCPU *cpu)
 {
+    CPUMIPSState *env = &cpu->env;
+
     /*
      * If we're in KVM mode, don't create the periodic timer, that is handled in
      * kernel.

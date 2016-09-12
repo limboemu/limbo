@@ -326,6 +326,14 @@ external
 
 : exit ( -- )
   ." EXIT"
+  
+  \ Execute (exit) hook if one exists
+  s" (exit)" $find if
+    execute
+  else
+    2drop
+  then
+  
   outer-interpreter
 ;
 

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <strings.h>
@@ -167,6 +171,9 @@ struct nii_nic {
 
 	/** Saved task priority level */
 	EFI_TPL saved_tpl;
+
+	/** Media status is supported */
+	int media;
 
 	/** Current transmit buffer */
 	struct io_buffer *txbuf;
@@ -408,6 +415,13 @@ static int nii_issue_cpb_db ( struct nii_nic *nii, unsigned int op, void *cpb,
 	cdb.IFnum = nii->nii->IfNum;
 
 	/* Issue command */
+	DBGC2 ( nii, "NII %s issuing %02x:%04x ifnum %d%s%s\n",
+		nii->dev.name, cdb.OpCode, cdb.OpFlags, cdb.IFnum,
+		( cpb ? " cpb" : "" ), ( db ? " db" : "" ) );
+	if ( cpb )
+		DBGC2_HD ( nii, cpb, cpb_len );
+	if ( db )
+		DBGC2_HD ( nii, db, db_len );
 	nii->issue ( ( intptr_t ) &cdb );
 
 	/* Check completion status */
@@ -552,6 +566,7 @@ static int nii_get_init_info ( struct nii_nic *nii,
 	nii->buffer_len = db.MemoryRequired;
 	nii->mtu = ( db.FrameDataLen + db.MediaHeaderLen );
 	netdev->max_pkt_len = nii->mtu;
+	nii->media = ( stat & PXE_STATFLAGS_GET_STATUS_NO_MEDIA_SUPPORTED );
 
 	return 0;
 }
@@ -560,10 +575,12 @@ static int nii_get_init_info ( struct nii_nic *nii,
  * Initialise UNDI
  *
  * @v nii		NII NIC
+ * @v flags		Flags
  * @ret rc		Return status code
  */
-static int nii_initialise ( struct nii_nic *nii ) {
+static int nii_initialise_flags ( struct nii_nic *nii, unsigned int flags ) {
 	PXE_CPB_INITIALIZE cpb;
+	PXE_DB_INITIALIZE db;
 	unsigned int op;
 	int stat;
 	int rc;
@@ -580,10 +597,13 @@ static int nii_initialise ( struct nii_nic *nii ) {
 	cpb.MemoryAddr = ( ( intptr_t ) nii->buffer );
 	cpb.MemoryLength = nii->buffer_len;
 
+	/* Construct data block */
+	memset ( &db, 0, sizeof ( db ) );
+
 	/* Issue command */
-	op = NII_OP ( PXE_OPCODE_INITIALIZE,
-		      PXE_OPFLAGS_INITIALIZE_DO_NOT_DETECT_CABLE );
-	if ( ( stat = nii_issue_cpb ( nii, op, &cpb, sizeof ( cpb ) ) ) < 0 ) {
+	op = NII_OP ( PXE_OPCODE_INITIALIZE, flags );
+	if ( ( stat = nii_issue_cpb_db ( nii, op, &cpb, sizeof ( cpb ),
+					 &db, sizeof ( db ) ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
 		DBGC ( nii, "NII %s could not initialise: %s\n",
 		       nii->dev.name, strerror ( rc ) );
@@ -596,6 +616,36 @@ static int nii_initialise ( struct nii_nic *nii ) {
 	ufree ( nii->buffer );
  err_alloc:
 	return rc;
+}
+
+/**
+ * Initialise UNDI
+ *
+ * @v nii		NII NIC
+ * @ret rc		Return status code
+ */
+static int nii_initialise ( struct nii_nic *nii ) {
+	unsigned int flags;
+
+	/* Initialise UNDI */
+	flags = PXE_OPFLAGS_INITIALIZE_DO_NOT_DETECT_CABLE;
+	return nii_initialise_flags ( nii, flags );
+}
+
+/**
+ * Initialise UNDI and detect cable
+ *
+ * @v nii		NII NIC
+ * @ret rc		Return status code
+ */
+static int nii_initialise_and_detect ( struct nii_nic *nii ) {
+	unsigned int flags;
+
+	/* Initialise UNDI and detect cable.  This is required to work
+	 * around bugs in some Emulex NII drivers.
+	 */
+	flags = PXE_OPFLAGS_INITIALIZE_DETECT_CABLE;
+	return nii_initialise_flags ( nii, flags );
 }
 
 /**
@@ -630,6 +680,7 @@ static void nii_shutdown ( struct nii_nic *nii ) {
 static int nii_get_station_address ( struct nii_nic *nii,
 				     struct net_device *netdev ) {
 	PXE_DB_STATION_ADDRESS db;
+	unsigned int op;
 	int stat;
 	int rc;
 
@@ -638,8 +689,9 @@ static int nii_get_station_address ( struct nii_nic *nii,
 		goto err_initialise;
 
 	/* Issue command */
-	if ( ( stat = nii_issue_db ( nii, PXE_OPCODE_STATION_ADDRESS, &db,
-				     sizeof ( db ) ) ) < 0 ) {
+	op = NII_OP ( PXE_OPCODE_STATION_ADDRESS,
+		      PXE_OPFLAGS_STATION_ADDRESS_READ );
+	if ( ( stat = nii_issue_db ( nii, op, &db, sizeof ( db ) ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
 		DBGC ( nii, "NII %s could not get station address: %s\n",
 		       nii->dev.name, strerror ( rc ) );
@@ -669,9 +721,15 @@ static int nii_get_station_address ( struct nii_nic *nii,
  */
 static int nii_set_station_address ( struct nii_nic *nii,
 				     struct net_device *netdev ) {
+	uint32_t implementation = nii->undi->Implementation;
 	PXE_CPB_STATION_ADDRESS cpb;
+	unsigned int op;
 	int stat;
 	int rc;
+
+	/* Fail if setting station address is unsupported */
+	if ( ! ( implementation & PXE_ROMID_IMP_STATION_ADDR_SETTABLE ) )
+		return -ENOTSUP;
 
 	/* Construct parameter block */
 	memset ( &cpb, 0, sizeof ( cpb ) );
@@ -679,8 +737,9 @@ static int nii_set_station_address ( struct nii_nic *nii,
 		 netdev->ll_protocol->ll_addr_len );
 
 	/* Issue command */
-	if ( ( stat = nii_issue_cpb ( nii, PXE_OPCODE_STATION_ADDRESS,
-				      &cpb, sizeof ( cpb ) ) ) < 0 ) {
+	op = NII_OP ( PXE_OPCODE_STATION_ADDRESS,
+	              PXE_OPFLAGS_STATION_ADDRESS_WRITE );
+	if ( ( stat = nii_issue_cpb ( nii, op, &cpb, sizeof ( cpb ) ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
 		DBGC ( nii, "NII %s could not set station address: %s\n",
 		       nii->dev.name, strerror ( rc ) );
@@ -697,21 +756,28 @@ static int nii_set_station_address ( struct nii_nic *nii,
  * @ret rc		Return status code
  */
 static int nii_set_rx_filters ( struct nii_nic *nii ) {
+	uint32_t implementation = nii->undi->Implementation;
+	unsigned int flags;
 	unsigned int op;
 	int stat;
 	int rc;
 
+	/* Construct receive filter set */
+	flags = ( PXE_OPFLAGS_RECEIVE_FILTER_ENABLE |
+		  PXE_OPFLAGS_RECEIVE_FILTER_UNICAST );
+	if ( implementation & PXE_ROMID_IMP_BROADCAST_RX_SUPPORTED )
+		flags |= PXE_OPFLAGS_RECEIVE_FILTER_BROADCAST;
+	if ( implementation & PXE_ROMID_IMP_PROMISCUOUS_RX_SUPPORTED )
+		flags |= PXE_OPFLAGS_RECEIVE_FILTER_PROMISCUOUS;
+	if ( implementation & PXE_ROMID_IMP_PROMISCUOUS_MULTICAST_RX_SUPPORTED )
+		flags |= PXE_OPFLAGS_RECEIVE_FILTER_ALL_MULTICAST;
+
 	/* Issue command */
-	op = NII_OP ( PXE_OPCODE_RECEIVE_FILTERS,
-		      ( PXE_OPFLAGS_RECEIVE_FILTER_ENABLE |
-			PXE_OPFLAGS_RECEIVE_FILTER_UNICAST |
-			PXE_OPFLAGS_RECEIVE_FILTER_BROADCAST |
-			PXE_OPFLAGS_RECEIVE_FILTER_PROMISCUOUS |
-			PXE_OPFLAGS_RECEIVE_FILTER_ALL_MULTICAST ) );
+	op = NII_OP ( PXE_OPCODE_RECEIVE_FILTERS, flags );
 	if ( ( stat = nii_issue ( nii, op ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
-		DBGC ( nii, "NII %s could not set receive filters: %s\n",
-		       nii->dev.name, strerror ( rc ) );
+		DBGC ( nii, "NII %s could not set receive filters %#04x: %s\n",
+		       nii->dev.name, flags, strerror ( rc ) );
 		return rc;
 	}
 
@@ -729,6 +795,7 @@ static int nii_transmit ( struct net_device *netdev,
 			  struct io_buffer *iobuf ) {
 	struct nii_nic *nii = netdev->priv;
 	PXE_CPB_TRANSMIT cpb;
+	unsigned int op;
 	int stat;
 	int rc;
 
@@ -745,8 +812,10 @@ static int nii_transmit ( struct net_device *netdev,
 	cpb.MediaheaderLen = netdev->ll_protocol->ll_header_len;
 
 	/* Transmit packet */
-	if ( ( stat = nii_issue_cpb ( nii, PXE_OPCODE_TRANSMIT, &cpb,
-				      sizeof ( cpb ) ) ) < 0 ) {
+	op = NII_OP ( PXE_OPCODE_TRANSMIT,
+		      ( PXE_OPFLAGS_TRANSMIT_WHOLE |
+			PXE_OPFLAGS_TRANSMIT_DONT_BLOCK ) );
+	if ( ( stat = nii_issue_cpb ( nii, op, &cpb, sizeof ( cpb ) ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
 		DBGC ( nii, "NII %s could not transmit: %s\n",
 		       nii->dev.name, strerror ( rc ) );
@@ -772,12 +841,7 @@ static void nii_poll_tx ( struct net_device *netdev, unsigned int stat ) {
 		return;
 
 	/* Sanity check */
-	if ( ! nii->txbuf ) {
-		DBGC ( nii, "NII %s reported spurious TX completion\n",
-		       nii->dev.name );
-		netdev_tx_err ( netdev, NULL, -EPIPE );
-		return;
-	}
+	assert ( nii->txbuf != NULL );
 
 	/* Complete transmission */
 	iobuf = nii->txbuf;
@@ -869,11 +933,14 @@ static void nii_poll ( struct net_device *netdev ) {
 	int stat;
 	int rc;
 
+	/* Construct data block */
+	memset ( &db, 0, sizeof ( db ) );
+
 	/* Get status */
 	op = NII_OP ( PXE_OPCODE_GET_STATUS,
 		      ( PXE_OPFLAGS_GET_INTERRUPT_STATUS |
-			PXE_OPFLAGS_GET_TRANSMITTED_BUFFERS |
-			PXE_OPFLAGS_GET_MEDIA_STATUS ) );
+			( nii->txbuf ? PXE_OPFLAGS_GET_TRANSMITTED_BUFFERS : 0)|
+			( nii->media ? PXE_OPFLAGS_GET_MEDIA_STATUS : 0 ) ) );
 	if ( ( stat = nii_issue_db ( nii, op, &db, sizeof ( db ) ) ) < 0 ) {
 		rc = -EIO_STAT ( stat );
 		DBGC ( nii, "NII %s could not get status: %s\n",
@@ -882,13 +949,15 @@ static void nii_poll ( struct net_device *netdev ) {
 	}
 
 	/* Process any TX completions */
-	nii_poll_tx ( netdev, stat );
+	if ( nii->txbuf )
+		nii_poll_tx ( netdev, stat );
 
 	/* Process any RX completions */
 	nii_poll_rx ( netdev );
 
 	/* Check for link state changes */
-	nii_poll_link ( netdev, stat );
+	if ( nii->media )
+		nii_poll_link ( netdev, stat );
 }
 
 /**
@@ -901,8 +970,18 @@ static int nii_open ( struct net_device *netdev ) {
 	struct nii_nic *nii = netdev->priv;
 	int rc;
 
-	/* Initialise NIC */
-	if ( ( rc = nii_initialise ( nii ) ) != 0 )
+	/* Initialise NIC
+	 *
+	 * Some Emulex NII drivers have a bug which prevents packets
+	 * from being sent or received unless we specifically ask it
+	 * to detect cable presence during initialisation.  Work
+	 * around these buggy drivers by requesting cable detection at
+	 * this point, even though we don't care about link state here
+	 * (and would prefer to have the NIC initialise even if no
+	 * cable is present, to match the behaviour of all other iPXE
+	 * drivers).
+	 */
+	if ( ( rc = nii_initialise_and_detect ( nii ) ) != 0 )
 		goto err_initialise;
 
 	/* Attempt to set station address */
@@ -1023,8 +1102,9 @@ int nii_start ( struct efi_device *efidev ) {
 		nii->issue = ( ( ( void * ) nii->undi ) +
 			       nii->undi->EntryPoint );
 	}
-	DBGC ( nii, "NII %s using UNDI v%x.%x at %p entry %p\n", nii->dev.name,
-	       nii->nii->MajorVer, nii->nii->MinorVer, nii->undi, nii->issue );
+	DBGC ( nii, "NII %s using UNDI v%x.%x at %p entry %p impl %#08x\n",
+	       nii->dev.name, nii->nii->MajorVer, nii->nii->MinorVer,
+	       nii->undi, nii->issue, nii->undi->Implementation );
 
 	/* Open PCI I/O protocols and locate BARs */
 	if ( ( rc = nii_pci_open ( nii ) ) != 0 )
@@ -1045,8 +1125,12 @@ int nii_start ( struct efi_device *efidev ) {
 	/* Register network device */
 	if ( ( rc = register_netdev ( netdev ) ) != 0 )
 		goto err_register_netdev;
-	DBGC ( nii, "NII %s registered as %s for %p %s\n", nii->dev.name,
-	       netdev->name, device, efi_handle_name ( device ) );
+	DBGC ( nii, "NII %s registered as %s for %s\n", nii->dev.name,
+	       netdev->name, efi_handle_name ( device ) );
+
+	/* Set initial link state (if media detection is not supported) */
+	if ( ! nii->media )
+		netdev_link_up ( netdev );
 
 	return 0;
 

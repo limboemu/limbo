@@ -10,6 +10,8 @@
  *     IBM Corporation - initial implementation
  *****************************************************************************/
 
+cod(virtio-setup-vd)
+
 cod(virtio-vring-size)
 cod(virtio-get-qsize)
 cod(virtio-get-config)

@@ -1,4 +1,6 @@
 
+COMMA := ,
+
 # Don't use implicit rules or variables
 # we have explicit rules for everything
 MAKEFLAGS += -rR
@@ -17,7 +19,7 @@ MAKEFLAGS += -rR
 QEMU_CXXFLAGS = -D__STDC_LIMIT_MACROS $(filter-out -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Wold-style-declaration -Wold-style-definition -Wredundant-decls, $(QEMU_CFLAGS))
 
 # Flags for dependency generation
-QEMU_DGFLAGS += -MMD -MP -MT $@ -MF $(*D)/$(*F).d
+QEMU_DGFLAGS += -MMD -MP -MT $@ -MF $(@D)/$(*F).d
 
 # Same as -I$(SRC_PATH) -I., but for the nested source/object directories
 QEMU_INCLUDES += -I$(<D) -I$(@D)
@@ -53,15 +55,8 @@ expand-objs = $(strip $(sort $(filter %.o,$1)) \
                   $(foreach o,$(filter %.mo,$1),$($o-objs)) \
                   $(filter-out %.o %.mo,$1))
 
-# Replace all cygdrive paths to actual paths
-QEMU_INCLUDES_ALT=$(subst /cygdrive/c,c:,$(QEMU_INCLUDES))
-QEMU_CFLAGS_ALT=$(subst /cygdrive/c,c:,$(QEMU_CFLAGS))
-QEMU_DGFLAGS_ALT=$(subst /cygdrive/d,d:,$(QEMU_DGFLAGS))
-CFLAGS_ALT=$(subst /cygdrive/d,d:,$(CFLAGS))
-
-
 %.o: %.c
-	$(call quiet-command,$(CC) $(QEMU_INCLUDES_ALT) $(QEMU_CFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) $(subst /cygdrive/c,c:,$($@-cflags)) -c -o $@ $(subst /cygdrive/c,c:,$<),"  CC    $(TARGET_DIR)$@")
+	$(call quiet-command,$(CC) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  CC    $(TARGET_DIR)$@")
 %.o: %.rc
 	$(call quiet-command,$(WINDRES) -I. -o $@ $<,"  RC    $(TARGET_DIR)$@")
 
@@ -69,33 +64,12 @@ CFLAGS_ALT=$(subst /cygdrive/d,d:,$(CFLAGS))
 # must link with the C++ compiler, not the plain C compiler.
 LINKPROG = $(or $(CXX),$(CC))
 
-ifeq ($(LIBTOOL),)
 LINK = $(call quiet-command, $(LINKPROG) $(QEMU_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
        $(call process-archive-undefs, $1) \
        $(version-obj-y) $(call extract-libs,$1) $(LIBS),"  LINK  $(TARGET_DIR)$@")
-else
-LIBTOOL += $(if $(V),,--quiet)
-%.lo: %.c
-	$(call quiet-command,$(LIBTOOL) --mode=compile --tag=CC $(CC) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($*.o-cflags) -c -o $@ $<,"  lt CC $@")
-%.lo: %.rc
-	$(call quiet-command,$(LIBTOOL) --mode=compile --tag=RC $(WINDRES) -I. -o $@ $<,"lt RC   $(TARGET_DIR)$@")
-%.lo: %.dtrace
-	$(call quiet-command,$(LIBTOOL) --mode=compile --tag=CC dtrace -o $@ -G -s $<, " lt GEN $(TARGET_DIR)$@")
 
-LINK = $(call quiet-command,\
-       $(if $(filter %.lo %.la,$1),$(LIBTOOL) --mode=link --tag=CC \
-       )$(LINKPROG) $(QEMU_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
-       $(call process-archive-undefs, $1)\
-       $(if $(filter %.lo %.la,$1),$(version-lobj-y),$(version-obj-y)) \
-       $(if $(filter %.lo %.la,$1),$(LIBTOOLFLAGS)) \
-       $(call extract-libs,$(1:.lo=.o)) $(LIBS),$(if $(filter %.lo %.la,$1),"lt LINK ", "  LINK  ")"$(TARGET_DIR)$@")
-endif
-
-%.asm: %.S
-	$(call quiet-command,$(CPP) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) -o $@ $<,"  CPP   $(TARGET_DIR)$@")
-
-%.o: %.asm
-	$(call quiet-command,$(AS) $(ASFLAGS) -o $@ $<,"  AS    $(TARGET_DIR)$@")
+%.o: %.S
+	$(call quiet-command,$(CCAS) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) -c -o $@ $<,"  CCAS  $(TARGET_DIR)$@")
 
 %.o: %.cc
 	$(call quiet-command,$(CXX) $(QEMU_INCLUDES) $(QEMU_CXXFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  CXX   $(TARGET_DIR)$@")
@@ -109,7 +83,8 @@ endif
 %.o: %.dtrace
 	$(call quiet-command,dtrace -o $@ -G -s $<, "  GEN   $(TARGET_DIR)$@")
 
-%$(DSOSUF): CFLAGS += -fPIC -DBUILD_DSO
+DSO_OBJ_CFLAGS := -fPIC -DBUILD_DSO
+module-common.o: CFLAGS += $(DSO_OBJ_CFLAGS)
 %$(DSOSUF): LDFLAGS += $(LDFLAGS_SHARED)
 %$(DSOSUF): %.mo
 	$(call LINK,$^)
@@ -117,7 +92,7 @@ endif
 	$(if $(findstring /,$@),$(call quiet-command,cp $@ $(subst /,-,$@), "  CP    $(subst /,-,$@)"))
 
 
-LD_REL := $(CC) -nostdlib -Wl,-r
+LD_REL := $(CC) -nostdlib -Wl,-r $(LD_REL_FLAGS)
 
 %.mo:
 	$(call quiet-command,$(LD_REL) -o $@ $^,"  LD -r $(TARGET_DIR)$@")
@@ -126,7 +101,7 @@ LD_REL := $(CC) -nostdlib -Wl,-r
 modules:
 
 %$(EXESUF): %.o
-	$(call LINK,$^)
+	$(call LINK,$(filter %.o %.a %.mo, $^))
 
 %.a:
 	$(call quiet-command,rm -f $@ && $(AR) rcs $@ $^,"  AR    $(TARGET_DIR)$@")
@@ -138,6 +113,8 @@ quiet-command = $(if $(V),$1,$(if $(2),@echo $2 && $1, @$1))
 
 cc-option = $(if $(shell $(CC) $1 $2 -S -o /dev/null -xc /dev/null \
               >/dev/null 2>&1 && echo OK), $2, $3)
+cc-c-option = $(if $(shell $(CC) $1 $2 -c -o /dev/null -xc /dev/null \
+                >/dev/null 2>&1 && echo OK), $2, $3)
 
 VPATH_SUFFIXES = %.c %.h %.S %.cc %.cpp %.m %.mak %.texi %.sh %.rc
 set-vpath = $(if $1,$(foreach PATTERN,$(VPATH_SUFFIXES),$(eval vpath $(PATTERN) $1)))
@@ -194,7 +171,7 @@ TRACETOOL=$(PYTHON) $(SRC_PATH)/scripts/tracetool.py
 config-%.h: config-%.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
 
-config-%.h-timestamp: config-%.mak
+config-%.h-timestamp: config-%.mak $(SRC_PATH)/scripts/create_config
 	$(call quiet-command, sh $(SRC_PATH)/scripts/create_config < $< > $@, "  GEN   $(TARGET_DIR)config-$*.h")
 
 .PHONY: clean-timestamp
@@ -303,19 +280,19 @@ endef
 # Unnest through a faked source directory structure:
 #
 #     SRC_PATH
-#        Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ water
-#        Ã¢â€�â€š   Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬ Makefile.objsÃ¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�ï¿½
-#        Ã¢â€�â€š       Ã¢â€�â€š hot += steam.o               Ã¢â€�â€š
-#        Ã¢â€�â€š       Ã¢â€�â€š cold += ice.mo               Ã¢â€�â€š
-#        Ã¢â€�â€š       Ã¢â€�â€š ice.mo-libs := -licemaker    Ã¢â€�â€š
-#        Ã¢â€�â€š       Ã¢â€�â€š ice.mo-objs := ice1.o ice2.o Ã¢â€�â€š
-#        Ã¢â€�â€š       Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�Ëœ
-#        Ã¢â€�â€š
-#        Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬ season
-#            Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬ Makefile.objsÃ¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�ï¿½
-#                Ã¢â€�â€š hot += summer.o  Ã¢â€�â€š
-#                Ã¢â€�â€š cold += winter.o Ã¢â€�â€š
-#                Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�Ëœ
+#        ├── water
+#        │   └── Makefile.objs──────────────────┐
+#        │       │ hot += steam.o               │
+#        │       │ cold += ice.mo               │
+#        │       │ ice.mo-libs := -licemaker    │
+#        │       │ ice.mo-objs := ice1.o ice2.o │
+#        │       └──────────────────────────────┘
+#        │
+#        └── season
+#            └── Makefile.objs──────┐
+#                │ hot += summer.o  │
+#                │ cold += winter.o │
+#                └──────────────────┘
 #
 # In the end, the result will be:
 #
@@ -358,6 +335,7 @@ define unnest-vars
         # For non-module build, add -m to -y
         $(if $(CONFIG_MODULES),
              $(foreach o,$($v),
+                   $(eval $($o-objs): CFLAGS += $(DSO_OBJ_CFLAGS))
                    $(eval $o: $($o-objs)))
              $(eval $(patsubst %-m,%-y,$v) += $($v))
              $(eval modules: $($v:%.mo=%$(DSOSUF))),
@@ -373,6 +351,6 @@ define unnest-vars
                 $(error $o added in $v but $o-objs is not set)))
         $(shell mkdir -p ./ $(sort $(dir $($v))))
         # Include all the .d files
-        $(eval -include $(addsuffix *.d, $(sort $(dir $($v)))))
+        $(eval -include $(patsubst %.o,%.d,$(patsubst %.mo,%.d,$($v))))
         $(eval $v := $(filter-out %/,$($v))))
 endef

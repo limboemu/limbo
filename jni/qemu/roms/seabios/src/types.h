@@ -70,7 +70,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 // Designate a variable at a specific address in the f-segment.
 # define VARFSEGFIXED(addr) __section(".discard.varfixed." UNIQSEC) __VISIBLE __weak
-// Verify a variable is only accessable via 32bit "init" functions
+// Verify a variable is only accessible via 32bit "init" functions
 # define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)

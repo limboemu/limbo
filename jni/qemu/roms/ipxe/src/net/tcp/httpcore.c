@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Michael Brown <mbrown@fensystems.co.uk>.
+ * Copyright (C) 2015 Michael Brown <mbrown@fensystems.co.uk>.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -40,35 +44,26 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/iobuf.h>
 #include <ipxe/xfer.h>
 #include <ipxe/open.h>
-#include <ipxe/socket.h>
-#include <ipxe/tcpip.h>
 #include <ipxe/process.h>
 #include <ipxe/retry.h>
 #include <ipxe/timer.h>
 #include <ipxe/linebuf.h>
-#include <ipxe/base64.h>
-#include <ipxe/base16.h>
-#include <ipxe/md5.h>
+#include <ipxe/xferbuf.h>
 #include <ipxe/blockdev.h>
 #include <ipxe/acpi.h>
 #include <ipxe/version.h>
 #include <ipxe/params.h>
 #include <ipxe/profile.h>
+#include <ipxe/vsprintf.h>
 #include <ipxe/http.h>
 
 /* Disambiguate the various error causes */
 #define EACCES_401 __einfo_error ( EINFO_EACCES_401 )
 #define EINFO_EACCES_401 \
 	__einfo_uniqify ( EINFO_EACCES, 0x01, "HTTP 401 Unauthorized" )
-#define EIO_OTHER __einfo_error ( EINFO_EIO_OTHER )
-#define EINFO_EIO_OTHER \
-	__einfo_uniqify ( EINFO_EIO, 0x01, "Unrecognised HTTP response code" )
-#define EIO_CONTENT_LENGTH __einfo_error ( EINFO_EIO_CONTENT_LENGTH )
-#define EINFO_EIO_CONTENT_LENGTH \
-	__einfo_uniqify ( EINFO_EIO, 0x02, "Content length mismatch" )
-#define EINVAL_RESPONSE __einfo_error ( EINFO_EINVAL_RESPONSE )
-#define EINFO_EINVAL_RESPONSE \
-	__einfo_uniqify ( EINFO_EINVAL, 0x01, "Invalid content length" )
+#define EINVAL_STATUS __einfo_error ( EINFO_EINVAL_STATUS )
+#define EINFO_EINVAL_STATUS \
+	__einfo_uniqify ( EINFO_EINVAL, 0x01, "Invalid status line" )
 #define EINVAL_HEADER __einfo_error ( EINFO_EINVAL_HEADER )
 #define EINFO_EINVAL_HEADER \
 	__einfo_uniqify ( EINFO_EINVAL, 0x02, "Invalid header" )
@@ -78,18 +73,33 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #define EINVAL_CHUNK_LENGTH __einfo_error ( EINFO_EINVAL_CHUNK_LENGTH )
 #define EINFO_EINVAL_CHUNK_LENGTH \
 	__einfo_uniqify ( EINFO_EINVAL, 0x04, "Invalid chunk length" )
+#define EIO_OTHER __einfo_error ( EINFO_EIO_OTHER )
+#define EINFO_EIO_OTHER \
+	__einfo_uniqify ( EINFO_EIO, 0x01, "Unrecognised HTTP response code" )
+#define EIO_CONTENT_LENGTH __einfo_error ( EINFO_EIO_CONTENT_LENGTH )
+#define EINFO_EIO_CONTENT_LENGTH \
+	__einfo_uniqify ( EINFO_EIO, 0x02, "Content length mismatch" )
+#define EIO_4XX __einfo_error ( EINFO_EIO_4XX )
+#define EINFO_EIO_4XX \
+	__einfo_uniqify ( EINFO_EIO, 0x04, "HTTP 4xx Client Error" )
+#define EIO_5XX __einfo_error ( EINFO_EIO_5XX )
+#define EINFO_EIO_5XX \
+	__einfo_uniqify ( EINFO_EIO, 0x05, "HTTP 5xx Server Error" )
 #define ENOENT_404 __einfo_error ( EINFO_ENOENT_404 )
 #define EINFO_ENOENT_404 \
 	__einfo_uniqify ( EINFO_ENOENT, 0x01, "HTTP 404 Not Found" )
+#define ENOTSUP_CONNECTION __einfo_error ( EINFO_ENOTSUP_CONNECTION )
+#define EINFO_ENOTSUP_CONNECTION \
+	__einfo_uniqify ( EINFO_ENOTSUP, 0x01, "Unsupported connection header" )
+#define ENOTSUP_TRANSFER __einfo_error ( EINFO_ENOTSUP_TRANSFER )
+#define EINFO_ENOTSUP_TRANSFER \
+	__einfo_uniqify ( EINFO_ENOTSUP, 0x02, "Unsupported transfer encoding" )
 #define EPERM_403 __einfo_error ( EINFO_EPERM_403 )
 #define EINFO_EPERM_403 \
 	__einfo_uniqify ( EINFO_EPERM, 0x01, "HTTP 403 Forbidden" )
 #define EPROTO_UNSOLICITED __einfo_error ( EINFO_EPROTO_UNSOLICITED )
 #define EINFO_EPROTO_UNSOLICITED \
 	__einfo_uniqify ( EINFO_EPROTO, 0x01, "Unsolicited data" )
-
-/** Block size used for HTTP block device request */
-#define HTTP_BLKSIZE 512
 
 /** Retry delay used when we cannot understand the Retry-After header */
 #define HTTP_RETRY_SECONDS 5
@@ -100,1069 +110,1752 @@ static struct profiler http_rx_profiler __profiler = { .name = "http.rx" };
 /** Data transfer profiler */
 static struct profiler http_xfer_profiler __profiler = { .name = "http.xfer" };
 
-/** HTTP flags */
-enum http_flags {
-	/** Request is waiting to be transmitted */
-	HTTP_TX_PENDING = 0x0001,
-	/** Fetch header only */
-	HTTP_HEAD_ONLY = 0x0002,
-	/** Client would like to keep connection alive */
-	HTTP_CLIENT_KEEPALIVE = 0x0004,
-	/** Server will keep connection alive */
-	HTTP_SERVER_KEEPALIVE = 0x0008,
-	/** Discard the current request and try again */
-	HTTP_TRY_AGAIN = 0x0010,
-	/** Provide Basic authentication details */
-	HTTP_BASIC_AUTH = 0x0020,
-	/** Provide Digest authentication details */
-	HTTP_DIGEST_AUTH = 0x0040,
-	/** Socket must be reopened */
-	HTTP_REOPEN_SOCKET = 0x0080,
-};
+static struct http_state http_request;
+static struct http_state http_headers;
+static struct http_state http_trailers;
+static struct http_transfer_encoding http_transfer_identity;
 
-/** HTTP receive state */
-enum http_rx_state {
-	HTTP_RX_RESPONSE = 0,
-	HTTP_RX_HEADER,
-	HTTP_RX_CHUNK_LEN,
-	/* In HTTP_RX_DATA, it is acceptable for the server to close
-	 * the connection (unless we are in the middle of a chunked
-	 * transfer).
-	 */
-	HTTP_RX_DATA,
-	/* In the following states, it is acceptable for the server to
-	 * close the connection.
-	 */
-	HTTP_RX_TRAILER,
-	HTTP_RX_IDLE,
-	HTTP_RX_DEAD,
-};
-
-/**
- * An HTTP request
+/******************************************************************************
  *
+ * Methods
+ *
+ ******************************************************************************
  */
-struct http_request {
-	/** Reference count */
-	struct refcnt refcnt;
-	/** Data transfer interface */
-	struct interface xfer;
-	/** Partial transfer interface */
-	struct interface partial;
 
-	/** URI being fetched */
-	struct uri *uri;
-	/** Default port */
-	unsigned int default_port;
-	/** Filter (if any) */
-	int ( * filter ) ( struct interface *xfer,
-			   const char *name,
-			   struct interface **next );
-	/** Transport layer interface */
-	struct interface socket;
-
-	/** Flags */
-	unsigned int flags;
-	/** Starting offset of partial transfer (if applicable) */
-	size_t partial_start;
-	/** Length of partial transfer (if applicable) */
-	size_t partial_len;
-
-	/** TX process */
-	struct process process;
-
-	/** RX state */
-	enum http_rx_state rx_state;
-	/** Response code */
-	unsigned int code;
-	/** Received length */
-	size_t rx_len;
-	/** Length remaining (or 0 if unknown) */
-	size_t remaining;
-	/** HTTP is using Transfer-Encoding: chunked */
-	int chunked;
-	/** Current chunk length remaining (if applicable) */
-	size_t chunk_remaining;
-	/** Line buffer for received header lines */
-	struct line_buffer linebuf;
-	/** Receive data buffer (if applicable) */
-	userptr_t rx_buffer;
-
-	/** Authentication realm (if any) */
-	char *auth_realm;
-	/** Authentication nonce (if any) */
-	char *auth_nonce;
-	/** Authentication opaque string (if any) */
-	char *auth_opaque;
-
-	/** Request retry timer */
-	struct retry_timer timer;
-	/** Retry delay (in timer ticks) */
-	unsigned long retry_delay;
+/** HTTP HEAD method */
+struct http_method http_head = {
+	.name = "HEAD",
 };
 
-/**
- * Free HTTP request
- *
- * @v refcnt		Reference counter
- */
-static void http_free ( struct refcnt *refcnt ) {
-	struct http_request *http =
-		container_of ( refcnt, struct http_request, refcnt );
-
-	uri_put ( http->uri );
-	empty_line_buffer ( &http->linebuf );
-	free ( http->auth_realm );
-	free ( http->auth_nonce );
-	free ( http->auth_opaque );
-	free ( http );
+/** HTTP GET method */
+struct http_method http_get = {
+	.name = "GET",
 };
 
-/**
- * Close HTTP request
+/** HTTP POST method */
+struct http_method http_post = {
+	.name = "POST",
+};
+
+/******************************************************************************
  *
- * @v http		HTTP request
- * @v rc		Return status code
+ * Utility functions
+ *
+ ******************************************************************************
  */
-static void http_close ( struct http_request *http, int rc ) {
-
-	/* Prevent further processing of any current packet */
-	http->rx_state = HTTP_RX_DEAD;
-
-	/* Prevent reconnection */
-	http->flags &= ~HTTP_CLIENT_KEEPALIVE;
-
-	/* Remove process */
-	process_del ( &http->process );
-
-	/* Close all data transfer interfaces */
-	intf_shutdown ( &http->socket, rc );
-	intf_shutdown ( &http->partial, rc );
-	intf_shutdown ( &http->xfer, rc );
-}
 
 /**
- * Open HTTP socket
+ * Handle received HTTP line-buffered data
  *
- * @v http		HTTP request
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer
+ * @v linebuf		Line buffer
  * @ret rc		Return status code
  */
-static int http_socket_open ( struct http_request *http ) {
-	struct uri *uri = http->uri;
-	struct sockaddr_tcpip server;
-	struct interface *socket;
+static int http_rx_linebuf ( struct http_transaction *http,
+			     struct io_buffer *iobuf,
+			     struct line_buffer *linebuf ) {
+	int consumed;
 	int rc;
 
-	/* Open socket */
-	memset ( &server, 0, sizeof ( server ) );
-	server.st_port = htons ( uri_port ( uri, http->default_port ) );
-	socket = &http->socket;
-	if ( http->filter ) {
-		if ( ( rc = http->filter ( socket, uri->host, &socket ) ) != 0 )
-			return rc;
-	}
-	if ( ( rc = xfer_open_named_socket ( socket, SOCK_STREAM,
-					     ( struct sockaddr * ) &server,
-					     uri->host, NULL ) ) != 0 )
-		return rc;
-
-	return 0;
-}
-
-/**
- * Retry HTTP request
- *
- * @v timer		Retry timer
- * @v fail		Failure indicator
- */
-static void http_retry ( struct retry_timer *timer, int fail __unused ) {
-	struct http_request *http =
-		container_of ( timer, struct http_request, timer );
-	int rc;
-
-	/* Reopen socket if required */
-	if ( http->flags & HTTP_REOPEN_SOCKET ) {
-		http->flags &= ~HTTP_REOPEN_SOCKET;
-		DBGC ( http, "HTTP %p reopening connection\n", http );
-		if ( ( rc = http_socket_open ( http ) ) != 0 ) {
-			http_close ( http, rc );
-			return;
-		}
-	}
-
-	/* Retry the request if applicable */
-	if ( http->flags & HTTP_TRY_AGAIN ) {
-		http->flags &= ~HTTP_TRY_AGAIN;
-		DBGC ( http, "HTTP %p retrying request\n", http );
-		http->flags |= HTTP_TX_PENDING;
-		http->rx_state = HTTP_RX_RESPONSE;
-		process_add ( &http->process );
-	}
-}
-
-/**
- * Mark HTTP request as completed successfully
- *
- * @v http		HTTP request
- */
-static void http_done ( struct http_request *http ) {
-
-	/* If we are not at an appropriate stage of the protocol
-	 * (including being in the middle of a chunked transfer),
-	 * force an error.
-	 */
-	if ( ( http->rx_state < HTTP_RX_DATA ) || ( http->chunked != 0 ) ) {
-		DBGC ( http, "HTTP %p connection closed unexpectedly in state "
-		       "%d\n", http, http->rx_state );
-		http_close ( http, -ECONNRESET );
-		return;
-	}
-
-	/* If we had a Content-Length, and the received content length
-	 * isn't correct, force an error
-	 */
-	if ( http->remaining != 0 ) {
-		DBGC ( http, "HTTP %p incorrect length %zd, should be %zd\n",
-		       http, http->rx_len, ( http->rx_len + http->remaining ) );
-		http_close ( http, -EIO_CONTENT_LENGTH );
-		return;
-	}
-
-	/* Enter idle state */
-	http->rx_state = HTTP_RX_IDLE;
-	http->rx_len = 0;
-	assert ( http->remaining == 0 );
-	assert ( http->chunked == 0 );
-	assert ( http->chunk_remaining == 0 );
-
-	/* Close partial transfer interface */
-	if ( ! ( http->flags & HTTP_TRY_AGAIN ) )
-		intf_restart ( &http->partial, 0 );
-
-	/* Close everything unless we want to keep the connection alive */
-	if ( ! ( http->flags & ( HTTP_CLIENT_KEEPALIVE | HTTP_TRY_AGAIN ) ) ) {
-		http_close ( http, 0 );
-		return;
-	}
-
-	/* If the server is not intending to keep the connection
-	 * alive, then close the socket and mark it as requiring
-	 * reopening.
-	 */
-	if ( ! ( http->flags & HTTP_SERVER_KEEPALIVE ) ) {
-		intf_restart ( &http->socket, 0 );
-		http->flags &= ~HTTP_SERVER_KEEPALIVE;
-		http->flags |= HTTP_REOPEN_SOCKET;
-	}
-
-	/* Start request retry timer */
-	start_timer_fixed ( &http->timer, http->retry_delay );
-	http->retry_delay = 0;
-}
-
-/**
- * Convert HTTP response code to return status code
- *
- * @v response		HTTP response code
- * @ret rc		Return status code
- */
-static int http_response_to_rc ( unsigned int response ) {
-	switch ( response ) {
-	case 200:
-	case 206:
-	case 301:
-	case 302:
-	case 303:
-		return 0;
-	case 404:
-		return -ENOENT_404;
-	case 403:
-		return -EPERM_403;
-	case 401:
-		return -EACCES_401;
-	default:
-		return -EIO_OTHER;
-	}
-}
-
-/**
- * Handle HTTP response
- *
- * @v http		HTTP request
- * @v response		HTTP response
- * @ret rc		Return status code
- */
-static int http_rx_response ( struct http_request *http, char *response ) {
-	char *spc;
-
-	DBGC ( http, "HTTP %p response \"%s\"\n", http, response );
-
-	/* Check response starts with "HTTP/" */
-	if ( strncmp ( response, "HTTP/", 5 ) != 0 )
-		return -EINVAL_RESPONSE;
-
-	/* Locate and store response code */
-	spc = strchr ( response, ' ' );
-	if ( ! spc )
-		return -EINVAL_RESPONSE;
-	http->code = strtoul ( spc, NULL, 10 );
-
-	/* Move to receive headers */
-	http->rx_state = ( ( http->flags & HTTP_HEAD_ONLY ) ?
-			   HTTP_RX_TRAILER : HTTP_RX_HEADER );
-	return 0;
-}
-
-/**
- * Handle HTTP Location header
- *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
- */
-static int http_rx_location ( struct http_request *http, char *value ) {
-	int rc;
-
-	/* Redirect to new location */
-	DBGC ( http, "HTTP %p redirecting to %s\n", http, value );
-	if ( ( rc = xfer_redirect ( &http->xfer, LOCATION_URI_STRING,
-				    value ) ) != 0 ) {
-		DBGC ( http, "HTTP %p could not redirect: %s\n",
+	/* Buffer received line */
+	consumed = line_buffer ( linebuf, iobuf->data, iob_len ( iobuf ) );
+	if ( consumed < 0 ) {
+		rc = consumed;
+		DBGC ( http, "HTTP %p could not buffer line: %s\n",
 		       http, strerror ( rc ) );
 		return rc;
 	}
 
-	return 0;
-}
-
-/**
- * Handle HTTP Content-Length header
- *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
- */
-static int http_rx_content_length ( struct http_request *http, char *value ) {
-	struct block_device_capacity capacity;
-	size_t content_len;
-	char *endp;
-
-	/* Parse content length */
-	content_len = strtoul ( value, &endp, 10 );
-	if ( ! ( ( *endp == '\0' ) || isspace ( *endp ) ) ) {
-		DBGC ( http, "HTTP %p invalid Content-Length \"%s\"\n",
-		       http, value );
-		return -EINVAL_CONTENT_LENGTH;
-	}
-
-	/* If we already have an expected content length, and this
-	 * isn't it, then complain
-	 */
-	if ( http->remaining && ( http->remaining != content_len ) ) {
-		DBGC ( http, "HTTP %p incorrect Content-Length %zd (expected "
-		       "%zd)\n", http, content_len, http->remaining );
-		return -EIO_CONTENT_LENGTH;
-	}
-	if ( ! ( http->flags & HTTP_HEAD_ONLY ) )
-		http->remaining = content_len;
-
-	/* Do nothing more if we are retrying the request */
-	if ( http->flags & HTTP_TRY_AGAIN )
-		return 0;
-
-	/* Use seek() to notify recipient of filesize */
-	xfer_seek ( &http->xfer, http->remaining );
-	xfer_seek ( &http->xfer, 0 );
-
-	/* Report block device capacity if applicable */
-	if ( http->flags & HTTP_HEAD_ONLY ) {
-		capacity.blocks = ( content_len / HTTP_BLKSIZE );
-		capacity.blksize = HTTP_BLKSIZE;
-		capacity.max_count = -1U;
-		block_capacity ( &http->partial, &capacity );
-	}
-	return 0;
-}
-
-/**
- * Handle HTTP Transfer-Encoding header
- *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
- */
-static int http_rx_transfer_encoding ( struct http_request *http, char *value ){
-
-	if ( strcasecmp ( value, "chunked" ) == 0 ) {
-		/* Mark connection as using chunked transfer encoding */
-		http->chunked = 1;
-	}
+	/* Consume line */
+	iob_pull ( iobuf, consumed );
 
 	return 0;
 }
 
 /**
- * Handle HTTP Connection header
+ * Get HTTP response token
  *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
+ * @v line		Line position
+ * @v value		Token value to fill in (if any)
+ * @ret token		Token, or NULL
  */
-static int http_rx_connection ( struct http_request *http, char *value ) {
+char * http_token ( char **line, char **value ) {
+	char *token;
+	char quote = '\0';
+	char c;
 
-	if ( strcasecmp ( value, "keep-alive" ) == 0 ) {
-		/* Mark connection as being kept alive by the server */
-		http->flags |= HTTP_SERVER_KEEPALIVE;
-	}
+	/* Avoid returning uninitialised data */
+	if ( value )
+		*value = NULL;
 
-	return 0;
-}
+	/* Skip any initial whitespace or commas */
+	while ( ( isspace ( **line ) ) || ( **line == ',' ) )
+		(*line)++;
 
-/**
- * Handle WWW-Authenticate Basic header
- *
- * @v http		HTTP request
- * @v params		Parameters
- * @ret rc		Return status code
- */
-static int http_rx_basic_auth ( struct http_request *http, char *params ) {
-
-	DBGC ( http, "HTTP %p Basic authentication required (%s)\n",
-	       http, params );
-
-	/* If we received a 401 Unauthorized response, then retry
-	 * using Basic authentication
-	 */
-	if ( ( http->code == 401 ) &&
-	     ( ! ( http->flags & HTTP_BASIC_AUTH ) ) &&
-	     ( http->uri->user != NULL ) ) {
-		http->flags |= ( HTTP_TRY_AGAIN | HTTP_BASIC_AUTH );
-	}
-
-	return 0;
-}
-
-/**
- * Parse Digest authentication parameter
- *
- * @v params		Parameters
- * @v name		Parameter name (including trailing "=\"")
- * @ret value		Parameter value, or NULL
- */
-static char * http_digest_param ( char *params, const char *name ) {
-	char *key;
-	char *value;
-	char *terminator;
-
-	/* Locate parameter */
-	key = strstr ( params, name );
-	if ( ! key )
+	/* Check for end of line and record token position */
+	if ( ! **line )
 		return NULL;
+	token = *line;
 
-	/* Extract value */
-	value = ( key + strlen ( name ) );
-	terminator = strchr ( value, '"' );
-	if ( ! terminator )
-		return NULL;
-	return strndup ( value, ( terminator - value ) );
-}
+	/* Scan for end of token */
+	while ( ( c = **line ) ) {
 
-/**
- * Handle WWW-Authenticate Digest header
- *
- * @v http		HTTP request
- * @v params		Parameters
- * @ret rc		Return status code
- */
-static int http_rx_digest_auth ( struct http_request *http, char *params ) {
-
-	DBGC ( http, "HTTP %p Digest authentication required (%s)\n",
-	       http, params );
-
-	/* If we received a 401 Unauthorized response, then retry
-	 * using Digest authentication
-	 */
-	if ( ( http->code == 401 ) &&
-	     ( ! ( http->flags & HTTP_DIGEST_AUTH ) ) &&
-	     ( http->uri->user != NULL ) ) {
-
-		/* Extract realm */
-		free ( http->auth_realm );
-		http->auth_realm = http_digest_param ( params, "realm=\"" );
-		if ( ! http->auth_realm ) {
-			DBGC ( http, "HTTP %p Digest prompt missing realm\n",
-			       http );
-			return -EINVAL_HEADER;
-		}
-
-		/* Extract nonce */
-		free ( http->auth_nonce );
-		http->auth_nonce = http_digest_param ( params, "nonce=\"" );
-		if ( ! http->auth_nonce ) {
-			DBGC ( http, "HTTP %p Digest prompt missing nonce\n",
-			       http );
-			return -EINVAL_HEADER;
-		}
-
-		/* Extract opaque */
-		free ( http->auth_opaque );
-		http->auth_opaque = http_digest_param ( params, "opaque=\"" );
-		if ( ! http->auth_opaque ) {
-			/* Not an error; "opaque" is optional */
-		}
-
-		http->flags |= ( HTTP_TRY_AGAIN | HTTP_DIGEST_AUTH );
-	}
-
-	return 0;
-}
-
-/** An HTTP WWW-Authenticate header handler */
-struct http_auth_header_handler {
-	/** Scheme (e.g. "Basic") */
-	const char *scheme;
-	/** Handle received parameters
-	 *
-	 * @v http	HTTP request
-	 * @v params	Parameters
-	 * @ret rc	Return status code
-	 */
-	int ( * rx ) ( struct http_request *http, char *params );
-};
-
-/** List of HTTP WWW-Authenticate header handlers */
-static struct http_auth_header_handler http_auth_header_handlers[] = {
-	{
-		.scheme = "Basic",
-		.rx = http_rx_basic_auth,
-	},
-	{
-		.scheme = "Digest",
-		.rx = http_rx_digest_auth,
-	},
-	{ NULL, NULL },
-};
-
-/**
- * Handle HTTP WWW-Authenticate header
- *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
- */
-static int http_rx_www_authenticate ( struct http_request *http, char *value ) {
-	struct http_auth_header_handler *handler;
-	char *separator;
-	char *scheme;
-	char *params;
-	int rc;
-
-	/* Extract scheme */
-	separator = strchr ( value, ' ' );
-	if ( ! separator ) {
-		DBGC ( http, "HTTP %p malformed WWW-Authenticate header\n",
-		       http );
-		return -EINVAL_HEADER;
-	}
-	*separator = '\0';
-	scheme = value;
-	params = ( separator + 1 );
-
-	/* Hand off to header handler, if one exists */
-	for ( handler = http_auth_header_handlers; handler->scheme; handler++ ){
-		if ( strcasecmp ( scheme, handler->scheme ) == 0 ) {
-			if ( ( rc = handler->rx ( http, params ) ) != 0 )
-				return rc;
+		/* Terminate if we hit an unquoted whitespace or comma */
+		if ( ( isspace ( c ) || ( c == ',' ) ) && ! quote )
 			break;
-		}
-	}
-	return 0;
-}
 
-/**
- * Handle HTTP Retry-After header
- *
- * @v http		HTTP request
- * @v value		HTTP header value
- * @ret rc		Return status code
- */
-static int http_rx_retry_after ( struct http_request *http, char *value ) {
-	unsigned long seconds;
-	char *endp;
+		/* Terminate if we hit a closing quote */
+		if ( c == quote )
+			break;
 
-	DBGC ( http, "HTTP %p retry requested (%s)\n", http, value );
+		/* Check for value separator */
+		if ( value && ( ! *value ) && ( c == '=' ) ) {
 
-	/* If we received a 503 Service Unavailable response, then
-	 * retry after the specified number of seconds.  If the value
-	 * is not a simple number of seconds (e.g. a full HTTP date),
-	 * then retry after a fixed delay, since we don't have code
-	 * able to parse full HTTP dates.
-	 */
-	if ( http->code == 503 ) {
-		seconds = strtoul ( value, &endp, 10 );
-		if ( *endp != '\0' ) {
-			seconds = HTTP_RETRY_SECONDS;
-			DBGC ( http, "HTTP %p cannot understand \"%s\"; "
-			       "using %ld seconds\n", http, value, seconds );
-		}
-		http->flags |= HTTP_TRY_AGAIN;
-		http->retry_delay = ( seconds * TICKS_PER_SEC );
-	}
+			/* Terminate key portion of token */
+			*((*line)++) = '\0';
 
-	return 0;
-}
-
-/** An HTTP header handler */
-struct http_header_handler {
-	/** Name (e.g. "Content-Length") */
-	const char *header;
-	/** Handle received header
-	 *
-	 * @v http	HTTP request
-	 * @v value	HTTP header value
-	 * @ret rc	Return status code
-	 *
-	 * If an error is returned, the download will be aborted.
-	 */
-	int ( * rx ) ( struct http_request *http, char *value );
-};
-
-/** List of HTTP header handlers */
-static struct http_header_handler http_header_handlers[] = {
-	{
-		.header = "Location",
-		.rx = http_rx_location,
-	},
-	{
-		.header = "Content-Length",
-		.rx = http_rx_content_length,
-	},
-	{
-		.header = "Transfer-Encoding",
-		.rx = http_rx_transfer_encoding,
-	},
-	{
-		.header = "Connection",
-		.rx = http_rx_connection,
-	},
-	{
-		.header = "WWW-Authenticate",
-		.rx = http_rx_www_authenticate,
-	},
-	{
-		.header = "Retry-After",
-		.rx = http_rx_retry_after,
-	},
-	{ NULL, NULL }
-};
-
-/**
- * Handle HTTP header
- *
- * @v http		HTTP request
- * @v header		HTTP header
- * @ret rc		Return status code
- */
-static int http_rx_header ( struct http_request *http, char *header ) {
-	struct http_header_handler *handler;
-	char *separator;
-	char *value;
-	int rc;
-
-	/* An empty header line marks the end of this phase */
-	if ( ! header[0] ) {
-		empty_line_buffer ( &http->linebuf );
-
-		/* Handle response code */
-		if ( ! ( http->flags & HTTP_TRY_AGAIN ) ) {
-			if ( ( rc = http_response_to_rc ( http->code ) ) != 0 )
-				return rc;
-		}
-
-		/* Move to next state */
-		if ( http->rx_state == HTTP_RX_HEADER ) {
-			DBGC ( http, "HTTP %p start of data\n", http );
-			http->rx_state = ( http->chunked ?
-					   HTTP_RX_CHUNK_LEN : HTTP_RX_DATA );
-			if ( ( http->partial_len != 0 ) &&
-			     ( ! ( http->flags & HTTP_TRY_AGAIN ) ) ) {
-				http->remaining = http->partial_len;
+			/* Check for quote character */
+			c = **line;
+			if ( ( c == '"' ) || ( c == '\'' ) ) {
+				quote = c;
+				(*line)++;
 			}
-			return 0;
+
+			/* Record value portion of token */
+			*value = *line;
+
 		} else {
-			DBGC ( http, "HTTP %p end of trailer\n", http );
-			http_done ( http );
-			return 0;
+
+			/* Move to next character */
+			(*line)++;
 		}
 	}
 
-	DBGC ( http, "HTTP %p header \"%s\"\n", http, header );
+	/* Terminate token, if applicable */
+	if ( c )
+		*((*line)++) = '\0';
 
-	/* Split header at the ": " */
-	separator = strstr ( header, ": " );
-	if ( ! separator ) {
-		DBGC ( http, "HTTP %p malformed header\n", http );
-		return -EINVAL_HEADER;
-	}
-	*separator = '\0';
-	value = ( separator + 2 );
+	return token;
+}
 
-	/* Hand off to header handler, if one exists */
-	for ( handler = http_header_handlers ; handler->header ; handler++ ) {
-		if ( strcasecmp ( header, handler->header ) == 0 ) {
-			if ( ( rc = handler->rx ( http, value ) ) != 0 )
-				return rc;
-			break;
-		}
-	}
-	return 0;
+/******************************************************************************
+ *
+ * Transactions
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Free HTTP transaction
+ *
+ * @v refcnt		Reference count
+ */
+static void http_free ( struct refcnt *refcnt ) {
+	struct http_transaction *http =
+		container_of ( refcnt, struct http_transaction, refcnt );
+
+	empty_line_buffer ( &http->response.headers );
+	empty_line_buffer ( &http->linebuf );
+	uri_put ( http->uri );
+	free ( http );
 }
 
 /**
- * Handle HTTP chunk length
+ * Close HTTP transaction
  *
- * @v http		HTTP request
- * @v length		HTTP chunk length
- * @ret rc		Return status code
+ * @v http		HTTP transaction
+ * @v rc		Reason for close
  */
-static int http_rx_chunk_len ( struct http_request *http, char *length ) {
-	char *endp;
+static void http_close ( struct http_transaction *http, int rc ) {
 
-	/* Skip blank lines between chunks */
-	if ( length[0] == '\0' )
-		return 0;
+	/* Stop process */
+	process_del ( &http->process );
 
-	/* Parse chunk length */
-	http->chunk_remaining = strtoul ( length, &endp, 16 );
-	if ( *endp != '\0' ) {
-		DBGC ( http, "HTTP %p invalid chunk length \"%s\"\n",
-		       http, length );
-		return -EINVAL_CHUNK_LENGTH;
-	}
+	/* Stop timer */
+	stop_timer ( &http->timer );
 
-	/* Terminate chunked encoding if applicable */
-	if ( http->chunk_remaining == 0 ) {
-		DBGC ( http, "HTTP %p end of chunks\n", http );
-		http->chunked = 0;
-		http->rx_state = HTTP_RX_TRAILER;
-		return 0;
-	}
-
-	/* Use seek() to notify recipient of new filesize */
-	DBGC ( http, "HTTP %p start of chunk of length %zd\n",
-	       http, http->chunk_remaining );
-	if ( ! ( http->flags & HTTP_TRY_AGAIN ) ) {
-		xfer_seek ( &http->xfer,
-			    ( http->rx_len + http->chunk_remaining ) );
-		xfer_seek ( &http->xfer, http->rx_len );
-	}
-
-	/* Start receiving data */
-	http->rx_state = HTTP_RX_DATA;
-
-	return 0;
-}
-
-/** An HTTP line-based data handler */
-struct http_line_handler {
-	/** Handle line
-	 *
-	 * @v http	HTTP request
-	 * @v line	Line to handle
-	 * @ret rc	Return status code
+	/* Close all interfaces, allowing for the fact that the
+	 * content-decoded and transfer-decoded interfaces may be
+	 * connected to the same object.
 	 */
-	int ( * rx ) ( struct http_request *http, char *line );
-};
-
-/** List of HTTP line-based data handlers */
-static struct http_line_handler http_line_handlers[] = {
-	[HTTP_RX_RESPONSE]	= { .rx = http_rx_response },
-	[HTTP_RX_HEADER]	= { .rx = http_rx_header },
-	[HTTP_RX_CHUNK_LEN]	= { .rx = http_rx_chunk_len },
-	[HTTP_RX_TRAILER]	= { .rx = http_rx_header },
-};
+	intf_shutdown ( &http->conn, rc );
+	intf_nullify ( &http->transfer );
+	intf_shutdown ( &http->content, rc );
+	intf_shutdown ( &http->transfer, rc );
+	intf_shutdown ( &http->xfer, rc );
+}
 
 /**
- * Handle new data arriving via HTTP connection
+ * Close HTTP transaction with error (even if none specified)
  *
- * @v http		HTTP request
- * @v iobuf		I/O buffer
- * @v meta		Data transfer metadata
- * @ret rc		Return status code
+ * @v http		HTTP transaction
+ * @v rc		Reason for close
  */
-static int http_socket_deliver ( struct http_request *http,
-				 struct io_buffer *iobuf,
-				 struct xfer_metadata *meta __unused ) {
-	struct http_line_handler *lh;
-	char *line;
-	size_t data_len;
-	ssize_t line_len;
-	int rc = 0;
+static void http_close_error ( struct http_transaction *http, int rc ) {
 
+	/* Treat any close as an error */
+	http_close ( http, ( rc ? rc : -EPIPE ) );
+}
+
+/**
+ * Reopen stale HTTP connection
+ *
+ * @v http		HTTP transaction
+ */
+static void http_reopen ( struct http_transaction *http ) {
+	int rc;
+
+	/* Close existing connection */
+	intf_restart ( &http->conn, -ECANCELED );
+
+	/* Reopen connection */
+	if ( ( rc = http_connect ( &http->conn, http->uri ) ) != 0 ) {
+		DBGC ( http, "HTTP %p could not reconnect: %s\n",
+		       http, strerror ( rc ) );
+		goto err_connect;
+	}
+
+	/* Reset state */
+	http->state = &http_request;
+
+	/* Reschedule transmission process */
+	process_add ( &http->process );
+
+	return;
+
+ err_connect:
+	http_close ( http, rc );
+}
+
+/**
+ * Handle retry timer expiry
+ *
+ * @v timer		Retry timer
+ * @v over		Failure indicator
+ */
+static void http_expired ( struct retry_timer *timer, int over __unused ) {
+	struct http_transaction *http =
+		container_of ( timer, struct http_transaction, timer );
+
+	/* Reopen connection */
+	http_reopen ( http );
+}
+
+/**
+ * HTTP transmit process
+ *
+ * @v http		HTTP transaction
+ */
+static void http_step ( struct http_transaction *http ) {
+	int rc;
+
+	/* Do nothing if we have nothing to transmit */
+	if ( ! http->state->tx )
+		return;
+
+	/* Do nothing until connection is ready */
+	if ( ! xfer_window ( &http->conn ) )
+		return;
+
+	/* Do nothing until data transfer interface is ready */
+	if ( ! xfer_window ( &http->xfer ) )
+		return;
+
+	/* Transmit data */
+	if ( ( rc = http->state->tx ( http ) ) != 0 )
+		goto err;
+
+	return;
+
+ err:
+	http_close ( http, rc );
+}
+
+/**
+ * Handle received HTTP data
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer
+ * @v meta		Transfer metadata
+ * @ret rc		Return status code
+ *
+ * This function takes ownership of the I/O buffer.
+ */
+static int http_conn_deliver ( struct http_transaction *http,
+			       struct io_buffer *iobuf,
+			       struct xfer_metadata *meta __unused ) {
+	int rc;
+
+	/* Handle received data */
 	profile_start ( &http_rx_profiler );
 	while ( iobuf && iob_len ( iobuf ) ) {
 
-		switch ( http->rx_state ) {
-		case HTTP_RX_IDLE:
-			/* Receiving any data in this state is an error */
-			DBGC ( http, "HTTP %p received %zd bytes while %s\n",
-			       http, iob_len ( iobuf ),
-			       ( ( http->rx_state == HTTP_RX_IDLE ) ?
-				 "idle" : "dead" ) );
+		/* Sanity check */
+		if ( ( ! http->state ) || ( ! http->state->rx ) ) {
+			DBGC ( http, "HTTP %p unexpected data\n", http );
 			rc = -EPROTO_UNSOLICITED;
-			goto done;
-		case HTTP_RX_DEAD:
-			/* Do no further processing */
-			goto done;
-		case HTTP_RX_DATA:
-			/* Pass received data to caller */
-			data_len = iob_len ( iobuf );
-			if ( http->chunk_remaining &&
-			     ( http->chunk_remaining < data_len ) ) {
-				data_len = http->chunk_remaining;
-			}
-			if ( http->remaining &&
-			     ( http->remaining < data_len ) ) {
-				data_len = http->remaining;
-			}
-			if ( http->flags & HTTP_TRY_AGAIN ) {
-				/* Discard all received data */
-				iob_pull ( iobuf, data_len );
-			} else if ( http->rx_buffer != UNULL ) {
-				/* Copy to partial transfer buffer */
-				copy_to_user ( http->rx_buffer, http->rx_len,
-					       iobuf->data, data_len );
-				iob_pull ( iobuf, data_len );
-			} else if ( data_len < iob_len ( iobuf ) ) {
-				/* Deliver partial buffer as raw data */
-				profile_start ( &http_xfer_profiler );
-				rc = xfer_deliver_raw ( &http->xfer,
-							iobuf->data, data_len );
-				iob_pull ( iobuf, data_len );
-				if ( rc != 0 )
-					goto done;
-				profile_stop ( &http_xfer_profiler );
-			} else {
-				/* Deliver whole I/O buffer */
-				profile_start ( &http_xfer_profiler );
-				if ( ( rc = xfer_deliver_iob ( &http->xfer,
-						 iob_disown ( iobuf ) ) ) != 0 )
-					goto done;
-				profile_stop ( &http_xfer_profiler );
-			}
-			http->rx_len += data_len;
-			if ( http->chunk_remaining ) {
-				http->chunk_remaining -= data_len;
-				if ( http->chunk_remaining == 0 )
-					http->rx_state = HTTP_RX_CHUNK_LEN;
-			}
-			if ( http->remaining ) {
-				http->remaining -= data_len;
-				if ( ( http->remaining == 0 ) &&
-				     ( http->rx_state == HTTP_RX_DATA ) ) {
-					http_done ( http );
-				}
-			}
-			break;
-		case HTTP_RX_RESPONSE:
-		case HTTP_RX_HEADER:
-		case HTTP_RX_CHUNK_LEN:
-		case HTTP_RX_TRAILER:
-			/* In the other phases, buffer and process a
-			 * line at a time
-			 */
-			line_len = line_buffer ( &http->linebuf, iobuf->data,
-						 iob_len ( iobuf ) );
-			if ( line_len < 0 ) {
-				rc = line_len;
-				DBGC ( http, "HTTP %p could not buffer line: "
-				       "%s\n", http, strerror ( rc ) );
-				goto done;
-			}
-			iob_pull ( iobuf, line_len );
-			line = buffered_line ( &http->linebuf );
-			if ( line ) {
-				lh = &http_line_handlers[http->rx_state];
-				if ( ( rc = lh->rx ( http, line ) ) != 0 )
-					goto done;
-			}
-			break;
-		default:
-			assert ( 0 );
-			break;
+			goto err;
 		}
+
+		/* Receive (some) data */
+		if ( ( rc = http->state->rx ( http, &iobuf ) ) != 0 )
+			goto err;
 	}
 
- done:
-	if ( rc )
-		http_close ( http, rc );
+	/* Free I/O buffer, if applicable */
 	free_iob ( iobuf );
+
 	profile_stop ( &http_rx_profiler );
+	return 0;
+
+ err:
+	free_iob ( iobuf );
+	http_close ( http, rc );
 	return rc;
 }
 
 /**
- * Check HTTP socket flow control window
+ * Handle server connection close
  *
- * @v http		HTTP request
- * @ret len		Length of window
- */
-static size_t http_socket_window ( struct http_request *http __unused ) {
-
-	/* Window is always open.  This is to prevent TCP from
-	 * stalling if our parent window is not currently open.
-	 */
-	return ( ~( ( size_t ) 0 ) );
-}
-
-/**
- * Close HTTP socket
- *
- * @v http		HTTP request
+ * @v http		HTTP transaction
  * @v rc		Reason for close
  */
-static void http_socket_close ( struct http_request *http, int rc ) {
-
-	/* If we have an error, terminate */
-	if ( rc != 0 ) {
-		http_close ( http, rc );
-		return;
-	}
-
-	/* Mark HTTP request as complete */
-	http_done ( http );
-}
-
-/**
- * Generate HTTP Basic authorisation string
- *
- * @v http		HTTP request
- * @ret auth		Authorisation string, or NULL on error
- *
- * The authorisation string is dynamically allocated, and must be
- * freed by the caller.
- */
-static char * http_basic_auth ( struct http_request *http ) {
-	const char *user = http->uri->user;
-	const char *password = ( http->uri->password ?
-				 http->uri->password : "" );
-	size_t user_pw_len =
-		( strlen ( user ) + 1 /* ":" */ + strlen ( password ) );
-	char user_pw[ user_pw_len + 1 /* NUL */ ];
-	size_t user_pw_base64_len = base64_encoded_len ( user_pw_len );
-	char user_pw_base64[ user_pw_base64_len + 1 /* NUL */ ];
-	char *auth;
-	int len;
-
-	/* Sanity check */
-	assert ( user != NULL );
-
-	/* Make "user:password" string from decoded fields */
-	snprintf ( user_pw, sizeof ( user_pw ), "%s:%s", user, password );
-
-	/* Base64-encode the "user:password" string */
-	base64_encode ( ( void * ) user_pw, user_pw_len, user_pw_base64 );
-
-	/* Generate the authorisation string */
-	len = asprintf ( &auth, "Authorization: Basic %s\r\n",
-			 user_pw_base64 );
-	if ( len < 0 )
-		return NULL;
-
-	return auth;
-}
-
-/**
- * Generate HTTP Digest authorisation string
- *
- * @v http		HTTP request
- * @v method		HTTP method (e.g. "GET")
- * @v uri		HTTP request URI (e.g. "/index.html")
- * @ret auth		Authorisation string, or NULL on error
- *
- * The authorisation string is dynamically allocated, and must be
- * freed by the caller.
- */
-static char * http_digest_auth ( struct http_request *http,
-				 const char *method, const char *uri ) {
-	const char *user = http->uri->user;
-	const char *password = ( http->uri->password ?
-				 http->uri->password : "" );
-	const char *realm = http->auth_realm;
-	const char *nonce = http->auth_nonce;
-	const char *opaque = http->auth_opaque;
-	static const char colon = ':';
-	uint8_t ctx[MD5_CTX_SIZE];
-	uint8_t digest[MD5_DIGEST_SIZE];
-	char ha1[ base16_encoded_len ( sizeof ( digest ) ) + 1 /* NUL */ ];
-	char ha2[ base16_encoded_len ( sizeof ( digest ) ) + 1 /* NUL */ ];
-	char response[ base16_encoded_len ( sizeof ( digest ) ) + 1 /* NUL */ ];
-	char *auth;
-	int len;
+static void http_conn_close ( struct http_transaction *http, int rc ) {
 
 	/* Sanity checks */
-	assert ( user != NULL );
-	assert ( realm != NULL );
-	assert ( nonce != NULL );
+	assert ( http->state != NULL );
+	assert ( http->state->close != NULL );
 
-	/* Generate HA1 */
-	digest_init ( &md5_algorithm, ctx );
-	digest_update ( &md5_algorithm, ctx, user, strlen ( user ) );
-	digest_update ( &md5_algorithm, ctx, &colon, sizeof ( colon ) );
-	digest_update ( &md5_algorithm, ctx, realm, strlen ( realm ) );
-	digest_update ( &md5_algorithm, ctx, &colon, sizeof ( colon ) );
-	digest_update ( &md5_algorithm, ctx, password, strlen ( password ) );
-	digest_final ( &md5_algorithm, ctx, digest );
-	base16_encode ( digest, sizeof ( digest ), ha1 );
+	/* Restart server connection interface */
+	intf_restart ( &http->conn, rc );
 
-	/* Generate HA2 */
-	digest_init ( &md5_algorithm, ctx );
-	digest_update ( &md5_algorithm, ctx, method, strlen ( method ) );
-	digest_update ( &md5_algorithm, ctx, &colon, sizeof ( colon ) );
-	digest_update ( &md5_algorithm, ctx, uri, strlen ( uri ) );
-	digest_final ( &md5_algorithm, ctx, digest );
-	base16_encode ( digest, sizeof ( digest ), ha2 );
-
-	/* Generate response */
-	digest_init ( &md5_algorithm, ctx );
-	digest_update ( &md5_algorithm, ctx, ha1, strlen ( ha1 ) );
-	digest_update ( &md5_algorithm, ctx, &colon, sizeof ( colon ) );
-	digest_update ( &md5_algorithm, ctx, nonce, strlen ( nonce ) );
-	digest_update ( &md5_algorithm, ctx, &colon, sizeof ( colon ) );
-	digest_update ( &md5_algorithm, ctx, ha2, strlen ( ha2 ) );
-	digest_final ( &md5_algorithm, ctx, digest );
-	base16_encode ( digest, sizeof ( digest ), response );
-
-	/* Generate the authorisation string */
-	len = asprintf ( &auth, "Authorization: Digest username=\"%s\", "
-			 "realm=\"%s\", nonce=\"%s\", uri=\"%s\", "
-			 "%s%s%sresponse=\"%s\"\r\n", user, realm, nonce, uri,
-			 ( opaque ? "opaque=\"" : "" ),
-			 ( opaque ? opaque : "" ),
-			 ( opaque ? "\", " : "" ), response );
-	if ( len < 0 )
-		return NULL;
-
-	return auth;
+	/* Hand off to state-specific method */
+	http->state->close ( http, rc );
 }
 
 /**
- * Generate HTTP POST parameter list
+ * Handle received content-decoded data
  *
- * @v http		HTTP request
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer
+ * @v meta		Data transfer metadata
+ */
+static int http_content_deliver ( struct http_transaction *http,
+				  struct io_buffer *iobuf,
+				  struct xfer_metadata *meta ) {
+	int rc;
+
+	/* Ignore content if this is anything other than a successful
+	 * transfer.
+	 */
+	if ( http->response.rc != 0 ) {
+		free_iob ( iobuf );
+		return 0;
+	}
+
+	/* Deliver to data transfer interface */
+	profile_start ( &http_xfer_profiler );
+	if ( ( rc = xfer_deliver ( &http->xfer, iob_disown ( iobuf ),
+				   meta ) ) != 0 )
+		return rc;
+	profile_stop ( &http_xfer_profiler );
+
+	return 0;
+}
+
+/**
+ * Get underlying data transfer buffer
+ *
+ * @v http		HTTP transaction
+ * @ret xferbuf		Data transfer buffer, or NULL on error
+ */
+static struct xfer_buffer *
+http_content_buffer ( struct http_transaction *http ) {
+
+	/* Deny access to the data transfer buffer if this is anything
+	 * other than a successful transfer.
+	 */
+	if ( http->response.rc != 0 )
+		return NULL;
+
+	/* Hand off to data transfer interface */
+	return xfer_buffer ( &http->xfer );
+}
+
+/**
+ * Read from block device (when HTTP block device support is not present)
+ *
+ * @v http		HTTP transaction
+ * @v data		Data interface
+ * @v lba		Starting logical block address
+ * @v count		Number of logical blocks
+ * @v buffer		Data buffer
+ * @v len		Length of data buffer
+ * @ret rc		Return status code
+ */
+__weak int http_block_read ( struct http_transaction *http __unused,
+			     struct interface *data __unused,
+			     uint64_t lba __unused, unsigned int count __unused,
+			     userptr_t buffer __unused, size_t len __unused ) {
+
+	return -ENOTSUP;
+}
+
+/**
+ * Read block device capacity (when HTTP block device support is not present)
+ *
+ * @v control		Control interface
+ * @v data		Data interface
+ * @ret rc		Return status code
+ */
+__weak int http_block_read_capacity ( struct http_transaction *http __unused,
+				      struct interface *data __unused ) {
+
+	return -ENOTSUP;
+}
+
+/**
+ * Describe device in ACPI table (when HTTP block device support is not present)
+ *
+ * @v http		HTTP transaction
+ * @v acpi		ACPI table
+ * @v len		Length of ACPI table
+ * @ret rc		Return status code
+ */
+__weak int http_acpi_describe ( struct http_transaction *http __unused,
+				struct acpi_description_header *acpi __unused,
+				size_t len __unused ) {
+
+	return -ENOTSUP;
+}
+
+/** HTTP data transfer interface operations */
+static struct interface_operation http_xfer_operations[] = {
+	INTF_OP ( block_read, struct http_transaction *, http_block_read ),
+	INTF_OP ( block_read_capacity, struct http_transaction *,
+		  http_block_read_capacity ),
+	INTF_OP ( acpi_describe, struct http_transaction *,
+		  http_acpi_describe ),
+	INTF_OP ( xfer_window_changed, struct http_transaction *, http_step ),
+	INTF_OP ( intf_close, struct http_transaction *, http_close ),
+};
+
+/** HTTP data transfer interface descriptor */
+static struct interface_descriptor http_xfer_desc =
+	INTF_DESC_PASSTHRU ( struct http_transaction, xfer,
+			     http_xfer_operations, content );
+
+/** HTTP content-decoded interface operations */
+static struct interface_operation http_content_operations[] = {
+	INTF_OP ( xfer_deliver, struct http_transaction *,
+		  http_content_deliver ),
+	INTF_OP ( xfer_buffer, struct http_transaction *, http_content_buffer ),
+	INTF_OP ( intf_close, struct http_transaction *, http_close ),
+};
+
+/** HTTP content-decoded interface descriptor */
+static struct interface_descriptor http_content_desc =
+	INTF_DESC_PASSTHRU ( struct http_transaction, content,
+			     http_content_operations, xfer );
+
+/** HTTP transfer-decoded interface operations */
+static struct interface_operation http_transfer_operations[] = {
+	INTF_OP ( intf_close, struct http_transaction *, http_close ),
+};
+
+/** HTTP transfer-decoded interface descriptor */
+static struct interface_descriptor http_transfer_desc =
+	INTF_DESC_PASSTHRU ( struct http_transaction, transfer,
+			     http_transfer_operations, conn );
+
+/** HTTP server connection interface operations */
+static struct interface_operation http_conn_operations[] = {
+	INTF_OP ( xfer_deliver, struct http_transaction *, http_conn_deliver ),
+	INTF_OP ( xfer_window_changed, struct http_transaction *, http_step ),
+	INTF_OP ( pool_reopen, struct http_transaction *, http_reopen ),
+	INTF_OP ( intf_close, struct http_transaction *, http_conn_close ),
+};
+
+/** HTTP server connection interface descriptor */
+static struct interface_descriptor http_conn_desc =
+	INTF_DESC_PASSTHRU ( struct http_transaction, conn,
+			     http_conn_operations, transfer );
+
+/** HTTP process descriptor */
+static struct process_descriptor http_process_desc =
+	PROC_DESC_ONCE ( struct http_transaction, process, http_step );
+
+/**
+ * Open HTTP transaction
+ *
+ * @v xfer		Data transfer interface
+ * @v method		Request method
+ * @v uri		Request URI
+ * @v range		Content range (if any)
+ * @v content		Request content (if any)
+ * @ret rc		Return status code
+ */
+int http_open ( struct interface *xfer, struct http_method *method,
+		struct uri *uri, struct http_request_range *range,
+		struct http_request_content *content ) {
+	struct http_transaction *http;
+	struct uri request_uri;
+	struct uri request_host;
+	size_t request_uri_len;
+	size_t request_host_len;
+	size_t content_len;
+	char *request_uri_string;
+	char *request_host_string;
+	void *content_data;
+	int rc;
+
+	/* Calculate request URI length */
+	memset ( &request_uri, 0, sizeof ( request_uri ) );
+	request_uri.path = ( uri->path ? uri->path : "/" );
+	request_uri.query = uri->query;
+	request_uri_len =
+		( format_uri ( &request_uri, NULL, 0 ) + 1 /* NUL */);
+
+	/* Calculate host name length */
+	memset ( &request_host, 0, sizeof ( request_host ) );
+	request_host.host = uri->host;
+	request_host.port = uri->port;
+	request_host_len =
+		( format_uri ( &request_host, NULL, 0 ) + 1 /* NUL */ );
+
+	/* Calculate request content length */
+	content_len = ( content ? content->len : 0 );
+
+	/* Allocate and initialise structure */
+	http = zalloc ( sizeof ( *http ) + request_uri_len + request_host_len +
+			content_len );
+	if ( ! http ) {
+		rc = -ENOMEM;
+		goto err_alloc;
+	}
+	request_uri_string = ( ( ( void * ) http ) + sizeof ( *http ) );
+	request_host_string = ( request_uri_string + request_uri_len );
+	content_data = ( request_host_string + request_host_len );
+	format_uri ( &request_uri, request_uri_string, request_uri_len );
+	format_uri ( &request_host, request_host_string, request_host_len );
+	ref_init ( &http->refcnt, http_free );
+	intf_init ( &http->xfer, &http_xfer_desc, &http->refcnt );
+	intf_init ( &http->content, &http_content_desc, &http->refcnt );
+	intf_init ( &http->transfer, &http_transfer_desc, &http->refcnt );
+	intf_init ( &http->conn, &http_conn_desc, &http->refcnt );
+	intf_plug_plug ( &http->transfer, &http->content );
+	process_init ( &http->process, &http_process_desc, &http->refcnt );
+	timer_init ( &http->timer, http_expired, &http->refcnt );
+	http->uri = uri_get ( uri );
+	http->request.method = method;
+	http->request.uri = request_uri_string;
+	http->request.host = request_host_string;
+	if ( range ) {
+		memcpy ( &http->request.range, range,
+			 sizeof ( http->request.range ) );
+	}
+	if ( content ) {
+		http->request.content.type = content->type;
+		http->request.content.data = content_data;
+		http->request.content.len = content_len;
+		memcpy ( content_data, content->data, content_len );
+	}
+	http->state = &http_request;
+	DBGC2 ( http, "HTTP %p %s://%s%s\n", http, http->uri->scheme,
+		http->request.host, http->request.uri );
+
+	/* Open connection */
+	if ( ( rc = http_connect ( &http->conn, uri ) ) != 0 ) {
+		DBGC ( http, "HTTP %p could not connect: %s\n",
+		       http, strerror ( rc ) );
+		goto err_connect;
+	}
+
+	/* Attach to parent interface, mortalise self, and return */
+	intf_plug_plug ( &http->xfer, xfer );
+	ref_put ( &http->refcnt );
+	return 0;
+
+ err_connect:
+	http_close ( http, rc );
+	ref_put ( &http->refcnt );
+ err_alloc:
+	return rc;
+}
+
+/**
+ * Redirect HTTP transaction
+ *
+ * @v http		HTTP transaction
+ * @v location		New location
+ * @ret rc		Return status code
+ */
+static int http_redirect ( struct http_transaction *http,
+			   const char *location ) {
+	struct uri *location_uri;
+	struct uri *resolved_uri;
+	int rc;
+
+	DBGC2 ( http, "HTTP %p redirecting to \"%s\"\n", http, location );
+
+	/* Parse location URI */
+	location_uri = parse_uri ( location );
+	if ( ! location_uri ) {
+		rc = -ENOMEM;
+		goto err_parse_uri;
+	}
+
+	/* Resolve as relative to original URI */
+	resolved_uri = resolve_uri ( http->uri, location_uri );
+	if ( ! resolved_uri ) {
+		rc = -ENOMEM;
+		goto err_resolve_uri;
+	}
+
+	/* Redirect to new URI */
+	if ( ( rc = xfer_redirect ( &http->xfer, LOCATION_URI,
+				    resolved_uri ) ) != 0 ) {
+		DBGC ( http, "HTTP %p could not redirect: %s\n",
+		       http, strerror ( rc ) );
+		goto err_redirect;
+	}
+
+ err_redirect:
+	uri_put ( resolved_uri );
+ err_resolve_uri:
+	uri_put ( location_uri );
+ err_parse_uri:
+	return rc;
+}
+
+/**
+ * Handle successful transfer completion
+ *
+ * @v http		HTTP transaction
+ * @ret rc		Return status code
+ */
+static int http_transfer_complete ( struct http_transaction *http ) {
+	struct http_authentication *auth;
+	const char *location;
+	int rc;
+
+	/* Keep connection alive if applicable */
+	if ( http->response.flags & HTTP_RESPONSE_KEEPALIVE )
+		pool_recycle ( &http->conn );
+
+	/* Restart server connection interface */
+	intf_restart ( &http->conn, 0 );
+
+	/* No more data is expected */
+	http->state = NULL;
+
+	/* If transaction is successful, then close the
+	 * transfer-decoded interface.  The content encoding may
+	 * choose whether or not to immediately terminate the
+	 * transaction.
+	 */
+	if ( http->response.rc == 0 ) {
+		intf_shutdown ( &http->transfer, 0 );
+		return 0;
+	}
+
+	/* Perform redirection, if applicable */
+	if ( ( location = http->response.location ) ) {
+		if ( ( rc = http_redirect ( http, location ) ) != 0 )
+			return rc;
+		http_close ( http, 0 );
+		return 0;
+	}
+
+	/* Fail unless a retry is permitted */
+	if ( ! ( http->response.flags & HTTP_RESPONSE_RETRY ) )
+		return http->response.rc;
+
+	/* Perform authentication, if applicable */
+	if ( ( auth = http->response.auth.auth ) ) {
+		http->request.auth.auth = auth;
+		DBGC2 ( http, "HTTP %p performing %s authentication\n",
+			http, auth->name );
+		if ( ( rc = auth->authenticate ( http ) ) != 0 ) {
+			DBGC ( http, "HTTP %p could not authenticate: %s\n",
+			       http, strerror ( rc ) );
+			return rc;
+		}
+	}
+
+	/* Restart content decoding interfaces (which may be attached
+	 * to the same object).
+	 */
+	intf_nullify ( &http->content );
+	intf_nullify ( &http->transfer );
+	intf_restart ( &http->content, http->response.rc );
+	intf_restart ( &http->transfer, http->response.rc );
+	http->content.desc = &http_content_desc;
+	http->transfer.desc = &http_transfer_desc;
+	intf_plug_plug ( &http->transfer, &http->content );
+	http->len = 0;
+	assert ( http->remaining == 0 );
+
+	/* Start timer to initiate retry */
+	DBGC2 ( http, "HTTP %p retrying after %d seconds\n",
+		http, http->response.retry_after );
+	start_timer_fixed ( &http->timer,
+			    ( http->response.retry_after * TICKS_PER_SEC ) );
+	return 0;
+}
+
+/******************************************************************************
+ *
+ * Requests
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Construct HTTP request headers
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length, or negative error
+ */
+static int http_format_headers ( struct http_transaction *http, char *buf,
+				 size_t len ) {
+	struct http_request_header *header;
+	size_t used;
+	size_t remaining;
+	char *line;
+	int value_len;
+	int rc;
+
+	/* Construct request line */
+	used = ssnprintf ( buf, len, "%s %s HTTP/1.1",
+			   http->request.method->name, http->request.uri );
+	if ( used < len )
+		DBGC2 ( http, "HTTP %p TX %s\n", http, buf );
+	used += ssnprintf ( ( buf + used ), ( len - used ), "\r\n" );
+
+	/* Construct all headers */
+	for_each_table_entry ( header, HTTP_REQUEST_HEADERS ) {
+
+		/* Determine header value length */
+		value_len = header->format ( http, NULL, 0 );
+		if ( value_len < 0 ) {
+			rc = value_len;
+			return rc;
+		}
+
+		/* Skip zero-length headers */
+		if ( ! value_len )
+			continue;
+
+		/* Construct header */
+		line = ( buf + used );
+		used += ssnprintf ( ( buf + used ), ( len - used ), "%s: ",
+				    header->name );
+		remaining = ( ( used < len ) ? ( len - used ) : 0 );
+		used += header->format ( http, ( buf + used ), remaining );
+		if ( used < len )
+			DBGC2 ( http, "HTTP %p TX %s\n", http, line );
+		used += ssnprintf ( ( buf + used ), ( len - used ), "\r\n" );
+	}
+
+	/* Construct terminating newline */
+	used += ssnprintf ( ( buf + used ), ( len - used ), "\r\n" );
+
+	return used;
+}
+
+/**
+ * Construct HTTP "Host" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_host ( struct http_transaction *http, char *buf,
+			      size_t len ) {
+
+	/* Construct host URI */
+	return snprintf ( buf, len, "%s", http->request.host );
+}
+
+/** HTTP "Host" header "*/
+struct http_request_header http_request_host __http_request_header = {
+	.name = "Host",
+	.format = http_format_host,
+};
+
+/**
+ * Construct HTTP "User-Agent" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_user_agent ( struct http_transaction *http __unused,
+				    char *buf, size_t len ) {
+
+	/* Construct user agent */
+	return snprintf ( buf, len, "iPXE/%s", product_version );
+}
+
+/** HTTP "User-Agent" header */
+struct http_request_header http_request_user_agent __http_request_header = {
+	.name = "User-Agent",
+	.format = http_format_user_agent,
+};
+
+/**
+ * Construct HTTP "Connection" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_connection ( struct http_transaction *http __unused,
+				    char *buf, size_t len ) {
+
+	/* Always request keep-alive */
+	return snprintf ( buf, len, "keep-alive" );
+}
+
+/** HTTP "Connection" header */
+struct http_request_header http_request_connection __http_request_header = {
+	.name = "Connection",
+	.format = http_format_connection,
+};
+
+/**
+ * Construct HTTP "Range" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_range ( struct http_transaction *http,
+			       char *buf, size_t len ) {
+
+	/* Construct range, if applicable */
+	if ( http->request.range.len ) {
+		return snprintf ( buf, len, "bytes=%zd-%zd",
+				  http->request.range.start,
+				  ( http->request.range.start +
+				    http->request.range.len - 1 ) );
+	} else {
+		return 0;
+	}
+}
+
+/** HTTP "Range" header */
+struct http_request_header http_request_range __http_request_header = {
+	.name = "Range",
+	.format = http_format_range,
+};
+
+/**
+ * Construct HTTP "Content-Type" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_content_type ( struct http_transaction *http,
+				      char *buf, size_t len ) {
+
+	/* Construct content type, if applicable */
+	if ( http->request.content.type ) {
+		return snprintf ( buf, len, "%s", http->request.content.type );
+	} else {
+		return 0;
+	}
+}
+
+/** HTTP "Content-Type" header */
+struct http_request_header http_request_content_type __http_request_header = {
+	.name = "Content-Type",
+	.format = http_format_content_type,
+};
+
+/**
+ * Construct HTTP "Content-Length" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_content_length ( struct http_transaction *http,
+					char *buf, size_t len ) {
+
+	/* Construct content length, if applicable */
+	if ( http->request.content.len ) {
+		return snprintf ( buf, len, "%zd", http->request.content.len );
+	} else {
+		return 0;
+	}
+}
+
+/** HTTP "Content-Length" header */
+struct http_request_header http_request_content_length __http_request_header = {
+	.name = "Content-Length",
+	.format = http_format_content_length,
+};
+
+/**
+ * Construct HTTP "Accept-Encoding" header
+ *
+ * @v http		HTTP transaction
+ * @v buf		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of header value, or negative error
+ */
+static int http_format_accept_encoding ( struct http_transaction *http,
+					 char *buf, size_t len ) {
+	struct http_content_encoding *encoding;
+	const char *sep = "";
+	size_t used = 0;
+
+	/* Construct list of content encodings */
+	for_each_table_entry ( encoding, HTTP_CONTENT_ENCODINGS ) {
+		if ( encoding->supported && ( ! encoding->supported ( http ) ) )
+			continue;
+		used += ssnprintf ( ( buf + used ), ( len - used ),
+				    "%s%s", sep, encoding->name );
+		sep = ", ";
+	}
+
+	return used;
+}
+
+/** HTTP "Accept-Encoding" header */
+struct http_request_header http_request_accept_encoding __http_request_header ={
+	.name = "Accept-Encoding",
+	.format = http_format_accept_encoding,
+};
+
+/**
+ * Transmit request
+ *
+ * @v http		HTTP transaction
+ * @ret rc		Return status code
+ */
+static int http_tx_request ( struct http_transaction *http ) {
+	struct io_buffer *iobuf;
+	int len;
+	int check_len;
+	int rc;
+
+	/* Calculate request length */
+	len = http_format_headers ( http, NULL, 0 );
+	if ( len < 0 ) {
+		rc = len;
+		DBGC ( http, "HTTP %p could not construct request: %s\n",
+		       http, strerror ( rc ) );
+		goto err_len;
+	}
+
+	/* Allocate I/O buffer */
+	iobuf = alloc_iob ( len + 1 /* NUL */ + http->request.content.len );
+	if ( ! iobuf ) {
+		rc = -ENOMEM;
+		goto err_alloc;
+	}
+
+	/* Construct request */
+	check_len = http_format_headers ( http, iob_put ( iobuf, len ),
+					  ( len + 1 /* NUL */ ) );
+	assert ( check_len == len );
+	memcpy ( iob_put ( iobuf, http->request.content.len ),
+		 http->request.content.data, http->request.content.len );
+
+	/* Deliver request */
+	if ( ( rc = xfer_deliver_iob ( &http->conn,
+				       iob_disown ( iobuf ) ) ) != 0 ) {
+		DBGC ( http, "HTTP %p could not deliver request: %s\n",
+		       http, strerror ( rc ) );
+		goto err_deliver;
+	}
+
+	/* Clear any previous response */
+	empty_line_buffer ( &http->response.headers );
+	memset ( &http->response, 0, sizeof ( http->response ) );
+
+	/* Move to response headers state */
+	http->state = &http_headers;
+
+	return 0;
+
+ err_deliver:
+	free_iob ( iobuf );
+ err_alloc:
+ err_len:
+	return rc;
+}
+
+/** HTTP request state */
+static struct http_state http_request = {
+	.tx = http_tx_request,
+	.close = http_close_error,
+};
+
+/******************************************************************************
+ *
+ * Response headers
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Parse HTTP status line
+ *
+ * @v http		HTTP transaction
+ * @v line		Status line
+ * @ret rc		Return status code
+ */
+static int http_parse_status ( struct http_transaction *http, char *line ) {
+	char *endp;
+	char *version;
+	char *vernum;
+	char *status;
+	int response_rc;
+
+	DBGC2 ( http, "HTTP %p RX %s\n", http, line );
+
+	/* Parse HTTP version */
+	version = http_token ( &line, NULL );
+	if ( ( ! version ) || ( strncmp ( version, "HTTP/", 5 ) != 0 ) ) {
+		DBGC ( http, "HTTP %p malformed version \"%s\"\n", http, line );
+		return -EINVAL_STATUS;
+	}
+
+	/* Keepalive is enabled by default for anything newer than HTTP/1.0 */
+	vernum = ( version + 5 /* "HTTP/" (presence already checked) */ );
+	if ( vernum[0] == '0' ) {
+		/* HTTP/0.x : keepalive not enabled by default */
+	} else if ( strncmp ( vernum, "1.0", 3 ) == 0 ) {
+		/* HTTP/1.0 : keepalive not enabled by default */
+	} else {
+		/* HTTP/1.1 or newer: keepalive enabled by default */
+		http->response.flags |= HTTP_RESPONSE_KEEPALIVE;
+	}
+
+	/* Parse status code */
+	status = line;
+	http->response.status = strtoul ( status, &endp, 10 );
+	if ( *endp != ' ' ) {
+		DBGC ( http, "HTTP %p malformed status code \"%s\"\n",
+		       http, status );
+		return -EINVAL_STATUS;
+	}
+
+	/* Convert HTTP status code to iPXE return status code */
+	if ( status[0] == '2' ) {
+		/* 2xx Success */
+		response_rc = 0;
+	} else if ( status[0] == '3' ) {
+		/* 3xx Redirection */
+		response_rc = -EXDEV;
+	} else if ( http->response.status == 401 ) {
+		/* 401 Unauthorized */
+		response_rc = -EACCES_401;
+	} else if ( http->response.status == 403 ) {
+		/* 403 Forbidden */
+		response_rc = -EPERM_403;
+	} else if ( http->response.status == 404 ) {
+		/* 404 Not Found */
+		response_rc = -ENOENT_404;
+	} else if ( status[0] == '4' ) {
+		/* 4xx Client Error (not already specified) */
+		response_rc = -EIO_4XX;
+	} else if ( status[0] == '5' ) {
+		/* 5xx Server Error */
+		response_rc = -EIO_5XX;
+	} else {
+		/* Unrecognised */
+		response_rc = -EIO_OTHER;
+	}
+	http->response.rc = response_rc;
+
+	return 0;
+}
+
+/**
+ * Parse HTTP header
+ *
+ * @v http		HTTP transaction
+ * @v line		Header line
+ * @ret rc		Return status code
+ */
+static int http_parse_header ( struct http_transaction *http, char *line ) {
+	struct http_response_header *header;
+	char *name = line;
+	char *sep;
+
+	DBGC2 ( http, "HTTP %p RX %s\n", http, line );
+
+	/* Extract header name */
+	sep = strchr ( line, ':' );
+	if ( ! sep ) {
+		DBGC ( http, "HTTP %p malformed header \"%s\"\n", http, line );
+		return -EINVAL_HEADER;
+	}
+	*sep = '\0';
+
+	/* Extract remainder of line */
+	line = ( sep + 1 );
+	while ( isspace ( *line ) )
+		line++;
+
+	/* Process header, if recognised */
+	for_each_table_entry ( header, HTTP_RESPONSE_HEADERS ) {
+		if ( strcasecmp ( name, header->name ) == 0 )
+			return header->parse ( http, line );
+	}
+
+	/* Unrecognised headers should be ignored */
+	return 0;
+}
+
+/**
+ * Parse HTTP response headers
+ *
+ * @v http		HTTP transaction
+ * @ret rc		Return status code
+ */
+static int http_parse_headers ( struct http_transaction *http ) {
+	char *line;
+	char *next;
+	int rc;
+
+	/* Get status line */
+	line = http->response.headers.data;
+	assert ( line != NULL );
+	next = ( line + strlen ( line ) + 1 /* NUL */ );
+
+	/* Parse status line */
+	if ( ( rc = http_parse_status ( http, line ) ) != 0 )
+		return rc;
+
+	/* Process header lines */
+	while ( 1 ) {
+
+		/* Move to next line */
+		line = next;
+		next = ( line + strlen ( line ) + 1 /* NUL */ );
+
+		/* Stop on terminating blank line */
+		if ( ! line[0] )
+			return 0;
+
+		/* Process header line */
+		if ( ( rc = http_parse_header ( http, line ) ) != 0 )
+			return rc;
+	}
+}
+
+/**
+ * Parse HTTP "Location" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_location ( struct http_transaction *http, char *line ) {
+
+	/* Store location */
+	http->response.location = line;
+	return 0;
+}
+
+/** HTTP "Location" header */
+struct http_response_header http_response_location __http_response_header = {
+	.name = "Location",
+	.parse = http_parse_location,
+};
+
+/**
+ * Parse HTTP "Transfer-Encoding" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_transfer_encoding ( struct http_transaction *http,
+					  char *line ) {
+	struct http_transfer_encoding *encoding;
+
+	/* Check for known transfer encodings */
+	for_each_table_entry ( encoding, HTTP_TRANSFER_ENCODINGS ) {
+		if ( strcasecmp ( line, encoding->name ) == 0 ) {
+			http->response.transfer.encoding = encoding;
+			return 0;
+		}
+	}
+
+	DBGC ( http, "HTTP %p unrecognised Transfer-Encoding \"%s\"\n",
+	       http, line );
+	return -ENOTSUP_TRANSFER;
+}
+
+/** HTTP "Transfer-Encoding" header */
+struct http_response_header
+http_response_transfer_encoding __http_response_header = {
+	.name = "Transfer-Encoding",
+	.parse = http_parse_transfer_encoding,
+};
+
+/**
+ * Parse HTTP "Connection" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_connection ( struct http_transaction *http, char *line ) {
+	char *token;
+
+	/* Check for known connection intentions */
+	while ( ( token = http_token ( &line, NULL ) ) ) {
+		if ( strcasecmp ( token, "keep-alive" ) == 0 )
+			http->response.flags |= HTTP_RESPONSE_KEEPALIVE;
+		if ( strcasecmp ( token, "close" ) == 0 )
+			http->response.flags &= ~HTTP_RESPONSE_KEEPALIVE;
+	}
+
+	return 0;
+}
+
+/** HTTP "Connection" header */
+struct http_response_header http_response_connection __http_response_header = {
+	.name = "Connection",
+	.parse = http_parse_connection,
+};
+
+/**
+ * Parse HTTP "Content-Length" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_content_length ( struct http_transaction *http,
+				       char *line ) {
+	char *endp;
+
+	/* Parse length */
+	http->response.content.len = strtoul ( line, &endp, 10 );
+	if ( *endp != '\0' ) {
+		DBGC ( http, "HTTP %p invalid Content-Length \"%s\"\n",
+		       http, line );
+		return -EINVAL_CONTENT_LENGTH;
+	}
+
+	/* Record that we have a content length (since it may be zero) */
+	http->response.flags |= HTTP_RESPONSE_CONTENT_LEN;
+
+	return 0;
+}
+
+/** HTTP "Content-Length" header */
+struct http_response_header
+http_response_content_length __http_response_header = {
+	.name = "Content-Length",
+	.parse = http_parse_content_length,
+};
+
+/**
+ * Parse HTTP "Content-Encoding" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_content_encoding ( struct http_transaction *http,
+					 char *line ) {
+	struct http_content_encoding *encoding;
+
+	/* Check for known content encodings */
+	for_each_table_entry ( encoding, HTTP_CONTENT_ENCODINGS ) {
+		if ( encoding->supported && ( ! encoding->supported ( http ) ) )
+			continue;
+		if ( strcasecmp ( line, encoding->name ) == 0 ) {
+			http->response.content.encoding = encoding;
+			return 0;
+		}
+	}
+
+	/* Some servers (e.g. Apache) have a habit of specifying
+	 * unwarranted content encodings.  For example, if Apache
+	 * detects (via /etc/httpd/conf/magic) that a file's contents
+	 * are gzip-compressed, it will set "Content-Encoding: x-gzip"
+	 * regardless of the client's Accept-Encoding header.  The
+	 * only viable way to handle such servers is to treat unknown
+	 * content encodings as equivalent to "identity".
+	 */
+	DBGC ( http, "HTTP %p unrecognised Content-Encoding \"%s\"\n",
+	       http, line );
+	return 0;
+}
+
+/** HTTP "Content-Encoding" header */
+struct http_response_header
+http_response_content_encoding __http_response_header = {
+	.name = "Content-Encoding",
+	.parse = http_parse_content_encoding,
+};
+
+/**
+ * Parse HTTP "Retry-After" header
+ *
+ * @v http		HTTP transaction
+ * @v line		Remaining header line
+ * @ret rc		Return status code
+ */
+static int http_parse_retry_after ( struct http_transaction *http,
+				    char *line ) {
+	char *endp;
+
+	/* Try to parse value as a simple number of seconds */
+	http->response.retry_after = strtoul ( line, &endp, 10 );
+	if ( *endp != '\0' ) {
+		/* For any value which is not a simple number of
+		 * seconds (e.g. a full HTTP date), just retry after a
+		 * fixed delay, since we don't have code able to parse
+		 * full HTTP dates.
+		 */
+		http->response.retry_after = HTTP_RETRY_SECONDS;
+		DBGC ( http, "HTTP %p cannot understand Retry-After \"%s\"; "
+		       "using %d seconds\n", http, line, HTTP_RETRY_SECONDS );
+	}
+
+	/* Allow HTTP request to be retried after specified delay */
+	http->response.flags |= HTTP_RESPONSE_RETRY;
+
+	return 0;
+}
+
+/** HTTP "Retry-After" header */
+struct http_response_header http_response_retry_after __http_response_header = {
+	.name = "Retry-After",
+	.parse = http_parse_retry_after,
+};
+
+/**
+ * Handle received HTTP headers
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_headers ( struct http_transaction *http,
+			     struct io_buffer **iobuf ) {
+	struct http_transfer_encoding *transfer;
+	struct http_content_encoding *content;
+	char *line;
+	int rc;
+
+	/* Buffer header line */
+	if ( ( rc = http_rx_linebuf ( http, *iobuf,
+				      &http->response.headers ) ) != 0 )
+		return rc;
+
+	/* Wait until we see the empty line marking end of headers */
+	line = buffered_line ( &http->response.headers );
+	if ( ( line == NULL ) || ( line[0] != '\0' ) )
+		return 0;
+
+	/* Process headers */
+	if ( ( rc = http_parse_headers ( http ) ) != 0 )
+		return rc;
+
+	/* Initialise content encoding, if applicable */
+	if ( ( content = http->response.content.encoding ) &&
+	     ( ( rc = content->init ( http ) ) != 0 ) ) {
+		DBGC ( http, "HTTP %p could not initialise %s content "
+		       "encoding: %s\n", http, content->name, strerror ( rc ) );
+		return rc;
+	}
+
+	/* Presize receive buffer, if we have a content length */
+	if ( http->response.content.len ) {
+		xfer_seek ( &http->transfer, http->response.content.len );
+		xfer_seek ( &http->transfer, 0 );
+	}
+
+	/* Complete transfer if this is a HEAD request */
+	if ( http->request.method == &http_head ) {
+		if ( ( rc = http_transfer_complete ( http ) ) != 0 )
+			return rc;
+		return 0;
+	}
+
+	/* Default to identity transfer encoding, if none specified */
+	if ( ! http->response.transfer.encoding )
+		http->response.transfer.encoding = &http_transfer_identity;
+
+	/* Move to transfer encoding-specific data state */
+	transfer = http->response.transfer.encoding;
+	http->state = &transfer->state;
+
+	/* Initialise transfer encoding */
+	if ( ( rc = transfer->init ( http ) ) != 0 ) {
+		DBGC ( http, "HTTP %p could not initialise %s transfer "
+		       "encoding: %s\n", http, transfer->name, strerror ( rc ));
+		return rc;
+	}
+
+	return 0;
+}
+
+/** HTTP response headers state */
+static struct http_state http_headers = {
+	.rx = http_rx_headers,
+	.close = http_close_error,
+};
+
+/******************************************************************************
+ *
+ * Identity transfer encoding
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Initialise transfer encoding
+ *
+ * @v http		HTTP transaction
+ * @ret rc		Return status code
+ */
+static int http_init_transfer_identity ( struct http_transaction *http ) {
+	int rc;
+
+	/* Complete transfer immediately if we have a zero content length */
+	if ( ( http->response.flags & HTTP_RESPONSE_CONTENT_LEN ) &&
+	     ( http->response.content.len == 0 ) &&
+	     ( ( rc = http_transfer_complete ( http ) ) != 0 ) )
+		return rc;
+
+	return 0;
+}
+
+/**
+ * Handle received data
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_transfer_identity ( struct http_transaction *http,
+				       struct io_buffer **iobuf ) {
+	size_t len = iob_len ( *iobuf );
+	int rc;
+
+	/* Update lengths */
+	http->len += len;
+
+	/* Fail if this transfer would overrun the expected content
+	 * length (if any).
+	 */
+	if ( ( http->response.flags & HTTP_RESPONSE_CONTENT_LEN ) &&
+	     ( http->len > http->response.content.len ) ) {
+		DBGC ( http, "HTTP %p content length overrun\n", http );
+		return -EIO_CONTENT_LENGTH;
+	}
+
+	/* Hand off to content encoding */
+	if ( ( rc = xfer_deliver_iob ( &http->transfer,
+				       iob_disown ( *iobuf ) ) ) != 0 )
+		return rc;
+
+	/* Complete transfer if we have received the expected content
+	 * length (if any).
+	 */
+	if ( ( http->response.flags & HTTP_RESPONSE_CONTENT_LEN ) &&
+	     ( http->len == http->response.content.len ) &&
+	     ( ( rc = http_transfer_complete ( http ) ) != 0 ) )
+		return rc;
+
+	return 0;
+}
+
+/**
+ * Handle server connection close
+ *
+ * @v http		HTTP transaction
+ * @v rc		Reason for close
+ */
+static void http_close_transfer_identity ( struct http_transaction *http,
+					   int rc ) {
+
+	/* Fail if any error occurred */
+	if ( rc != 0 )
+		goto err;
+
+	/* Fail if we have a content length (since we would have
+	 * already closed the connection if we had received the
+	 * correct content length).
+	 */
+	if ( http->response.flags & HTTP_RESPONSE_CONTENT_LEN ) {
+		DBGC ( http, "HTTP %p content length underrun\n", http );
+		rc = EIO_CONTENT_LENGTH;
+		goto err;
+	}
+
+	/* Indicate that transfer is complete */
+	if ( ( rc = http_transfer_complete ( http ) ) != 0 )
+		goto err;
+
+	return;
+
+ err:
+	http_close ( http, rc );
+}
+
+/** Identity transfer encoding */
+static struct http_transfer_encoding http_transfer_identity = {
+	.name = "identity",
+	.init = http_init_transfer_identity,
+	.state = {
+		.rx = http_rx_transfer_identity,
+		.close = http_close_transfer_identity,
+	},
+};
+
+/******************************************************************************
+ *
+ * Chunked transfer encoding
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Initialise transfer encoding
+ *
+ * @v http		HTTP transaction
+ * @ret rc		Return status code
+ */
+static int http_init_transfer_chunked ( struct http_transaction *http ) {
+
+	/* Sanity checks */
+	assert ( http->remaining == 0 );
+	assert ( http->linebuf.len == 0 );
+
+	return 0;
+}
+
+/**
+ * Handle received chunk length
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_chunk_len ( struct http_transaction *http,
+			       struct io_buffer **iobuf ) {
+	char *line;
+	char *endp;
+	size_t len;
+	int rc;
+
+	/* Receive into temporary line buffer */
+	if ( ( rc = http_rx_linebuf ( http, *iobuf, &http->linebuf ) ) != 0 )
+		return rc;
+
+	/* Wait until we receive a non-empty line */
+	line = buffered_line ( &http->linebuf );
+	if ( ( line == NULL ) || ( line[0] == '\0' ) )
+		return 0;
+
+	/* Parse chunk length */
+	http->remaining = strtoul ( line, &endp, 16 );
+	if ( *endp != '\0' ) {
+		DBGC ( http, "HTTP %p invalid chunk length \"%s\"\n",
+		       http, line );
+		return -EINVAL_CHUNK_LENGTH;
+	}
+
+	/* Empty line buffer */
+	empty_line_buffer ( &http->linebuf );
+
+	/* Update expected length */
+	len = ( http->len + http->remaining );
+	xfer_seek ( &http->transfer, len );
+	xfer_seek ( &http->transfer, http->len );
+
+	/* If chunk length is zero, then move to response trailers state */
+	if ( ! http->remaining )
+		http->state = &http_trailers;
+
+	return 0;
+}
+
+/**
+ * Handle received chunk data
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_chunk_data ( struct http_transaction *http,
+				struct io_buffer **iobuf ) {
+	struct io_buffer *payload;
+	uint8_t *crlf;
+	size_t len;
+	int rc;
+
+	/* In the common case of a final chunk in a packet which also
+	 * includes the terminating CRLF, strip the terminating CRLF
+	 * (which we would ignore anyway) and hence avoid
+	 * unnecessarily copying the data.
+	 */
+	if ( iob_len ( *iobuf ) == ( http->remaining + 2 /* CRLF */ ) ) {
+		crlf = ( (*iobuf)->data + http->remaining );
+		if ( ( crlf[0] == '\r' ) && ( crlf[1] == '\n' ) )
+			iob_unput ( (*iobuf), 2 /* CRLF */ );
+	}
+	len = iob_len ( *iobuf );
+
+	/* Use whole/partial buffer as applicable */
+	if ( len <= http->remaining ) {
+
+		/* Whole buffer is to be consumed: decrease remaining
+		 * length and use original I/O buffer as payload.
+		 */
+		payload = iob_disown ( *iobuf );
+		http->len += len;
+		http->remaining -= len;
+
+	} else {
+
+		/* Partial buffer is to be consumed: copy data to a
+		 * temporary I/O buffer.
+		 */
+		payload = alloc_iob ( http->remaining );
+		if ( ! payload ) {
+			rc = -ENOMEM;
+			goto err;
+		}
+		memcpy ( iob_put ( payload, http->remaining ), (*iobuf)->data,
+			 http->remaining );
+		iob_pull ( *iobuf, http->remaining );
+		http->len += http->remaining;
+		http->remaining = 0;
+	}
+
+	/* Hand off to content encoding */
+	if ( ( rc = xfer_deliver_iob ( &http->transfer,
+				       iob_disown ( payload ) ) ) != 0 )
+		goto err;
+
+	return 0;
+
+ err:
+	assert ( payload == NULL );
+	return rc;
+}
+
+/**
+ * Handle received chunked data
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_transfer_chunked ( struct http_transaction *http,
+				      struct io_buffer **iobuf ) {
+
+	/* Handle as chunk length or chunk data as appropriate */
+	if ( http->remaining ) {
+		return http_rx_chunk_data ( http, iobuf );
+	} else {
+		return http_rx_chunk_len ( http, iobuf );
+	}
+}
+
+/** Chunked transfer encoding */
+struct http_transfer_encoding http_transfer_chunked __http_transfer_encoding = {
+	.name = "chunked",
+	.init = http_init_transfer_chunked,
+	.state = {
+		.rx = http_rx_transfer_chunked,
+		.close = http_close_error,
+	},
+};
+
+/******************************************************************************
+ *
+ * Response trailers
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Handle received HTTP trailer
+ *
+ * @v http		HTTP transaction
+ * @v iobuf		I/O buffer (may be claimed)
+ * @ret rc		Return status code
+ */
+static int http_rx_trailers ( struct http_transaction *http,
+			      struct io_buffer **iobuf ) {
+	char *line;
+	int rc;
+
+	/* Buffer trailer line */
+	if ( ( rc = http_rx_linebuf ( http, *iobuf, &http->linebuf ) ) != 0 )
+		return rc;
+
+	/* Wait until we see the empty line marking end of trailers */
+	line = buffered_line ( &http->linebuf );
+	if ( ( line == NULL ) || ( line[0] != '\0' ) )
+		return 0;
+
+	/* Empty line buffer */
+	empty_line_buffer ( &http->linebuf );
+
+	/* Transfer is complete */
+	if ( ( rc = http_transfer_complete ( http ) ) != 0 )
+		return rc;
+
+	return 0;
+}
+
+/** HTTP response trailers state */
+static struct http_state http_trailers = {
+	.rx = http_rx_trailers,
+	.close = http_close_error,
+};
+
+/******************************************************************************
+ *
+ * Simple URI openers
+ *
+ ******************************************************************************
+ */
+
+/**
+ * Construct HTTP parameter list
+ *
+ * @v params		Parameter list
  * @v buf		Buffer to contain HTTP POST parameters
  * @v len		Length of buffer
  * @ret len		Length of parameter list (excluding terminating NUL)
  */
-static size_t http_post_params ( struct http_request *http,
-				 char *buf, size_t len ) {
+static size_t http_params ( struct parameters *params, char *buf, size_t len ) {
 	struct parameter *param;
 	ssize_t remaining = len;
 	size_t frag_len;
 
 	/* Add each parameter in the form "key=value", joined with "&" */
 	len = 0;
-	for_each_param ( param, http->uri->params ) {
+	for_each_param ( param, params ) {
 
 		/* Add the "&", if applicable */
 		if ( len ) {
@@ -1174,7 +1867,7 @@ static size_t http_post_params ( struct http_request *http,
 		}
 
 		/* URI-encode the key */
-		frag_len = uri_encode ( param->key, 0, buf, remaining );
+		frag_len = uri_encode_string ( 0, param->key, buf, remaining );
 		buf += frag_len;
 		len += frag_len;
 		remaining -= frag_len;
@@ -1187,7 +1880,7 @@ static size_t http_post_params ( struct http_request *http,
 		remaining--;
 
 		/* URI-encode the value */
-		frag_len = uri_encode ( param->value, 0, buf, remaining );
+		frag_len = uri_encode_string ( 0, param->value, buf, remaining);
 		buf += frag_len;
 		len += frag_len;
 		remaining -= frag_len;
@@ -1201,374 +1894,78 @@ static size_t http_post_params ( struct http_request *http,
 }
 
 /**
- * Generate HTTP POST body
- *
- * @v http		HTTP request
- * @ret post		I/O buffer containing POST body, or NULL on error
- */
-static struct io_buffer * http_post ( struct http_request *http ) {
-	struct io_buffer *post;
-	size_t len;
-	size_t check_len;
-
-	/* Calculate length of parameter list */
-	len = http_post_params ( http, NULL, 0 );
-
-	/* Allocate parameter list */
-	post = alloc_iob ( len + 1 /* NUL */ );
-	if ( ! post )
-		return NULL;
-
-	/* Fill parameter list */
-	check_len = http_post_params ( http, iob_put ( post, len ),
-				       ( len + 1 /* NUL */ ) );
-	assert ( len == check_len );
-	DBGC ( http, "HTTP %p POST %s\n", http, ( ( char * ) post->data ) );
-
-	return post;
-}
-
-/**
- * HTTP process
- *
- * @v http		HTTP request
- */
-static void http_step ( struct http_request *http ) {
-	struct io_buffer *post;
-	struct uri host_uri;
-	struct uri path_uri;
-	char *host_uri_string;
-	char *path_uri_string;
-	char *method;
-	char *range;
-	char *auth;
-	char *content;
-	int len;
-	int rc;
-
-	/* Do nothing if we have already transmitted the request */
-	if ( ! ( http->flags & HTTP_TX_PENDING ) )
-		return;
-
-	/* Do nothing until socket is ready */
-	if ( ! xfer_window ( &http->socket ) )
-		return;
-
-	/* Force a HEAD request if we have nowhere to send any received data */
-	if ( ( xfer_window ( &http->xfer ) == 0 ) &&
-	     ( http->rx_buffer == UNULL ) ) {
-		http->flags |= ( HTTP_HEAD_ONLY | HTTP_CLIENT_KEEPALIVE );
-	}
-
-	/* Determine method */
-	method = ( ( http->flags & HTTP_HEAD_ONLY ) ? "HEAD" :
-		   ( http->uri->params ? "POST" : "GET" ) );
-
-	/* Construct host URI */
-	memset ( &host_uri, 0, sizeof ( host_uri ) );
-	host_uri.host = http->uri->host;
-	host_uri.port = http->uri->port;
-	host_uri_string = format_uri_alloc ( &host_uri );
-	if ( ! host_uri_string ) {
-		rc = -ENOMEM;
-		goto err_host_uri;
-	}
-
-	/* Construct path URI */
-	memset ( &path_uri, 0, sizeof ( path_uri ) );
-	path_uri.path = ( http->uri->path ? http->uri->path : "/" );
-	path_uri.query = http->uri->query;
-	path_uri_string = format_uri_alloc ( &path_uri );
-	if ( ! path_uri_string ) {
-		rc = -ENOMEM;
-		goto err_path_uri;
-	}
-
-	/* Calculate range request parameters if applicable */
-	if ( http->partial_len ) {
-		len = asprintf ( &range, "Range: bytes=%zd-%zd\r\n",
-				 http->partial_start,
-				 ( http->partial_start + http->partial_len
-				   - 1 ) );
-		if ( len < 0 ) {
-			rc = len;
-			goto err_range;
-		}
-	} else {
-		range = NULL;
-	}
-
-	/* Construct authorisation, if applicable */
-	if ( http->flags & HTTP_BASIC_AUTH ) {
-		auth = http_basic_auth ( http );
-		if ( ! auth ) {
-			rc = -ENOMEM;
-			goto err_auth;
-		}
-	} else if ( http->flags & HTTP_DIGEST_AUTH ) {
-		auth = http_digest_auth ( http, method, path_uri_string );
-		if ( ! auth ) {
-			rc = -ENOMEM;
-			goto err_auth;
-		}
-	} else {
-		auth = NULL;
-	}
-
-	/* Construct POST content, if applicable */
-	if ( http->uri->params ) {
-		post = http_post ( http );
-		if ( ! post ) {
-			rc = -ENOMEM;
-			goto err_post;
-		}
-		len = asprintf ( &content, "Content-Type: "
-				 "application/x-www-form-urlencoded\r\n"
-				 "Content-Length: %zd\r\n", iob_len ( post ) );
-		if ( len < 0 ) {
-			rc = len;
-			goto err_content;
-		}
-	} else {
-		post = NULL;
-		content = NULL;
-	}
-
-	/* Mark request as transmitted */
-	http->flags &= ~HTTP_TX_PENDING;
-
-	/* Send request */
-	if ( ( rc = xfer_printf ( &http->socket,
-				  "%s %s HTTP/1.1\r\n"
-				  "User-Agent: iPXE/%s\r\n"
-				  "Host: %s\r\n"
-				  "%s%s%s%s"
-				  "\r\n",
-				  method, path_uri_string, product_version,
-				  host_uri_string,
-				  ( ( http->flags & HTTP_CLIENT_KEEPALIVE ) ?
-				    "Connection: keep-alive\r\n" : "" ),
-				  ( range ? range : "" ),
-				  ( auth ? auth : "" ),
-				  ( content ? content : "" ) ) ) != 0 ) {
-		goto err_xfer;
-	}
-
-	/* Send POST content, if applicable */
-	if ( post ) {
-		if ( ( rc = xfer_deliver_iob ( &http->socket,
-					       iob_disown ( post ) ) ) != 0 )
-			goto err_xfer_post;
-	}
-
- err_xfer_post:
- err_xfer:
-	free ( content );
- err_content:
-	free ( post );
- err_post:
-	free ( auth );
- err_auth:
-	free ( range );
- err_range:
-	free ( path_uri_string );
- err_path_uri:
-	free ( host_uri_string );
- err_host_uri:
-	if ( rc != 0 )
-		http_close ( http, rc );
-}
-
-/**
- * Check HTTP data transfer flow control window
- *
- * @v http		HTTP request
- * @ret len		Length of window
- */
-static size_t http_xfer_window ( struct http_request *http ) {
-
-	/* New block commands may be issued only when we are idle */
-	return ( ( http->rx_state == HTTP_RX_IDLE ) ? 1 : 0 );
-}
-
-/**
- * Initiate HTTP partial read
- *
- * @v http		HTTP request
- * @v partial		Partial transfer interface
- * @v offset		Starting offset
- * @v buffer		Data buffer
- * @v len		Length
- * @ret rc		Return status code
- */
-static int http_partial_read ( struct http_request *http,
-			       struct interface *partial,
-			       size_t offset, userptr_t buffer, size_t len ) {
-
-	/* Sanity check */
-	if ( http_xfer_window ( http ) == 0 )
-		return -EBUSY;
-
-	/* Initialise partial transfer parameters */
-	http->rx_buffer = buffer;
-	http->partial_start = offset;
-	http->partial_len = len;
-
-	/* Schedule request */
-	http->rx_state = HTTP_RX_RESPONSE;
-	http->flags = ( HTTP_TX_PENDING | HTTP_CLIENT_KEEPALIVE );
-	if ( ! len )
-		http->flags |= HTTP_HEAD_ONLY;
-	process_add ( &http->process );
-
-	/* Attach to parent interface and return */
-	intf_plug_plug ( &http->partial, partial );
-
-	return 0;
-}
-
-/**
- * Issue HTTP block device read
- *
- * @v http		HTTP request
- * @v block		Block data interface
- * @v lba		Starting logical block address
- * @v count		Number of blocks to transfer
- * @v buffer		Data buffer
- * @v len		Length of data buffer
- * @ret rc		Return status code
- */
-static int http_block_read ( struct http_request *http,
-			     struct interface *block,
-			     uint64_t lba, unsigned int count,
-			     userptr_t buffer, size_t len __unused ) {
-
-	return http_partial_read ( http, block, ( lba * HTTP_BLKSIZE ),
-				   buffer, ( count * HTTP_BLKSIZE ) );
-}
-
-/**
- * Read HTTP block device capacity
- *
- * @v http		HTTP request
- * @v block		Block data interface
- * @ret rc		Return status code
- */
-static int http_block_read_capacity ( struct http_request *http,
-				      struct interface *block ) {
-
-	return http_partial_read ( http, block, 0, 0, 0 );
-}
-
-/**
- * Describe HTTP device in an ACPI table
- *
- * @v http		HTTP request
- * @v acpi		ACPI table
- * @v len		Length of ACPI table
- * @ret rc		Return status code
- */
-static int http_acpi_describe ( struct http_request *http,
-				struct acpi_description_header *acpi,
-				size_t len ) {
-
-	DBGC ( http, "HTTP %p cannot yet describe device in an ACPI table\n",
-	       http );
-	( void ) acpi;
-	( void ) len;
-	return 0;
-}
-
-/** HTTP socket interface operations */
-static struct interface_operation http_socket_operations[] = {
-	INTF_OP ( xfer_window, struct http_request *, http_socket_window ),
-	INTF_OP ( xfer_deliver, struct http_request *, http_socket_deliver ),
-	INTF_OP ( xfer_window_changed, struct http_request *, http_step ),
-	INTF_OP ( intf_close, struct http_request *, http_socket_close ),
-};
-
-/** HTTP socket interface descriptor */
-static struct interface_descriptor http_socket_desc =
-	INTF_DESC_PASSTHRU ( struct http_request, socket,
-			     http_socket_operations, xfer );
-
-/** HTTP partial transfer interface operations */
-static struct interface_operation http_partial_operations[] = {
-	INTF_OP ( intf_close, struct http_request *, http_close ),
-};
-
-/** HTTP partial transfer interface descriptor */
-static struct interface_descriptor http_partial_desc =
-	INTF_DESC ( struct http_request, partial, http_partial_operations );
-
-/** HTTP data transfer interface operations */
-static struct interface_operation http_xfer_operations[] = {
-	INTF_OP ( xfer_window, struct http_request *, http_xfer_window ),
-	INTF_OP ( block_read, struct http_request *, http_block_read ),
-	INTF_OP ( block_read_capacity, struct http_request *,
-		  http_block_read_capacity ),
-	INTF_OP ( intf_close, struct http_request *, http_close ),
-	INTF_OP ( acpi_describe, struct http_request *, http_acpi_describe ),
-};
-
-/** HTTP data transfer interface descriptor */
-static struct interface_descriptor http_xfer_desc =
-	INTF_DESC_PASSTHRU ( struct http_request, xfer,
-			     http_xfer_operations, socket );
-
-/** HTTP process descriptor */
-static struct process_descriptor http_process_desc =
-	PROC_DESC_ONCE ( struct http_request, process, http_step );
-
-/**
- * Initiate an HTTP connection, with optional filter
+ * Open HTTP transaction for simple GET URI
  *
  * @v xfer		Data transfer interface
- * @v uri		Uniform Resource Identifier
- * @v default_port	Default port number
- * @v filter		Filter to apply to socket, or NULL
+ * @v uri		Request URI
  * @ret rc		Return status code
  */
-int http_open_filter ( struct interface *xfer, struct uri *uri,
-		       unsigned int default_port,
-		       int ( * filter ) ( struct interface *xfer,
-					  const char *name,
-					  struct interface **next ) ) {
-	struct http_request *http;
+static int http_open_get_uri ( struct interface *xfer, struct uri *uri ) {
+
+	return http_open ( xfer, &http_get, uri, NULL, NULL );
+}
+
+/**
+ * Open HTTP transaction for simple POST URI
+ *
+ * @v xfer		Data transfer interface
+ * @v uri		Request URI
+ * @ret rc		Return status code
+ */
+static int http_open_post_uri ( struct interface *xfer, struct uri *uri ) {
+	struct parameters *params = uri->params;
+	struct http_request_content content;
+	void *data;
+	size_t len;
+	size_t check_len;
 	int rc;
 
-	/* Sanity checks */
-	if ( ! uri->host )
-		return -EINVAL;
+	/* Calculate length of parameter list */
+	len = http_params ( params, NULL, 0 );
 
-	/* Allocate and populate HTTP structure */
-	http = zalloc ( sizeof ( *http ) );
-	if ( ! http )
-		return -ENOMEM;
-	ref_init ( &http->refcnt, http_free );
-	intf_init ( &http->xfer, &http_xfer_desc, &http->refcnt );
-	intf_init ( &http->partial, &http_partial_desc, &http->refcnt );
-	http->uri = uri_get ( uri );
-	http->default_port = default_port;
-	http->filter = filter;
-	intf_init ( &http->socket, &http_socket_desc, &http->refcnt );
-	process_init ( &http->process, &http_process_desc, &http->refcnt );
-	timer_init ( &http->timer, http_retry, &http->refcnt );
-	http->flags = HTTP_TX_PENDING;
+	/* Allocate temporary parameter list */
+	data = zalloc ( len + 1 /* NUL */ );
+	if ( ! data ) {
+		rc = -ENOMEM;
+		goto err_alloc;
+	}
 
-	/* Open socket */
-	if ( ( rc = http_socket_open ( http ) ) != 0 )
-		goto err;
+	/* Construct temporary parameter list */
+	check_len = http_params ( params, data, ( len + 1 /* NUL */ ) );
+	assert ( check_len == len );
 
-	/* Attach to parent interface, mortalise self, and return */
-	intf_plug_plug ( &http->xfer, xfer );
-	ref_put ( &http->refcnt );
-	return 0;
+	/* Construct request content */
+	content.type = "application/x-www-form-urlencoded";
+	content.data = data;
+	content.len = len;
 
- err:
-	DBGC ( http, "HTTP %p could not create request: %s\n",
-	       http, strerror ( rc ) );
-	http_close ( http, rc );
-	ref_put ( &http->refcnt );
+	/* Open HTTP transaction */
+	if ( ( rc = http_open ( xfer, &http_post, uri, NULL, &content ) ) != 0 )
+		goto err_open;
+
+ err_open:
+	free ( data );
+ err_alloc:
 	return rc;
 }
+
+/**
+ * Open HTTP transaction for simple URI
+ *
+ * @v xfer		Data transfer interface
+ * @v uri		Request URI
+ * @ret rc		Return status code
+ */
+int http_open_uri ( struct interface *xfer, struct uri *uri ) {
+
+	/* Open GET/POST URI as applicable */
+	if ( uri->params ) {
+		return http_open_post_uri ( xfer, uri );
+	} else {
+		return http_open_get_uri ( xfer, uri );
+	}
+}
+
+/* Drag in HTTP extensions */
+REQUIRING_SYMBOL ( http_open );
+REQUIRE_OBJECT ( config_http );

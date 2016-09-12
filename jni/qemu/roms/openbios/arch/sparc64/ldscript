@@ -50,6 +50,11 @@ SECTIONS
 	*(.bss.*)
 	*(COMMON)
 
+	_fcstack = .;
+	. += 32768;
+	. = ALIGN(16);
+	_efcstack = .;
+	
 	_stack = .;
 	. += STACK_SIZE;
 	. = ALIGN(16);

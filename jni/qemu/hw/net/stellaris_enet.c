@@ -6,6 +6,7 @@
  *
  * This code is licensed under the GPL.
  */
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "net/net.h"
 #include <zlib.h>
@@ -228,16 +229,25 @@ static ssize_t stellaris_enet_receive(NetClientState *nc, const uint8_t *buf, si
     if ((s->rctl & SE_RCTL_RXEN) == 0)
         return -1;
     if (s->np >= 31) {
-        DPRINTF("Packet dropped\n");
-        return -1;
+        return 0;
     }
 
     DPRINTF("Received packet len=%zu\n", size);
     n = s->next_packet + s->np;
     if (n >= 31)
         n -= 31;
-    s->np++;
 
+    if (size >= sizeof(s->rx[n].data) - 6) {
+        /* If the packet won't fit into the
+         * emulated 2K RAM, this is reported
+         * as a FIFO overrun error.
+         */
+        s->ris |= SE_INT_FOV;
+        stellaris_enet_update(s);
+        return -1;
+    }
+
+    s->np++;
     s->rx[n].len = size + 6;
     p = s->rx[n].data;
     *(p++) = (size + 6);
@@ -260,13 +270,8 @@ static ssize_t stellaris_enet_receive(NetClientState *nc, const uint8_t *buf, si
     return size;
 }
 
-static int stellaris_enet_can_receive(NetClientState *nc)
+static int stellaris_enet_can_receive(stellaris_enet_state *s)
 {
-    stellaris_enet_state *s = qemu_get_nic_opaque(nc);
-
-    if ((s->rctl & SE_RCTL_RXEN) == 0)
-        return 1;
-
     return (s->np < 31);
 }
 
@@ -307,6 +312,9 @@ static uint64_t stellaris_enet_read(void *opaque, hwaddr offset,
                 s->next_packet = 0;
             s->np--;
             DPRINTF("RX done np=%d\n", s->np);
+            if (!s->np && stellaris_enet_can_receive(s)) {
+                qemu_flush_queued_packets(qemu_get_queue(s->nic));
+            }
         }
         return val;
     }
@@ -452,9 +460,8 @@ static void stellaris_enet_reset(stellaris_enet_state *s)
 }
 
 static NetClientInfo net_stellaris_enet_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
+    .type = NET_CLIENT_DRIVER_NIC,
     .size = sizeof(NICState),
-    .can_receive = stellaris_enet_can_receive,
     .receive = stellaris_enet_receive,
 };
 

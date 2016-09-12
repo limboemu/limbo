@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "sysemu/char.h"
 #include "qemu/timer.h"
@@ -303,7 +305,7 @@ static int baum_eat_packet(BaumDriverState *baum, const uint8_t *buf, int len)
                 return 0;
             cur++;
         }
-        DPRINTF("Dropped %d bytes!\n", cur - buf);
+        DPRINTF("Dropped %td bytes!\n", cur - buf);
     }
 
 #define EAT(c) do {\
@@ -335,7 +337,7 @@ static int baum_eat_packet(BaumDriverState *baum, const uint8_t *buf, int len)
 
         /* Allow 100ms to complete the DisplayData packet */
         timer_mod(baum->cellCount_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-                       get_ticks_per_sec() / 10);
+                       NANOSECONDS_PER_SECOND / 10);
         for (i = 0; i < baum->x * baum->y ; i++) {
             EAT(c);
             cells[i] = c;
@@ -561,8 +563,12 @@ static void baum_close(struct CharDriverState *chr)
     g_free(baum);
 }
 
-CharDriverState *chr_baum_init(void)
+static CharDriverState *chr_baum_init(const char *id,
+                                      ChardevBackend *backend,
+                                      ChardevReturn *ret,
+                                      Error **errp)
 {
+    ChardevCommon *common = backend->u.braille.data;
     BaumDriverState *baum;
     CharDriverState *chr;
     brlapi_handle_t *handle;
@@ -573,8 +579,12 @@ CharDriverState *chr_baum_init(void)
 #endif
     int tty;
 
+    chr = qemu_chr_alloc(common, errp);
+    if (!chr) {
+        return NULL;
+    }
     baum = g_malloc0(sizeof(BaumDriverState));
-    baum->chr = chr = qemu_chr_alloc();
+    baum->chr = chr;
 
     chr->opaque = baum;
     chr->chr_write = baum_write;
@@ -586,14 +596,16 @@ CharDriverState *chr_baum_init(void)
 
     baum->brlapi_fd = brlapi__openConnection(handle, NULL, NULL);
     if (baum->brlapi_fd == -1) {
-        brlapi_perror("baum_init: brlapi_openConnection");
+        error_setg(errp, "brlapi__openConnection: %s",
+                   brlapi_strerror(brlapi_error_location()));
         goto fail_handle;
     }
 
     baum->cellCount_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, baum_cellCount_timer_cb, baum);
 
     if (brlapi__getDisplaySize(handle, &baum->x, &baum->y) == -1) {
-        brlapi_perror("baum_init: brlapi_getDisplaySize");
+        error_setg(errp, "brlapi__getDisplaySize: %s",
+                   brlapi_strerror(brlapi_error_location()));
         goto fail;
     }
 
@@ -609,7 +621,8 @@ CharDriverState *chr_baum_init(void)
         tty = BRLAPI_TTY_DEFAULT;
 
     if (brlapi__enterTtyMode(handle, tty, NULL) == -1) {
-        brlapi_perror("baum_init: brlapi_enterTtyMode");
+        error_setg(errp, "brlapi__enterTtyMode: %s",
+                   brlapi_strerror(brlapi_error_location()));
         goto fail;
     }
 
@@ -629,7 +642,8 @@ fail_handle:
 
 static void register_types(void)
 {
-    register_char_driver("braille", CHARDEV_BACKEND_KIND_BRAILLE, NULL);
+    register_char_driver("braille", CHARDEV_BACKEND_KIND_BRAILLE, NULL,
+                         chr_baum_init);
 }
 
 type_init(register_types);

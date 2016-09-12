@@ -1,9 +1,10 @@
+#include "qemu/osdep.h"
 #include "hw/pci/slotid_cap.h"
 #include "hw/pci/pci.h"
 #include "qemu/error-report.h"
 
 #define SLOTID_CAP_LENGTH 4
-#define SLOTID_NSLOTS_SHIFT (ffs(PCI_SID_ESR_NSLOTS) - 1)
+#define SLOTID_NSLOTS_SHIFT ctz32(PCI_SID_ESR_NSLOTS)
 
 int slotid_cap_init(PCIDevice *d, int nslots,
                     uint8_t chassis,

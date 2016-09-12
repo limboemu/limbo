@@ -43,17 +43,17 @@ void enable_bootsplash(void);
 void disable_bootsplash(void);
 
 // cdrom.c
-extern u8 CDRom_locks[];
 extern struct eltorito_s CDEmu;
 extern struct drive_s *cdemu_drive_gf;
 struct disk_op_s;
-int process_cdemu_op(struct disk_op_s *op);
+int cdemu_process_op(struct disk_op_s *op);
 void cdrom_prepboot(void);
 int cdrom_boot(struct drive_s *drive_g);
 
 // clock.c
 void clock_setup(void);
 void handle_1583(struct bregs *regs);
+void clock_poll_irq(void);
 u32 irqtimer_calc_ticks(u32 count);
 u32 irqtimer_calc(u32 msecs);
 int irqtimer_check(u32 end);
@@ -75,6 +75,7 @@ u32 find_resume_vector(void);
 void acpi_reboot(void);
 void find_acpi_features(void);
 extern struct smbios_entry_point *SMBiosAddr;
+struct smbios_entry_point *get_smbios_entry_point();
 void copy_smbios(void *pos);
 void display_uuid(void);
 void copy_table(void *pos);
@@ -103,6 +104,9 @@ void mptable_setup(void);
 
 // fw/mtrr.c
 void mtrr_setup(void);
+
+// fw/multiboot.c
+void multiboot_init(void);
 
 // fw/pciinit.c
 extern const u8 pci_irqs[4];
@@ -139,15 +143,15 @@ extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup(void);
 struct drive_s *init_floppy(int floppyid, int ftype);
 int find_floppy_type(u32 size);
-int process_floppy_op(struct disk_op_s *op);
+int floppy_process_op(struct disk_op_s *op);
 void floppy_tick(void);
 
 // hw/ramdisk.c
 void ramdisk_setup(void);
-int process_ramdisk_op(struct disk_op_s *op);
+int ramdisk_process_op(struct disk_op_s *op);
 
 // hw/sdcard.c
-int process_sdcard_op(struct disk_op_s *op);
+int sdcard_process_op(struct disk_op_s *op);
 void sdcard_setup(void);
 
 // hw/timer.c
@@ -232,6 +236,6 @@ void vgahook_setup(struct pci_device *pci);
 
 
 // version (auto generated file out/version.c)
-extern const char VERSION[];
+extern const char VERSION[], BUILDINFO[];
 
 #endif // util.h

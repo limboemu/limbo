@@ -52,7 +52,6 @@
 #define PCI_X_CMD			2       /* Modes & Features */
 #define PCI_X_CMD_ERO			0x0002  /* Enable Relaxed Ordering */
 
-#define PCI_EXP_DEVCTL			8       /* Device Control */
 #define PCI_EXP_DEVCTL_RELAX_EN		0x0010 /* Enable relaxed ordering */
 #define PCI_EXP_DEVCTL_NOSNOOP_EN	0x0800  /* Enable No Snoop */
 #define PCI_EXP_DEVCTL_PAYLOAD		0x00e0  /* Max_Payload_Size */
@@ -131,6 +130,10 @@
 #define PCI_DEVICE_ID_TIGON3_5901_2	0x170e
 #define PCI_DEVICE_ID_TIGON3_5906	0x1712
 #define PCI_DEVICE_ID_TIGON3_5906M	0x1713
+#define PCI_VENDOR_ID_COMPAQ		0x0e11
+#define PCI_VENDOR_ID_IBM		0x1014
+#define PCI_VENDOR_ID_DELL		0x1028
+#define PCI_VENDOR_ID_3COM		0x10b7
 /* </pci_ids.h> */
 
 #define SPEED_10			10
@@ -185,6 +188,7 @@
 #define  TG3PCI_DEVICE_TIGON3_57761	 0x16b0
 #define  TG3PCI_DEVICE_TIGON3_57762	 0x1682
 #define  TG3PCI_DEVICE_TIGON3_57765	 0x16b4
+#define  TG3PCI_DEVICE_TIGON3_57766	 0x1686
 #define  TG3PCI_DEVICE_TIGON3_57791	 0x16b2
 #define  TG3PCI_DEVICE_TIGON3_57795	 0x16b6
 #define  TG3PCI_DEVICE_TIGON3_5719	 0x1657
@@ -2784,7 +2788,7 @@ struct tg3_hw_stats {
 	u8				__reserved4[0xb00-0x9c8];
 };
 
-typedef u32 dma_addr_t;
+typedef unsigned long dma_addr_t;
 
 /* 'mapping' is superfluous as the chip does not write into
  * the tx/rx post rings so we could just fetch it from there.
@@ -3316,43 +3320,25 @@ void tg3_write_indirect_mbox(struct tg3 *tp, u32 off, u32 val);
 
 /* Functions & macros to verify TG3_FLAGS types */
 
-static inline int variable_test_bit(int nr, volatile const unsigned long *addr)
-{
-	int oldbit;
-
-	asm volatile("bt %2,%1\n\t"
-	             "sbb %0,%0"
-	             : "=r" (oldbit)
-	             : "m" (*(unsigned long *)addr), "Ir" (nr));
-
-	return oldbit;
-}
-
 static inline int _tg3_flag(enum TG3_FLAGS flag, unsigned long *bits)
 {
-	return variable_test_bit(flag, bits);
-}
-
-#define BITOP_ADDR(x) "+m" (*(volatile long *) (x))
-
-static inline void __set_bit(int nr, volatile unsigned long *addr)
-{
-	asm volatile("bts %1,%0" : BITOP_ADDR(addr) : "Ir" (nr) : "memory");
+	unsigned int index = ( flag / ( 8 * sizeof ( *bits ) ) );
+	unsigned int bit = ( flag % ( 8 * sizeof ( *bits ) ) );
+	return ( !! ( bits[index] & ( 1UL << bit ) ) );
 }
 
 static inline void _tg3_flag_set(enum TG3_FLAGS flag, unsigned long *bits)
 {
-	__set_bit(flag, bits);
-}
-
-static inline void __clear_bit(int nr, volatile unsigned long *addr)
-{
-	asm volatile("btr %1,%0" : BITOP_ADDR(addr) : "Ir" (nr));
+	unsigned int index = ( flag / ( 8 * sizeof ( *bits ) ) );
+	unsigned int bit = ( flag % ( 8 * sizeof ( *bits ) ) );
+	bits[index] |= ( 1UL << bit );
 }
 
 static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
 {
-	__clear_bit(flag, bits);
+	unsigned int index = ( flag / ( 8 * sizeof ( *bits ) ) );
+	unsigned int bit = ( flag % ( 8 * sizeof ( *bits ) ) );
+	bits[index] &= ~( 1UL << bit );
 }
 
 #define tg3_flag(tp, flag)				\

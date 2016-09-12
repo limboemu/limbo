@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 #ifndef QEMU_AUDIO_INT_H
 #define QEMU_AUDIO_INT_H
 
@@ -156,13 +157,13 @@ struct audio_driver {
 };
 
 struct audio_pcm_ops {
-    int  (*init_out)(HWVoiceOut *hw, struct audsettings *as);
+    int  (*init_out)(HWVoiceOut *hw, struct audsettings *as, void *drv_opaque);
     void (*fini_out)(HWVoiceOut *hw);
     int  (*run_out) (HWVoiceOut *hw, int live);
     int  (*write)   (SWVoiceOut *sw, void *buf, int size);
     int  (*ctl_out) (HWVoiceOut *hw, int cmd, ...);
 
-    int  (*init_in) (HWVoiceIn *hw, struct audsettings *as);
+    int  (*init_in) (HWVoiceIn *hw, struct audsettings *as, void *drv_opaque);
     void (*fini_in) (HWVoiceIn *hw);
     int  (*run_in)  (HWVoiceIn *hw);
     int  (*read)    (SWVoiceIn *sw, void *buf, int size);
@@ -206,14 +207,11 @@ extern struct audio_driver no_audio_driver;
 extern struct audio_driver oss_audio_driver;
 extern struct audio_driver sdl_audio_driver;
 extern struct audio_driver wav_audio_driver;
-extern struct audio_driver fmod_audio_driver;
 extern struct audio_driver alsa_audio_driver;
 extern struct audio_driver coreaudio_audio_driver;
 extern struct audio_driver dsound_audio_driver;
-extern struct audio_driver esd_audio_driver;
 extern struct audio_driver pa_audio_driver;
 extern struct audio_driver spice_audio_driver;
-extern struct audio_driver winwave_audio_driver;
 extern const struct mixeng_volume nominal_volume;
 
 void audio_pcm_init_info (struct audio_pcm_info *info, struct audsettings *as);
@@ -260,4 +258,4 @@ static inline int audio_ring_dist (int dst, int src, int len)
 #define AUDIO_FUNC __FILE__ ":" AUDIO_STRINGIFY (__LINE__)
 #endif
 
-#endif /* audio_int.h */
+#endif /* QEMU_AUDIO_INT_H */

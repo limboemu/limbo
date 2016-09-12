@@ -19,13 +19,11 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <stdbool.h>
-#include <string.h>
+#include "qemu/osdep.h"
+#include <glib/gprintf.h>
 #include "hw/acpi/aml-build.h"
 #include "qemu/bswap.h"
+#include "qemu/bitops.h"
 
 static GArray *build_alloc_array(void)
 {
@@ -57,7 +55,6 @@ static void build_append_array(GArray *array, GArray *val)
 static void
 build_append_nameseg(GArray *array, const char *seg)
 {
-    /* It would be nicer to use g_string_vprintf but it's only there in 2.22 */
     int len;
 
     len = strlen(seg);
@@ -71,22 +68,12 @@ build_append_nameseg(GArray *array, const char *seg)
 static void GCC_FMT_ATTR(2, 0)
 build_append_namestringv(GArray *array, const char *format, va_list ap)
 {
-    /* It would be nicer to use g_string_vprintf but it's only there in 2.22 */
     char *s;
-    int len;
-    va_list va_len;
     char **segs;
     char **segs_iter;
     int seg_count = 0;
 
-    va_copy(va_len, ap);
-    len = vsnprintf(NULL, 0, format, va_len);
-    va_end(va_len);
-    len += 1;
-    s = g_new(typeof(*s), len);
-
-    len = vsnprintf(s, len, format, ap);
-
+    s = g_strdup_vprintf(format, ap);
     segs = g_strsplit(s, ".", 0);
     g_free(s);
 
@@ -270,6 +257,34 @@ static void build_append_int(GArray *table, uint64_t value)
     }
 }
 
+/*
+ * Build NAME(XXXX, 0x00000000) where 0x00000000 is encoded as a dword,
+ * and return the offset to 0x00000000 for runtime patching.
+ *
+ * Warning: runtime patching is best avoided. Only use this as
+ * a replacement for DataTableRegion (for guests that don't
+ * support it).
+ */
+int
+build_append_named_dword(GArray *array, const char *name_format, ...)
+{
+    int offset;
+    va_list ap;
+
+    build_append_byte(array, 0x08); /* NameOp */
+    va_start(ap, name_format);
+    build_append_namestringv(array, name_format, ap);
+    va_end(ap);
+
+    build_append_byte(array, 0x0C); /* DWordPrefix */
+
+    offset = array->len;
+    build_append_int_noprefix(array, 0x00000000, 4);
+    assert(array->len == offset + 4);
+
+    return offset;
+}
+
 static GPtrArray *alloc_list;
 
 static Aml *aml_alloc(void)
@@ -304,16 +319,14 @@ static void aml_free(gpointer data, gpointer user_data)
 {
     Aml *var = data;
     build_free_array(var->buf);
+    g_free(var);
 }
 
 Aml *init_aml_allocator(void)
 {
-    Aml *var;
-
     assert(!alloc_list);
     alloc_list = g_ptr_array_new();
-    var = aml_alloc();
-    return var;
+    return aml_alloc();
 }
 
 void free_aml_allocator(void)
@@ -389,6 +402,15 @@ Aml *aml_return(Aml *val)
     return var;
 }
 
+/* ACPI 1.0b: 16.2.6.3 Debug Objects Encoding: DebugObj */
+Aml *aml_debug(void)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x31); /* DebugOp */
+    return var;
+}
+
 /*
  * ACPI 1.0b: 16.2.3 Data Objects Encoding:
  * encodes: ByteConst, WordConst, DWordConst, QWordConst, ZeroOp, OneOp
@@ -426,11 +448,44 @@ Aml *aml_name_decl(const char *name, Aml *val)
 /* ACPI 1.0b: 16.2.6.1 Arg Objects Encoding */
 Aml *aml_arg(int pos)
 {
-    Aml *var;
     uint8_t op = 0x68 /* ARG0 op */ + pos;
 
     assert(pos <= 6);
-    var = aml_opcode(op);
+    return aml_opcode(op);
+}
+
+/* ACPI 2.0a: 17.2.4.4 Type 2 Opcodes Encoding: DefToInteger */
+Aml *aml_to_integer(Aml *arg)
+{
+    Aml *var = aml_opcode(0x99 /* ToIntegerOp */);
+    aml_append(var, arg);
+    build_append_byte(var->buf, 0x00 /* NullNameOp */);
+    return var;
+}
+
+/* ACPI 2.0a: 17.2.4.4 Type 2 Opcodes Encoding: DefToHexString */
+Aml *aml_to_hexstring(Aml *src, Aml *dst)
+{
+    Aml *var = aml_opcode(0x98 /* ToHexStringOp */);
+    aml_append(var, src);
+    if (dst) {
+        aml_append(var, dst);
+    } else {
+        build_append_byte(var->buf, 0x00 /* NullNameOp */);
+    }
+    return var;
+}
+
+/* ACPI 2.0a: 17.2.4.4 Type 2 Opcodes Encoding: DefToBuffer */
+Aml *aml_to_buffer(Aml *src, Aml *dst)
+{
+    Aml *var = aml_opcode(0x96 /* ToBufferOp */);
+    aml_append(var, src);
+    if (dst) {
+        aml_append(var, dst);
+    } else {
+        build_append_byte(var->buf, 0x00 /* NullNameOp */);
+    }
     return var;
 }
 
@@ -443,14 +498,107 @@ Aml *aml_store(Aml *val, Aml *target)
     return var;
 }
 
-/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefAnd */
-Aml *aml_and(Aml *arg1, Aml *arg2)
+/**
+ * build_opcode_2arg_dst:
+ * @op: 1-byte opcode
+ * @arg1: 1st operand
+ * @arg2: 2nd operand
+ * @dst: optional target to store to, set to NULL if it's not required
+ *
+ * An internal helper to compose AML terms that have
+ *   "Op Operand Operand Target"
+ * pattern.
+ *
+ * Returns: The newly allocated and composed according to patter Aml object.
+ */
+static Aml *
+build_opcode_2arg_dst(uint8_t op, Aml *arg1, Aml *arg2, Aml *dst)
 {
-    Aml *var = aml_opcode(0x7B /* AndOp */);
+    Aml *var = aml_opcode(op);
     aml_append(var, arg1);
     aml_append(var, arg2);
-    build_append_byte(var->buf, 0x00 /* NullNameOp */);
+    if (dst) {
+        aml_append(var, dst);
+    } else {
+        build_append_byte(var->buf, 0x00 /* NullNameOp */);
+    }
     return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefAnd */
+Aml *aml_and(Aml *arg1, Aml *arg2, Aml *dst)
+{
+    return build_opcode_2arg_dst(0x7B /* AndOp */, arg1, arg2, dst);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefOr */
+Aml *aml_or(Aml *arg1, Aml *arg2, Aml *dst)
+{
+    return build_opcode_2arg_dst(0x7D /* OrOp */, arg1, arg2, dst);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLOr */
+Aml *aml_lor(Aml *arg1, Aml *arg2)
+{
+    Aml *var = aml_opcode(0x91 /* LOrOp */);
+    aml_append(var, arg1);
+    aml_append(var, arg2);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefShiftLeft */
+Aml *aml_shiftleft(Aml *arg1, Aml *count)
+{
+    return build_opcode_2arg_dst(0x79 /* ShiftLeftOp */, arg1, count, NULL);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefShiftRight */
+Aml *aml_shiftright(Aml *arg1, Aml *count, Aml *dst)
+{
+    return build_opcode_2arg_dst(0x7A /* ShiftRightOp */, arg1, count, dst);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLLess */
+Aml *aml_lless(Aml *arg1, Aml *arg2)
+{
+    Aml *var = aml_opcode(0x95 /* LLessOp */);
+    aml_append(var, arg1);
+    aml_append(var, arg2);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefAdd */
+Aml *aml_add(Aml *arg1, Aml *arg2, Aml *dst)
+{
+    return build_opcode_2arg_dst(0x72 /* AddOp */, arg1, arg2, dst);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefSubtract */
+Aml *aml_subtract(Aml *arg1, Aml *arg2, Aml *dst)
+{
+    return build_opcode_2arg_dst(0x74 /* SubtractOp */, arg1, arg2, dst);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefIncrement */
+Aml *aml_increment(Aml *arg)
+{
+    Aml *var = aml_opcode(0x75 /* IncrementOp */);
+    aml_append(var, arg);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefDecrement */
+Aml *aml_decrement(Aml *arg)
+{
+    Aml *var = aml_opcode(0x76 /* DecrementOp */);
+    aml_append(var, arg);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefIndex */
+Aml *aml_index(Aml *arg1, Aml *idx)
+{
+    return build_opcode_2arg_dst(0x88 /* IndexOp */, arg1, idx, NULL);
 }
 
 /* ACPI 1.0b: 16.2.5.3 Type 1 Opcodes Encoding: DefNotify */
@@ -459,6 +607,14 @@ Aml *aml_notify(Aml *arg1, Aml *arg2)
     Aml *var = aml_opcode(0x86 /* NotifyOp */);
     aml_append(var, arg1);
     aml_append(var, arg2);
+    return var;
+}
+
+/* helper to call method with 1 argument */
+Aml *aml_call0(const char *method)
+{
+    Aml *var = aml_alloc();
+    build_append_namestring(var->buf, "%s", method);
     return var;
 }
 
@@ -504,6 +660,166 @@ Aml *aml_call4(const char *method, Aml *arg1, Aml *arg2, Aml *arg3, Aml *arg4)
     return var;
 }
 
+/* helper to call method with 5 arguments */
+Aml *aml_call5(const char *method, Aml *arg1, Aml *arg2, Aml *arg3, Aml *arg4,
+               Aml *arg5)
+{
+    Aml *var = aml_alloc();
+    build_append_namestring(var->buf, "%s", method);
+    aml_append(var, arg1);
+    aml_append(var, arg2);
+    aml_append(var, arg3);
+    aml_append(var, arg4);
+    aml_append(var, arg5);
+    return var;
+}
+
+/*
+ * ACPI 5.0: 6.4.3.8.1 GPIO Connection Descriptor
+ * Type 1, Large Item Name 0xC
+ */
+
+static Aml *aml_gpio_connection(AmlGpioConnectionType type,
+                                AmlConsumerAndProducer con_and_pro,
+                                uint8_t flags, AmlPinConfig pin_config,
+                                uint16_t output_drive,
+                                uint16_t debounce_timeout,
+                                const uint32_t pin_list[], uint32_t pin_count,
+                                const char *resource_source_name,
+                                const uint8_t *vendor_data,
+                                uint16_t vendor_data_len)
+{
+    Aml *var = aml_alloc();
+    const uint16_t min_desc_len = 0x16;
+    uint16_t resource_source_name_len, length;
+    uint16_t pin_table_offset, resource_source_name_offset, vendor_data_offset;
+    uint32_t i;
+
+    assert(resource_source_name);
+    resource_source_name_len = strlen(resource_source_name) + 1;
+    length = min_desc_len + resource_source_name_len + vendor_data_len;
+    pin_table_offset = min_desc_len + 1;
+    resource_source_name_offset = pin_table_offset + pin_count * 2;
+    vendor_data_offset = resource_source_name_offset + resource_source_name_len;
+
+    build_append_byte(var->buf, 0x8C);  /* GPIO Connection Descriptor */
+    build_append_int_noprefix(var->buf, length, 2); /* Length */
+    build_append_byte(var->buf, 1);     /* Revision ID */
+    build_append_byte(var->buf, type);  /* GPIO Connection Type */
+    /* General Flags (2 bytes) */
+    build_append_int_noprefix(var->buf, con_and_pro, 2);
+    /* Interrupt and IO Flags (2 bytes) */
+    build_append_int_noprefix(var->buf, flags, 2);
+    /* Pin Configuration 0 = Default 1 = Pull-up 2 = Pull-down 3 = No Pull */
+    build_append_byte(var->buf, pin_config);
+    /* Output Drive Strength (2 bytes) */
+    build_append_int_noprefix(var->buf, output_drive, 2);
+    /* Debounce Timeout (2 bytes) */
+    build_append_int_noprefix(var->buf, debounce_timeout, 2);
+    /* Pin Table Offset (2 bytes) */
+    build_append_int_noprefix(var->buf, pin_table_offset, 2);
+    build_append_byte(var->buf, 0);     /* Resource Source Index */
+    /* Resource Source Name Offset (2 bytes) */
+    build_append_int_noprefix(var->buf, resource_source_name_offset, 2);
+    /* Vendor Data Offset (2 bytes) */
+    build_append_int_noprefix(var->buf, vendor_data_offset, 2);
+    /* Vendor Data Length (2 bytes) */
+    build_append_int_noprefix(var->buf, vendor_data_len, 2);
+    /* Pin Number (2n bytes)*/
+    for (i = 0; i < pin_count; i++) {
+        build_append_int_noprefix(var->buf, pin_list[i], 2);
+    }
+
+    /* Resource Source Name */
+    build_append_namestring(var->buf, "%s", resource_source_name);
+    build_append_byte(var->buf, '\0');
+
+    /* Vendor-defined Data */
+    if (vendor_data != NULL) {
+        g_array_append_vals(var->buf, vendor_data, vendor_data_len);
+    }
+
+    return var;
+}
+
+/*
+ * ACPI 5.0: 19.5.53
+ * GpioInt(GPIO Interrupt Connection Resource Descriptor Macro)
+ */
+Aml *aml_gpio_int(AmlConsumerAndProducer con_and_pro,
+                  AmlLevelAndEdge edge_level,
+                  AmlActiveHighAndLow active_level, AmlShared shared,
+                  AmlPinConfig pin_config, uint16_t debounce_timeout,
+                  const uint32_t pin_list[], uint32_t pin_count,
+                  const char *resource_source_name,
+                  const uint8_t *vendor_data, uint16_t vendor_data_len)
+{
+    uint8_t flags = edge_level | (active_level << 1) | (shared << 3);
+
+    return aml_gpio_connection(AML_INTERRUPT_CONNECTION, con_and_pro, flags,
+                               pin_config, 0, debounce_timeout, pin_list,
+                               pin_count, resource_source_name, vendor_data,
+                               vendor_data_len);
+}
+
+/*
+ * ACPI 1.0b: 6.4.3.4 32-Bit Fixed Location Memory Range Descriptor
+ * (Type 1, Large Item Name 0x6)
+ */
+Aml *aml_memory32_fixed(uint32_t addr, uint32_t size,
+                        AmlReadAndWrite read_and_write)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x86); /* Memory32Fixed Resource Descriptor */
+    build_append_byte(var->buf, 9);    /* Length, bits[7:0] value = 9 */
+    build_append_byte(var->buf, 0);    /* Length, bits[15:8] value = 0 */
+    build_append_byte(var->buf, read_and_write); /* Write status, 1 rw 0 ro */
+
+    /* Range base address */
+    build_append_byte(var->buf, extract32(addr, 0, 8));  /* bits[7:0] */
+    build_append_byte(var->buf, extract32(addr, 8, 8));  /* bits[15:8] */
+    build_append_byte(var->buf, extract32(addr, 16, 8)); /* bits[23:16] */
+    build_append_byte(var->buf, extract32(addr, 24, 8)); /* bits[31:24] */
+
+    /* Range length */
+    build_append_byte(var->buf, extract32(size, 0, 8));  /* bits[7:0] */
+    build_append_byte(var->buf, extract32(size, 8, 8));  /* bits[15:8] */
+    build_append_byte(var->buf, extract32(size, 16, 8)); /* bits[23:16] */
+    build_append_byte(var->buf, extract32(size, 24, 8)); /* bits[31:24] */
+    return var;
+}
+
+/*
+ * ACPI 5.0: 6.4.3.6 Extended Interrupt Descriptor
+ * Type 1, Large Item Name 0x9
+ */
+Aml *aml_interrupt(AmlConsumerAndProducer con_and_pro,
+                   AmlLevelAndEdge level_and_edge,
+                   AmlActiveHighAndLow high_and_low, AmlShared shared,
+                   uint32_t *irq_list, uint8_t irq_count)
+{
+    int i;
+    Aml *var = aml_alloc();
+    uint8_t irq_flags = con_and_pro | (level_and_edge << 1)
+                        | (high_and_low << 2) | (shared << 3);
+    const int header_bytes_in_len = 2;
+    uint16_t len = header_bytes_in_len + irq_count * sizeof(uint32_t);
+
+    assert(irq_count > 0);
+
+    build_append_byte(var->buf, 0x89); /* Extended irq descriptor */
+    build_append_byte(var->buf, len & 0xFF); /* Length, bits[7:0] */
+    build_append_byte(var->buf, len >> 8); /* Length, bits[15:8] */
+    build_append_byte(var->buf, irq_flags); /* Interrupt Vector Information. */
+    build_append_byte(var->buf, irq_count);   /* Interrupt table length */
+
+    /* Interrupt Number List */
+    for (i = 0; i < irq_count; i++) {
+        build_append_int_noprefix(var->buf, irq_list[i], 4);
+    }
+    return var;
+}
+
 /* ACPI 1.0b: 6.4.2.5 I/O Port Descriptor */
 Aml *aml_io(AmlIODecode dec, uint16_t min_base, uint16_t max_base,
             uint8_t aln, uint8_t len)
@@ -541,10 +857,38 @@ Aml *aml_irq_no_flags(uint8_t irq)
     return var;
 }
 
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLNot */
+Aml *aml_lnot(Aml *arg)
+{
+    Aml *var = aml_opcode(0x92 /* LNotOp */);
+    aml_append(var, arg);
+    return var;
+}
+
 /* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLEqual */
 Aml *aml_equal(Aml *arg1, Aml *arg2)
 {
     Aml *var = aml_opcode(0x93 /* LequalOp */);
+    aml_append(var, arg1);
+    aml_append(var, arg2);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLGreater */
+Aml *aml_lgreater(Aml *arg1, Aml *arg2)
+{
+    Aml *var = aml_opcode(0x94 /* LGreaterOp */);
+    aml_append(var, arg1);
+    aml_append(var, arg2);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefLGreaterEqual */
+Aml *aml_lgreater_equal(Aml *arg1, Aml *arg2)
+{
+    /* LGreaterEqualOp := LNotOp LLessOp */
+    Aml *var = aml_opcode(0x92 /* LNotOp */);
+    build_append_byte(var->buf, 0x95 /* LLessOp */);
     aml_append(var, arg1);
     aml_append(var, arg2);
     return var;
@@ -558,12 +902,40 @@ Aml *aml_if(Aml *predicate)
     return var;
 }
 
+/* ACPI 1.0b: 16.2.5.3 Type 1 Opcodes Encoding: DefElse */
+Aml *aml_else(void)
+{
+    Aml *var = aml_bundle(0xA1 /* ElseOp */, AML_PACKAGE);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.3 Type 1 Opcodes Encoding: DefWhile */
+Aml *aml_while(Aml *predicate)
+{
+    Aml *var = aml_bundle(0xA2 /* WhileOp */, AML_PACKAGE);
+    aml_append(var, predicate);
+    return var;
+}
+
 /* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefMethod */
-Aml *aml_method(const char *name, int arg_count)
+Aml *aml_method(const char *name, int arg_count, AmlSerializeFlag sflag)
 {
     Aml *var = aml_bundle(0x14 /* MethodOp */, AML_PACKAGE);
+    int methodflags;
+
+    /*
+     * MethodFlags:
+     *   bit 0-2: ArgCount (0-7)
+     *   bit 3: SerializeFlag
+     *     0: NotSerialized
+     *     1: Serialized
+     *   bit 4-7: reserved (must be 0)
+     */
+    assert(arg_count < 8);
+    methodflags = arg_count | (sflag << 3);
+
     build_append_namestring(var->buf, "%s", name);
-    build_append_byte(var->buf, arg_count); /* MethodFlags: ArgCount */
+    build_append_byte(var->buf, methodflags); /* MethodFlags: ArgCount */
     return var;
 }
 
@@ -586,10 +958,22 @@ Aml *aml_resource_template(void)
     return var;
 }
 
-/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefBuffer */
-Aml *aml_buffer(void)
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefBuffer
+ * Pass byte_list as NULL to request uninitialized buffer to reserve space.
+ */
+Aml *aml_buffer(int buffer_size, uint8_t *byte_list)
 {
+    int i;
     Aml *var = aml_bundle(0x11 /* BufferOp */, AML_BUFFER);
+
+    for (i = 0; i < buffer_size; i++) {
+        if (byte_list == NULL) {
+            build_append_byte(var->buf, 0x0);
+        } else {
+            build_append_byte(var->buf, byte_list[i]);
+        }
+    }
+
     return var;
 }
 
@@ -603,14 +987,14 @@ Aml *aml_package(uint8_t num_elements)
 
 /* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefOpRegion */
 Aml *aml_operation_region(const char *name, AmlRegionSpace rs,
-                          uint32_t offset, uint32_t len)
+                          Aml *offset, uint32_t len)
 {
     Aml *var = aml_alloc();
     build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
     build_append_byte(var->buf, 0x80); /* OpRegionOp */
     build_append_namestring(var->buf, "%s", name);
     build_append_byte(var->buf, rs);
-    build_append_int(var->buf, offset);
+    aml_append(var, offset);
     build_append_int(var->buf, len);
     return var;
 }
@@ -635,34 +1019,70 @@ Aml *aml_reserved_field(unsigned length)
 }
 
 /* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefField */
-Aml *aml_field(const char *name, AmlFieldFlags flags)
+Aml *aml_field(const char *name, AmlAccessType type, AmlLockRule lock,
+               AmlUpdateRule rule)
 {
     Aml *var = aml_bundle(0x81 /* FieldOp */, AML_EXT_PACKAGE);
+    uint8_t flags = rule << 5 | type;
+
+    flags |= lock << 4; /* LockRule at 4 bit offset */
+
     build_append_namestring(var->buf, "%s", name);
     build_append_byte(var->buf, flags);
     return var;
+}
+
+static
+Aml *create_field_common(int opcode, Aml *srcbuf, Aml *index, const char *name)
+{
+    Aml *var = aml_opcode(opcode);
+    aml_append(var, srcbuf);
+    aml_append(var, index);
+    build_append_namestring(var->buf, "%s", name);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefCreateField */
+Aml *aml_create_field(Aml *srcbuf, Aml *bit_index, Aml *num_bits,
+                      const char *name)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x13); /* CreateFieldOp */
+    aml_append(var, srcbuf);
+    aml_append(var, bit_index);
+    aml_append(var, num_bits);
+    build_append_namestring(var->buf, "%s", name);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefCreateDWordField */
+Aml *aml_create_dword_field(Aml *srcbuf, Aml *index, const char *name)
+{
+    return create_field_common(0x8A /* CreateDWordFieldOp */,
+                               srcbuf, index, name);
+}
+
+/* ACPI 2.0a: 17.2.4.2 Named Objects Encoding: DefCreateQWordField */
+Aml *aml_create_qword_field(Aml *srcbuf, Aml *index, const char *name)
+{
+    return create_field_common(0x8F /* CreateQWordFieldOp */,
+                               srcbuf, index, name);
 }
 
 /* ACPI 1.0b: 16.2.3 Data Objects Encoding: String */
 Aml *aml_string(const char *name_format, ...)
 {
     Aml *var = aml_opcode(0x0D /* StringPrefix */);
-    va_list ap, va_len;
+    va_list ap;
     char *s;
     int len;
 
     va_start(ap, name_format);
-    va_copy(va_len, ap);
-    len = vsnprintf(NULL, 0, name_format, va_len);
-    va_end(va_len);
-    len += 1;
-    s = g_new0(typeof(*s), len);
-
-    len = vsnprintf(s, len, name_format, ap);
+    len = g_vasprintf(&s, name_format, ap);
     va_end(ap);
 
-    g_array_append_vals(var->buf, s, len);
-    build_append_byte(var->buf, 0x0); /* NullChar */
+    g_array_append_vals(var->buf, s, len + 1);
     g_free(s);
 
     return var;
@@ -671,12 +1091,10 @@ Aml *aml_string(const char *name_format, ...)
 /* ACPI 1.0b: 16.2.6.2 Local Objects Encoding */
 Aml *aml_local(int num)
 {
-    Aml *var;
     uint8_t op = 0x60 /* Local0Op */ + num;
 
     assert(num <= 7);
-    var = aml_opcode(op);
-    return var;
+    return aml_opcode(op);
 }
 
 /* ACPI 2.0a: 17.2.2 Data Objects Encoding: DefVarPackage */
@@ -830,7 +1248,7 @@ Aml *aml_word_bus_number(AmlMinFixed min_fixed, AmlMaxFixed max_fixed,
                          uint16_t addr_trans, uint16_t len)
 
 {
-    return aml_word_as_desc(aml_bus_number_range, min_fixed, max_fixed, dec,
+    return aml_word_as_desc(AML_BUS_NUMBER_RANGE, min_fixed, max_fixed, dec,
                             addr_gran, addr_min, addr_max, addr_trans, len, 0);
 }
 
@@ -847,7 +1265,25 @@ Aml *aml_word_io(AmlMinFixed min_fixed, AmlMaxFixed max_fixed,
                  uint16_t len)
 
 {
-    return aml_word_as_desc(aml_io_range, min_fixed, max_fixed, dec,
+    return aml_word_as_desc(AML_IO_RANGE, min_fixed, max_fixed, dec,
+                            addr_gran, addr_min, addr_max, addr_trans, len,
+                            isa_ranges);
+}
+
+/*
+ * ACPI 1.0b: 6.4.3.5.4 ASL Macros for DWORD Address Descriptor
+ *
+ * More verbose description at:
+ * ACPI 5.0: 19.5.33 DWordIO (DWord IO Resource Descriptor Macro)
+ */
+Aml *aml_dword_io(AmlMinFixed min_fixed, AmlMaxFixed max_fixed,
+                 AmlDecode dec, AmlISARanges isa_ranges,
+                 uint32_t addr_gran, uint32_t addr_min,
+                 uint32_t addr_max, uint32_t addr_trans,
+                 uint32_t len)
+
+{
+    return aml_dword_as_desc(AML_IO_RANGE, min_fixed, max_fixed, dec,
                             addr_gran, addr_min, addr_max, addr_trans, len,
                             isa_ranges);
 }
@@ -859,7 +1295,7 @@ Aml *aml_word_io(AmlMinFixed min_fixed, AmlMaxFixed max_fixed,
  * ACPI 5.0: 19.5.34 DWordMemory (DWord Memory Resource Descriptor Macro)
  */
 Aml *aml_dword_memory(AmlDecode dec, AmlMinFixed min_fixed,
-                      AmlMaxFixed max_fixed, AmlCacheble cacheable,
+                      AmlMaxFixed max_fixed, AmlCacheable cacheable,
                       AmlReadAndWrite read_and_write,
                       uint32_t addr_gran, uint32_t addr_min,
                       uint32_t addr_max, uint32_t addr_trans,
@@ -867,7 +1303,7 @@ Aml *aml_dword_memory(AmlDecode dec, AmlMinFixed min_fixed,
 {
     uint8_t flags = read_and_write | (cacheable << 1);
 
-    return aml_dword_as_desc(aml_memory_range, min_fixed, max_fixed,
+    return aml_dword_as_desc(AML_MEMORY_RANGE, min_fixed, max_fixed,
                              dec, addr_gran, addr_min, addr_max,
                              addr_trans, len, flags);
 }
@@ -879,7 +1315,7 @@ Aml *aml_dword_memory(AmlDecode dec, AmlMinFixed min_fixed,
  * ACPI 5.0: 19.5.102 QWordMemory (QWord Memory Resource Descriptor Macro)
  */
 Aml *aml_qword_memory(AmlDecode dec, AmlMinFixed min_fixed,
-                      AmlMaxFixed max_fixed, AmlCacheble cacheable,
+                      AmlMaxFixed max_fixed, AmlCacheable cacheable,
                       AmlReadAndWrite read_and_write,
                       uint64_t addr_gran, uint64_t addr_min,
                       uint64_t addr_max, uint64_t addr_trans,
@@ -887,7 +1323,287 @@ Aml *aml_qword_memory(AmlDecode dec, AmlMinFixed min_fixed,
 {
     uint8_t flags = read_and_write | (cacheable << 1);
 
-    return aml_qword_as_desc(aml_memory_range, min_fixed, max_fixed,
+    return aml_qword_as_desc(AML_MEMORY_RANGE, min_fixed, max_fixed,
                              dec, addr_gran, addr_min, addr_max,
                              addr_trans, len, flags);
+}
+
+/* ACPI 1.0b: 6.4.2.2 DMA Format/6.4.2.2.1 ASL Macro for DMA Descriptor */
+Aml *aml_dma(AmlDmaType typ, AmlDmaBusMaster bm, AmlTransferSize sz,
+             uint8_t channel)
+{
+    Aml *var = aml_alloc();
+    uint8_t flags = sz | bm << 2 | typ << 5;
+
+    assert(channel < 8);
+    build_append_byte(var->buf, 0x2A);    /* Byte 0: DMA Descriptor */
+    build_append_byte(var->buf, 1U << channel); /* Byte 1: _DMA - DmaChannel */
+    build_append_byte(var->buf, flags);   /* Byte 2 */
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.3 Type 1 Opcodes Encoding: DefSleep */
+Aml *aml_sleep(uint64_t msec)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x22); /* SleepOp */
+    aml_append(var, aml_int(msec));
+    return var;
+}
+
+static uint8_t Hex2Byte(const char *src)
+{
+    int hi, lo;
+
+    hi = Hex2Digit(src[0]);
+    assert(hi >= 0);
+    assert(hi <= 15);
+
+    lo = Hex2Digit(src[1]);
+    assert(lo >= 0);
+    assert(lo <= 15);
+    return (hi << 4) | lo;
+}
+
+/*
+ * ACPI 3.0: 17.5.124 ToUUID (Convert String to UUID Macro)
+ * e.g. UUID: aabbccdd-eeff-gghh-iijj-kkllmmnnoopp
+ * call aml_touuid("aabbccdd-eeff-gghh-iijj-kkllmmnnoopp");
+ */
+Aml *aml_touuid(const char *uuid)
+{
+    Aml *var = aml_bundle(0x11 /* BufferOp */, AML_BUFFER);
+
+    assert(strlen(uuid) == 36);
+    assert(uuid[8] == '-');
+    assert(uuid[13] == '-');
+    assert(uuid[18] == '-');
+    assert(uuid[23] == '-');
+
+    build_append_byte(var->buf, Hex2Byte(uuid + 6));  /* dd - at offset 00 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 4));  /* cc - at offset 01 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 2));  /* bb - at offset 02 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 0));  /* aa - at offset 03 */
+
+    build_append_byte(var->buf, Hex2Byte(uuid + 11)); /* ff - at offset 04 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 9));  /* ee - at offset 05 */
+
+    build_append_byte(var->buf, Hex2Byte(uuid + 16)); /* hh - at offset 06 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 14)); /* gg - at offset 07 */
+
+    build_append_byte(var->buf, Hex2Byte(uuid + 19)); /* ii - at offset 08 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 21)); /* jj - at offset 09 */
+
+    build_append_byte(var->buf, Hex2Byte(uuid + 24)); /* kk - at offset 10 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 26)); /* ll - at offset 11 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 28)); /* mm - at offset 12 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 30)); /* nn - at offset 13 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 32)); /* oo - at offset 14 */
+    build_append_byte(var->buf, Hex2Byte(uuid + 34)); /* pp - at offset 15 */
+
+    return var;
+}
+
+/*
+ * ACPI 2.0b: 16.2.3.6.4.3  Unicode Macro (Convert Ascii String To Unicode)
+ */
+Aml *aml_unicode(const char *str)
+{
+    int i = 0;
+    Aml *var = aml_bundle(0x11 /* BufferOp */, AML_BUFFER);
+
+    do {
+        build_append_byte(var->buf, str[i]);
+        build_append_byte(var->buf, 0);
+        i++;
+    } while (i <= strlen(str));
+
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefRefOf */
+Aml *aml_refof(Aml *arg)
+{
+    Aml *var = aml_opcode(0x71 /* RefOfOp */);
+    aml_append(var, arg);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefDerefOf */
+Aml *aml_derefof(Aml *arg)
+{
+    Aml *var = aml_opcode(0x83 /* DerefOfOp */);
+    aml_append(var, arg);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefSizeOf */
+Aml *aml_sizeof(Aml *arg)
+{
+    Aml *var = aml_opcode(0x87 /* SizeOfOp */);
+    aml_append(var, arg);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: DefMutex */
+Aml *aml_mutex(const char *name, uint8_t sync_level)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x01); /* MutexOp */
+    build_append_namestring(var->buf, "%s", name);
+    assert(!(sync_level & 0xF0));
+    build_append_byte(var->buf, sync_level);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefAcquire */
+Aml *aml_acquire(Aml *mutex, uint16_t timeout)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x23); /* AcquireOp */
+    aml_append(var, mutex);
+    build_append_int_noprefix(var->buf, timeout, sizeof(timeout));
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.3 Type 1 Opcodes Encoding: DefRelease */
+Aml *aml_release(Aml *mutex)
+{
+    Aml *var = aml_alloc();
+    build_append_byte(var->buf, 0x5B); /* ExtOpPrefix */
+    build_append_byte(var->buf, 0x27); /* ReleaseOp */
+    aml_append(var, mutex);
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.1 Name Space Modifier Objects Encoding: DefAlias */
+Aml *aml_alias(const char *source_object, const char *alias_object)
+{
+    Aml *var = aml_opcode(0x06 /* AliasOp */);
+    aml_append(var, aml_name("%s", source_object));
+    aml_append(var, aml_name("%s", alias_object));
+    return var;
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefConcat */
+Aml *aml_concatenate(Aml *source1, Aml *source2, Aml *target)
+{
+    return build_opcode_2arg_dst(0x73 /* ConcatOp */, source1, source2,
+                                 target);
+}
+
+/* ACPI 1.0b: 16.2.5.4 Type 2 Opcodes Encoding: DefObjectType */
+Aml *aml_object_type(Aml *object)
+{
+    Aml *var = aml_opcode(0x8E /* ObjectTypeOp */);
+    aml_append(var, object);
+    return var;
+}
+
+void
+build_header(BIOSLinker *linker, GArray *table_data,
+             AcpiTableHeader *h, const char *sig, int len, uint8_t rev,
+             const char *oem_id, const char *oem_table_id)
+{
+    unsigned tbl_offset = (char *)h - table_data->data;
+    unsigned checksum_offset = (char *)&h->checksum - table_data->data;
+    memcpy(&h->signature, sig, 4);
+    h->length = cpu_to_le32(len);
+    h->revision = rev;
+
+    if (oem_id) {
+        strncpy((char *)h->oem_id, oem_id, sizeof h->oem_id);
+    } else {
+        memcpy(h->oem_id, ACPI_BUILD_APPNAME6, 6);
+    }
+
+    if (oem_table_id) {
+        strncpy((char *)h->oem_table_id, oem_table_id, sizeof(h->oem_table_id));
+    } else {
+        memcpy(h->oem_table_id, ACPI_BUILD_APPNAME4, 4);
+        memcpy(h->oem_table_id + 4, sig, 4);
+    }
+
+    h->oem_revision = cpu_to_le32(1);
+    memcpy(h->asl_compiler_id, ACPI_BUILD_APPNAME4, 4);
+    h->asl_compiler_revision = cpu_to_le32(1);
+    /* Checksum to be filled in by Guest linker */
+    bios_linker_loader_add_checksum(linker, ACPI_BUILD_TABLE_FILE,
+        tbl_offset, len, checksum_offset);
+}
+
+void *acpi_data_push(GArray *table_data, unsigned size)
+{
+    unsigned off = table_data->len;
+    g_array_set_size(table_data, off + size);
+    return table_data->data + off;
+}
+
+unsigned acpi_data_len(GArray *table)
+{
+    assert(g_array_get_element_size(table) == 1);
+    return table->len;
+}
+
+void acpi_add_table(GArray *table_offsets, GArray *table_data)
+{
+    uint32_t offset = table_data->len;
+    g_array_append_val(table_offsets, offset);
+}
+
+void acpi_build_tables_init(AcpiBuildTables *tables)
+{
+    tables->rsdp = g_array_new(false, true /* clear */, 1);
+    tables->table_data = g_array_new(false, true /* clear */, 1);
+    tables->tcpalog = g_array_new(false, true /* clear */, 1);
+    tables->linker = bios_linker_loader_init();
+}
+
+void acpi_build_tables_cleanup(AcpiBuildTables *tables, bool mfre)
+{
+    bios_linker_loader_cleanup(tables->linker);
+    g_array_free(tables->rsdp, true);
+    g_array_free(tables->table_data, true);
+    g_array_free(tables->tcpalog, mfre);
+}
+
+/* Build rsdt table */
+void
+build_rsdt(GArray *table_data, BIOSLinker *linker, GArray *table_offsets,
+           const char *oem_id, const char *oem_table_id)
+{
+    int i;
+    unsigned rsdt_entries_offset;
+    AcpiRsdtDescriptorRev1 *rsdt;
+    const unsigned table_data_len = (sizeof(uint32_t) * table_offsets->len);
+    const unsigned rsdt_entry_size = sizeof(rsdt->table_offset_entry[0]);
+    const size_t rsdt_len = sizeof(*rsdt) + table_data_len;
+
+    rsdt = acpi_data_push(table_data, rsdt_len);
+    rsdt_entries_offset = (char *)rsdt->table_offset_entry - table_data->data;
+    for (i = 0; i < table_offsets->len; ++i) {
+        uint32_t ref_tbl_offset = g_array_index(table_offsets, uint32_t, i);
+        uint32_t rsdt_entry_offset = rsdt_entries_offset + rsdt_entry_size * i;
+
+        /* rsdt->table_offset_entry to be filled by Guest linker */
+        bios_linker_loader_add_pointer(linker,
+            ACPI_BUILD_TABLE_FILE, rsdt_entry_offset, rsdt_entry_size,
+            ACPI_BUILD_TABLE_FILE, ref_tbl_offset);
+    }
+    build_header(linker, table_data,
+                 (void *)rsdt, "RSDT", rsdt_len, 1, oem_id, oem_table_id);
+}
+
+void build_srat_memory(AcpiSratMemoryAffinity *numamem, uint64_t base,
+                       uint64_t len, int node, MemoryAffinityFlags flags)
+{
+    numamem->type = ACPI_SRAT_MEMORY;
+    numamem->length = sizeof(*numamem);
+    numamem->proximity = cpu_to_le32(node);
+    numamem->flags = cpu_to_le32(flags);
+    numamem->base_addr = cpu_to_le64(base);
+    numamem->range_length = cpu_to_le64(len);
 }

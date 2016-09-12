@@ -6,9 +6,29 @@
  * Bit operations
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
+
+static inline __attribute__ (( always_inline )) uint8_t
+rol8 ( uint8_t data, unsigned int rotation ) {
+        return ( ( data << rotation ) | ( data >> ( 8 - rotation ) ) );
+}
+
+static inline __attribute__ (( always_inline )) uint8_t
+ror8 ( uint8_t data, unsigned int rotation ) {
+        return ( ( data >> rotation ) | ( data << ( 8 - rotation ) ) );
+}
+
+static inline __attribute__ (( always_inline )) uint16_t
+rol16 ( uint16_t data, unsigned int rotation ) {
+        return ( ( data << rotation ) | ( data >> ( 16 - rotation ) ) );
+}
+
+static inline __attribute__ (( always_inline )) uint16_t
+ror16 ( uint16_t data, unsigned int rotation ) {
+        return ( ( data >> rotation ) | ( data << ( 16 - rotation ) ) );
+}
 
 static inline __attribute__ (( always_inline )) uint32_t
 rol32 ( uint32_t data, unsigned int rotation ) {

@@ -18,7 +18,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "exec/helper-proto.h"
 #include "qemu/host-utils.h"
 
@@ -195,7 +197,7 @@ static uint32_t cc_calc_abs_64(int64_t dst)
     if ((uint64_t)dst == 0x8000000000000000ULL) {
         return 3;
     } else if (dst) {
-        return 1;
+        return 2;
     } else {
         return 0;
     }
@@ -296,7 +298,7 @@ static uint32_t cc_calc_abs_32(int32_t dst)
     if ((uint32_t)dst == 0x80000000UL) {
         return 3;
     } else if (dst) {
-        return 1;
+        return 2;
     } else {
         return 0;
     }
@@ -560,7 +562,7 @@ void HELPER(sacf)(CPUS390XState *env, uint64_t a1)
         env->psw.mask |= PSW_ASC_HOME;
         break;
     default:
-        qemu_log("unknown sacf mode: %" PRIx64 "\n", a1);
+        HELPER_LOG("unknown sacf mode: %" PRIx64 "\n", a1);
         program_interrupt(env, PGM_SPECIFICATION, 2);
         break;
     }

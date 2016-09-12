@@ -6,10 +6,10 @@
    interface, for making instruction-processing programs more independent
    of the instruction set being processed.  */
 
-#ifndef DIS_ASM_H
-#define DIS_ASM_H
+#ifndef DISAS_BFD_H
+#define DISAS_BFD_H
 
-#include "qemu-common.h"
+#include "qemu/fprintf-fn.h"
 
 typedef void *PTR;
 typedef uint64_t bfd_vma;
@@ -313,6 +313,11 @@ typedef struct disassemble_info {
   void (*print_address_func)
     (bfd_vma addr, struct disassemble_info *info);
 
+    /* Function called to print an instruction. The function is architecture
+     * specific.
+     */
+    int (*print_insn)(bfd_vma addr, struct disassemble_info *info);
+
   /* Function called to determine if there is a symbol at the given ADDR.
      If there is, the function returns 1, otherwise it returns 0.
      This is used by ports which support an overlay manager where
@@ -463,6 +468,7 @@ int generic_symbol_at_address(bfd_vma, struct disassemble_info *);
   (INFO).read_memory_func = buffer_read_memory, \
   (INFO).memory_error_func = perror_memory, \
   (INFO).print_address_func = generic_print_address, \
+  (INFO).print_insn = NULL, \
   (INFO).symbol_at_address_func = generic_symbol_at_address, \
   (INFO).flags = 0, \
   (INFO).bytes_per_line = 0, \
@@ -471,8 +477,9 @@ int generic_symbol_at_address(bfd_vma, struct disassemble_info *);
   (INFO).disassembler_options = NULL, \
   (INFO).insn_info_valid = 0
 
-#define _(x) x
+#ifndef ATTRIBUTE_UNUSED
 #define ATTRIBUTE_UNUSED __attribute__((unused))
+#endif
 
 /* from libbfd */
 
@@ -483,4 +490,4 @@ bfd_vma bfd_getl16 (const bfd_byte *addr);
 bfd_vma bfd_getb16 (const bfd_byte *addr);
 typedef bool bfd_boolean;
 
-#endif /* ! defined (DIS_ASM_H) */
+#endif /* DISAS_BFD_H */

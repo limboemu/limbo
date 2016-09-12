@@ -579,8 +579,6 @@ defer cursor-off ( -- )
 #include "debug.fs"
 \ provide 7.5.3.1 Dictionary search
 #include "dictionary.fs"
-\ block data access for IO devices - ought to be implemented in engine
-#include "rmove.fs"
 \ provide a simple run time preprocessor
 #include <preprocessor.fs>
 

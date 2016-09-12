@@ -805,6 +805,10 @@ int net80211_register ( struct net80211_device *dev,
 		 NET80211_MAX_CHANNELS * sizeof ( dev->channels[0] ) );
 	dev->channel = 0;
 
+	/* Mark device as not supporting interrupts, if applicable */
+	if ( ! ops->irq )
+		dev->netdev->state |= NETDEV_IRQ_UNSUPPORTED;
+
 	list_add_tail ( &dev->list, &net80211_devices );
 	return register_netdev ( dev->netdev );
 }
@@ -2826,3 +2830,9 @@ struct errortab common_wireless_errors[] __errortab = {
 	__einfo_errortab ( EINFO_ECONNREFUSED_ASSOC_DENIED ),
 	__einfo_errortab ( EINFO_ECONNREFUSED_AUTH_ALGO_UNSUPP ),
 };
+
+/* Drag in objects via net80211_ll_protocol */
+REQUIRING_SYMBOL ( net80211_ll_protocol );
+
+/* Drag in 802.11 configuration */
+REQUIRE_OBJECT ( config_net80211 );

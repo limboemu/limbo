@@ -462,7 +462,7 @@ static int dmfe_probe ( struct nic *nic, struct pci_device *pci ) {
 	       pci->id->name, pci->vendor, pci->device);
 
 	/* Read Chip revision */
-	pci_read_config_dword(pci, PCI_REVISION_ID, &dev_rev);
+	pci_read_config_dword(pci, PCI_REVISION, &dev_rev);
 	dprintf(("Revision %lX\n", dev_rev));
 
 	/* point to private storage */

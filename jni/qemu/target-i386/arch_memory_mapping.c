@@ -11,6 +11,7 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/cpu-all.h"
 #include "sysemu/memory_mapping.h"
@@ -27,7 +28,7 @@ static void walk_pte(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 512; i++) {
         pte_addr = (pte_start_addr + i * 8) & a20_mask;
-        pte = ldq_phys(as, pte_addr);
+        pte = address_space_ldq(as, pte_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pte & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -57,7 +58,7 @@ static void walk_pte2(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 1024; i++) {
         pte_addr = (pte_start_addr + i * 4) & a20_mask;
-        pte = ldl_phys(as, pte_addr);
+        pte = address_space_ldl(as, pte_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pte & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -89,7 +90,7 @@ static void walk_pde(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 512; i++) {
         pde_addr = (pde_start_addr + i * 8) & a20_mask;
-        pde = ldq_phys(as, pde_addr);
+        pde = address_space_ldq(as, pde_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pde & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -126,7 +127,7 @@ static void walk_pde2(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 1024; i++) {
         pde_addr = (pde_start_addr + i * 4) & a20_mask;
-        pde = ldl_phys(as, pde_addr);
+        pde = address_space_ldl(as, pde_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pde & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -167,7 +168,7 @@ static void walk_pdpe2(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 4; i++) {
         pdpe_addr = (pdpe_start_addr + i * 8) & a20_mask;
-        pdpe = ldq_phys(as, pdpe_addr);
+        pdpe = address_space_ldq(as, pdpe_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pdpe & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -192,7 +193,7 @@ static void walk_pdpe(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 512; i++) {
         pdpe_addr = (pdpe_start_addr + i * 8) & a20_mask;
-        pdpe = ldq_phys(as, pdpe_addr);
+        pdpe = address_space_ldq(as, pdpe_addr, MEMTXATTRS_UNSPECIFIED, NULL);
         if (!(pdpe & PG_PRESENT_MASK)) {
             /* not present */
             continue;
@@ -228,7 +229,8 @@ static void walk_pml4e(MemoryMappingList *list, AddressSpace *as,
 
     for (i = 0; i < 512; i++) {
         pml4e_addr = (pml4e_start_addr + i * 8) & a20_mask;
-        pml4e = ldq_phys(as, pml4e_addr);
+        pml4e = address_space_ldq(as, pml4e_addr, MEMTXATTRS_UNSPECIFIED,
+                                  NULL);
         if (!(pml4e & PG_PRESENT_MASK)) {
             /* not present */
             continue;

@@ -11,9 +11,9 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "sysemu/dump-arch.h"
-#include "qapi/qmp/qerror.h"
 #include "qmp-commands.h"
 
 int cpu_get_dump_info(ArchDumpInfo *info,

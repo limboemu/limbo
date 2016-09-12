@@ -11,6 +11,8 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/arm/pxa.h"
 #include "hw/arm/arm.h"
@@ -19,7 +21,7 @@
 #include "hw/pcmcia.h"
 #include "hw/boards.h"
 #include "hw/i2c/i2c.h"
-#include "hw/ssi.h"
+#include "hw/ssi/ssi.h"
 #include "sysemu/block-backend.h"
 #include "hw/sysbus.h"
 #include "exec/address-spaces.h"
@@ -125,10 +127,9 @@ static uint32_t tosa_ssp_tansfer(SSISlave *dev, uint32_t value)
     return 0;
 }
 
-static int tosa_ssp_init(SSISlave *dev)
+static void tosa_ssp_realize(SSISlave *dev, Error **errp)
 {
     /* Nothing to do.  */
-    return 0;
 }
 
 #define TYPE_TOSA_DAC "tosa_dac"
@@ -227,7 +228,7 @@ static void tosa_init(MachineState *machine)
 
     mpu = pxa255_init(address_space_mem, tosa_binfo.ram_size);
 
-    memory_region_init_ram(rom, NULL, "tosa.rom", TOSA_ROM, &error_abort);
+    memory_region_init_ram(rom, NULL, "tosa.rom", TOSA_ROM, &error_fatal);
     vmstate_register_ram_global(rom);
     memory_region_set_readonly(rom, true);
     memory_region_add_subregion(address_space_mem, 0, rom);
@@ -252,18 +253,13 @@ static void tosa_init(MachineState *machine)
     sl_bootparam_write(SL_PXA_PARAM_BASE);
 }
 
-static QEMUMachine tosapda_machine = {
-    .name = "tosa",
-    .desc = "Tosa PDA (PXA255)",
-    .init = tosa_init,
-};
-
-static void tosapda_machine_init(void)
+static void tosapda_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&tosapda_machine);
+    mc->desc = "Sharp SL-6000 (Tosa) PDA (PXA255)";
+    mc->init = tosa_init;
 }
 
-machine_init(tosapda_machine_init);
+DEFINE_MACHINE("tosa", tosapda_machine_init)
 
 static void tosa_dac_class_init(ObjectClass *klass, void *data)
 {
@@ -286,7 +282,7 @@ static void tosa_ssp_class_init(ObjectClass *klass, void *data)
 {
     SSISlaveClass *k = SSI_SLAVE_CLASS(klass);
 
-    k->init = tosa_ssp_init;
+    k->realize = tosa_ssp_realize;
     k->transfer = tosa_ssp_tansfer;
 }
 

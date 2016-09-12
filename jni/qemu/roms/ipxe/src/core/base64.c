@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -39,80 +43,73 @@ static const char base64[64] =
  * Base64-encode data
  *
  * @v raw		Raw data
- * @v len		Length of raw data
- * @v encoded		Buffer for encoded string
- *
- * The buffer must be the correct length for the encoded string.  Use
- * something like
- *
- *     char buf[ base64_encoded_len ( len ) + 1 ];
- *
- * (the +1 is for the terminating NUL) to provide a buffer of the
- * correct size.
+ * @v raw_len		Length of raw data
+ * @v data		Buffer
+ * @v len		Length of buffer
+ * @ret len		Encoded length
  */
-void base64_encode ( const uint8_t *raw, size_t len, char *encoded ) {
+size_t base64_encode ( const void *raw, size_t raw_len, char *data,
+		       size_t len ) {
 	const uint8_t *raw_bytes = ( ( const uint8_t * ) raw );
-	uint8_t *encoded_bytes = ( ( uint8_t * ) encoded );
-	size_t raw_bit_len = ( 8 * len );
+	size_t raw_bit_len = ( 8 * raw_len );
+	size_t used = 0;
 	unsigned int bit;
 	unsigned int byte;
 	unsigned int shift;
 	unsigned int tmp;
 
-	for ( bit = 0 ; bit < raw_bit_len ; bit += 6 ) {
+	for ( bit = 0 ; bit < raw_bit_len ; bit += 6, used++ ) {
 		byte = ( bit / 8 );
 		shift = ( bit % 8 );
 		tmp = ( raw_bytes[byte] << shift );
-		if ( ( byte + 1 ) < len )
+		if ( ( byte + 1 ) < raw_len )
 			tmp |= ( raw_bytes[ byte + 1 ] >> ( 8 - shift ) );
 		tmp = ( ( tmp >> 2 ) & 0x3f );
-		*(encoded_bytes++) = base64[tmp];
+		if ( used < len )
+			data[used] = base64[tmp];
 	}
-	for ( ; ( bit % 8 ) != 0 ; bit += 6 )
-		*(encoded_bytes++) = '=';
-	*(encoded_bytes++) = '\0';
+	for ( ; ( bit % 8 ) != 0 ; bit += 6, used++ ) {
+		if ( used < len )
+			data[used] = '=';
+	}
+	if ( used < len )
+		data[used] = '\0';
+	if ( len )
+		data[ len - 1 ] = '\0'; /* Ensure terminator exists */
 
-	DBG ( "Base64-encoded to \"%s\":\n", encoded );
-	DBG_HDA ( 0, raw, len );
-	assert ( strlen ( encoded ) == base64_encoded_len ( len ) );
+	return used;
 }
 
 /**
  * Base64-decode string
  *
  * @v encoded		Encoded string
- * @v raw		Raw data
- * @ret len		Length of raw data, or negative error
- *
- * The buffer must be large enough to contain the decoded data.  Use
- * something like
- *
- *     char buf[ base64_decoded_max_len ( encoded ) ];
- *
- * to provide a buffer of the correct size.
+ * @v data		Buffer
+ * @v len		Length of buffer
+ * @ret len		Length of data, or negative error
  */
-int base64_decode ( const char *encoded, uint8_t *raw ) {
-	const uint8_t *encoded_bytes = ( ( const uint8_t * ) encoded );
-	uint8_t *raw_bytes = ( ( uint8_t * ) raw );
-	uint8_t encoded_byte;
+int base64_decode ( const char *encoded, void *data, size_t len ) {
+	const char *in = encoded;
+	uint8_t *out = data;
+	uint8_t in_char;
 	char *match;
-	int decoded;
+	int in_bits;
 	unsigned int bit = 0;
 	unsigned int pad_count = 0;
-	size_t len;
+	size_t offset;
 
-	/* Zero the raw data */
-	memset ( raw, 0, base64_decoded_max_len ( encoded ) );
+	/* Zero the output buffer */
+	memset ( data, 0, len );
 
 	/* Decode string */
-	while ( ( encoded_byte = *(encoded_bytes++) ) ) {
+	while ( ( in_char = *(in++) ) ) {
 
 		/* Ignore whitespace characters */
-		if ( isspace ( encoded_byte ) )
+		if ( isspace ( in_char ) )
 			continue;
 
 		/* Process pad characters */
-		if ( encoded_byte == '=' ) {
+		if ( in_char == '=' ) {
 			if ( pad_count >= 2 ) {
 				DBG ( "Base64-encoded string \"%s\" has too "
 				      "many pad characters\n", encoded );
@@ -129,18 +126,22 @@ int base64_decode ( const char *encoded, uint8_t *raw ) {
 		}
 
 		/* Process normal characters */
-		match = strchr ( base64, encoded_byte );
+		match = strchr ( base64, in_char );
 		if ( ! match ) {
 			DBG ( "Base64-encoded string \"%s\" contains invalid "
-			      "character '%c'\n", encoded, encoded_byte );
+			      "character '%c'\n", encoded, in_char );
 			return -EINVAL;
 		}
-		decoded = ( match - base64 );
+		in_bits = ( match - base64 );
 
 		/* Add to raw data */
-		decoded <<= 2;
-		raw_bytes[ bit / 8 ] |= ( decoded >> ( bit % 8 ) );
-		raw_bytes[ bit / 8 + 1 ] |= ( decoded << ( 8 - ( bit % 8 ) ) );
+		in_bits <<= 2;
+		offset = ( bit / 8 );
+		if ( offset < len )
+			out[offset] |= ( in_bits >> ( bit % 8 ) );
+		offset++;
+		if ( offset < len )
+			out[offset] |= ( in_bits << ( 8 - ( bit % 8 ) ) );
 		bit += 6;
 	}
 
@@ -150,12 +151,7 @@ int base64_decode ( const char *encoded, uint8_t *raw ) {
 		      "%d\n", encoded, bit );
 		return -EINVAL;
 	}
-	len = ( bit / 8 );
-
-	DBG ( "Base64-decoded \"%s\" to:\n", encoded );
-	DBG_HDA ( 0, raw, len );
-	assert ( len <= base64_decoded_max_len ( encoded ) );
 
 	/* Return length in bytes */
-	return ( len );
+	return ( bit / 8 );
 }

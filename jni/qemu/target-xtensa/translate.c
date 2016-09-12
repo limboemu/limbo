@@ -28,7 +28,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
+#include "qemu/osdep.h"
 
 #include "cpu.h"
 #include "exec/exec-all.h"
@@ -36,12 +36,15 @@
 #include "tcg-op.h"
 #include "qemu/log.h"
 #include "sysemu/sysemu.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
+#include "exec/semihost.h"
 
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 
 #include "trace-tcg.h"
+#include "exec/log.h"
 
 
 typedef struct DisasContext {
@@ -72,7 +75,7 @@ typedef struct DisasContext {
     unsigned cpenable;
 } DisasContext;
 
-static TCGv_ptr cpu_env;
+static TCGv_env cpu_env;
 static TCGv_i32 cpu_pc;
 static TCGv_i32 cpu_R[16];
 static TCGv_i32 cpu_FR[16];
@@ -216,24 +219,25 @@ void xtensa_translate_init(void)
     int i;
 
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
-    cpu_pc = tcg_global_mem_new_i32(TCG_AREG0,
+    tcg_ctx.tcg_env = cpu_env;
+    cpu_pc = tcg_global_mem_new_i32(cpu_env,
             offsetof(CPUXtensaState, pc), "pc");
 
     for (i = 0; i < 16; i++) {
-        cpu_R[i] = tcg_global_mem_new_i32(TCG_AREG0,
+        cpu_R[i] = tcg_global_mem_new_i32(cpu_env,
                 offsetof(CPUXtensaState, regs[i]),
                 regnames[i]);
     }
 
     for (i = 0; i < 16; i++) {
-        cpu_FR[i] = tcg_global_mem_new_i32(TCG_AREG0,
-                offsetof(CPUXtensaState, fregs[i]),
+        cpu_FR[i] = tcg_global_mem_new_i32(cpu_env,
+                offsetof(CPUXtensaState, fregs[i].f32[FP_F32_LOW]),
                 fregnames[i]);
     }
 
     for (i = 0; i < 256; ++i) {
         if (sregnames[i].name) {
-            cpu_SR[i] = tcg_global_mem_new_i32(TCG_AREG0,
+            cpu_SR[i] = tcg_global_mem_new_i32(cpu_env,
                     offsetof(CPUXtensaState, sregs[i]),
                     sregnames[i].name);
         }
@@ -241,7 +245,7 @@ void xtensa_translate_init(void)
 
     for (i = 0; i < 256; ++i) {
         if (uregnames[i].name) {
-            cpu_UR[i] = tcg_global_mem_new_i32(TCG_AREG0,
+            cpu_UR[i] = tcg_global_mem_new_i32(cpu_env,
                     offsetof(CPUXtensaState, uregs[i]),
                     uregnames[i].name);
         }
@@ -416,9 +420,11 @@ static void gen_jump(DisasContext *dc, TCGv dest)
 static void gen_jumpi(DisasContext *dc, uint32_t dest, int slot)
 {
     TCGv_i32 tmp = tcg_const_i32(dest);
+#ifndef CONFIG_USER_ONLY
     if (((dc->tb->pc ^ dest) & TARGET_PAGE_MASK) != 0) {
         slot = -1;
     }
+#endif
     gen_jump_slot(dc, tmp, slot);
     tcg_temp_free(tmp);
 }
@@ -444,9 +450,11 @@ static void gen_callw(DisasContext *dc, int callinc, TCGv_i32 dest)
 static void gen_callwi(DisasContext *dc, int callinc, uint32_t dest, int slot)
 {
     TCGv_i32 tmp = tcg_const_i32(dest);
+#ifndef CONFIG_USER_ONLY
     if (((dc->tb->pc ^ dest) & TARGET_PAGE_MASK) != 0) {
         slot = -1;
     }
+#endif
     gen_callw_slot(dc, callinc, tmp, slot);
     tcg_temp_free(tmp);
 }
@@ -500,9 +508,9 @@ static bool gen_check_sr(DisasContext *dc, uint32_t sr, unsigned access)
 {
     if (!xtensa_option_bits_enabled(dc->config, sregnames[sr].opt_bits)) {
         if (sregnames[sr].name) {
-            qemu_log("SR %s is not configured\n", sregnames[sr].name);
+            qemu_log_mask(LOG_GUEST_ERROR, "SR %s is not configured\n", sregnames[sr].name);
         } else {
-            qemu_log("SR %d is not implemented\n", sr);
+            qemu_log_mask(LOG_UNIMP, "SR %d is not implemented\n", sr);
         }
         gen_exception_cause(dc, ILLEGAL_INSTRUCTION_CAUSE);
         return false;
@@ -513,8 +521,8 @@ static bool gen_check_sr(DisasContext *dc, uint32_t sr, unsigned access)
             [SR_X] = "xsr",
         };
         assert(access < ARRAY_SIZE(access_text) && access_text[access]);
-        qemu_log("SR %s is not available for %s\n", sregnames[sr].name,
-                access_text[access]);
+        qemu_log_mask(LOG_GUEST_ERROR, "SR %s is not available for %s\n", sregnames[sr].name,
+                      access_text[access]);
         gen_exception_cause(dc, ILLEGAL_INSTRUCTION_CAUSE);
         return false;
     }
@@ -874,18 +882,18 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 {
 #define HAS_OPTION_BITS(opt) do { \
         if (!option_bits_enabled(dc, opt)) { \
-            qemu_log("Option is not enabled %s:%d\n", \
-                    __FILE__, __LINE__); \
+            qemu_log_mask(LOG_GUEST_ERROR, "Option is not enabled %s:%d\n", \
+                          __FILE__, __LINE__); \
             goto invalid_opcode; \
         } \
     } while (0)
 
 #define HAS_OPTION(opt) HAS_OPTION_BITS(XTENSA_OPTION_BIT(opt))
 
-#define TBD() qemu_log("TBD(pc = %08x): %s:%d\n", dc->pc, __FILE__, __LINE__)
+#define TBD() qemu_log_mask(LOG_UNIMP, "TBD(pc = %08x): %s:%d\n", dc->pc, __FILE__, __LINE__)
 #define RESERVED() do { \
-        qemu_log("RESERVED(pc = %08x, %02x%02x%02x): %s:%d\n", \
-                dc->pc, b0, b1, b2, __FILE__, __LINE__); \
+        qemu_log_mask(LOG_GUEST_ERROR, "RESERVED(pc = %08x, %02x%02x%02x): %s:%d\n", \
+                      dc->pc, b0, b1, b2, __FILE__, __LINE__); \
         goto invalid_opcode; \
     } while (0)
 
@@ -1185,7 +1193,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                                 gen_jump(dc, cpu_SR[EPC1 + RRR_S - 1]);
                             }
                         } else {
-                            qemu_log("RFI %d is illegal\n", RRR_S);
+                            qemu_log_mask(LOG_GUEST_ERROR, "RFI %d is illegal\n", RRR_S);
                             gen_exception_cause(dc, ILLEGAL_INSTRUCTION_CAUSE);
                         }
                         break;
@@ -1216,12 +1224,12 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                         break;
 
                     case 1: /*SIMCALL*/
-                        if (semihosting_enabled) {
+                        if (semihosting_enabled()) {
                             if (gen_check_privilege(dc)) {
                                 gen_helper_simcall(cpu_env);
                             }
                         } else {
-                            qemu_log("SIMCALL but semihosting is disabled\n");
+                            qemu_log_mask(LOG_GUEST_ERROR, "SIMCALL but semihosting is disabled\n");
                             gen_exception_cause(dc, ILLEGAL_INSTRUCTION_CAUSE);
                         }
                         break;
@@ -1543,7 +1551,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                     TCGv_i64 tmp = tcg_temp_new_i64(); \
                     tcg_gen_extu_i32_i64(tmp, reg); \
                     tcg_gen_##cmd##_i64(v, v, tmp); \
-                    tcg_gen_trunc_i64_i32(cpu_R[RRR_R], v); \
+                    tcg_gen_extrl_i64_i32(cpu_R[RRR_R], v); \
                     tcg_temp_free_i64(v); \
                     tcg_temp_free_i64(tmp); \
                 } while (0)
@@ -1864,7 +1872,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                     if (uregnames[st].name) {
                         tcg_gen_mov_i32(cpu_R[RRR_R], cpu_UR[st]);
                     } else {
-                        qemu_log("RUR %d not implemented, ", st);
+                        qemu_log_mask(LOG_UNIMP, "RUR %d not implemented, ", st);
                         TBD();
                     }
                 }
@@ -1875,7 +1883,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                     if (uregnames[RSR_SR].name) {
                         gen_wur(RSR_SR, cpu_R[RRR_T]);
                     } else {
-                        qemu_log("WUR %d not implemented, ", RSR_SR);
+                        qemu_log_mask(LOG_UNIMP, "WUR %d not implemented, ", RSR_SR);
                         TBD();
                     }
                 }
@@ -1942,7 +1950,8 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
             switch (OP2) {
             case 0: /*L32E*/
                 HAS_OPTION(XTENSA_OPTION_WINDOWED_REGISTER);
-                if (gen_check_privilege(dc)) {
+                if (gen_check_privilege(dc) &&
+                    gen_window_check2(dc, RRR_S, RRR_T)) {
                     TCGv_i32 addr = tcg_temp_new_i32();
                     tcg_gen_addi_i32(addr, cpu_R[RRR_S],
                             (0xffffffc0 | (RRR_R << 2)));
@@ -1953,11 +1962,23 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 
             case 4: /*S32E*/
                 HAS_OPTION(XTENSA_OPTION_WINDOWED_REGISTER);
-                if (gen_check_privilege(dc)) {
+                if (gen_check_privilege(dc) &&
+                    gen_window_check2(dc, RRR_S, RRR_T)) {
                     TCGv_i32 addr = tcg_temp_new_i32();
                     tcg_gen_addi_i32(addr, cpu_R[RRR_S],
                             (0xffffffc0 | (RRR_R << 2)));
                     tcg_gen_qemu_st32(cpu_R[RRR_T], addr, dc->ring);
+                    tcg_temp_free(addr);
+                }
+                break;
+
+            case 5: /*S32N*/
+                if (gen_window_check2(dc, RRI4_S, RRI4_T)) {
+                    TCGv_i32 addr = tcg_temp_new_i32();
+
+                    tcg_gen_addi_i32(addr, cpu_R[RRI4_S], RRI4_IMM4 << 2);
+                    gen_load_store_alignment(dc, 2, addr, false);
+                    tcg_gen_qemu_st32(cpu_R[RRI4_T], addr, dc->cring);
                     tcg_temp_free(addr);
                 }
                 break;
@@ -1969,6 +1990,16 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
             break;
 
         case 10: /*FP0*/
+            /*DEPBITS*/
+            if (option_enabled(dc, XTENSA_OPTION_DEPBITS)) {
+                if (!gen_window_check2(dc, RRR_S, RRR_T)) {
+                    break;
+                }
+                tcg_gen_deposit_i32(cpu_R[RRR_T], cpu_R[RRR_T], cpu_R[RRR_S],
+                                    OP2, RRR_R + 1);
+                break;
+            }
+
             HAS_OPTION(XTENSA_OPTION_FP_COPROCESSOR);
             switch (OP2) {
             case 0: /*ADD.Sf*/
@@ -2103,6 +2134,16 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
             break;
 
         case 11: /*FP1*/
+            /*DEPBITS*/
+            if (option_enabled(dc, XTENSA_OPTION_DEPBITS)) {
+                if (!gen_window_check2(dc, RRR_S, RRR_T)) {
+                    break;
+                }
+                tcg_gen_deposit_i32(cpu_R[RRR_T], cpu_R[RRR_T], cpu_R[RRR_S],
+                                    OP2 + 16, RRR_R + 1);
+                break;
+            }
+
             HAS_OPTION(XTENSA_OPTION_FP_COPROCESSOR);
 
 #define gen_compare(rel, br, a, b) \
@@ -2972,7 +3013,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
     return;
 
 invalid_opcode:
-    qemu_log("INVALID(pc = %08x)\n", dc->pc);
+    qemu_log_mask(LOG_GUEST_ERROR, "INVALID(pc = %08x)\n", dc->pc);
     gen_exception_cause(dc, ILLEGAL_INSTRUCTION_CAUSE);
 #undef HAS_OPTION
 }
@@ -2981,22 +3022,6 @@ static inline unsigned xtensa_insn_len(CPUXtensaState *env, DisasContext *dc)
 {
     uint8_t b0 = cpu_ldub_code(env, dc->pc);
     return xtensa_op0_insn_len(OP0);
-}
-
-static void check_breakpoint(CPUXtensaState *env, DisasContext *dc)
-{
-    CPUState *cs = CPU(xtensa_env_get_cpu(env));
-    CPUBreakpoint *bp;
-
-    if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
-        QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
-            if (bp->pc == dc->pc) {
-                tcg_gen_movi_i32(cpu_pc, dc->pc);
-                gen_exception(dc, EXCP_DEBUG);
-                dc->is_jmp = DISAS_UPDATE;
-             }
-        }
-    }
 }
 
 static void gen_ibreak_check(CPUXtensaState *env, DisasContext *dc)
@@ -3012,15 +3037,12 @@ static void gen_ibreak_check(CPUXtensaState *env, DisasContext *dc)
     }
 }
 
-static inline
-void gen_intermediate_code_internal(XtensaCPU *cpu,
-                                    TranslationBlock *tb, bool search_pc)
+void gen_intermediate_code(CPUXtensaState *env, TranslationBlock *tb)
 {
+    XtensaCPU *cpu = xtensa_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
-    CPUXtensaState *env = &cpu->env;
     DisasContext dc;
     int insn_count = 0;
-    int j, lj = -1;
     int max_insns = tb->cflags & CF_COUNT_MASK;
     uint32_t pc_start = tb->pc;
     uint32_t next_page_start =
@@ -3028,6 +3050,9 @@ void gen_intermediate_code_internal(XtensaCPU *cpu,
 
     if (max_insns == 0) {
         max_insns = CF_COUNT_MASK;
+    }
+    if (max_insns > TCG_MAX_INSNS) {
+        max_insns = TCG_MAX_INSNS;
     }
 
     dc.config = env->config;
@@ -3061,28 +3086,24 @@ void gen_intermediate_code_internal(XtensaCPU *cpu,
     }
 
     do {
-        check_breakpoint(env, &dc);
-
-        if (search_pc) {
-            j = tcg_op_buf_count();
-            if (lj < j) {
-                lj++;
-                while (lj < j) {
-                    tcg_ctx.gen_opc_instr_start[lj++] = 0;
-                }
-            }
-            tcg_ctx.gen_opc_pc[lj] = dc.pc;
-            tcg_ctx.gen_opc_instr_start[lj] = 1;
-            tcg_ctx.gen_opc_icount[lj] = insn_count;
-        }
-
-        if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
-            tcg_gen_debug_insn_start(dc.pc);
-        }
+        tcg_gen_insn_start(dc.pc);
+        ++insn_count;
 
         ++dc.ccount_delta;
 
-        if (insn_count + 1 == max_insns && (tb->cflags & CF_LAST_IO)) {
+        if (unlikely(cpu_breakpoint_test(cs, dc.pc, BP_ANY))) {
+            tcg_gen_movi_i32(cpu_pc, dc.pc);
+            gen_exception(&dc, EXCP_DEBUG);
+            dc.is_jmp = DISAS_UPDATE;
+            /* The address covered by the breakpoint must be included in
+               [tb->pc, tb->pc + tb->size) in order to for it to be
+               properly cleared -- thus we increment the PC here so that
+               the logic setting tb->size below does the right thing.  */
+            dc.pc += 2;
+            break;
+        }
+
+        if (insn_count == max_insns && (tb->cflags & CF_LAST_IO)) {
             gen_io_start();
         }
 
@@ -3103,7 +3124,6 @@ void gen_intermediate_code_internal(XtensaCPU *cpu,
         }
 
         disas_xtensa_insn(env, &dc);
-        ++insn_count;
         if (dc.icount) {
             tcg_gen_mov_i32(cpu_SR[ICOUNT], dc.next_icount);
         }
@@ -3134,31 +3154,16 @@ void gen_intermediate_code_internal(XtensaCPU *cpu,
     gen_tb_end(tb, insn_count);
 
 #ifdef DEBUG_DISAS
-    if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
+    if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)
+        && qemu_log_in_addr_range(pc_start)) {
         qemu_log("----------------\n");
         qemu_log("IN: %s\n", lookup_symbol(pc_start));
-        log_target_disas(env, pc_start, dc.pc - pc_start, 0);
+        log_target_disas(cs, pc_start, dc.pc - pc_start, 0);
         qemu_log("\n");
     }
 #endif
-    if (search_pc) {
-        j = tcg_op_buf_count();
-        memset(tcg_ctx.gen_opc_instr_start + lj + 1, 0,
-                (j - lj) * sizeof(tcg_ctx.gen_opc_instr_start[0]));
-    } else {
-        tb->size = dc.pc - pc_start;
-        tb->icount = insn_count;
-    }
-}
-
-void gen_intermediate_code(CPUXtensaState *env, TranslationBlock *tb)
-{
-    gen_intermediate_code_internal(xtensa_env_get_cpu(env), tb, false);
-}
-
-void gen_intermediate_code_pc(CPUXtensaState *env, TranslationBlock *tb)
-{
-    gen_intermediate_code_internal(xtensa_env_get_cpu(env), tb, true);
+    tb->size = dc.pc - pc_start;
+    tb->icount = insn_count;
 }
 
 void xtensa_cpu_dump_state(CPUState *cs, FILE *f,
@@ -3205,13 +3210,15 @@ void xtensa_cpu_dump_state(CPUState *cs, FILE *f,
 
         for (i = 0; i < 16; ++i) {
             cpu_fprintf(f, "F%02d=%08x (%+10.8e)%c", i,
-                    float32_val(env->fregs[i]),
-                    *(float *)&env->fregs[i], (i % 2) == 1 ? '\n' : ' ');
+                    float32_val(env->fregs[i].f32[FP_F32_LOW]),
+                    *(float *)(env->fregs[i].f32 + FP_F32_LOW),
+                    (i % 2) == 1 ? '\n' : ' ');
         }
     }
 }
 
-void restore_state_to_opc(CPUXtensaState *env, TranslationBlock *tb, int pc_pos)
+void restore_state_to_opc(CPUXtensaState *env, TranslationBlock *tb,
+                          target_ulong *data)
 {
-    env->pc = tcg_ctx.gen_opc_pc[pc_pos];
+    env->pc = data[0];
 }

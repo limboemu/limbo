@@ -25,7 +25,6 @@ seq=`basename $0`
 echo "QA output created by $seq"
 
 here=`pwd`
-tmp=/tmp/$$
 status=1	# failure is the default!
 
 _cleanup()
@@ -47,6 +46,10 @@ _supported_cache_modes "writeback" "writethrough" "unsafe"
 
 size=128M
 _make_test_img $size
+
+echo
+echo "== initializing whole image =="
+$QEMU_IO -c "write -z 0 $size" "$TEST_IMG" | _filter_qemu_io
 
 echo
 echo "== reading whole image =="

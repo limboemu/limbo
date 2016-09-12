@@ -33,7 +33,9 @@ void qemu_input_handler_bind(QemuInputHandlerState *s,
                              const char *device_id, int head,
                              Error **errp);
 void qemu_input_event_send(QemuConsole *src, InputEvent *evt);
+void qemu_input_event_send_impl(QemuConsole *src, InputEvent *evt);
 void qemu_input_event_sync(void);
+void qemu_input_event_sync_impl(void);
 
 InputEvent *qemu_input_event_new_key(KeyValue *key, bool down);
 void qemu_input_event_send_key(QemuConsole *src, KeyValue *key, bool down);
@@ -62,5 +64,7 @@ void qemu_input_queue_abs(QemuConsole *src, InputAxis axis,
 void qemu_input_check_mode_change(void);
 void qemu_add_mouse_mode_change_notifier(Notifier *notify);
 void qemu_remove_mouse_mode_change_notifier(Notifier *notify);
+
+int input_linux_init(void *opaque, QemuOpts *opts, Error **errp);
 
 #endif /* INPUT_H */

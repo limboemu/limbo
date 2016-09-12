@@ -10,6 +10,7 @@
  * See the COPYING.LIB file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
 #include "qapi/qmp/qint.h"
 #include "qapi/qmp/qfloat.h"
 #include "qapi/qmp/qdict.h"
@@ -18,13 +19,7 @@
 #include "qapi/qmp/qobject.h"
 #include "qemu/queue.h"
 #include "qemu-common.h"
-
-static void qdict_destroy_obj(QObject *obj);
-
-static const QType qdict_type = {
-    .code = QTYPE_QDICT,
-    .destroy = qdict_destroy_obj,
-};
+#include "qemu/cutils.h"
 
 /**
  * qdict_new(): Create a new QDict
@@ -36,7 +31,7 @@ QDict *qdict_new(void)
     QDict *qdict;
 
     qdict = g_malloc0(sizeof(*qdict));
-    QOBJECT_INIT(qdict, &qdict_type);
+    qobject_init(QOBJECT(qdict), QTYPE_QDICT);
 
     return qdict;
 }
@@ -46,9 +41,9 @@ QDict *qdict_new(void)
  */
 QDict *qobject_to_qdict(const QObject *obj)
 {
-    if (qobject_type(obj) != QTYPE_QDICT)
+    if (!obj || qobject_type(obj) != QTYPE_QDICT) {
         return NULL;
-
+    }
     return container_of(obj, QDict, base);
 }
 
@@ -184,8 +179,7 @@ size_t qdict_size(const QDict *qdict)
 /**
  * qdict_get_obj(): Get a QObject of a specific type
  */
-static QObject *qdict_get_obj(const QDict *qdict, const char *key,
-                              qtype_code type)
+static QObject *qdict_get_obj(const QDict *qdict, const char *key, QType type)
 {
     QObject *obj;
 
@@ -229,8 +223,7 @@ double qdict_get_double(const QDict *qdict, const char *key)
  */
 int64_t qdict_get_int(const QDict *qdict, const char *key)
 {
-    QObject *obj = qdict_get_obj(qdict, key, QTYPE_QINT);
-    return qint_get_int(qobject_to_qint(obj));
+    return qint_get_int(qobject_to_qint(qdict_get(qdict, key)));
 }
 
 /**
@@ -241,10 +234,9 @@ int64_t qdict_get_int(const QDict *qdict, const char *key)
  *
  * Return bool mapped by 'key'.
  */
-int qdict_get_bool(const QDict *qdict, const char *key)
+bool qdict_get_bool(const QDict *qdict, const char *key)
 {
-    QObject *obj = qdict_get_obj(qdict, key, QTYPE_QBOOL);
-    return qbool_get_int(qobject_to_qbool(obj));
+    return qbool_get_bool(qobject_to_qbool(qdict_get(qdict, key)));
 }
 
 /**
@@ -270,7 +262,7 @@ QList *qdict_get_qlist(const QDict *qdict, const char *key)
  */
 QDict *qdict_get_qdict(const QDict *qdict, const char *key)
 {
-    return qobject_to_qdict(qdict_get_obj(qdict, key, QTYPE_QDICT));
+    return qobject_to_qdict(qdict_get(qdict, key));
 }
 
 /**
@@ -284,8 +276,7 @@ QDict *qdict_get_qdict(const QDict *qdict, const char *key)
  */
 const char *qdict_get_str(const QDict *qdict, const char *key)
 {
-    QObject *obj = qdict_get_obj(qdict, key, QTYPE_QSTRING);
-    return qstring_get_str(qobject_to_qstring(obj));
+    return qstring_get_str(qobject_to_qstring(qdict_get(qdict, key)));
 }
 
 /**
@@ -298,13 +289,9 @@ const char *qdict_get_str(const QDict *qdict, const char *key)
 int64_t qdict_get_try_int(const QDict *qdict, const char *key,
                           int64_t def_value)
 {
-    QObject *obj;
+    QInt *qint = qobject_to_qint(qdict_get(qdict, key));
 
-    obj = qdict_get(qdict, key);
-    if (!obj || qobject_type(obj) != QTYPE_QINT)
-        return def_value;
-
-    return qint_get_int(qobject_to_qint(obj));
+    return qint ? qint_get_int(qint) : def_value;
 }
 
 /**
@@ -314,15 +301,11 @@ int64_t qdict_get_try_int(const QDict *qdict, const char *key,
  * dictionary or if the stored object is not of QBool type
  * 'def_value' will be returned.
  */
-int qdict_get_try_bool(const QDict *qdict, const char *key, int def_value)
+bool qdict_get_try_bool(const QDict *qdict, const char *key, bool def_value)
 {
-    QObject *obj;
+    QBool *qbool = qobject_to_qbool(qdict_get(qdict, key));
 
-    obj = qdict_get(qdict, key);
-    if (!obj || qobject_type(obj) != QTYPE_QBOOL)
-        return def_value;
-
-    return qbool_get_int(qobject_to_qbool(obj));
+    return qbool ? qbool_get_bool(qbool) : def_value;
 }
 
 /**
@@ -335,13 +318,9 @@ int qdict_get_try_bool(const QDict *qdict, const char *key, int def_value)
  */
 const char *qdict_get_try_str(const QDict *qdict, const char *key)
 {
-    QObject *obj;
+    QString *qstr = qobject_to_qstring(qdict_get(qdict, key));
 
-    obj = qdict_get(qdict, key);
-    if (!obj || qobject_type(obj) != QTYPE_QSTRING)
-        return NULL;
-
-    return qstring_get_str(qobject_to_qstring(obj));
+    return qstr ? qstring_get_str(qstr) : NULL;
 }
 
 /**
@@ -456,7 +435,7 @@ void qdict_del(QDict *qdict, const char *key)
 /**
  * qdict_destroy_obj(): Free all the memory allocated by a QDict
  */
-static void qdict_destroy_obj(QObject *obj)
+void qdict_destroy_obj(QObject *obj)
 {
     int i;
     QDict *qdict;
@@ -475,6 +454,39 @@ static void qdict_destroy_obj(QObject *obj)
     }
 
     g_free(qdict);
+}
+
+/**
+ * qdict_copy_default(): If no entry mapped by 'key' exists in 'dst' yet, the
+ * value of 'key' in 'src' is copied there (and the refcount increased
+ * accordingly).
+ */
+void qdict_copy_default(QDict *dst, QDict *src, const char *key)
+{
+    QObject *val;
+
+    if (qdict_haskey(dst, key)) {
+        return;
+    }
+
+    val = qdict_get(src, key);
+    if (val) {
+        qobject_incref(val);
+        qdict_put_obj(dst, key, val);
+    }
+}
+
+/**
+ * qdict_set_default_str(): If no entry mapped by 'key' exists in 'dst' yet, a
+ * new QString initialised by 'val' is put there.
+ */
+void qdict_set_default_str(QDict *dst, const char *key, const char *val)
+{
+    if (qdict_haskey(dst, key)) {
+        return;
+    }
+
+    qdict_put(dst, key, qstring_from_str(val));
 }
 
 static void qdict_flatten_qdict(QDict *qdict, QDict *target,
@@ -597,17 +609,21 @@ void qdict_extract_subqdict(QDict *src, QDict **dst, const char *start)
     }
 }
 
-static bool qdict_has_prefixed_entries(const QDict *src, const char *start)
+static int qdict_count_prefixed_entries(const QDict *src, const char *start)
 {
     const QDictEntry *entry;
+    int count = 0;
 
     for (entry = qdict_first(src); entry; entry = qdict_next(src, entry)) {
         if (strstart(entry->key, start, NULL)) {
-            return true;
+            if (count == INT_MAX) {
+                return -ERANGE;
+            }
+            count++;
         }
     }
 
-    return false;
+    return count;
 }
 
 /**
@@ -646,7 +662,8 @@ void qdict_array_split(QDict *src, QList **dst)
         snprintf_ret = snprintf(prefix, 32, "%u.", i);
         assert(snprintf_ret < 32);
 
-        is_subqdict = qdict_has_prefixed_entries(src, prefix);
+        /* Overflow is the same as positive non-zero results */
+        is_subqdict = qdict_count_prefixed_entries(src, prefix);
 
         // There may be either a single subordinate object (named "%u") or
         // multiple objects (each with a key prefixed "%u."), but not both.
@@ -664,6 +681,68 @@ void qdict_array_split(QDict *src, QList **dst)
 
         qlist_append_obj(*dst, subqobj ?: QOBJECT(subqdict));
     }
+}
+
+/**
+ * qdict_array_entries(): Returns the number of direct array entries if the
+ * sub-QDict of src specified by the prefix in subqdict (or src itself for
+ * prefix == "") is valid as an array, i.e. the length of the created list if
+ * the sub-QDict would become empty after calling qdict_array_split() on it. If
+ * the array is not valid, -EINVAL is returned.
+ */
+int qdict_array_entries(QDict *src, const char *subqdict)
+{
+    const QDictEntry *entry;
+    unsigned i;
+    unsigned entries = 0;
+    size_t subqdict_len = strlen(subqdict);
+
+    assert(!subqdict_len || subqdict[subqdict_len - 1] == '.');
+
+    /* qdict_array_split() loops until UINT_MAX, but as we want to return
+     * negative errors, we only have a signed return value here. Any additional
+     * entries will lead to -EINVAL. */
+    for (i = 0; i < INT_MAX; i++) {
+        QObject *subqobj;
+        int subqdict_entries;
+        char *prefix = g_strdup_printf("%s%u.", subqdict, i);
+
+        subqdict_entries = qdict_count_prefixed_entries(src, prefix);
+
+        /* Remove ending "." */
+        prefix[strlen(prefix) - 1] = 0;
+        subqobj = qdict_get(src, prefix);
+
+        g_free(prefix);
+
+        if (subqdict_entries < 0) {
+            return subqdict_entries;
+        }
+
+        /* There may be either a single subordinate object (named "%u") or
+         * multiple objects (each with a key prefixed "%u."), but not both. */
+        if (subqobj && subqdict_entries) {
+            return -EINVAL;
+        } else if (!subqobj && !subqdict_entries) {
+            break;
+        }
+
+        entries += subqdict_entries ? subqdict_entries : 1;
+    }
+
+    /* Consider everything handled that isn't part of the given sub-QDict */
+    for (entry = qdict_first(src); entry; entry = qdict_next(src, entry)) {
+        if (!strstart(qdict_entry_key(entry), subqdict, NULL)) {
+            entries++;
+        }
+    }
+
+    /* Anything left in the sub-QDict that wasn't handled? */
+    if (qdict_size(src) != entries) {
+        return -EINVAL;
+    }
+
+    return i;
 }
 
 /**

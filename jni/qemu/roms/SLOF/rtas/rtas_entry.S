@@ -39,7 +39,7 @@ rtas_entry:
 	bcl 20,31,.over		# branch to over 
 .base:	
 	.align  3
-..got:			.quad   _got-.base+0x8000
+..got:			.quad   _got-.base
 ..stack:		.quad   .stack+RTAS_STACKSIZE-0x60-.base
 .over:	
 	mflr r8			# gpr 8 is the base

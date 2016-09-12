@@ -15,7 +15,7 @@
  * physically fit into a machine with such an old CPU anyway.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #ifdef IOAPI_X86
 #define IOAPI_PREFIX_x86
@@ -32,7 +32,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #define PAGE_SHIFT 12
 
 /*
- * Physical<->Bus and Bus<->I/O address mappings
+ * Physical<->Bus address mappings
  *
  */
 
@@ -44,21 +44,6 @@ IOAPI_INLINE ( x86, phys_to_bus ) ( unsigned long phys_addr ) {
 static inline __always_inline unsigned long
 IOAPI_INLINE ( x86, bus_to_phys ) ( unsigned long bus_addr ) {
 	return bus_addr;
-}
-
-static inline __always_inline void *
-IOAPI_INLINE ( x86, ioremap ) ( unsigned long bus_addr, size_t len __unused ) {
-	return ( bus_addr ? phys_to_virt ( bus_addr ) : NULL );
-}
-
-static inline __always_inline void
-IOAPI_INLINE ( x86, iounmap ) ( volatile const void *io_addr __unused ) {
-	/* Nothing to do */
-}
-
-static inline __always_inline unsigned long
-IOAPI_INLINE ( x86, io_to_bus ) ( volatile const void *io_addr ) {
-	return virt_to_phys ( io_addr );
 }
 
 /*

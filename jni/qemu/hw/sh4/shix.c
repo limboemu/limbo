@@ -27,6 +27,10 @@
 
    More information in target-sh4/README.sh4
 */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/sh4/sh.h"
 #include "sysemu/sysemu.h"
@@ -59,16 +63,16 @@ static void shix_init(MachineState *machine)
     }
 
     /* Allocate memory space */
-    memory_region_init_ram(rom, NULL, "shix.rom", 0x4000, &error_abort);
+    memory_region_init_ram(rom, NULL, "shix.rom", 0x4000, &error_fatal);
     vmstate_register_ram_global(rom);
     memory_region_set_readonly(rom, true);
     memory_region_add_subregion(sysmem, 0x00000000, rom);
     memory_region_init_ram(&sdram[0], NULL, "shix.sdram1", 0x01000000,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(&sdram[0]);
     memory_region_add_subregion(sysmem, 0x08000000, &sdram[0]);
     memory_region_init_ram(&sdram[1], NULL, "shix.sdram2", 0x01000000,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(&sdram[1]);
     memory_region_add_subregion(sysmem, 0x0c000000, &sdram[1]);
 
@@ -87,16 +91,11 @@ static void shix_init(MachineState *machine)
     tc58128_init(s, "shix_linux_nand.bin", NULL);
 }
 
-static QEMUMachine shix_machine = {
-    .name = "shix",
-    .desc = "shix card",
-    .init = shix_init,
-    .is_default = 1,
-};
-
-static void shix_machine_init(void)
+static void shix_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&shix_machine);
+    mc->desc = "shix card";
+    mc->init = shix_init;
+    mc->is_default = 1;
 }
 
-machine_init(shix_machine_init);
+DEFINE_MACHINE("shix", shix_machine_init)

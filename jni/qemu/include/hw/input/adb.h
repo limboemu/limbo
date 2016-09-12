@@ -23,8 +23,8 @@
  * THE SOFTWARE.
  */
 
-#if !defined(__ADB_H__)
-#define __ADB_H__
+#ifndef ADB_H
+#define ADB_H
 
 #include "hw/qdev.h"
 
@@ -79,9 +79,9 @@ struct ADBBusState {
 
 int adb_request(ADBBusState *s, uint8_t *buf_out,
                 const uint8_t *buf, int len);
-int adb_poll(ADBBusState *s, uint8_t *buf_out);
+int adb_poll(ADBBusState *s, uint8_t *buf_out, uint16_t poll_mask);
 
 #define TYPE_ADB_KEYBOARD "adb-keyboard"
 #define TYPE_ADB_MOUSE "adb-mouse"
 
-#endif /* !defined(__ADB_H__) */
+#endif /* ADB_H */

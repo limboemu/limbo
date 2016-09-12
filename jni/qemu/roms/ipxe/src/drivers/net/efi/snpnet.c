@@ -191,6 +191,7 @@ static void snpnet_poll_tx ( struct net_device *netdev ) {
 	int rc;
 
 	/* Get status */
+	txbuf = NULL;
 	if ( ( efirc = snp->snp->GetStatus ( snp->snp, &irq, &txbuf ) ) != 0 ) {
 		rc = -EEFI ( efirc );
 		DBGC ( snp, "SNP %s could not get status: %s\n",
@@ -431,8 +432,8 @@ int snpnet_start ( struct efi_device *efidev ) {
 					  ( EFI_OPEN_PROTOCOL_BY_DRIVER |
 					    EFI_OPEN_PROTOCOL_EXCLUSIVE )))!=0){
 		rc = -EEFI ( efirc );
-		DBGC ( device, "SNP %p %s cannot open SNP protocol: %s\n",
-		       device, efi_handle_name ( device ), strerror ( rc ) );
+		DBGC ( device, "SNP %s cannot open SNP protocol: %s\n",
+		       efi_handle_name ( device ), strerror ( rc ) );
 		DBGC_EFI_OPENERS ( device, device,
 				   &efi_simple_network_protocol_guid );
 		goto err_open_protocol;
@@ -463,32 +464,30 @@ int snpnet_start ( struct efi_device *efidev ) {
 	if ( ( mode->State == EfiSimpleNetworkStopped ) &&
 	     ( ( efirc = snp->snp->Start ( snp->snp ) ) != 0 ) ) {
 		rc = -EEFI ( efirc );
-		DBGC ( device, "SNP %p %s could not start: %s\n", device,
+		DBGC ( device, "SNP %s could not start: %s\n",
 		       efi_handle_name ( device ), strerror ( rc ) );
 		goto err_start;
 	}
 	if ( ( mode->State == EfiSimpleNetworkInitialized ) &&
 	     ( ( efirc = snp->snp->Shutdown ( snp->snp ) ) != 0 ) ) {
 		rc = -EEFI ( efirc );
-		DBGC ( device, "SNP %p %s could not shut down: %s\n", device,
+		DBGC ( device, "SNP %s could not shut down: %s\n",
 		       efi_handle_name ( device ), strerror ( rc ) );
 		goto err_shutdown;
 	}
 
 	/* Populate network device parameters */
 	if ( mode->HwAddressSize != netdev->ll_protocol->hw_addr_len ) {
-		DBGC ( device, "SNP %p %s has invalid hardware address "
-		       "length %d\n", device, efi_handle_name ( device ),
-		       mode->HwAddressSize );
+		DBGC ( device, "SNP %s has invalid hardware address length "
+		       "%d\n", efi_handle_name ( device ), mode->HwAddressSize);
 		rc = -ENOTSUP;
 		goto err_hw_addr_len;
 	}
 	memcpy ( netdev->hw_addr, &mode->PermanentAddress,
 		 netdev->ll_protocol->hw_addr_len );
 	if ( mode->HwAddressSize != netdev->ll_protocol->ll_addr_len ) {
-		DBGC ( device, "SNP %p %s has invalid link-layer address "
-		       "length %d\n", device, efi_handle_name ( device ),
-		       mode->HwAddressSize );
+		DBGC ( device, "SNP %s has invalid link-layer address length "
+		       "%d\n", efi_handle_name ( device ), mode->HwAddressSize);
 		rc = -ENOTSUP;
 		goto err_ll_addr_len;
 	}
@@ -500,8 +499,8 @@ int snpnet_start ( struct efi_device *efidev ) {
 	/* Register network device */
 	if ( ( rc = register_netdev ( netdev ) ) != 0 )
 		goto err_register_netdev;
-	DBGC ( device, "SNP %p %s registered as %s\n",
-	       device, efi_handle_name ( device ), netdev->name );
+	DBGC ( device, "SNP %s registered as %s\n",
+	       efi_handle_name ( device ), netdev->name );
 
 	/* Set initial link state */
 	if ( snp->snp->Mode->MediaPresentSupported ) {
@@ -547,7 +546,7 @@ void snpnet_stop ( struct efi_device *efidev ) {
 	/* Stop SNP protocol */
 	if ( ( efirc = snp->snp->Stop ( snp->snp ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		DBGC ( device, "SNP %p %s could not stop: %s\n", device,
+		DBGC ( device, "SNP %s could not stop: %s\n",
 		       efi_handle_name ( device ), strerror ( rc ) );
 		/* Nothing we can do about this */
 	}

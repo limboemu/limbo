@@ -6,16 +6,21 @@
  * that we need to emulate as well.
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "elf.h"
 #include "hw/loader.h"
 #include "hw/boards.h"
 #include "alpha_sys.h"
+#include "qemu/error-report.h"
 #include "sysemu/sysemu.h"
 #include "hw/timer/mc146818rtc.h"
 #include "hw/ide.h"
 #include "hw/timer/i8254.h"
 #include "hw/char/serial.h"
+#include "qemu/cutils.h"
 
 #define MAX_IDE_BUS 2
 
@@ -55,7 +60,7 @@ static void clipper_init(MachineState *machine)
     ISABus *isa_bus;
     qemu_irq rtc_irq;
     long size, i;
-    const char *palcode_filename;
+    char *palcode_filename;
     uint64_t palcode_entry, palcode_low, palcode_high;
     uint64_t kernel_entry, kernel_low, kernel_high;
 
@@ -101,19 +106,20 @@ static void clipper_init(MachineState *machine)
     /* Load PALcode.  Given that this is not "real" cpu palcode,
        but one explicitly written for the emulation, we might as
        well load it directly from and ELF image.  */
-    palcode_filename = (bios_name ? bios_name : "palcode-clipper");
-    palcode_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, palcode_filename);
+    palcode_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS,
+                                bios_name ? bios_name : "palcode-clipper");
     if (palcode_filename == NULL) {
-        hw_error("no palcode provided\n");
+        error_report("no palcode provided");
         exit(1);
     }
     size = load_elf(palcode_filename, cpu_alpha_superpage_to_phys,
                     NULL, &palcode_entry, &palcode_low, &palcode_high,
-                    0, EM_ALPHA, 0);
+                    0, EM_ALPHA, 0, 0);
     if (size < 0) {
-        hw_error("could not load palcode '%s'\n", palcode_filename);
+        error_report("could not load palcode '%s'", palcode_filename);
         exit(1);
     }
+    g_free(palcode_filename);
 
     /* Start all cpus at the PALcode RESET entry point.  */
     for (i = 0; i < smp_cpus; ++i) {
@@ -128,9 +134,9 @@ static void clipper_init(MachineState *machine)
 
         size = load_elf(kernel_filename, cpu_alpha_superpage_to_phys,
                         NULL, &kernel_entry, &kernel_low, &kernel_high,
-                        0, EM_ALPHA, 0);
+                        0, EM_ALPHA, 0, 0);
         if (size < 0) {
-            hw_error("could not load kernel '%s'\n", kernel_filename);
+            error_report("could not load kernel '%s'", kernel_filename);
             exit(1);
         }
 
@@ -147,8 +153,8 @@ static void clipper_init(MachineState *machine)
 
             initrd_size = get_image_size(initrd_filename);
             if (initrd_size < 0) {
-                hw_error("could not load initial ram disk '%s'\n",
-                         initrd_filename);
+                error_report("could not load initial ram disk '%s'",
+                             initrd_filename);
                 exit(1);
             }
 
@@ -157,24 +163,22 @@ static void clipper_init(MachineState *machine)
             load_image_targphys(initrd_filename, initrd_base,
                                 ram_size - initrd_base);
 
-            stq_phys(&address_space_memory,
-                     param_offset + 0x100, initrd_base + 0xfffffc0000000000ULL);
-            stq_phys(&address_space_memory, param_offset + 0x108, initrd_size);
+            address_space_stq(&address_space_memory, param_offset + 0x100,
+                              initrd_base + 0xfffffc0000000000ULL,
+                              MEMTXATTRS_UNSPECIFIED,
+                              NULL);
+            address_space_stq(&address_space_memory, param_offset + 0x108,
+                              initrd_size, MEMTXATTRS_UNSPECIFIED, NULL);
         }
     }
 }
 
-static QEMUMachine clipper_machine = {
-    .name = "clipper",
-    .desc = "Alpha DP264/CLIPPER",
-    .init = clipper_init,
-    .max_cpus = 4,
-    .is_default = 1,
-};
-
-static void clipper_machine_init(void)
+static void clipper_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&clipper_machine);
+    mc->desc = "Alpha DP264/CLIPPER";
+    mc->init = clipper_init;
+    mc->max_cpus = 4;
+    mc->is_default = 1;
 }
 
-machine_init(clipper_machine_init);
+DEFINE_MACHINE("clipper", clipper_machine_init)

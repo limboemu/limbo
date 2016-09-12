@@ -515,7 +515,7 @@ struct hermonprm_eth_send_wqe {
 	struct hermonprm_wqe_segment_data_ptr data[HERMON_MAX_GATHER];
 } __attribute__ (( packed ));
 
-#define HERMON_MAX_SCATTER 1
+#define HERMON_MAX_SCATTER 2
 
 struct hermonprm_recv_wqe {
 	struct hermonprm_wqe_segment_data_ptr data[HERMON_MAX_SCATTER];
@@ -686,6 +686,10 @@ struct hermon_recv_work_queue {
 	union hermon_recv_wqe *wqe;
 	/** Size of work queue */
 	size_t wqe_size;
+	/** GRH buffers (if applicable) */
+	struct ib_global_route_header *grh;
+	/** Size of GRH buffers */
+	size_t grh_size;
 	/** Doorbell record */
 	struct hermonprm_qp_db_record *doorbell;
 };

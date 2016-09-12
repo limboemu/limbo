@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -31,6 +35,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <errno.h>
 #include <ipxe/uuid.h>
 #include <ipxe/base16.h>
+#include <ipxe/vsprintf.h>
 #include <ipxe/efi/efi.h>
 #include <ipxe/efi/efi_utils.h>
 #include <ipxe/efi/Protocol/ComponentName.h>
@@ -64,6 +69,10 @@ struct efi_well_known_guid {
 
 /** Well-known GUIDs */
 static struct efi_well_known_guid efi_well_known_guids[] = {
+	{ &efi_absolute_pointer_protocol_guid,
+	  "AbsolutePointer" },
+	{ &efi_apple_net_boot_protocol_guid,
+	  "AppleNetBoot" },
 	{ &efi_arp_protocol_guid,
 	  "Arp" },
 	{ &efi_arp_service_binding_protocol_guid,
@@ -76,6 +85,8 @@ static struct efi_well_known_guid efi_well_known_guids[] = {
 	  "ComponentName" },
 	{ &efi_component_name2_protocol_guid,
 	  "ComponentName2" },
+	{ &efi_console_control_protocol_guid,
+	  "ConsoleControl" },
 	{ &efi_device_path_protocol_guid,
 	  "DevicePath" },
 	{ &efi_driver_binding_protocol_guid,
@@ -90,6 +101,8 @@ static struct efi_well_known_guid efi_well_known_guids[] = {
 	  "GraphicsOutput" },
 	{ &efi_hii_config_access_protocol_guid,
 	  "HiiConfigAccess" },
+	{ &efi_hii_font_protocol_guid,
+	  "HiiFont" },
 	{ &efi_ip4_protocol_guid,
 	  "Ip4" },
 	{ &efi_ip4_config_protocol_guid,
@@ -124,20 +137,42 @@ static struct efi_well_known_guid efi_well_known_guids[] = {
 	  "PciRootBridgeIo" },
 	{ &efi_pxe_base_code_protocol_guid,
 	  "PxeBaseCode" },
+	{ &efi_serial_io_protocol_guid,
+	  "SerialIo" },
 	{ &efi_simple_file_system_protocol_guid,
 	  "SimpleFileSystem" },
 	{ &efi_simple_network_protocol_guid,
 	  "SimpleNetwork" },
+	{ &efi_simple_pointer_protocol_guid,
+	  "SimplePointer" },
+	{ &efi_simple_text_input_protocol_guid,
+	  "SimpleTextInput" },
+	{ &efi_simple_text_input_ex_protocol_guid,
+	  "SimpleTextInputEx" },
+	{ &efi_simple_text_output_protocol_guid,
+	  "SimpleTextOutput" },
 	{ &efi_tcg_protocol_guid,
 	  "Tcg" },
 	{ &efi_tcp4_protocol_guid,
 	  "Tcp4" },
 	{ &efi_tcp4_service_binding_protocol_guid,
 	  "Tcp4Sb" },
+	{ &efi_tree_protocol_guid,
+	  "TrEE" },
 	{ &efi_udp4_protocol_guid,
 	  "Udp4" },
 	{ &efi_udp4_service_binding_protocol_guid,
 	  "Udp4Sb" },
+	{ &efi_uga_draw_protocol_guid,
+	  "UgaDraw" },
+	{ &efi_unicode_collation_protocol_guid,
+	  "UnicodeCollation" },
+	{ &efi_usb_hc_protocol_guid,
+	  "UsbHc" },
+	{ &efi_usb2_hc_protocol_guid,
+	  "Usb2Hc" },
+	{ &efi_usb_io_protocol_guid,
+	  "UsbIo" },
 	{ &efi_vlan_config_protocol_guid,
 	  "VlanConfig" },
 	{ &efi_vlan_config_dxe_guid,
@@ -150,7 +185,7 @@ static struct efi_well_known_guid efi_well_known_guids[] = {
  * @v guid		GUID
  * @ret string		Printable string
  */
-const char * efi_guid_ntoa ( EFI_GUID *guid ) {
+const __attribute__ (( pure )) char * efi_guid_ntoa ( EFI_GUID *guid ) {
 	union {
 		union uuid uuid;
 		EFI_GUID guid;
@@ -177,6 +212,26 @@ const char * efi_guid_ntoa ( EFI_GUID *guid ) {
 }
 
 /**
+ * Name locate search type
+ *
+ * @v search_type	Locate search type
+ * @ret name		Locate search type name
+ */
+const __attribute__ (( pure )) char *
+efi_locate_search_type_name ( EFI_LOCATE_SEARCH_TYPE search_type ) {
+	static char buf[16];
+
+	switch ( search_type ) {
+	case AllHandles :	return "AllHandles";
+	case ByRegisterNotify:	return "ByRegisterNotify";
+	case ByProtocol:	return "ByProtocol";
+	default:
+		snprintf ( buf, sizeof ( buf ), "UNKNOWN<%d>", search_type );
+		return buf;
+	}
+}
+
+/**
  * Name protocol open attributes
  *
  * @v attributes	Protocol open attributes
@@ -187,7 +242,8 @@ const char * efi_guid_ntoa ( EFI_GUID *guid ) {
  * (T)EST_PROTOCOL, BY_(C)HILD_CONTROLLER, BY_(D)RIVER, and
  * E(X)CLUSIVE.
  */
-static const char * efi_open_attributes_name ( unsigned int attributes ) {
+const __attribute__ (( pure )) char *
+efi_open_attributes_name ( unsigned int attributes ) {
 	static char attribute_chars[] = "HGTCDX";
 	static char name[ sizeof ( attribute_chars ) ];
 	char *tmp = name;
@@ -219,8 +275,9 @@ void dbg_efi_openers ( EFI_HANDLE handle, EFI_GUID *protocol ) {
 
 	/* Sanity check */
 	if ( ( ! handle ) || ( ! protocol ) ) {
-		printf ( "EFI could not retrieve openers for %s on %p\n",
-			 efi_guid_ntoa ( protocol ), handle );
+		printf ( "HANDLE %s could not retrieve openers for %s\n",
+			 efi_handle_name ( handle ),
+			 efi_guid_ntoa ( protocol ) );
 		return;
 	}
 
@@ -228,24 +285,24 @@ void dbg_efi_openers ( EFI_HANDLE handle, EFI_GUID *protocol ) {
 	if ( ( efirc = bs->OpenProtocolInformation ( handle, protocol, &openers,
 						     &count ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		printf ( "EFI could not retrieve openers for %s on %p: %s\n",
-			 efi_guid_ntoa ( protocol ), handle, strerror ( rc ) );
+		printf ( "HANDLE %s could not retrieve openers for %s: %s\n",
+			 efi_handle_name ( handle ),
+			 efi_guid_ntoa ( protocol ), strerror ( rc ) );
 		return;
 	}
 
 	/* Dump list of openers */
 	for ( i = 0 ; i < count ; i++ ) {
 		opener = &openers[i];
-		printf ( "HANDLE %p %s %s opened %dx (%s)",
-			 handle, efi_handle_name ( handle ),
+		printf ( "HANDLE %s %s opened %dx (%s)",
+			 efi_handle_name ( handle ),
 			 efi_guid_ntoa ( protocol ), opener->OpenCount,
 			 efi_open_attributes_name ( opener->Attributes ) );
-		printf ( " by %p %s", opener->AgentHandle,
-			 efi_handle_name ( opener->AgentHandle ) );
+		printf ( " by %s", efi_handle_name ( opener->AgentHandle ) );
 		if ( opener->ControllerHandle == handle ) {
 			printf ( "\n" );
 		} else {
-			printf ( " for %p %s\n", opener->ControllerHandle,
+			printf ( " for %s\n",
 				 efi_handle_name ( opener->ControllerHandle ) );
 		}
 	}
@@ -270,7 +327,8 @@ void dbg_efi_protocols ( EFI_HANDLE handle ) {
 
 	/* Sanity check */
 	if ( ! handle ) {
-		printf ( "EFI could not retrieve protocols for %p\n", handle );
+		printf ( "HANDLE %s could not retrieve protocols\n",
+			 efi_handle_name ( handle ) );
 		return;
 	}
 
@@ -278,16 +336,15 @@ void dbg_efi_protocols ( EFI_HANDLE handle ) {
 	if ( ( efirc = bs->ProtocolsPerHandle ( handle, &protocols,
 						&count ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		printf ( "EFI could not retrieve protocols for %p: %s\n",
-			 handle, strerror ( rc ) );
+		printf ( "HANDLE %s could not retrieve protocols: %s\n",
+			 efi_handle_name ( handle ), strerror ( rc ) );
 		return;
 	}
 
 	/* Dump list of protocols */
 	for ( i = 0 ; i < count ; i++ ) {
 		protocol = protocols[i];
-		printf ( "HANDLE %p %s %s supported\n",
-			 handle, efi_handle_name ( handle ),
+		printf ( "HANDLE %s %s supported\n", efi_handle_name ( handle ),
 			 efi_guid_ntoa ( protocol ) );
 		dbg_efi_openers ( handle, protocol );
 	}
@@ -302,12 +359,10 @@ void dbg_efi_protocols ( EFI_HANDLE handle ) {
  * @v path		Device path
  * @ret text		Textual representation of device path, or NULL
  */
-const char * efi_devpath_text ( EFI_DEVICE_PATH_PROTOCOL *path ) {
+const __attribute__ (( pure )) char *
+efi_devpath_text ( EFI_DEVICE_PATH_PROTOCOL *path ) {
 	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
 	static char text[256];
-	void *start;
-	void *end;
-	size_t max_len;
 	size_t len;
 	CHAR16 *wtext;
 
@@ -320,13 +375,8 @@ const char * efi_devpath_text ( EFI_DEVICE_PATH_PROTOCOL *path ) {
 	/* If we have no DevicePathToText protocol then use a raw hex string */
 	if ( ! efidpt ) {
 		DBG ( "[No DevicePathToText]" );
-		start = path;
-		end = efi_devpath_end ( path );
-		len = ( end - start );
-		max_len = ( ( sizeof ( text ) - 1 /* NUL */ ) / 2 /* "xx" */ );
-		if ( len > max_len )
-			len = max_len;
-		base16_encode ( start, len, text );
+		len = efi_devpath_len ( path );
+		base16_encode ( path, len, text, sizeof ( text ) );
 		return text;
 	}
 
@@ -559,6 +609,42 @@ efi_loaded_image_filepath_name ( EFI_LOADED_IMAGE_PROTOCOL *loaded ) {
 	return efi_devpath_text ( loaded->FilePath );
 }
 
+/**
+ * Get console input handle name
+ *
+ * @v input		Simple text input protocol
+ * @ret name		Console input handle name, or NULL
+ */
+static const char *
+efi_conin_name ( EFI_SIMPLE_TEXT_INPUT_PROTOCOL *input ) {
+
+	/* Check for match against ConIn */
+	if ( input == efi_systab->ConIn )
+		return "ConIn";
+
+	return NULL;
+}
+
+/**
+ * Get console output handle name
+ *
+ * @v output		Simple text output protocol
+ * @ret name		Console output handle name, or NULL
+ */
+static const char *
+efi_conout_name ( EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *output ) {
+
+	/* Check for match against ConOut */
+	if ( output == efi_systab->ConOut )
+		return "ConOut";
+
+	/* Check for match against StdErr (if different from ConOut) */
+	if ( output == efi_systab->StdErr )
+		return "StdErr";
+
+	return NULL;
+}
+
 /** An EFI handle name type */
 struct efi_handle_name_type {
 	/** Protocol */
@@ -607,6 +693,12 @@ static struct efi_handle_name_type efi_handle_name_types[] = {
 	/* Handle's loaded image file path (for image handles) */
 	EFI_HANDLE_NAME_TYPE ( &efi_loaded_image_protocol_guid,
 			       efi_loaded_image_filepath_name ),
+	/* Our standard input file handle */
+	EFI_HANDLE_NAME_TYPE ( &efi_simple_text_input_protocol_guid,
+			       efi_conin_name ),
+	/* Our standard output and standard error file handles */
+	EFI_HANDLE_NAME_TYPE ( &efi_simple_text_output_protocol_guid,
+			       efi_conout_name ),
 };
 
 /**
@@ -615,9 +707,13 @@ static struct efi_handle_name_type efi_handle_name_types[] = {
  * @v handle		EFI handle
  * @ret text		Name of handle, or NULL
  */
-const char * efi_handle_name ( EFI_HANDLE handle ) {
+const __attribute__ (( pure )) char * efi_handle_name ( EFI_HANDLE handle ) {
 	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
 	struct efi_handle_name_type *type;
+	static char buf[256];
+	size_t used = 0;
+	EFI_GUID **protocols;
+	UINTN count;
 	unsigned int i;
 	void *interface;
 	const char *name;
@@ -657,5 +753,19 @@ const char * efi_handle_name ( EFI_HANDLE handle ) {
 			return name;
 	}
 
-	return "UNKNOWN";
+	/* If no name is found, then use the raw handle value and a
+	 * list of installed protocols.
+	 */
+	used = ssnprintf ( buf, sizeof ( buf ), "UNKNOWN<%p", handle );
+	if ( ( efirc = bs->ProtocolsPerHandle ( handle, &protocols,
+						&count ) ) == 0 ) {
+		for ( i = 0 ; i < count ; i++ ) {
+			used += ssnprintf ( ( buf + used ),
+					    ( sizeof ( buf ) - used ), ",%s",
+					    efi_guid_ntoa ( protocols[i] ) );
+		}
+		bs->FreePool ( protocols );
+	}
+	used += ssnprintf ( ( buf + used ), ( sizeof ( buf ) - used ), ">" );
+	return buf;
 }

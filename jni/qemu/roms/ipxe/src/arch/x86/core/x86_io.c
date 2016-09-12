@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/io.h>
 #include <ipxe/x86_io.h>
@@ -70,9 +74,6 @@ static __unused void i386_writeq ( uint64_t data, volatile uint64_t *io_addr ) {
 
 PROVIDE_IOAPI_INLINE ( x86, phys_to_bus );
 PROVIDE_IOAPI_INLINE ( x86, bus_to_phys );
-PROVIDE_IOAPI_INLINE ( x86, ioremap );
-PROVIDE_IOAPI_INLINE ( x86, iounmap );
-PROVIDE_IOAPI_INLINE ( x86, io_to_bus );
 PROVIDE_IOAPI_INLINE ( x86, readb );
 PROVIDE_IOAPI_INLINE ( x86, readw );
 PROVIDE_IOAPI_INLINE ( x86, readl );

@@ -7,6 +7,7 @@
  * This file is licensed under GNU GPL.
  */
 
+#include "qemu/osdep.h"
 #include "hw/i2c/i2c.h"
 
 #define TYPE_MAX7310 "max7310"
@@ -96,7 +97,7 @@ static int max7310_tx(I2CSlave *i2c, uint8_t data)
     case 0x01:	/* Output port */
         for (diff = (data ^ s->level) & ~s->direction; diff;
                         diff &= ~(1 << line)) {
-            line = ffs(diff) - 1;
+            line = ctz32(diff);
             if (s->handler[line])
                 qemu_set_irq(s->handler[line], (data >> line) & 1);
         }

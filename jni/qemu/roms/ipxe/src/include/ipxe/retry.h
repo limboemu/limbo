@@ -7,14 +7,14 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/list.h>
 
-/** Default timeout value */
+/** Default minimum timeout value (in ticks) */
 #define DEFAULT_MIN_TIMEOUT ( TICKS_PER_SEC / 4 )
 
-/** Limit after which the timeout will be deemed permanent */
+/** Default maximum timeout value (in ticks) */
 #define DEFAULT_MAX_TIMEOUT ( 10 * TICKS_PER_SEC )
 
 /** A retry timer */
@@ -25,16 +25,18 @@ struct retry_timer {
 	unsigned int running;
 	/** Timeout value (in ticks) */
 	unsigned long timeout;
-	/** Minimum timeout value (in ticks)
+	/** Minimum timeout value (in ticks), or zero to use default
 	 *
-	 * A value of zero means "use default timeout."
+	 * The timeout will never be reduced below this value.
 	 */
-	unsigned long min_timeout;
-	/** Maximum timeout value before failure (in ticks)
+	unsigned long min;
+	/** Maximum timeout value (in ticks), or zero to use default
 	 *
-	 * A value of zero means "use default timeout."
+	 * The timeout will be deemed permanent (according to the
+	 * failure indicator passed to expired()) when it exceeds this
+	 * value.
 	 */
-	unsigned long max_timeout;
+	unsigned long max;
 	/** Start time (in ticks) */
 	unsigned long start;
 	/** Retry count */
@@ -46,7 +48,7 @@ struct retry_timer {
 	 *
 	 * The timer will already be stopped when this method is
 	 * called.  The failure indicator will be True if the retry
-	 * timeout has already exceeded @c MAX_TIMEOUT.
+	 * timeout has already exceeded @c max_timeout.
 	 */
 	void ( * expired ) ( struct retry_timer *timer, int over );
 	/** Reference counter
@@ -107,6 +109,20 @@ static inline void start_timer_nodelay ( struct retry_timer *timer ) {
 static inline __attribute__ (( always_inline )) unsigned long
 timer_running ( struct retry_timer *timer ) {
 	return ( timer->running );
+}
+
+/**
+ * Set minimum and maximum timeouts
+ *
+ * @v timer		Retry timer
+ * @v min		Minimum timeout (in ticks), or zero to use default
+ * @v max		Maximum timeout (in ticks), or zero to use default
+ */
+static inline __attribute__ (( always_inline )) void
+set_timer_limits ( struct retry_timer *timer, unsigned long min,
+		   unsigned long max ) {
+	timer->min = min;
+	timer->max = max;
 }
 
 #endif /* _IPXE_RETRY_H */

@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/tables.h>
 #include <ipxe/netdevice.h>
@@ -56,5 +56,9 @@ static inline int arp_tx ( struct io_buffer *iobuf, struct net_device *netdev,
 	return neighbour_tx ( iobuf, netdev, net_protocol, net_dest,
 			      &arp_discovery, net_source, ll_source );
 }
+
+extern int arp_tx_request ( struct net_device *netdev,
+			    struct net_protocol *net_protocol,
+			    const void *net_dest, const void *net_source );
 
 #endif /* _IPXE_ARP_H */

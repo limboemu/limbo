@@ -9,11 +9,19 @@
  ****************************************************************/
 
 struct disk_op_s {
-    u64 lba;
     void *buf_fl;
     struct drive_s *drive_gf;
-    u16 count;
     u8 command;
+    u16 count;
+    union {
+        // Commands: READ, WRITE, VERIFY, SEEK, FORMAT
+        u64 lba;
+        // Commands: SCSI
+        struct {
+            u16 blocksize;
+            void *cdbcmd;
+        };
+    };
 };
 
 #define CMD_RESET   0x00
@@ -23,6 +31,7 @@ struct disk_op_s {
 #define CMD_FORMAT  0x05
 #define CMD_SEEK    0x07
 #define CMD_ISREADY 0x10
+#define CMD_SCSI    0x20
 
 
 /****************************************************************
@@ -101,7 +110,8 @@ void map_floppy_drive(struct drive_s *drive);
 void map_hd_drive(struct drive_s *drive);
 void map_cd_drive(struct drive_s *drive);
 struct int13dpt_s;
-int fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf);
+int fill_edd(struct segoff_s edd, struct drive_s *drive_gf);
+int default_process_op(struct disk_op_s *op);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 int create_bounce_buf(void);

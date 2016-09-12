@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <ipxe/ib_packet.h>
@@ -144,6 +144,9 @@ struct ib_port_info {
 #define IB_LINK_SPEED_SDR		0x01
 #define IB_LINK_SPEED_DDR		0x02
 #define IB_LINK_SPEED_QDR		0x04
+#define IB_LINK_SPEED_FDR10		0x08
+#define IB_LINK_SPEED_FDR		0x10
+#define IB_LINK_SPEED_EDR		0x20
 
 #define IB_PORT_STATE_DOWN		0x01
 #define IB_PORT_STATE_INIT		0x02
@@ -216,8 +219,25 @@ struct ib_sa_hdr {
 	uint32_t comp_mask[2];
 } __attribute__ (( packed ));
 
-#define IB_SA_ATTR_MC_MEMBER_REC		0x38
+#define IB_SA_ATTR_SERVICE_REC			0x31
 #define IB_SA_ATTR_PATH_REC			0x35
+#define IB_SA_ATTR_MC_MEMBER_REC		0x38
+
+struct ib_service_record {
+	uint64_t id;
+	union ib_gid gid;
+	uint16_t pkey;
+	uint16_t reserved;
+	uint32_t lease;
+	uint8_t key[16];
+	char name[64];
+	uint8_t data8[16];
+	uint16_t data16[8];
+	uint32_t data32[4];
+	uint64_t data64[2];
+} __attribute__ (( packed ));
+
+#define IB_SA_SERVICE_REC_NAME			(1<<6)
 
 struct ib_path_record {
 	uint32_t reserved0[2];
@@ -275,6 +295,7 @@ struct ib_mc_member_record {
 #define IB_SA_MCMEMBER_REC_PROXY_JOIN		(1<<17)
 
 union ib_sa_data {
+	struct ib_service_record service_record;
 	struct ib_path_record path_record;
 	struct ib_mc_member_record mc_member_record;
 } __attribute__ (( packed ));
@@ -504,6 +525,12 @@ union ib_mad_class_specific {
 	struct ib_smp_class_specific smp;
 } __attribute__ (( packed ));
 
+/** A management datagram transaction identifier */
+struct ib_mad_tid {
+	uint32_t high;
+	uint32_t low;
+} __attribute__ (( packed ));
+
 /** A management datagram common header
  *
  * Defined in section 13.4.2 of the IBA.
@@ -515,7 +542,7 @@ struct ib_mad_hdr {
 	uint8_t method;
 	uint16_t status;
 	union ib_mad_class_specific class_specific;
-	uint32_t tid[2];
+	struct ib_mad_tid tid;
 	uint16_t attr_id;
 	uint8_t reserved[2];
 	uint32_t attr_mod;

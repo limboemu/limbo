@@ -263,7 +263,7 @@ static int glue(load_elf, SZ)(const char *name, int fd,
                               void *translate_opaque,
                               int must_swab, uint64_t *pentry,
                               uint64_t *lowaddr, uint64_t *highaddr,
-                              int elf_machine, int clear_lsb)
+                              int elf_machine, int clear_lsb, int data_swab)
 {
     struct elfhdr ehdr;
     struct elf_phdr *phdr = NULL, *ph;
@@ -282,25 +282,36 @@ static int glue(load_elf, SZ)(const char *name, int fd,
 
     switch (elf_machine) {
         case EM_PPC64:
-            if (EM_PPC64 != ehdr.e_machine)
-                if (EM_PPC != ehdr.e_machine) {
+            if (ehdr.e_machine != EM_PPC64) {
+                if (ehdr.e_machine != EM_PPC) {
                     ret = ELF_LOAD_WRONG_ARCH;
                     goto fail;
                 }
+            }
             break;
         case EM_X86_64:
-            if (EM_X86_64 != ehdr.e_machine)
-                if (EM_386 != ehdr.e_machine) {
+            if (ehdr.e_machine != EM_X86_64) {
+                if (ehdr.e_machine != EM_386) {
                     ret = ELF_LOAD_WRONG_ARCH;
                     goto fail;
                 }
+            }
             break;
         case EM_MICROBLAZE:
-            if (EM_MICROBLAZE != ehdr.e_machine)
-                if (EM_MICROBLAZE_OLD != ehdr.e_machine) {
+            if (ehdr.e_machine != EM_MICROBLAZE) {
+                if (ehdr.e_machine != EM_MICROBLAZE_OLD) {
                     ret = ELF_LOAD_WRONG_ARCH;
                     goto fail;
                 }
+            }
+            break;
+        case EM_MOXIE:
+            if (ehdr.e_machine != EM_MOXIE) {
+                if (ehdr.e_machine != EM_MOXIE_OLD) {
+                    ret = ELF_LOAD_WRONG_ARCH;
+                    goto fail;
+                }
+            }
             break;
         default:
             if (elf_machine != ehdr.e_machine) {
@@ -353,6 +364,26 @@ static int glue(load_elf, SZ)(const char *name, int fd,
                                     translate_opaque, data, ph, elf_machine);
             } else {
                 addr = ph->p_paddr;
+            }
+
+            if (data_swab) {
+                int j;
+                for (j = 0; j < file_size; j += (1 << data_swab)) {
+                    uint8_t *dp = data + j;
+                    switch (data_swab) {
+                    case (1):
+                        *(uint16_t *)dp = bswap16(*(uint16_t *)dp);
+                        break;
+                    case (2):
+                        *(uint32_t *)dp = bswap32(*(uint32_t *)dp);
+                        break;
+                    case (3):
+                        *(uint64_t *)dp = bswap64(*(uint64_t *)dp);
+                        break;
+                    default:
+                        g_assert_not_reached();
+                    }
+                }
             }
 
             /* the entry pointer in the ELF header is a virtual

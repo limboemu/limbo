@@ -22,8 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "tap_int.h"
-#include "qemu-common.h"
+#include "qemu/cutils.h"
 #include "sysemu/sysemu.h"
 #include "qemu/error-report.h"
 
@@ -35,7 +37,7 @@
 
 #ifndef __FreeBSD__
 int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
-             int vnet_hdr_required, int mq_required)
+             int vnet_hdr_required, int mq_required, Error **errp)
 {
     int fd;
 #ifdef TAPGIFNAME
@@ -71,23 +73,19 @@ int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
         }
     }
     if (fd < 0) {
-        error_report("warning: could not open %s (%s): no virtual network emulation",
-                   dname, strerror(errno));
+        error_setg_errno(errp, errno, "could not open %s", dname);
         return -1;
     }
 
 #ifdef TAPGIFNAME
     if (ioctl(fd, TAPGIFNAME, (void *)&ifr) < 0) {
-        fprintf(stderr, "warning: could not get tap name: %s\n",
-            strerror(errno));
+        error_setg_errno(errp, errno, "could not get tap name");
         return -1;
     }
     pstrcpy(ifname, ifname_size, ifr.ifr_name);
 #else
     if (fstat(fd, &s) < 0) {
-        fprintf(stderr,
-            "warning: could not stat /dev/tap: no virtual network emulation: %s\n",
-            strerror(errno));
+        error_setg_errno(errp, errno, "could not stat %s", dname);
         return -1;
     }
     dev = devname(s.st_rdev, S_IFCHR);
@@ -99,8 +97,8 @@ int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
         *vnet_hdr = 0;
 
         if (vnet_hdr_required && !*vnet_hdr) {
-            error_report("vnet_hdr=1 requested, but no kernel "
-                         "support for IFF_VNET_HDR available");
+            error_setg(errp, "vnet_hdr=1 requested, but no kernel "
+                       "support for IFF_VNET_HDR available");
             close(fd);
             return -1;
         }
@@ -113,15 +111,14 @@ int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
 
 #define PATH_NET_TAP "/dev/tap"
 
-int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
-             int vnet_hdr_required, int mq_required)
+static int tap_open_clone(char *ifname, int ifname_size, Error **errp)
 {
     int fd, s, ret;
     struct ifreq ifr;
 
     TFR(fd = open(PATH_NET_TAP, O_RDWR));
     if (fd < 0) {
-        error_report("could not open %s: %s", PATH_NET_TAP, strerror(errno));
+        error_setg_errno(errp, errno, "could not open %s", PATH_NET_TAP);
         return -1;
     }
 
@@ -129,26 +126,56 @@ int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
 
     ret = ioctl(fd, TAPGIFNAME, (void *)&ifr);
     if (ret < 0) {
-        error_report("could not get tap interface name");
-        goto error;
+        error_setg_errno(errp, errno, "could not get tap interface name");
+        close(fd);
+        return -1;
     }
 
     if (ifname[0] != '\0') {
         /* User requested the interface to have a specific name */
         s = socket(AF_LOCAL, SOCK_DGRAM, 0);
         if (s < 0) {
-            error_report("could not open socket to set interface name");
-            goto error;
+            error_setg_errno(errp, errno,
+                             "could not open socket to set interface name");
+            close(fd);
+            return -1;
         }
         ifr.ifr_data = ifname;
         ret = ioctl(s, SIOCSIFNAME, (void *)&ifr);
         close(s);
         if (ret < 0) {
-            error_report("could not set tap interface name");
-            goto error;
+            error_setg(errp, "could not set tap interface name");
+            close(fd);
+            return -1;
         }
     } else {
         pstrcpy(ifname, ifname_size, ifr.ifr_name);
+    }
+
+    return fd;
+}
+
+int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
+             int vnet_hdr_required, int mq_required, Error **errp)
+{
+    int fd = -1;
+
+    /* If the specified tap device already exists just use it. */
+    if (ifname[0] != '\0') {
+        char dname[100];
+        snprintf(dname, sizeof dname, "/dev/%s", ifname);
+        TFR(fd = open(dname, O_RDWR));
+        if (fd < 0 && errno != ENOENT) {
+            error_setg_errno(errp, errno, "could not open %s", dname);
+            return -1;
+        }
+    }
+
+    if (fd < 0) {
+        /* Tap device not specified or does not exist. */
+        if ((fd = tap_open_clone(ifname, ifname_size, errp)) < 0) {
+            return -1;
+        }
     }
 
     if (*vnet_hdr) {
@@ -156,14 +183,14 @@ int tap_open(char *ifname, int ifname_size, int *vnet_hdr,
         *vnet_hdr = 0;
 
         if (vnet_hdr_required && !*vnet_hdr) {
-            error_report("vnet_hdr=1 requested, but no kernel "
-                         "support for IFF_VNET_HDR available");
+            error_setg(errp, "vnet_hdr=1 requested, but no kernel "
+                       "support for IFF_VNET_HDR available");
             goto error;
         }
     }
     if (mq_required) {
-        error_report("mq_required requested, but not kernel support"
-                     "for IFF_MULTI_QUEUE available");
+        error_setg(errp, "mq_required requested, but no kernel support"
+                   " for IFF_MULTI_QUEUE available");
         goto error;
     }
 
@@ -176,9 +203,8 @@ error:
 }
 #endif /* __FreeBSD__ */
 
-int tap_set_sndbuf(int fd, const NetdevTapOptions *tap)
+void tap_set_sndbuf(int fd, const NetdevTapOptions *tap, Error **errp)
 {
-    return 0;
 }
 
 int tap_probe_vnet_hdr(int fd)
@@ -198,6 +224,16 @@ int tap_probe_vnet_hdr_len(int fd, int len)
 
 void tap_fd_set_vnet_hdr_len(int fd, int len)
 {
+}
+
+int tap_fd_set_vnet_le(int fd, int is_le)
+{
+    return -EINVAL;
+}
+
+int tap_fd_set_vnet_be(int fd, int is_be)
+{
+    return -EINVAL;
 }
 
 void tap_fd_set_offload(int fd, int csum, int tso4,

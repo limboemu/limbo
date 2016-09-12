@@ -14,7 +14,8 @@
 #ifndef HW_S390_PCI_INST_H
 #define HW_S390_PCI_INST_H
 
-#include <sysemu/dma.h>
+#include "s390-pci-bus.h"
+#include "sysemu/dma.h"
 
 /* CLP common request & response block size */
 #define CLP_BLK_SIZE 4096
@@ -103,7 +104,7 @@ typedef struct ClpRspListPci {
     uint64_t resume_token;
     uint32_t mdd;
     uint16_t max_fn;
-    uint8_t reserved2;
+    uint8_t flags;
     uint8_t entry_size;
     ClpFhListEntry fh_list[CLP_FH_LIST_NR_ENTRIES];
 } QEMU_PACKED ClpRspListPci;
@@ -230,6 +231,14 @@ typedef struct ClpReqRspQueryPciGrp {
 #define ZPCI_PCI_LS_BUSY            2
 #define ZPCI_PCI_LS_INVAL_HANDLE    3
 
+/* Modify PCI status codes */
+#define ZPCI_MOD_ST_RES_NOT_AVAIL 4
+#define ZPCI_MOD_ST_INSUF_RES     16
+#define ZPCI_MOD_ST_SEQUENCE      24
+#define ZPCI_MOD_ST_DMAAS_INVAL   28
+#define ZPCI_MOD_ST_FRAME_INVAL   32
+#define ZPCI_MOD_ST_ERROR_RECOVER 40
+
 /* Modify PCI Function Controls */
 #define ZPCI_MOD_FC_REG_INT     2
 #define ZPCI_MOD_FC_DEREG_INT   3
@@ -239,6 +248,11 @@ typedef struct ClpReqRspQueryPciGrp {
 #define ZPCI_MOD_FC_RESET_ERROR 7
 #define ZPCI_MOD_FC_RESET_BLOCK 9
 #define ZPCI_MOD_FC_SET_MEASURE 10
+
+/* Store PCI Function Controls status codes */
+#define ZPCI_STPCIFC_ST_PERM_ERROR    8
+#define ZPCI_STPCIFC_ST_INVAL_DMAAS   28
+#define ZPCI_STPCIFC_ST_ERROR_RECOVER 40
 
 /* FIB function controls */
 #define ZPCI_FIB_FC_ENABLED     0x80
@@ -277,12 +291,15 @@ typedef struct ZpciFib {
     uint32_t gd;
 } QEMU_PACKED ZpciFib;
 
+int pci_dereg_irqs(S390PCIBusDevice *pbdev);
+void pci_dereg_ioat(S390PCIBusDevice *pbdev);
 int clp_service_call(S390CPU *cpu, uint8_t r2);
 int pcilg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2);
 int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2);
 int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2);
-int pcistb_service_call(S390CPU *cpu, uint8_t r1, uint8_t r3, uint64_t gaddr);
-int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba);
-int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba);
+int pcistb_service_call(S390CPU *cpu, uint8_t r1, uint8_t r3, uint64_t gaddr,
+                        uint8_t ar);
+int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba, uint8_t ar);
+int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba, uint8_t ar);
 
 #endif

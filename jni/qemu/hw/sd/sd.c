@@ -29,10 +29,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "qemu/osdep.h"
+#include "hw/qdev.h"
 #include "hw/hw.h"
 #include "sysemu/block-backend.h"
-#include "hw/sd.h"
+#include "hw/sd/sd.h"
+#include "qapi/error.h"
 #include "qemu/bitmap.h"
+#include "hw/qdev-properties.h"
+#include "qemu/error-report.h"
+#include "qemu/timer.h"
+#include "qemu/log.h"
 
 //#define DEBUG_SD 1
 
@@ -43,7 +50,9 @@ do { fprintf(stderr, "SD: " fmt , ## __VA_ARGS__); } while (0)
 #define DPRINTF(fmt, ...) do {} while(0)
 #endif
 
-#define ACMD41_ENQUIRY_MASK 0x00ffffff
+#define ACMD41_ENQUIRY_MASK     0x00ffffff
+#define OCR_POWER_UP            0x80000000
+#define OCR_POWER_DELAY_NS      500000 /* 0.5ms */
 
 typedef enum {
     sd_r0 = 0,    /* no response */
@@ -77,9 +86,12 @@ enum SDCardStates {
 };
 
 struct SDState {
+    DeviceState parent_obj;
+
     uint32_t mode;    /* current card mode, one of SDCardModes */
     int32_t state;    /* current card state, one of SDCardStates */
     uint32_t ocr;
+    QEMUTimer *ocr_power_timer;
     uint8_t scr[8];
     uint8_t cid[16];
     uint8_t csd[16];
@@ -92,6 +104,7 @@ struct SDState {
     int32_t wpgrps_size;
     uint64_t size;
     uint32_t blk_len;
+    uint32_t multi_blk_cnt;
     uint32_t erase_start;
     uint32_t erase_end;
     uint8_t pwd[16];
@@ -111,7 +124,6 @@ struct SDState {
     qemu_irq readonly_cb;
     qemu_irq inserted_cb;
     BlockBackend *blk;
-    uint8_t *buf;
 
     bool enable;
 };
@@ -193,8 +205,17 @@ static uint16_t sd_crc16(void *message, size_t width)
 
 static void sd_set_ocr(SDState *sd)
 {
-    /* All voltages OK, card power-up OK, Standard Capacity SD Memory Card */
-    sd->ocr = 0x80ffff00;
+    /* All voltages OK, Standard Capacity SD Memory Card, not yet powered up */
+    sd->ocr = 0x00ffff00;
+}
+
+static void sd_ocr_powerup(void *opaque)
+{
+    SDState *sd = opaque;
+
+    /* Set powered up bit in OCR */
+    assert(!(sd->ocr & OCR_POWER_UP));
+    sd->ocr |= OCR_POWER_UP;
 }
 
 static void sd_set_scr(SDState *sd)
@@ -389,13 +410,14 @@ static inline uint64_t sd_addr_to_wpnum(uint64_t addr)
     return addr >> (HWBLOCK_SHIFT + SECTOR_SHIFT + WPGROUP_SHIFT);
 }
 
-static void sd_reset(SDState *sd, BlockBackend *blk)
+static void sd_reset(DeviceState *dev)
 {
+    SDState *sd = SD_CARD(dev);
     uint64_t size;
     uint64_t sect;
 
-    if (blk) {
-        blk_get_geometry(blk, &sect);
+    if (sd->blk) {
+        blk_get_geometry(sd->blk, &sect);
     } else {
         sect = 0;
     }
@@ -412,11 +434,8 @@ static void sd_reset(SDState *sd, BlockBackend *blk)
     sd_set_cardstatus(sd);
     sd_set_sdstatus(sd);
 
-    sd->blk = blk;
-
-    if (sd->wp_groups)
-        g_free(sd->wp_groups);
-    sd->wp_switch = blk ? blk_is_read_only(blk) : false;
+    g_free(sd->wp_groups);
+    sd->wp_switch = sd->blk ? blk_is_read_only(sd->blk) : false;
     sd->wpgrps_size = sect;
     sd->wp_groups = bitmap_new(sd->wpgrps_size);
     memset(sd->function_group, 0, sizeof(sd->function_group));
@@ -426,16 +445,44 @@ static void sd_reset(SDState *sd, BlockBackend *blk)
     sd->blk_len = 0x200;
     sd->pwd_len = 0;
     sd->expecting_acmd = false;
+    sd->multi_blk_cnt = 0;
+}
+
+static bool sd_get_inserted(SDState *sd)
+{
+    return sd->blk && blk_is_inserted(sd->blk);
+}
+
+static bool sd_get_readonly(SDState *sd)
+{
+    return sd->wp_switch;
 }
 
 static void sd_cardchange(void *opaque, bool load)
 {
     SDState *sd = opaque;
+    DeviceState *dev = DEVICE(sd);
+    SDBus *sdbus = SD_BUS(qdev_get_parent_bus(dev));
+    bool inserted = sd_get_inserted(sd);
+    bool readonly = sd_get_readonly(sd);
 
-    qemu_set_irq(sd->inserted_cb, blk_is_inserted(sd->blk));
-    if (blk_is_inserted(sd->blk)) {
-        sd_reset(sd, sd->blk);
-        qemu_set_irq(sd->readonly_cb, sd->wp_switch);
+    if (inserted) {
+        sd_reset(dev);
+    }
+
+    /* The IRQ notification is for legacy non-QOM SD controller devices;
+     * QOMified controllers use the SDBus APIs.
+     */
+    if (sdbus) {
+        sdbus_set_inserted(sdbus, inserted);
+        if (inserted) {
+            sdbus_set_readonly(sdbus, readonly);
+        }
+    } else {
+        qemu_set_irq(sd->inserted_cb, inserted);
+        if (inserted) {
+            qemu_set_irq(sd->readonly_cb, readonly);
+        }
     }
 }
 
@@ -443,10 +490,44 @@ static const BlockDevOps sd_block_ops = {
     .change_media_cb = sd_cardchange,
 };
 
+static bool sd_ocr_vmstate_needed(void *opaque)
+{
+    SDState *sd = opaque;
+
+    /* Include the OCR state (and timer) if it is not yet powered up */
+    return !(sd->ocr & OCR_POWER_UP);
+}
+
+static const VMStateDescription sd_ocr_vmstate = {
+    .name = "sd-card/ocr-state",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = sd_ocr_vmstate_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT32(ocr, SDState),
+        VMSTATE_TIMER_PTR(ocr_power_timer, SDState),
+        VMSTATE_END_OF_LIST()
+    },
+};
+
+static int sd_vmstate_pre_load(void *opaque)
+{
+    SDState *sd = opaque;
+
+    /* If the OCR state is not included (prior versions, or not
+     * needed), then the OCR must be set as powered up. If the OCR state
+     * is included, this will be replaced by the state restore.
+     */
+    sd_ocr_powerup(sd);
+
+    return 0;
+}
+
 static const VMStateDescription sd_vmstate = {
     .name = "sd-card",
     .version_id = 1,
     .minimum_version_id = 1,
+    .pre_load = sd_vmstate_pre_load,
     .fields = (VMStateField[]) {
         VMSTATE_UINT32(mode, SDState),
         VMSTATE_INT32(state, SDState),
@@ -458,6 +539,7 @@ static const VMStateDescription sd_vmstate = {
         VMSTATE_UINT32(vhs, SDState),
         VMSTATE_BITMAP(wp_groups, SDState, 0, wpgrps_size),
         VMSTATE_UINT32(blk_len, SDState),
+        VMSTATE_UINT32(multi_blk_cnt, SDState),
         VMSTATE_UINT32(erase_start, SDState),
         VMSTATE_UINT32(erase_end, SDState),
         VMSTATE_UINT8_ARRAY(pwd, SDState, 16),
@@ -469,36 +551,38 @@ static const VMStateDescription sd_vmstate = {
         VMSTATE_UINT64(data_start, SDState),
         VMSTATE_UINT32(data_offset, SDState),
         VMSTATE_UINT8_ARRAY(data, SDState, 512),
-        VMSTATE_BUFFER_POINTER_UNSAFE(buf, SDState, 1, 512),
+        VMSTATE_UNUSED_V(1, 512),
         VMSTATE_BOOL(enable, SDState),
         VMSTATE_END_OF_LIST()
-    }
+    },
+    .subsections = (const VMStateDescription*[]) {
+        &sd_ocr_vmstate,
+        NULL
+    },
 };
 
-/* We do not model the chip select pin, so allow the board to select
-   whether card should be in SSI or MMC/SD mode.  It is also up to the
-   board to ensure that ssi transfers only occur when the chip select
-   is asserted.  */
+/* Legacy initialization function for use by non-qdevified callers */
 SDState *sd_init(BlockBackend *blk, bool is_spi)
 {
-    SDState *sd;
+    Object *obj;
+    DeviceState *dev;
+    Error *err = NULL;
 
-    if (blk && blk_is_read_only(blk)) {
-        fprintf(stderr, "sd_init: Cannot use read-only drive\n");
+    obj = object_new(TYPE_SD_CARD);
+    dev = DEVICE(obj);
+    qdev_prop_set_drive(dev, "drive", blk, &err);
+    if (err) {
+        error_report("sd_init failed: %s", error_get_pretty(err));
+        return NULL;
+    }
+    qdev_prop_set_bit(dev, "spi", is_spi);
+    object_property_set_bool(obj, true, "realized", &err);
+    if (err) {
+        error_report("sd_init failed: %s", error_get_pretty(err));
         return NULL;
     }
 
-    sd = (SDState *) g_malloc0(sizeof(SDState));
-    sd->buf = blk_blockalign(blk, 512);
-    sd->spi = is_spi;
-    sd->enable = true;
-    sd_reset(sd, blk);
-    if (sd->blk) {
-        blk_attach_dev_nofail(sd->blk, sd);
-        blk_set_dev_ops(sd->blk, &sd_block_ops, sd);
-    }
-    vmstate_register(NULL, -1, &sd_vmstate, sd);
-    return sd;
+    return SD_CARD(dev);
 }
 
 void sd_set_cb(SDState *sd, qemu_irq readonly, qemu_irq insert)
@@ -667,8 +751,16 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
     /* Not interpreting this as an app command */
     sd->card_status &= ~APP_CMD;
 
-    if (sd_cmd_type[req.cmd] == sd_ac || sd_cmd_type[req.cmd] == sd_adtc)
+    if (sd_cmd_type[req.cmd & 0x3F] == sd_ac
+        || sd_cmd_type[req.cmd & 0x3F] == sd_adtc) {
         rca = req.arg >> 16;
+    }
+
+    /* CMD23 (set block count) must be immediately followed by CMD18 or CMD25
+     * if not, its effects are cancelled */
+    if (sd->multi_blk_cnt != 0 && !(req.cmd == 18 || req.cmd == 25)) {
+        sd->multi_blk_cnt = 0;
+    }
 
     DPRINTF("CMD%d 0x%08x state %d\n", req.cmd, req.arg, sd->state);
     switch (req.cmd) {
@@ -680,7 +772,7 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
 
         default:
             sd->state = sd_idle_state;
-            sd_reset(sd, sd->blk);
+            sd_reset(DEVICE(sd));
             return sd->spi ? sd_r1 : sd_r0;
         }
         break;
@@ -796,8 +888,9 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
             sd->vhs = 0;
 
             /* No response if not exactly one VHS bit is set.  */
-            if (!(req.arg >> 8) || (req.arg >> ffs(req.arg & ~0xff)))
+            if (!(req.arg >> 8) || (req.arg >> (ctz32(req.arg & ~0xff) + 1))) {
                 return sd->spi ? sd_r7 : sd_r0;
+            }
 
             /* Accept.  */
             sd->vhs = req.arg;
@@ -957,6 +1050,17 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
 
             if (sd->data_start + sd->blk_len > sd->size)
                 sd->card_status |= ADDRESS_ERROR;
+            return sd_r1;
+
+        default:
+            break;
+        }
+        break;
+
+    case 23:    /* CMD23: SET_BLOCK_COUNT */
+        switch (sd->state) {
+        case sd_transfer_state:
+            sd->multi_blk_cnt = req.arg;
             return sd_r1;
 
         default:
@@ -1196,16 +1300,17 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
 
     default:
     bad_cmd:
-        fprintf(stderr, "SD: Unknown CMD%i\n", req.cmd);
+        qemu_log_mask(LOG_GUEST_ERROR, "SD: Unknown CMD%i\n", req.cmd);
         return sd_illegal;
 
     unimplemented_cmd:
         /* Commands that are recognised but not yet implemented in SPI mode.  */
-        fprintf(stderr, "SD: CMD%i not implemented in SPI mode\n", req.cmd);
+        qemu_log_mask(LOG_UNIMP, "SD: CMD%i not implemented in SPI mode\n",
+                      req.cmd);
         return sd_illegal;
     }
 
-    fprintf(stderr, "SD: CMD%i in a wrong state\n", req.cmd);
+    qemu_log_mask(LOG_GUEST_ERROR, "SD: CMD%i in a wrong state\n", req.cmd);
     return sd_illegal;
 }
 
@@ -1273,9 +1378,28 @@ static sd_rsp_type_t sd_app_command(SDState *sd,
         }
         switch (sd->state) {
         case sd_idle_state:
+            /* If it's the first ACMD41 since reset, we need to decide
+             * whether to power up. If this is not an enquiry ACMD41,
+             * we immediately report power on and proceed below to the
+             * ready state, but if it is, we set a timer to model a
+             * delay for power up. This works around a bug in EDK2
+             * UEFI, which sends an initial enquiry ACMD41, but
+             * assumes that the card is in ready state as soon as it
+             * sees the power up bit set. */
+            if (!(sd->ocr & OCR_POWER_UP)) {
+                if ((req.arg & ACMD41_ENQUIRY_MASK) != 0) {
+                    timer_del(sd->ocr_power_timer);
+                    sd_ocr_powerup(sd);
+                } else if (!timer_pending(sd->ocr_power_timer)) {
+                    timer_mod_ns(sd->ocr_power_timer,
+                                 (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)
+                                  + OCR_POWER_DELAY_NS));
+                }
+            }
+
             /* We accept any voltage.  10000 V is nothing.
              *
-             * We don't model init delay so just advance straight to ready state
+             * Once we're powered up, we advance straight to ready state
              * unless it's an enquiry ACMD41 (bits 23:0 == 0).
              */
             if (req.arg & ACMD41_ENQUIRY_MASK) {
@@ -1318,7 +1442,7 @@ static sd_rsp_type_t sd_app_command(SDState *sd,
         return sd_normal_command(sd, req);
     }
 
-    fprintf(stderr, "SD: ACMD%i in a wrong state\n", req.cmd);
+    qemu_log_mask(LOG_GUEST_ERROR, "SD: ACMD%i in a wrong state\n", req.cmd);
     return sd_illegal;
 }
 
@@ -1338,7 +1462,8 @@ static int cmd_valid_while_locked(SDState *sd, SDRequest *req)
     if (req->cmd == 16 || req->cmd == 55) {
         return 1;
     }
-    return sd_cmd_class[req->cmd] == 0 || sd_cmd_class[req->cmd] == 7;
+    return sd_cmd_class[req->cmd & 0x3F] == 0
+            || sd_cmd_class[req->cmd & 0x3F] == 7;
 }
 
 int sd_do_command(SDState *sd, SDRequest *req,
@@ -1361,7 +1486,7 @@ int sd_do_command(SDState *sd, SDRequest *req,
         if (!cmd_valid_while_locked(sd, req)) {
             sd->card_status |= ILLEGAL_COMMAND;
             sd->expecting_acmd = false;
-            fprintf(stderr, "SD: Card is locked\n");
+            qemu_log_mask(LOG_GUEST_ERROR, "SD: Card is locked\n");
             rtype = sd_illegal;
             goto send_response;
         }
@@ -1452,57 +1577,17 @@ send_response:
 
 static void sd_blk_read(SDState *sd, uint64_t addr, uint32_t len)
 {
-    uint64_t end = addr + len;
-
     DPRINTF("sd_blk_read: addr = 0x%08llx, len = %d\n",
             (unsigned long long) addr, len);
-    if (!sd->blk || blk_read(sd->blk, addr >> 9, sd->buf, 1) < 0) {
+    if (!sd->blk || blk_pread(sd->blk, addr, sd->data, len) < 0) {
         fprintf(stderr, "sd_blk_read: read error on host side\n");
-        return;
     }
-
-    if (end > (addr & ~511) + 512) {
-        memcpy(sd->data, sd->buf + (addr & 511), 512 - (addr & 511));
-
-        if (blk_read(sd->blk, end >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_read: read error on host side\n");
-            return;
-        }
-        memcpy(sd->data + 512 - (addr & 511), sd->buf, end & 511);
-    } else
-        memcpy(sd->data, sd->buf + (addr & 511), len);
 }
 
 static void sd_blk_write(SDState *sd, uint64_t addr, uint32_t len)
 {
-    uint64_t end = addr + len;
-
-    if ((addr & 511) || len < 512)
-        if (!sd->blk || blk_read(sd->blk, addr >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_write: read error on host side\n");
-            return;
-        }
-
-    if (end > (addr & ~511) + 512) {
-        memcpy(sd->buf + (addr & 511), sd->data, 512 - (addr & 511));
-        if (blk_write(sd->blk, addr >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_write: write error on host side\n");
-            return;
-        }
-
-        if (blk_read(sd->blk, end >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_write: read error on host side\n");
-            return;
-        }
-        memcpy(sd->buf, sd->data + 512 - (addr & 511), end & 511);
-        if (blk_write(sd->blk, end >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_write: write error on host side\n");
-        }
-    } else {
-        memcpy(sd->buf + (addr & 511), sd->data, len);
-        if (!sd->blk || blk_write(sd->blk, addr >> 9, sd->buf, 1) < 0) {
-            fprintf(stderr, "sd_blk_write: write error on host side\n");
-        }
+    if (!sd->blk || blk_pwrite(sd->blk, addr, sd->data, len, 0) < 0) {
+        fprintf(stderr, "sd_blk_write: write error on host side\n");
     }
 }
 
@@ -1519,7 +1604,8 @@ void sd_write_data(SDState *sd, uint8_t value)
         return;
 
     if (sd->state != sd_receivingdata_state) {
-        fprintf(stderr, "sd_write_data: not in Receiving-Data state\n");
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "sd_write_data: not in Receiving-Data state\n");
         return;
     }
 
@@ -1563,6 +1649,14 @@ void sd_write_data(SDState *sd, uint8_t value)
             sd->csd[14] |= 0x40;
 
             /* Bzzzzzzztt .... Operation complete.  */
+            if (sd->multi_blk_cnt != 0) {
+                if (--sd->multi_blk_cnt == 0) {
+                    /* Stop! */
+                    sd->state = sd_transfer_state;
+                    break;
+                }
+            }
+
             sd->state = sd_receivingdata_state;
         }
         break;
@@ -1630,7 +1724,7 @@ void sd_write_data(SDState *sd, uint8_t value)
         break;
 
     default:
-        fprintf(stderr, "sd_write_data: unknown command\n");
+        qemu_log_mask(LOG_GUEST_ERROR, "sd_write_data: unknown command\n");
         break;
     }
 }
@@ -1645,7 +1739,8 @@ uint8_t sd_read_data(SDState *sd)
         return 0x00;
 
     if (sd->state != sd_sendingdata_state) {
-        fprintf(stderr, "sd_read_data: not in Sending-Data state\n");
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "sd_read_data: not in Sending-Data state\n");
         return 0x00;
     }
 
@@ -1709,6 +1804,15 @@ uint8_t sd_read_data(SDState *sd)
         if (sd->data_offset >= io_len) {
             sd->data_start += io_len;
             sd->data_offset = 0;
+
+            if (sd->multi_blk_cnt != 0) {
+                if (--sd->multi_blk_cnt == 0) {
+                    /* Stop! */
+                    sd->state = sd_transfer_state;
+                    break;
+                }
+            }
+
             if (sd->data_start + io_len > sd->size) {
                 sd->card_status |= ADDRESS_ERROR;
                 break;
@@ -1747,7 +1851,7 @@ uint8_t sd_read_data(SDState *sd)
         break;
 
     default:
-        fprintf(stderr, "sd_read_data: unknown command\n");
+        qemu_log_mask(LOG_GUEST_ERROR, "sd_read_data: unknown command\n");
         return 0x00;
     }
 
@@ -1763,3 +1867,71 @@ void sd_enable(SDState *sd, bool enable)
 {
     sd->enable = enable;
 }
+
+static void sd_instance_init(Object *obj)
+{
+    SDState *sd = SD_CARD(obj);
+
+    sd->enable = true;
+    sd->ocr_power_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sd_ocr_powerup, sd);
+}
+
+static void sd_realize(DeviceState *dev, Error **errp)
+{
+    SDState *sd = SD_CARD(dev);
+
+    if (sd->blk && blk_is_read_only(sd->blk)) {
+        error_setg(errp, "Cannot use read-only drive as SD card");
+        return;
+    }
+
+    if (sd->blk) {
+        blk_set_dev_ops(sd->blk, &sd_block_ops, sd);
+    }
+}
+
+static Property sd_properties[] = {
+    DEFINE_PROP_DRIVE("drive", SDState, blk),
+    /* We do not model the chip select pin, so allow the board to select
+     * whether card should be in SSI or MMC/SD mode.  It is also up to the
+     * board to ensure that ssi transfers only occur when the chip select
+     * is asserted.  */
+    DEFINE_PROP_BOOL("spi", SDState, spi, false),
+    DEFINE_PROP_END_OF_LIST()
+};
+
+static void sd_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+    SDCardClass *sc = SD_CARD_CLASS(klass);
+
+    dc->realize = sd_realize;
+    dc->props = sd_properties;
+    dc->vmsd = &sd_vmstate;
+    dc->reset = sd_reset;
+    dc->bus_type = TYPE_SD_BUS;
+
+    sc->do_command = sd_do_command;
+    sc->write_data = sd_write_data;
+    sc->read_data = sd_read_data;
+    sc->data_ready = sd_data_ready;
+    sc->enable = sd_enable;
+    sc->get_inserted = sd_get_inserted;
+    sc->get_readonly = sd_get_readonly;
+}
+
+static const TypeInfo sd_info = {
+    .name = TYPE_SD_CARD,
+    .parent = TYPE_DEVICE,
+    .instance_size = sizeof(SDState),
+    .class_size = sizeof(SDCardClass),
+    .class_init = sd_class_init,
+    .instance_init = sd_instance_init,
+};
+
+static void sd_register_types(void)
+{
+    type_register_static(&sd_info);
+}
+
+type_init(sd_register_types)

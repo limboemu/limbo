@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <unistd.h>
@@ -110,4 +114,36 @@ int mii_reset ( struct mii_interface *mii ) {
 
 	DBGC ( mii, "MII %p timed out waiting for reset\n", mii );
 	return -ETIMEDOUT;
+}
+
+/**
+ * Update link status via MII
+ *
+ * @v mii		MII interface
+ * @v netdev		Network device
+ * @ret rc		Return status code
+ */
+int mii_check_link ( struct mii_interface *mii, struct net_device *netdev ) {
+	int bmsr;
+	int link;
+	int rc;
+
+	/* Read BMSR */
+	bmsr = mii_read ( mii, MII_BMSR );
+	if ( bmsr < 0 ) {
+		rc = bmsr;
+		return rc;
+	}
+
+	/* Report link status */
+	link = ( bmsr & BMSR_LSTATUS );
+	DBGC ( mii, "MII %p link %s (BMSR %#04x)\n",
+	       mii, ( link ? "up" : "down" ), bmsr );
+	if ( link ) {
+		netdev_link_up ( netdev );
+	} else {
+		netdev_link_down ( netdev );
+	}
+
+	return 0;
 }

@@ -7,12 +7,11 @@
  * See the COPYING.LIB file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "qapi/qmp/qstring.h"
 #include "qemu/config-file.h"
 
-#include <glib.h>
-#include <string.h>
 
 static QemuOptsList opts_list_01 = {
     .name = "opts_list_01",
@@ -323,7 +322,7 @@ static void test_qemu_opt_unset(void)
     int ret;
 
     /* dynamically initialized (parsed) opts */
-    opts = qemu_opts_parse(&opts_list_03, "key=value", 0);
+    opts = qemu_opts_parse(&opts_list_03, "key=value", false, NULL);
     g_assert(opts != NULL);
 
     /* check default/parsed value */

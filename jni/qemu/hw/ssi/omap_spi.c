@@ -19,6 +19,7 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/arm/omap.h"
 
@@ -342,8 +343,7 @@ static const MemoryRegionOps omap_mcspi_ops = {
 struct omap_mcspi_s *omap_mcspi_init(struct omap_target_agent_s *ta, int chnum,
                 qemu_irq irq, qemu_irq *drq, omap_clk fclk, omap_clk iclk)
 {
-    struct omap_mcspi_s *s = (struct omap_mcspi_s *)
-            g_malloc0(sizeof(struct omap_mcspi_s));
+    struct omap_mcspi_s *s = g_new0(struct omap_mcspi_s, 1);
     struct omap_mcspi_ch_s *ch = s->ch;
 
     s->irq = irq;

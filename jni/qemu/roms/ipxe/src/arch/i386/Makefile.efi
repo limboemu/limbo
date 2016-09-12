@@ -8,6 +8,10 @@ ELF2EFI		= $(ELF2EFI32)
 #
 CFLAGS		+= -malign-double
 
+# Specify EFI boot file
+#
+EFI_BOOT_FILE	= bootia32.efi
+
 # Include generic EFI Makefile
 #
 MAKEDEPS	+= arch/x86/Makefile.efi

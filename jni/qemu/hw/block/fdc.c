@@ -27,8 +27,10 @@
  * way. There are changes in DOR register and DMA is not available.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/block/fdc.h"
+#include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "qemu/timer.h"
 #include "hw/isa/isa.h"
@@ -40,14 +42,15 @@
 
 /********************************************************/
 /* debug Floppy devices */
-//#define DEBUG_FLOPPY
 
-#ifdef DEBUG_FLOPPY
+#define DEBUG_FLOPPY 0
+
 #define FLOPPY_DPRINTF(fmt, ...)                                \
-    do { printf("FLOPPY: " fmt , ## __VA_ARGS__); } while (0)
-#else
-#define FLOPPY_DPRINTF(fmt, ...)
-#endif
+    do {                                                        \
+        if (DEBUG_FLOPPY) {                                     \
+            fprintf(stderr, "FLOPPY: " fmt , ## __VA_ARGS__);   \
+        }                                                       \
+    } while (0)
 
 /********************************************************/
 /* Floppy drive emulation                               */
@@ -59,104 +62,82 @@ typedef enum FDriveRate {
     FDRIVE_RATE_1M   = 0x03,  /*   1 Mbps */
 } FDriveRate;
 
+typedef enum FDriveSize {
+    FDRIVE_SIZE_UNKNOWN,
+    FDRIVE_SIZE_350,
+    FDRIVE_SIZE_525,
+} FDriveSize;
+
 typedef struct FDFormat {
-    FDriveType drive;
+    FloppyDriveType drive;
     uint8_t last_sect;
     uint8_t max_track;
     uint8_t max_head;
     FDriveRate rate;
 } FDFormat;
 
+/* In many cases, the total sector size of a format is enough to uniquely
+ * identify it. However, there are some total sector collisions between
+ * formats of different physical size, and these are noted below by
+ * highlighting the total sector size for entries with collisions. */
 static const FDFormat fd_formats[] = {
     /* First entry is default format */
     /* 1.44 MB 3"1/2 floppy disks */
-    { FDRIVE_DRV_144, 18, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 20, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 21, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 21, 82, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 21, 83, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 22, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 23, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_144, 24, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 18, 80, 1, FDRIVE_RATE_500K, }, /* 3.5" 2880 */
+    { FLOPPY_DRIVE_TYPE_144, 20, 80, 1, FDRIVE_RATE_500K, }, /* 3.5" 3200 */
+    { FLOPPY_DRIVE_TYPE_144, 21, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 21, 82, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 21, 83, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 22, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 23, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_144, 24, 80, 1, FDRIVE_RATE_500K, },
     /* 2.88 MB 3"1/2 floppy disks */
-    { FDRIVE_DRV_288, 36, 80, 1, FDRIVE_RATE_1M, },
-    { FDRIVE_DRV_288, 39, 80, 1, FDRIVE_RATE_1M, },
-    { FDRIVE_DRV_288, 40, 80, 1, FDRIVE_RATE_1M, },
-    { FDRIVE_DRV_288, 44, 80, 1, FDRIVE_RATE_1M, },
-    { FDRIVE_DRV_288, 48, 80, 1, FDRIVE_RATE_1M, },
+    { FLOPPY_DRIVE_TYPE_288, 36, 80, 1, FDRIVE_RATE_1M, },
+    { FLOPPY_DRIVE_TYPE_288, 39, 80, 1, FDRIVE_RATE_1M, },
+    { FLOPPY_DRIVE_TYPE_288, 40, 80, 1, FDRIVE_RATE_1M, },
+    { FLOPPY_DRIVE_TYPE_288, 44, 80, 1, FDRIVE_RATE_1M, },
+    { FLOPPY_DRIVE_TYPE_288, 48, 80, 1, FDRIVE_RATE_1M, },
     /* 720 kB 3"1/2 floppy disks */
-    { FDRIVE_DRV_144,  9, 80, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_144, 10, 80, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_144, 10, 82, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_144, 10, 83, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_144, 13, 80, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_144, 14, 80, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144,  9, 80, 1, FDRIVE_RATE_250K, }, /* 3.5" 1440 */
+    { FLOPPY_DRIVE_TYPE_144, 10, 80, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144, 10, 82, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144, 10, 83, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144, 13, 80, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144, 14, 80, 1, FDRIVE_RATE_250K, },
     /* 1.2 MB 5"1/4 floppy disks */
-    { FDRIVE_DRV_120, 15, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_120, 18, 80, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_120, 18, 82, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_120, 18, 83, 1, FDRIVE_RATE_500K, },
-    { FDRIVE_DRV_120, 20, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_120, 15, 80, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_120, 18, 80, 1, FDRIVE_RATE_500K, }, /* 5.25" 2880 */
+    { FLOPPY_DRIVE_TYPE_120, 18, 82, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_120, 18, 83, 1, FDRIVE_RATE_500K, },
+    { FLOPPY_DRIVE_TYPE_120, 20, 80, 1, FDRIVE_RATE_500K, }, /* 5.25" 3200 */
     /* 720 kB 5"1/4 floppy disks */
-    { FDRIVE_DRV_120,  9, 80, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_120, 11, 80, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_120,  9, 80, 1, FDRIVE_RATE_250K, }, /* 5.25" 1440 */
+    { FLOPPY_DRIVE_TYPE_120, 11, 80, 1, FDRIVE_RATE_250K, },
     /* 360 kB 5"1/4 floppy disks */
-    { FDRIVE_DRV_120,  9, 40, 1, FDRIVE_RATE_300K, },
-    { FDRIVE_DRV_120,  9, 40, 0, FDRIVE_RATE_300K, },
-    { FDRIVE_DRV_120, 10, 41, 1, FDRIVE_RATE_300K, },
-    { FDRIVE_DRV_120, 10, 42, 1, FDRIVE_RATE_300K, },
+    { FLOPPY_DRIVE_TYPE_120,  9, 40, 1, FDRIVE_RATE_300K, }, /* 5.25" 720 */
+    { FLOPPY_DRIVE_TYPE_120,  9, 40, 0, FDRIVE_RATE_300K, },
+    { FLOPPY_DRIVE_TYPE_120, 10, 41, 1, FDRIVE_RATE_300K, },
+    { FLOPPY_DRIVE_TYPE_120, 10, 42, 1, FDRIVE_RATE_300K, },
     /* 320 kB 5"1/4 floppy disks */
-    { FDRIVE_DRV_120,  8, 40, 1, FDRIVE_RATE_250K, },
-    { FDRIVE_DRV_120,  8, 40, 0, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_120,  8, 40, 1, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_120,  8, 40, 0, FDRIVE_RATE_250K, },
     /* 360 kB must match 5"1/4 better than 3"1/2... */
-    { FDRIVE_DRV_144,  9, 80, 0, FDRIVE_RATE_250K, },
+    { FLOPPY_DRIVE_TYPE_144,  9, 80, 0, FDRIVE_RATE_250K, }, /* 3.5" 720 */
     /* end */
-    { FDRIVE_DRV_NONE, -1, -1, 0, 0, },
+    { FLOPPY_DRIVE_TYPE_NONE, -1, -1, 0, 0, },
 };
 
-static void pick_geometry(BlockBackend *blk, int *nb_heads,
-                          int *max_track, int *last_sect,
-                          FDriveType drive_in, FDriveType *drive,
-                          FDriveRate *rate)
+static FDriveSize drive_size(FloppyDriveType drive)
 {
-    const FDFormat *parse;
-    uint64_t nb_sectors, size;
-    int i, first_match, match;
-
-    blk_get_geometry(blk, &nb_sectors);
-    match = -1;
-    first_match = -1;
-    for (i = 0; ; i++) {
-        parse = &fd_formats[i];
-        if (parse->drive == FDRIVE_DRV_NONE) {
-            break;
-        }
-        if (drive_in == parse->drive ||
-            drive_in == FDRIVE_DRV_NONE) {
-            size = (parse->max_head + 1) * parse->max_track *
-                parse->last_sect;
-            if (nb_sectors == size) {
-                match = i;
-                break;
-            }
-            if (first_match == -1) {
-                first_match = i;
-            }
-        }
+    switch (drive) {
+    case FLOPPY_DRIVE_TYPE_120:
+        return FDRIVE_SIZE_525;
+    case FLOPPY_DRIVE_TYPE_144:
+    case FLOPPY_DRIVE_TYPE_288:
+        return FDRIVE_SIZE_350;
+    default:
+        return FDRIVE_SIZE_UNKNOWN;
     }
-    if (match == -1) {
-        if (first_match == -1) {
-            match = 1;
-        } else {
-            match = first_match;
-        }
-        parse = &fd_formats[match];
-    }
-    *nb_heads = parse->max_head + 1;
-    *max_track = parse->max_track;
-    *last_sect = parse->last_sect;
-    *drive = parse->drive;
-    *rate = parse->rate;
 }
 
 #define GET_CUR_DRV(fdctrl) ((fdctrl)->cur_drv)
@@ -178,13 +159,14 @@ typedef struct FDrive {
     FDCtrl *fdctrl;
     BlockBackend *blk;
     /* Drive status */
-    FDriveType drive;
+    FloppyDriveType drive;    /* CMOS drive type        */
     uint8_t perpendicular;    /* 2.88 MB access mode    */
     /* Position */
     uint8_t head;
     uint8_t track;
     uint8_t sect;
     /* Media */
+    FloppyDriveType disk;     /* Current disk type      */
     FDiskFlags flags;
     uint8_t last_sect;        /* Nb sector per track    */
     uint8_t max_track;        /* Nb of tracks           */
@@ -192,16 +174,38 @@ typedef struct FDrive {
     uint8_t ro;               /* Is read-only           */
     uint8_t media_changed;    /* Is media changed       */
     uint8_t media_rate;       /* Data rate of medium    */
+
+    bool media_validated;     /* Have we validated the media? */
 } FDrive;
+
+
+static FloppyDriveType get_fallback_drive_type(FDrive *drv);
+
+/* Hack: FD_SEEK is expected to work on empty drives. However, QEMU
+ * currently goes through some pains to keep seeks within the bounds
+ * established by last_sect and max_track. Correcting this is difficult,
+ * as refactoring FDC code tends to expose nasty bugs in the Linux kernel.
+ *
+ * For now: allow empty drives to have large bounds so we can seek around,
+ * with the understanding that when a diskette is inserted, the bounds will
+ * properly tighten to match the geometry of that inserted medium.
+ */
+static void fd_empty_seek_hack(FDrive *drv)
+{
+    drv->last_sect = 0xFF;
+    drv->max_track = 0xFF;
+}
 
 static void fd_init(FDrive *drv)
 {
     /* Drive */
-    drv->drive = FDRIVE_DRV_NONE;
     drv->perpendicular = 0;
     /* Disk */
+    drv->disk = FLOPPY_DRIVE_TYPE_NONE;
     drv->last_sect = 0;
     drv->max_track = 0;
+    drv->ro = true;
+    drv->media_changed = 1;
 }
 
 #define NUM_SIDES(drv) ((drv)->flags & FDISK_DBL_SIDES ? 2 : 1)
@@ -217,6 +221,13 @@ static int fd_sector(FDrive *drv)
 {
     return fd_sector_calc(drv->head, drv->track, drv->sect, drv->last_sect,
                           NUM_SIDES(drv));
+}
+
+/* Returns current position, in bytes, for given drive */
+static int fd_offset(FDrive *drv)
+{
+    g_assert(fd_sector(drv) < INT_MAX >> BDRV_SECTOR_BITS);
+    return fd_sector(drv) << BDRV_SECTOR_BITS;
 }
 
 /* Seek to a new position:
@@ -284,39 +295,149 @@ static void fd_recalibrate(FDrive *drv)
     fd_seek(drv, 0, 0, 1, 1);
 }
 
+/**
+ * Determine geometry based on inserted diskette.
+ * Will not operate on an empty drive.
+ *
+ * @return: 0 on success, -1 if the drive is empty.
+ */
+static int pick_geometry(FDrive *drv)
+{
+    BlockBackend *blk = drv->blk;
+    const FDFormat *parse;
+    uint64_t nb_sectors, size;
+    int i;
+    int match, size_match, type_match;
+    bool magic = drv->drive == FLOPPY_DRIVE_TYPE_AUTO;
+
+    /* We can only pick a geometry if we have a diskette. */
+    if (!drv->blk || !blk_is_inserted(drv->blk) ||
+        drv->drive == FLOPPY_DRIVE_TYPE_NONE)
+    {
+        return -1;
+    }
+
+    /* We need to determine the likely geometry of the inserted medium.
+     * In order of preference, we look for:
+     * (1) The same drive type and number of sectors,
+     * (2) The same diskette size and number of sectors,
+     * (3) The same drive type.
+     *
+     * In all cases, matches that occur higher in the drive table will take
+     * precedence over matches that occur later in the table.
+     */
+    blk_get_geometry(blk, &nb_sectors);
+    match = size_match = type_match = -1;
+    for (i = 0; ; i++) {
+        parse = &fd_formats[i];
+        if (parse->drive == FLOPPY_DRIVE_TYPE_NONE) {
+            break;
+        }
+        size = (parse->max_head + 1) * parse->max_track * parse->last_sect;
+        if (nb_sectors == size) {
+            if (magic || parse->drive == drv->drive) {
+                /* (1) perfect match -- nb_sectors and drive type */
+                goto out;
+            } else if (drive_size(parse->drive) == drive_size(drv->drive)) {
+                /* (2) size match -- nb_sectors and physical medium size */
+                match = (match == -1) ? i : match;
+            } else {
+                /* This is suspicious -- Did the user misconfigure? */
+                size_match = (size_match == -1) ? i : size_match;
+            }
+        } else if (type_match == -1) {
+            if ((parse->drive == drv->drive) ||
+                (magic && (parse->drive == get_fallback_drive_type(drv)))) {
+                /* (3) type match -- nb_sectors mismatch, but matches the type
+                 *     specified explicitly by the user, or matches the fallback
+                 *     default type when using the drive autodetect mechanism */
+                type_match = i;
+            }
+        }
+    }
+
+    /* No exact match found */
+    if (match == -1) {
+        if (size_match != -1) {
+            parse = &fd_formats[size_match];
+            FLOPPY_DPRINTF("User requested floppy drive type '%s', "
+                           "but inserted medium appears to be a "
+                           "%"PRId64" sector '%s' type\n",
+                           FloppyDriveType_lookup[drv->drive],
+                           nb_sectors,
+                           FloppyDriveType_lookup[parse->drive]);
+        }
+        match = type_match;
+    }
+
+    /* No match of any kind found -- fd_format is misconfigured, abort. */
+    if (match == -1) {
+        error_setg(&error_abort, "No candidate geometries present in table "
+                   " for floppy drive type '%s'",
+                   FloppyDriveType_lookup[drv->drive]);
+    }
+
+    parse = &(fd_formats[match]);
+
+ out:
+    if (parse->max_head == 0) {
+        drv->flags &= ~FDISK_DBL_SIDES;
+    } else {
+        drv->flags |= FDISK_DBL_SIDES;
+    }
+    drv->max_track = parse->max_track;
+    drv->last_sect = parse->last_sect;
+    drv->disk = parse->drive;
+    drv->media_rate = parse->rate;
+    return 0;
+}
+
+static void pick_drive_type(FDrive *drv)
+{
+    if (drv->drive != FLOPPY_DRIVE_TYPE_AUTO) {
+        return;
+    }
+
+    if (pick_geometry(drv) == 0) {
+        drv->drive = drv->disk;
+    } else {
+        drv->drive = get_fallback_drive_type(drv);
+    }
+
+    g_assert(drv->drive != FLOPPY_DRIVE_TYPE_AUTO);
+}
+
 /* Revalidate a disk drive after a disk change */
 static void fd_revalidate(FDrive *drv)
 {
-    int nb_heads, max_track, last_sect, ro;
-    FDriveType drive;
-    FDriveRate rate;
+    int rc;
 
     FLOPPY_DPRINTF("revalidate\n");
     if (drv->blk != NULL) {
-        ro = blk_is_read_only(drv->blk);
-        pick_geometry(drv->blk, &nb_heads, &max_track,
-                      &last_sect, drv->drive, &drive, &rate);
+        drv->ro = blk_is_read_only(drv->blk);
         if (!blk_is_inserted(drv->blk)) {
             FLOPPY_DPRINTF("No disk in drive\n");
-        } else {
-            FLOPPY_DPRINTF("Floppy disk (%d h %d t %d s) %s\n", nb_heads,
-                           max_track, last_sect, ro ? "ro" : "rw");
+            drv->disk = FLOPPY_DRIVE_TYPE_NONE;
+            fd_empty_seek_hack(drv);
+        } else if (!drv->media_validated) {
+            rc = pick_geometry(drv);
+            if (rc) {
+                FLOPPY_DPRINTF("Could not validate floppy drive media");
+            } else {
+                drv->media_validated = true;
+                FLOPPY_DPRINTF("Floppy disk (%d h %d t %d s) %s\n",
+                               (drv->flags & FDISK_DBL_SIDES) ? 2 : 1,
+                               drv->max_track, drv->last_sect,
+                               drv->ro ? "ro" : "rw");
+            }
         }
-        if (nb_heads == 1) {
-            drv->flags &= ~FDISK_DBL_SIDES;
-        } else {
-            drv->flags |= FDISK_DBL_SIDES;
-        }
-        drv->max_track = max_track;
-        drv->last_sect = last_sect;
-        drv->ro = ro;
-        drv->drive = drive;
-        drv->media_rate = rate;
     } else {
         FLOPPY_DPRINTF("No drive connected\n");
         drv->last_sect = 0;
         drv->max_track = 0;
         drv->flags &= ~FDISK_DBL_SIDES;
+        drv->drive = FLOPPY_DRIVE_TYPE_NONE;
+        drv->disk = FLOPPY_DRIVE_TYPE_NONE;
     }
 }
 
@@ -324,7 +445,7 @@ static void fd_revalidate(FDrive *drv)
 /* Intel 82078 floppy disk controller emulation          */
 
 static void fdctrl_reset(FDCtrl *fdctrl, int do_irq);
-static void fdctrl_reset_fifo(FDCtrl *fdctrl);
+static void fdctrl_to_command_phase(FDCtrl *fdctrl);
 static int fdctrl_transfer_handler (void *opaque, int nchan,
                                     int dma_pos, int dma_len);
 static void fdctrl_raise_irq(FDCtrl *fdctrl);
@@ -495,6 +616,33 @@ enum {
     FD_DIR_DSKCHG   = 0x80,
 };
 
+/*
+ * See chapter 5.0 "Controller phases" of the spec:
+ *
+ * Command phase:
+ * The host writes a command and its parameters into the FIFO. The command
+ * phase is completed when all parameters for the command have been supplied,
+ * and execution phase is entered.
+ *
+ * Execution phase:
+ * Data transfers, either DMA or non-DMA. For non-DMA transfers, the FIFO
+ * contains the payload now, otherwise it's unused. When all bytes of the
+ * required data have been transferred, the state is switched to either result
+ * phase (if the command produces status bytes) or directly back into the
+ * command phase for the next command.
+ *
+ * Result phase:
+ * The host reads out the FIFO, which contains one or more result bytes now.
+ */
+enum {
+    /* Only for migration: reconstruct phase from registers like qemu 2.3 */
+    FD_PHASE_RECONSTRUCT    = 0,
+
+    FD_PHASE_COMMAND        = 1,
+    FD_PHASE_EXECUTION      = 2,
+    FD_PHASE_RESULT         = 3,
+};
+
 #define FD_MULTI_TRACK(state) ((state) & FD_STATE_MULTI)
 #define FD_FORMAT_CMD(state) ((state) & FD_STATE_FORMAT)
 
@@ -504,6 +652,8 @@ struct FDCtrl {
     /* Controller state */
     QEMUTimer *result_timer;
     int dma_chann;
+    uint8_t phase;
+    IsaDma *dma;
     /* Controller's identification */
     uint8_t version;
     /* HW */
@@ -535,15 +685,19 @@ struct FDCtrl {
     uint8_t pwrd;
     /* Floppy drives */
     uint8_t num_floppies;
-    /* Sun4m quirks? */
-    int sun4m;
     FDrive drives[MAX_FD];
     int reset_sensei;
     uint32_t check_media_rate;
+    FloppyDriveType fallback; /* type=auto failure fallback */
     /* Timers state */
     uint8_t timer0;
     uint8_t timer1;
 };
+
+static FloppyDriveType get_fallback_drive_type(FDrive *drv)
+{
+    return drv->fdctrl->fallback;
+}
 
 #define TYPE_SYSBUS_FDC "base-sysbus-fdc"
 #define SYSBUS_FDC(obj) OBJECT_CHECK(FDCtrlSysBus, (obj), TYPE_SYSBUS_FDC)
@@ -673,6 +827,7 @@ static const VMStateDescription vmstate_fdrive_media_changed = {
     .name = "fdrive/media_changed",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = fdrive_media_changed_needed,
     .fields = (VMStateField[]) {
         VMSTATE_UINT8(media_changed, FDrive),
         VMSTATE_END_OF_LIST()
@@ -690,6 +845,7 @@ static const VMStateDescription vmstate_fdrive_media_rate = {
     .name = "fdrive/media_rate",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = fdrive_media_rate_needed,
     .fields = (VMStateField[]) {
         VMSTATE_UINT8(media_rate, FDrive),
         VMSTATE_END_OF_LIST()
@@ -707,6 +863,7 @@ static const VMStateDescription vmstate_fdrive_perpendicular = {
     .name = "fdrive/perpendicular",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = fdrive_perpendicular_needed,
     .fields = (VMStateField[]) {
         VMSTATE_UINT8(perpendicular, FDrive),
         VMSTATE_END_OF_LIST()
@@ -730,21 +887,35 @@ static const VMStateDescription vmstate_fdrive = {
         VMSTATE_UINT8(sect, FDrive),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection[]) {
-        {
-            .vmsd = &vmstate_fdrive_media_changed,
-            .needed = &fdrive_media_changed_needed,
-        } , {
-            .vmsd = &vmstate_fdrive_media_rate,
-            .needed = &fdrive_media_rate_needed,
-        } , {
-            .vmsd = &vmstate_fdrive_perpendicular,
-            .needed = &fdrive_perpendicular_needed,
-        } , {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_fdrive_media_changed,
+        &vmstate_fdrive_media_rate,
+        &vmstate_fdrive_perpendicular,
+        NULL
     }
 };
+
+/*
+ * Reconstructs the phase from register values according to the logic that was
+ * implemented in qemu 2.3. This is the default value that is used if the phase
+ * subsection is not present on migration.
+ *
+ * Don't change this function to reflect newer qemu versions, it is part of
+ * the migration ABI.
+ */
+static int reconstruct_phase(FDCtrl *fdctrl)
+{
+    if (fdctrl->msr & FD_MSR_NONDMA) {
+        return FD_PHASE_EXECUTION;
+    } else if ((fdctrl->msr & FD_MSR_RQM) == 0) {
+        /* qemu 2.3 disabled RQM only during DMA transfers */
+        return FD_PHASE_EXECUTION;
+    } else if (fdctrl->msr & FD_MSR_DIO) {
+        return FD_PHASE_RESULT;
+    } else {
+        return FD_PHASE_COMMAND;
+    }
+}
 
 static void fdc_pre_save(void *opaque)
 {
@@ -753,12 +924,24 @@ static void fdc_pre_save(void *opaque)
     s->dor_vmstate = s->dor | GET_CUR_DRV(s);
 }
 
+static int fdc_pre_load(void *opaque)
+{
+    FDCtrl *s = opaque;
+    s->phase = FD_PHASE_RECONSTRUCT;
+    return 0;
+}
+
 static int fdc_post_load(void *opaque, int version_id)
 {
     FDCtrl *s = opaque;
 
     SET_CUR_DRV(s, s->dor_vmstate & FD_DOR_SELMASK);
     s->dor = s->dor_vmstate & ~FD_DOR_SELMASK;
+
+    if (s->phase == FD_PHASE_RECONSTRUCT) {
+        s->phase = reconstruct_phase(s);
+    }
+
     return 0;
 }
 
@@ -773,6 +956,7 @@ static const VMStateDescription vmstate_fdc_reset_sensei = {
     .name = "fdc/reset_sensei",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = fdc_reset_sensei_needed,
     .fields = (VMStateField[]) {
         VMSTATE_INT32(reset_sensei, FDCtrl),
         VMSTATE_END_OF_LIST()
@@ -790,8 +974,27 @@ static const VMStateDescription vmstate_fdc_result_timer = {
     .name = "fdc/result_timer",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = fdc_result_timer_needed,
     .fields = (VMStateField[]) {
         VMSTATE_TIMER_PTR(result_timer, FDCtrl),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static bool fdc_phase_needed(void *opaque)
+{
+    FDCtrl *fdctrl = opaque;
+
+    return reconstruct_phase(fdctrl) != fdctrl->phase;
+}
+
+static const VMStateDescription vmstate_fdc_phase = {
+    .name = "fdc/phase",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = fdc_phase_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT8(phase, FDCtrl),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -801,6 +1004,7 @@ static const VMStateDescription vmstate_fdc = {
     .version_id = 2,
     .minimum_version_id = 2,
     .pre_save = fdc_pre_save,
+    .pre_load = fdc_pre_load,
     .post_load = fdc_post_load,
     .fields = (VMStateField[]) {
         /* Controller State */
@@ -833,16 +1037,11 @@ static const VMStateDescription vmstate_fdc = {
                              vmstate_fdrive, FDrive),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection[]) {
-        {
-            .vmsd = &vmstate_fdc_reset_sensei,
-            .needed = fdc_reset_sensei_needed,
-        } , {
-            .vmsd = &vmstate_fdc_result_timer,
-            .needed = fdc_result_timer_needed,
-        } , {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_fdc_reset_sensei,
+        &vmstate_fdc_result_timer,
+        &vmstate_fdc_phase,
+        NULL
     }
 };
 
@@ -885,13 +1084,6 @@ static void fdctrl_reset_irq(FDCtrl *fdctrl)
 
 static void fdctrl_raise_irq(FDCtrl *fdctrl)
 {
-    /* Sparc mutation */
-    if (fdctrl->sun4m && (fdctrl->msr & FD_MSR_CMDBUSY)) {
-        /* XXX: not sure */
-        fdctrl->msr &= ~FD_MSR_CMDBUSY;
-        fdctrl->msr |= FD_MSR_RQM | FD_MSR_DIO;
-        return;
-    }
     if (!(fdctrl->sra & FD_SRA_INTPEND)) {
         qemu_set_irq(fdctrl->irq, 1);
         fdctrl->sra |= FD_SRA_INTPEND;
@@ -927,7 +1119,7 @@ static void fdctrl_reset(FDCtrl *fdctrl, int do_irq)
     fdctrl->data_dir = FD_DIR_WRITE;
     for (i = 0; i < MAX_FD; i++)
         fd_recalibrate(&fdctrl->drives[i]);
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
     if (do_irq) {
         fdctrl->status0 |= FD_SR0_RDYCHG;
         fdctrl_raise_irq(fdctrl);
@@ -1080,12 +1272,6 @@ static uint32_t fdctrl_read_main_status(FDCtrl *fdctrl)
     fdctrl->dsr &= ~FD_DSR_PWRDOWN;
     fdctrl->dor |= FD_DOR_nRESET;
 
-    /* Sparc mutation */
-    if (fdctrl->sun4m) {
-        retval |= FD_MSR_DIO;
-        fdctrl_reset_irq(fdctrl);
-    };
-
     FLOPPY_DPRINTF("main status register: 0x%02x\n", retval);
 
     return retval;
@@ -1149,17 +1335,22 @@ static uint32_t fdctrl_read_dir(FDCtrl *fdctrl)
     return retval;
 }
 
-/* FIFO state control */
-static void fdctrl_reset_fifo(FDCtrl *fdctrl)
+/* Clear the FIFO and update the state for receiving the next command */
+static void fdctrl_to_command_phase(FDCtrl *fdctrl)
 {
+    fdctrl->phase = FD_PHASE_COMMAND;
     fdctrl->data_dir = FD_DIR_WRITE;
     fdctrl->data_pos = 0;
+    fdctrl->data_len = 1; /* Accept command byte, adjust for params later */
     fdctrl->msr &= ~(FD_MSR_CMDBUSY | FD_MSR_DIO);
+    fdctrl->msr |= FD_MSR_RQM;
 }
 
-/* Set FIFO status for the host to read */
-static void fdctrl_set_fifo(FDCtrl *fdctrl, int fifo_len)
+/* Update the state to allow the guest to read out the command status.
+ * @fifo_len is the number of result bytes to be read out. */
+static void fdctrl_to_result_phase(FDCtrl *fdctrl, int fifo_len)
 {
+    fdctrl->phase = FD_PHASE_RESULT;
     fdctrl->data_dir = FD_DIR_READ;
     fdctrl->data_len = fifo_len;
     fdctrl->data_pos = 0;
@@ -1172,7 +1363,7 @@ static void fdctrl_unimplemented(FDCtrl *fdctrl, int direction)
     qemu_log_mask(LOG_UNIMP, "fdc: unimplemented command 0x%02x\n",
                   fdctrl->fifo[0]);
     fdctrl->fifo[0] = FD_SR0_INVCMD;
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 /* Seek to next sector
@@ -1248,12 +1439,13 @@ static void fdctrl_stop_transfer(FDCtrl *fdctrl, uint8_t status0,
     fdctrl->fifo[6] = FD_SECTOR_SC;
     fdctrl->data_dir = FD_DIR_READ;
     if (!(fdctrl->msr & FD_MSR_NONDMA)) {
-        DMA_release_DREQ(fdctrl->dma_chann);
+        IsaDmaClass *k = ISADMA_GET_CLASS(fdctrl->dma);
+        k->release_DREQ(fdctrl->dma, fdctrl->dma_chann);
     }
     fdctrl->msr |= FD_MSR_RQM | FD_MSR_DIO;
     fdctrl->msr &= ~FD_MSR_NONDMA;
 
-    fdctrl_set_fifo(fdctrl, 7);
+    fdctrl_to_result_phase(fdctrl, 7);
     fdctrl_raise_irq(fdctrl);
 }
 
@@ -1334,27 +1526,43 @@ static void fdctrl_start_transfer(FDCtrl *fdctrl, int direction)
     }
     fdctrl->eot = fdctrl->fifo[6];
     if (fdctrl->dor & FD_DOR_DMAEN) {
-        int dma_mode;
+        IsaDmaTransferMode dma_mode;
+        IsaDmaClass *k = ISADMA_GET_CLASS(fdctrl->dma);
+        bool dma_mode_ok;
         /* DMA transfer are enabled. Check if DMA channel is well programmed */
-        dma_mode = DMA_get_channel_mode(fdctrl->dma_chann);
-        dma_mode = (dma_mode >> 2) & 3;
+        dma_mode = k->get_transfer_mode(fdctrl->dma, fdctrl->dma_chann);
         FLOPPY_DPRINTF("dma_mode=%d direction=%d (%d - %d)\n",
                        dma_mode, direction,
                        (128 << fdctrl->fifo[5]) *
                        (cur_drv->last_sect - ks + 1), fdctrl->data_len);
-        if (((direction == FD_DIR_SCANE || direction == FD_DIR_SCANL ||
-              direction == FD_DIR_SCANH) && dma_mode == 0) ||
-            (direction == FD_DIR_WRITE && dma_mode == 2) ||
-            (direction == FD_DIR_READ && dma_mode == 1) ||
-            (direction == FD_DIR_VERIFY)) {
+        switch (direction) {
+        case FD_DIR_SCANE:
+        case FD_DIR_SCANL:
+        case FD_DIR_SCANH:
+            dma_mode_ok = (dma_mode == ISADMA_TRANSFER_VERIFY);
+            break;
+        case FD_DIR_WRITE:
+            dma_mode_ok = (dma_mode == ISADMA_TRANSFER_WRITE);
+            break;
+        case FD_DIR_READ:
+            dma_mode_ok = (dma_mode == ISADMA_TRANSFER_READ);
+            break;
+        case FD_DIR_VERIFY:
+            dma_mode_ok = true;
+            break;
+        default:
+            dma_mode_ok = false;
+            break;
+        }
+        if (dma_mode_ok) {
             /* No access is allowed until DMA transfer has completed */
             fdctrl->msr &= ~FD_MSR_RQM;
             if (direction != FD_DIR_VERIFY) {
                 /* Now, we just have to wait for the DMA controller to
                  * recall us...
                  */
-                DMA_hold_DREQ(fdctrl->dma_chann);
-                DMA_schedule(fdctrl->dma_chann);
+                k->hold_DREQ(fdctrl->dma, fdctrl->dma_chann);
+                k->schedule(fdctrl->dma);
             } else {
                 /* Start transfer */
                 fdctrl_transfer_handler(fdctrl, fdctrl->dma_chann, 0,
@@ -1367,7 +1575,7 @@ static void fdctrl_start_transfer(FDCtrl *fdctrl, int direction)
         }
     }
     FLOPPY_DPRINTF("start non-DMA transfer\n");
-    fdctrl->msr |= FD_MSR_NONDMA;
+    fdctrl->msr |= FD_MSR_NONDMA | FD_MSR_RQM;
     if (direction != FD_DIR_WRITE)
         fdctrl->msr |= FD_MSR_DIO;
     /* IO based transfer: calculate len */
@@ -1393,12 +1601,14 @@ static int fdctrl_transfer_handler (void *opaque, int nchan,
     FDrive *cur_drv;
     int len, start_pos, rel_pos;
     uint8_t status0 = 0x00, status1 = 0x00, status2 = 0x00;
+    IsaDmaClass *k;
 
     fdctrl = opaque;
     if (fdctrl->msr & FD_MSR_RQM) {
         FLOPPY_DPRINTF("Not in DMA transfer mode !\n");
         return 0;
     }
+    k = ISADMA_GET_CLASS(fdctrl->dma);
     cur_drv = get_cur_drv(fdctrl);
     if (fdctrl->data_dir == FD_DIR_SCANE || fdctrl->data_dir == FD_DIR_SCANL ||
         fdctrl->data_dir == FD_DIR_SCANH)
@@ -1426,8 +1636,8 @@ static int fdctrl_transfer_handler (void *opaque, int nchan,
         if (fdctrl->data_dir != FD_DIR_WRITE ||
             len < FD_SECTOR_LEN || rel_pos != 0) {
             /* READ & SCAN commands and realign to a sector for WRITE */
-            if (blk_read(cur_drv->blk, fd_sector(cur_drv),
-                         fdctrl->fifo, 1) < 0) {
+            if (blk_pread(cur_drv->blk, fd_offset(cur_drv),
+                          fdctrl->fifo, BDRV_SECTOR_SIZE) < 0) {
                 FLOPPY_DPRINTF("Floppy: error getting sector %d\n",
                                fd_sector(cur_drv));
                 /* Sure, image size is too small... */
@@ -1437,8 +1647,8 @@ static int fdctrl_transfer_handler (void *opaque, int nchan,
         switch (fdctrl->data_dir) {
         case FD_DIR_READ:
             /* READ commands */
-            DMA_write_memory (nchan, fdctrl->fifo + rel_pos,
-                              fdctrl->data_pos, len);
+            k->write_memory(fdctrl->dma, nchan, fdctrl->fifo + rel_pos,
+                            fdctrl->data_pos, len);
             break;
         case FD_DIR_WRITE:
             /* WRITE commands */
@@ -1452,10 +1662,10 @@ static int fdctrl_transfer_handler (void *opaque, int nchan,
                 goto transfer_error;
             }
 
-            DMA_read_memory (nchan, fdctrl->fifo + rel_pos,
-                             fdctrl->data_pos, len);
-            if (blk_write(cur_drv->blk, fd_sector(cur_drv),
-                          fdctrl->fifo, 1) < 0) {
+            k->read_memory(fdctrl->dma, nchan, fdctrl->fifo + rel_pos,
+                           fdctrl->data_pos, len);
+            if (blk_pwrite(cur_drv->blk, fd_offset(cur_drv),
+                           fdctrl->fifo, BDRV_SECTOR_SIZE, 0) < 0) {
                 FLOPPY_DPRINTF("error writing sector %d\n",
                                fd_sector(cur_drv));
                 fdctrl_stop_transfer(fdctrl, FD_SR0_ABNTERM | FD_SR0_SEEK, 0x00, 0x00);
@@ -1470,7 +1680,8 @@ static int fdctrl_transfer_handler (void *opaque, int nchan,
             {
                 uint8_t tmpbuf[FD_SECTOR_LEN];
                 int ret;
-                DMA_read_memory (nchan, tmpbuf, fdctrl->data_pos, len);
+                k->read_memory(fdctrl->dma, nchan, tmpbuf, fdctrl->data_pos,
+                               len);
                 ret = memcmp(tmpbuf, fdctrl->fifo + rel_pos, len);
                 if (ret == 0) {
                     status2 = FD_SR2_SEH;
@@ -1512,7 +1723,7 @@ static uint32_t fdctrl_read_data(FDCtrl *fdctrl)
 {
     FDrive *cur_drv;
     uint32_t retval = 0;
-    int pos;
+    uint32_t pos;
 
     cur_drv = get_cur_drv(fdctrl);
     fdctrl->dsr &= ~FD_DSR_PWRDOWN;
@@ -1520,9 +1731,16 @@ static uint32_t fdctrl_read_data(FDCtrl *fdctrl)
         FLOPPY_DPRINTF("error: controller not ready for reading\n");
         return 0;
     }
+
+    /* If data_len spans multiple sectors, the current position in the FIFO
+     * wraps around while fdctrl->data_pos is the real position in the whole
+     * request. */
     pos = fdctrl->data_pos;
-    if (fdctrl->msr & FD_MSR_NONDMA) {
-        pos %= FD_SECTOR_LEN;
+    pos %= FD_SECTOR_LEN;
+
+    switch (fdctrl->phase) {
+    case FD_PHASE_EXECUTION:
+        assert(fdctrl->msr & FD_MSR_NONDMA);
         if (pos == 0) {
             if (fdctrl->data_pos != 0)
                 if (!fdctrl_seek_to_next_sect(fdctrl, cur_drv)) {
@@ -1530,7 +1748,8 @@ static uint32_t fdctrl_read_data(FDCtrl *fdctrl)
                                    fd_sector(cur_drv));
                     return 0;
                 }
-            if (blk_read(cur_drv->blk, fd_sector(cur_drv), fdctrl->fifo, 1)
+            if (blk_pread(cur_drv->blk, fd_offset(cur_drv), fdctrl->fifo,
+                          BDRV_SECTOR_SIZE)
                 < 0) {
                 FLOPPY_DPRINTF("error getting sector %d\n",
                                fd_sector(cur_drv));
@@ -1538,20 +1757,28 @@ static uint32_t fdctrl_read_data(FDCtrl *fdctrl)
                 memset(fdctrl->fifo, 0, FD_SECTOR_LEN);
             }
         }
-    }
-    retval = fdctrl->fifo[pos];
-    if (++fdctrl->data_pos == fdctrl->data_len) {
-        fdctrl->data_pos = 0;
-        /* Switch from transfer mode to status mode
-         * then from status mode to command mode
-         */
-        if (fdctrl->msr & FD_MSR_NONDMA) {
+
+        if (++fdctrl->data_pos == fdctrl->data_len) {
+            fdctrl->msr &= ~FD_MSR_RQM;
             fdctrl_stop_transfer(fdctrl, 0x00, 0x00, 0x00);
-        } else {
-            fdctrl_reset_fifo(fdctrl);
+        }
+        break;
+
+    case FD_PHASE_RESULT:
+        assert(!(fdctrl->msr & FD_MSR_NONDMA));
+        if (++fdctrl->data_pos == fdctrl->data_len) {
+            fdctrl->msr &= ~FD_MSR_RQM;
+            fdctrl_to_command_phase(fdctrl);
             fdctrl_reset_irq(fdctrl);
         }
+        break;
+
+    case FD_PHASE_COMMAND:
+    default:
+        abort();
     }
+
+    retval = fdctrl->fifo[pos];
     FLOPPY_DPRINTF("data register: 0x%02x\n", retval);
 
     return retval;
@@ -1601,7 +1828,8 @@ static void fdctrl_format_sector(FDCtrl *fdctrl)
     }
     memset(fdctrl->fifo, 0, FD_SECTOR_LEN);
     if (cur_drv->blk == NULL ||
-        blk_write(cur_drv->blk, fd_sector(cur_drv), fdctrl->fifo, 1) < 0) {
+        blk_pwrite(cur_drv->blk, fd_offset(cur_drv), fdctrl->fifo,
+                   BDRV_SECTOR_SIZE, 0) < 0) {
         FLOPPY_DPRINTF("error formatting sector %d\n", fd_sector(cur_drv));
         fdctrl_stop_transfer(fdctrl, FD_SR0_ABNTERM | FD_SR0_SEEK, 0x00, 0x00);
     } else {
@@ -1621,7 +1849,7 @@ static void fdctrl_handle_lock(FDCtrl *fdctrl, int direction)
 {
     fdctrl->lock = (fdctrl->fifo[0] & 0x80) ? 1 : 0;
     fdctrl->fifo[0] = fdctrl->lock << 4;
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 static void fdctrl_handle_dumpreg(FDCtrl *fdctrl, int direction)
@@ -1646,20 +1874,20 @@ static void fdctrl_handle_dumpreg(FDCtrl *fdctrl, int direction)
         (cur_drv->perpendicular << 2);
     fdctrl->fifo[8] = fdctrl->config;
     fdctrl->fifo[9] = fdctrl->precomp_trk;
-    fdctrl_set_fifo(fdctrl, 10);
+    fdctrl_to_result_phase(fdctrl, 10);
 }
 
 static void fdctrl_handle_version(FDCtrl *fdctrl, int direction)
 {
     /* Controller's version */
     fdctrl->fifo[0] = fdctrl->version;
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 static void fdctrl_handle_partid(FDCtrl *fdctrl, int direction)
 {
     fdctrl->fifo[0] = 0x41; /* Stepping 1 */
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 static void fdctrl_handle_restore(FDCtrl *fdctrl, int direction)
@@ -1682,7 +1910,7 @@ static void fdctrl_handle_restore(FDCtrl *fdctrl, int direction)
     fdctrl->config = fdctrl->fifo[11];
     fdctrl->precomp_trk = fdctrl->fifo[12];
     fdctrl->pwrd = fdctrl->fifo[13];
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
 }
 
 static void fdctrl_handle_save(FDCtrl *fdctrl, int direction)
@@ -1712,7 +1940,7 @@ static void fdctrl_handle_save(FDCtrl *fdctrl, int direction)
     fdctrl->fifo[12] = fdctrl->pwrd;
     fdctrl->fifo[13] = 0;
     fdctrl->fifo[14] = 0;
-    fdctrl_set_fifo(fdctrl, 15);
+    fdctrl_to_result_phase(fdctrl, 15);
 }
 
 static void fdctrl_handle_readid(FDCtrl *fdctrl, int direction)
@@ -1720,8 +1948,8 @@ static void fdctrl_handle_readid(FDCtrl *fdctrl, int direction)
     FDrive *cur_drv = get_cur_drv(fdctrl);
 
     cur_drv->head = (fdctrl->fifo[1] >> 2) & 1;
-    timer_mod(fdctrl->result_timer,
-                   qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + (get_ticks_per_sec() / 50));
+    timer_mod(fdctrl->result_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+             (NANOSECONDS_PER_SECOND / 50));
 }
 
 static void fdctrl_handle_format_track(FDCtrl *fdctrl, int direction)
@@ -1761,7 +1989,7 @@ static void fdctrl_handle_specify(FDCtrl *fdctrl, int direction)
     else
         fdctrl->dor |= FD_DOR_DMAEN;
     /* No result back */
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
 }
 
 static void fdctrl_handle_sense_drive_status(FDCtrl *fdctrl, int direction)
@@ -1777,7 +2005,7 @@ static void fdctrl_handle_sense_drive_status(FDCtrl *fdctrl, int direction)
         (cur_drv->head << 2) |
         GET_CUR_DRV(fdctrl) |
         0x28;
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 static void fdctrl_handle_recalibrate(FDCtrl *fdctrl, int direction)
@@ -1787,7 +2015,7 @@ static void fdctrl_handle_recalibrate(FDCtrl *fdctrl, int direction)
     SET_CUR_DRV(fdctrl, fdctrl->fifo[1] & FD_DOR_SELMASK);
     cur_drv = get_cur_drv(fdctrl);
     fd_recalibrate(cur_drv);
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
     /* Raise Interrupt */
     fdctrl->status0 |= FD_SR0_SEEK;
     fdctrl_raise_irq(fdctrl);
@@ -1803,7 +2031,7 @@ static void fdctrl_handle_sense_interrupt_status(FDCtrl *fdctrl, int direction)
         fdctrl->reset_sensei--;
     } else if (!(fdctrl->sra & FD_SRA_INTPEND)) {
         fdctrl->fifo[0] = FD_SR0_INVCMD;
-        fdctrl_set_fifo(fdctrl, 1);
+        fdctrl_to_result_phase(fdctrl, 1);
         return;
     } else {
         fdctrl->fifo[0] =
@@ -1812,7 +2040,7 @@ static void fdctrl_handle_sense_interrupt_status(FDCtrl *fdctrl, int direction)
     }
 
     fdctrl->fifo[1] = cur_drv->track;
-    fdctrl_set_fifo(fdctrl, 2);
+    fdctrl_to_result_phase(fdctrl, 2);
     fdctrl_reset_irq(fdctrl);
     fdctrl->status0 = FD_SR0_RDYCHG;
 }
@@ -1823,7 +2051,7 @@ static void fdctrl_handle_seek(FDCtrl *fdctrl, int direction)
 
     SET_CUR_DRV(fdctrl, fdctrl->fifo[1] & FD_DOR_SELMASK);
     cur_drv = get_cur_drv(fdctrl);
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
     /* The seek command just sends step pulses to the drive and doesn't care if
      * there is a medium inserted of if it's banging the head against the drive.
      */
@@ -1840,7 +2068,7 @@ static void fdctrl_handle_perpendicular_mode(FDCtrl *fdctrl, int direction)
     if (fdctrl->fifo[1] & 0x80)
         cur_drv->perpendicular = fdctrl->fifo[1] & 0x7;
     /* No result back */
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
 }
 
 static void fdctrl_handle_configure(FDCtrl *fdctrl, int direction)
@@ -1848,41 +2076,44 @@ static void fdctrl_handle_configure(FDCtrl *fdctrl, int direction)
     fdctrl->config = fdctrl->fifo[2];
     fdctrl->precomp_trk =  fdctrl->fifo[3];
     /* No result back */
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
 }
 
 static void fdctrl_handle_powerdown_mode(FDCtrl *fdctrl, int direction)
 {
     fdctrl->pwrd = fdctrl->fifo[1];
     fdctrl->fifo[0] = fdctrl->fifo[1];
-    fdctrl_set_fifo(fdctrl, 1);
+    fdctrl_to_result_phase(fdctrl, 1);
 }
 
 static void fdctrl_handle_option(FDCtrl *fdctrl, int direction)
 {
     /* No result back */
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
 }
 
 static void fdctrl_handle_drive_specification_command(FDCtrl *fdctrl, int direction)
 {
     FDrive *cur_drv = get_cur_drv(fdctrl);
+    uint32_t pos;
 
-    if (fdctrl->fifo[fdctrl->data_pos - 1] & 0x80) {
+    pos = fdctrl->data_pos - 1;
+    pos %= FD_SECTOR_LEN;
+    if (fdctrl->fifo[pos] & 0x80) {
         /* Command parameters done */
-        if (fdctrl->fifo[fdctrl->data_pos - 1] & 0x40) {
+        if (fdctrl->fifo[pos] & 0x40) {
             fdctrl->fifo[0] = fdctrl->fifo[1];
             fdctrl->fifo[2] = 0;
             fdctrl->fifo[3] = 0;
-            fdctrl_set_fifo(fdctrl, 4);
+            fdctrl_to_result_phase(fdctrl, 4);
         } else {
-            fdctrl_reset_fifo(fdctrl);
+            fdctrl_to_command_phase(fdctrl);
         }
     } else if (fdctrl->data_len > 7) {
         /* ERROR */
         fdctrl->fifo[0] = 0x80 |
             (cur_drv->head << 2) | GET_CUR_DRV(fdctrl);
-        fdctrl_set_fifo(fdctrl, 1);
+        fdctrl_to_result_phase(fdctrl, 1);
     }
 }
 
@@ -1899,7 +2130,7 @@ static void fdctrl_handle_relative_seek_in(FDCtrl *fdctrl, int direction)
         fd_seek(cur_drv, cur_drv->head,
                 cur_drv->track + fdctrl->fifo[2], cur_drv->sect, 1);
     }
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
     /* Raise Interrupt */
     fdctrl->status0 |= FD_SR0_SEEK;
     fdctrl_raise_irq(fdctrl);
@@ -1917,20 +2148,25 @@ static void fdctrl_handle_relative_seek_out(FDCtrl *fdctrl, int direction)
         fd_seek(cur_drv, cur_drv->head,
                 cur_drv->track - fdctrl->fifo[2], cur_drv->sect, 1);
     }
-    fdctrl_reset_fifo(fdctrl);
+    fdctrl_to_command_phase(fdctrl);
     /* Raise Interrupt */
     fdctrl->status0 |= FD_SR0_SEEK;
     fdctrl_raise_irq(fdctrl);
 }
 
-static const struct {
+/*
+ * Handlers for the execution phase of each command
+ */
+typedef struct FDCtrlCommand {
     uint8_t value;
     uint8_t mask;
     const char* name;
     int parameters;
     void (*handler)(FDCtrl *fdctrl, int direction);
     int direction;
-} handlers[] = {
+} FDCtrlCommand;
+
+static const FDCtrlCommand handlers[] = {
     { FD_CMD_READ, 0x1f, "READ", 8, fdctrl_start_transfer, FD_DIR_READ },
     { FD_CMD_WRITE, 0x3f, "WRITE", 8, fdctrl_start_transfer, FD_DIR_WRITE },
     { FD_CMD_SEEK, 0xff, "SEEK", 2, fdctrl_handle_seek },
@@ -1967,10 +2203,20 @@ static const struct {
 /* Associate command to an index in the 'handlers' array */
 static uint8_t command_to_handler[256];
 
+static const FDCtrlCommand *get_command(uint8_t cmd)
+{
+    int idx;
+
+    idx = command_to_handler[cmd];
+    FLOPPY_DPRINTF("%s command\n", handlers[idx].name);
+    return &handlers[idx];
+}
+
 static void fdctrl_write_data(FDCtrl *fdctrl, uint32_t value)
 {
     FDrive *cur_drv;
-    int pos;
+    const FDCtrlCommand *cmd;
+    uint32_t pos;
 
     /* Reset mode */
     if (!(fdctrl->dor & FD_DOR_nRESET)) {
@@ -1982,56 +2228,82 @@ static void fdctrl_write_data(FDCtrl *fdctrl, uint32_t value)
         return;
     }
     fdctrl->dsr &= ~FD_DSR_PWRDOWN;
-    /* Is it write command time ? */
-    if (fdctrl->msr & FD_MSR_NONDMA) {
+
+    FLOPPY_DPRINTF("%s: %02x\n", __func__, value);
+
+    /* If data_len spans multiple sectors, the current position in the FIFO
+     * wraps around while fdctrl->data_pos is the real position in the whole
+     * request. */
+    pos = fdctrl->data_pos++;
+    pos %= FD_SECTOR_LEN;
+    fdctrl->fifo[pos] = value;
+
+    if (fdctrl->data_pos == fdctrl->data_len) {
+        fdctrl->msr &= ~FD_MSR_RQM;
+    }
+
+    switch (fdctrl->phase) {
+    case FD_PHASE_EXECUTION:
+        /* For DMA requests, RQM should be cleared during execution phase, so
+         * we would have errored out above. */
+        assert(fdctrl->msr & FD_MSR_NONDMA);
+
         /* FIFO data write */
-        pos = fdctrl->data_pos++;
-        pos %= FD_SECTOR_LEN;
-        fdctrl->fifo[pos] = value;
         if (pos == FD_SECTOR_LEN - 1 ||
             fdctrl->data_pos == fdctrl->data_len) {
             cur_drv = get_cur_drv(fdctrl);
-            if (blk_write(cur_drv->blk, fd_sector(cur_drv), fdctrl->fifo, 1)
-                < 0) {
+            if (blk_pwrite(cur_drv->blk, fd_offset(cur_drv), fdctrl->fifo,
+                           BDRV_SECTOR_SIZE, 0) < 0) {
                 FLOPPY_DPRINTF("error writing sector %d\n",
                                fd_sector(cur_drv));
-                return;
+                break;
             }
             if (!fdctrl_seek_to_next_sect(fdctrl, cur_drv)) {
                 FLOPPY_DPRINTF("error seeking to next sector %d\n",
                                fd_sector(cur_drv));
-                return;
+                break;
             }
         }
-        /* Switch from transfer mode to status mode
-         * then from status mode to command mode
-         */
-        if (fdctrl->data_pos == fdctrl->data_len)
-            fdctrl_stop_transfer(fdctrl, 0x00, 0x00, 0x00);
-        return;
-    }
-    if (fdctrl->data_pos == 0) {
-        /* Command */
-        pos = command_to_handler[value & 0xff];
-        FLOPPY_DPRINTF("%s command\n", handlers[pos].name);
-        fdctrl->data_len = handlers[pos].parameters + 1;
-        fdctrl->msr |= FD_MSR_CMDBUSY;
-    }
 
-    FLOPPY_DPRINTF("%s: %02x\n", __func__, value);
-    fdctrl->fifo[fdctrl->data_pos++] = value;
-    if (fdctrl->data_pos == fdctrl->data_len) {
-        /* We now have all parameters
-         * and will be able to treat the command
-         */
-        if (fdctrl->data_state & FD_STATE_FORMAT) {
-            fdctrl_format_sector(fdctrl);
-            return;
+        /* Switch to result phase when done with the transfer */
+        if (fdctrl->data_pos == fdctrl->data_len) {
+            fdctrl_stop_transfer(fdctrl, 0x00, 0x00, 0x00);
+        }
+        break;
+
+    case FD_PHASE_COMMAND:
+        assert(!(fdctrl->msr & FD_MSR_NONDMA));
+        assert(fdctrl->data_pos < FD_SECTOR_LEN);
+
+        if (pos == 0) {
+            /* The first byte specifies the command. Now we start reading
+             * as many parameters as this command requires. */
+            cmd = get_command(value);
+            fdctrl->data_len = cmd->parameters + 1;
+            if (cmd->parameters) {
+                fdctrl->msr |= FD_MSR_RQM;
+            }
+            fdctrl->msr |= FD_MSR_CMDBUSY;
         }
 
-        pos = command_to_handler[fdctrl->fifo[0] & 0xff];
-        FLOPPY_DPRINTF("treat %s command\n", handlers[pos].name);
-        (*handlers[pos].handler)(fdctrl, handlers[pos].direction);
+        if (fdctrl->data_pos == fdctrl->data_len) {
+            /* We have all parameters now, execute the command */
+            fdctrl->phase = FD_PHASE_EXECUTION;
+
+            if (fdctrl->data_state & FD_STATE_FORMAT) {
+                fdctrl_format_sector(fdctrl);
+                break;
+            }
+
+            cmd = get_command(fdctrl->fifo[0]);
+            FLOPPY_DPRINTF("Calling handler for '%s'\n", cmd->name);
+            cmd->handler(fdctrl, cmd->direction);
+        }
+        break;
+
+    case FD_PHASE_RESULT:
+    default:
+        abort();
     }
 }
 
@@ -2063,6 +2335,7 @@ static void fdctrl_change_cb(void *opaque, bool load)
     FDrive *drive = opaque;
 
     drive->media_changed = 1;
+    drive->media_validated = false;
     fd_revalidate(drive);
 }
 
@@ -2092,10 +2365,11 @@ static void fdctrl_connect_drives(FDCtrl *fdctrl, Error **errp)
         }
 
         fd_init(drive);
-        fdctrl_change_cb(drive, 0);
         if (drive->blk) {
             blk_set_dev_ops(drive->blk, &fdctrl_block_ops, drive);
+            pick_drive_type(drive);
         }
+        fd_revalidate(drive);
     }
 }
 
@@ -2111,10 +2385,12 @@ ISADevice *fdctrl_init_isa(ISABus *bus, DriveInfo **fds)
     dev = DEVICE(isadev);
 
     if (fds[0]) {
-        qdev_prop_set_drive_nofail(dev, "driveA", blk_by_legacy_dinfo(fds[0]));
+        qdev_prop_set_drive(dev, "driveA", blk_by_legacy_dinfo(fds[0]),
+                            &error_fatal);
     }
     if (fds[1]) {
-        qdev_prop_set_drive_nofail(dev, "driveB", blk_by_legacy_dinfo(fds[1]));
+        qdev_prop_set_drive(dev, "driveB", blk_by_legacy_dinfo(fds[1]),
+                            &error_fatal);
     }
     qdev_init_nofail(dev);
 
@@ -2134,10 +2410,12 @@ void fdctrl_init_sysbus(qemu_irq irq, int dma_chann,
     fdctrl = &sys->state;
     fdctrl->dma_chann = dma_chann; /* FIXME */
     if (fds[0]) {
-        qdev_prop_set_drive_nofail(dev, "driveA", blk_by_legacy_dinfo(fds[0]));
+        qdev_prop_set_drive(dev, "driveA", blk_by_legacy_dinfo(fds[0]),
+                            &error_fatal);
     }
     if (fds[1]) {
-        qdev_prop_set_drive_nofail(dev, "driveB", blk_by_legacy_dinfo(fds[1]));
+        qdev_prop_set_drive(dev, "driveB", blk_by_legacy_dinfo(fds[1]),
+                            &error_fatal);
     }
     qdev_init_nofail(dev);
     sbd = SYS_BUS_DEVICE(dev);
@@ -2153,7 +2431,8 @@ void sun4m_fdctrl_init(qemu_irq irq, hwaddr io_base,
 
     dev = qdev_create(NULL, "SUNW,fdtwo");
     if (fds[0]) {
-        qdev_prop_set_drive_nofail(dev, "drive", blk_by_legacy_dinfo(fds[0]));
+        qdev_prop_set_drive(dev, "drive", blk_by_legacy_dinfo(fds[0]),
+                            &error_fatal);
     }
     qdev_init_nofail(dev);
     sys = SYSBUS_FDC(dev);
@@ -2166,6 +2445,10 @@ static void fdctrl_realize_common(FDCtrl *fdctrl, Error **errp)
 {
     int i, j;
     static int command_tables_inited = 0;
+
+    if (fdctrl->fallback == FLOPPY_DRIVE_TYPE_AUTO) {
+        error_setg(errp, "Cannot choose a fallback FDrive type of 'auto'");
+    }
 
     /* Fill 'command_to_handler' lookup table */
     if (!command_tables_inited) {
@@ -2190,7 +2473,11 @@ static void fdctrl_realize_common(FDCtrl *fdctrl, Error **errp)
     fdctrl->num_floppies = MAX_FD;
 
     if (fdctrl->dma_chann != -1) {
-        DMA_register_channel(fdctrl->dma_chann, &fdctrl_transfer_handler, fdctrl);
+        IsaDmaClass *k;
+        assert(fdctrl->dma);
+        k = ISADMA_GET_CLASS(fdctrl->dma);
+        k->register_channel(fdctrl->dma, fdctrl->dma_chann,
+                            &fdctrl_transfer_handler, fdctrl);
     }
     fdctrl_connect_drives(fdctrl, errp);
 }
@@ -2213,6 +2500,10 @@ static void isabus_fdc_realize(DeviceState *dev, Error **errp)
 
     isa_init_irq(isadev, &fdctrl->irq, isa->irq);
     fdctrl->dma_chann = isa->dma;
+    if (fdctrl->dma_chann != -1) {
+        fdctrl->dma = isa_get_dma(isa_bus_from_device(isadev), isa->dma);
+        assert(fdctrl->dma);
+    }
 
     qdev_set_legacy_instance_id(dev, isa->iobase, 2);
     fdctrl_realize_common(fdctrl, &err);
@@ -2241,7 +2532,7 @@ static void sun4m_fdc_initfn(Object *obj)
     FDCtrlSysBus *sys = SYSBUS_FDC(obj);
     FDCtrl *fdctrl = &sys->state;
 
-    fdctrl->sun4m = 1;
+    fdctrl->dma_chann = -1;
 
     memory_region_init_io(&fdctrl->iomem, obj, &fdctrl_mem_strict_ops,
                           fdctrl, "fdctrl", 0x08);
@@ -2269,11 +2560,34 @@ static void sysbus_fdc_common_realize(DeviceState *dev, Error **errp)
     fdctrl_realize_common(fdctrl, errp);
 }
 
-FDriveType isa_fdc_get_drive_type(ISADevice *fdc, int i)
+FloppyDriveType isa_fdc_get_drive_type(ISADevice *fdc, int i)
 {
     FDCtrlISABus *isa = ISA_FDC(fdc);
 
     return isa->state.drives[i].drive;
+}
+
+void isa_fdc_get_drive_max_chs(FloppyDriveType type,
+                               uint8_t *maxc, uint8_t *maxh, uint8_t *maxs)
+{
+    const FDFormat *fdf;
+
+    *maxc = *maxh = *maxs = 0;
+    for (fdf = fd_formats; fdf->drive != FLOPPY_DRIVE_TYPE_NONE; fdf++) {
+        if (fdf->drive != type) {
+            continue;
+        }
+        if (*maxc < fdf->max_track) {
+            *maxc = fdf->max_track;
+        }
+        if (*maxh < fdf->max_head) {
+            *maxh = fdf->max_head;
+        }
+        if (*maxs < fdf->last_sect) {
+            *maxs = fdf->last_sect;
+        }
+    }
+    (*maxc)--;
 }
 
 static const VMStateDescription vmstate_isa_fdc ={
@@ -2294,6 +2608,15 @@ static Property isa_fdc_properties[] = {
     DEFINE_PROP_DRIVE("driveB", FDCtrlISABus, state.drives[1].blk),
     DEFINE_PROP_BIT("check_media_rate", FDCtrlISABus, state.check_media_rate,
                     0, true),
+    DEFINE_PROP_DEFAULT("fdtypeA", FDCtrlISABus, state.drives[0].drive,
+                        FLOPPY_DRIVE_TYPE_AUTO, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
+    DEFINE_PROP_DEFAULT("fdtypeB", FDCtrlISABus, state.drives[1].drive,
+                        FLOPPY_DRIVE_TYPE_AUTO, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
+    DEFINE_PROP_DEFAULT("fallback", FDCtrlISABus, state.fallback,
+                        FLOPPY_DRIVE_TYPE_288, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -2342,6 +2665,15 @@ static const VMStateDescription vmstate_sysbus_fdc ={
 static Property sysbus_fdc_properties[] = {
     DEFINE_PROP_DRIVE("driveA", FDCtrlSysBus, state.drives[0].blk),
     DEFINE_PROP_DRIVE("driveB", FDCtrlSysBus, state.drives[1].blk),
+    DEFINE_PROP_DEFAULT("fdtypeA", FDCtrlSysBus, state.drives[0].drive,
+                        FLOPPY_DRIVE_TYPE_AUTO, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
+    DEFINE_PROP_DEFAULT("fdtypeB", FDCtrlSysBus, state.drives[1].drive,
+                        FLOPPY_DRIVE_TYPE_AUTO, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
+    DEFINE_PROP_DEFAULT("fallback", FDCtrlISABus, state.fallback,
+                        FLOPPY_DRIVE_TYPE_144, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -2362,6 +2694,12 @@ static const TypeInfo sysbus_fdc_info = {
 
 static Property sun4m_fdc_properties[] = {
     DEFINE_PROP_DRIVE("drive", FDCtrlSysBus, state.drives[0].blk),
+    DEFINE_PROP_DEFAULT("fdtype", FDCtrlSysBus, state.drives[0].drive,
+                        FLOPPY_DRIVE_TYPE_AUTO, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
+    DEFINE_PROP_DEFAULT("fallback", FDCtrlISABus, state.fallback,
+                        FLOPPY_DRIVE_TYPE_144, qdev_prop_fdc_drive_type,
+                        FloppyDriveType),
     DEFINE_PROP_END_OF_LIST(),
 };
 

@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stddef.h>
 #include <ipxe/refcnt.h>
@@ -144,6 +144,11 @@ extern void intf_close ( struct interface *intf, int rc );
 
 extern void intf_shutdown ( struct interface *intf, int rc );
 extern void intf_restart ( struct interface *intf, int rc );
+
+extern void intf_poke ( struct interface *intf,
+			void ( type ) ( struct interface *intf ) );
+#define intf_poke_TYPE( object_type ) \
+	typeof ( void ( object_type ) )
 
 extern struct interface_descriptor null_intf_desc;
 extern struct interface null_intf;

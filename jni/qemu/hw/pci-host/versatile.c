@@ -7,11 +7,13 @@
  * This code is licensed under the LGPL.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/pci/pci.h"
 #include "hw/pci/pci_bus.h"
 #include "hw/pci/pci_host.h"
 #include "exec/address-spaces.h"
+#include "qemu/log.h"
 
 /* Old and buggy versions of QEMU used the wrong mapping from
  * PCI IRQs to system interrupt lines. Unfortunately the Linux
@@ -453,6 +455,7 @@ static void pci_vpb_realize(DeviceState *dev, Error **errp)
     }
 
     /* TODO Remove once realize propagates to child devices. */
+    object_property_set_bool(OBJECT(&s->pci_bus), true, "realized", errp);
     object_property_set_bool(OBJECT(&s->pci_dev), true, "realized", errp);
 }
 
@@ -500,6 +503,8 @@ static void pci_vpb_class_init(ObjectClass *klass, void *data)
     dc->reset = pci_vpb_reset;
     dc->vmsd = &pci_vpb_vmstate;
     dc->props = pci_vpb_properties;
+    /* Reason: object_unref() hangs */
+    dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
 static const TypeInfo pci_vpb_info = {
@@ -521,10 +526,19 @@ static void pci_realview_init(Object *obj)
     s->mem_win_size[2] = 0x08000000;
 }
 
+static void pci_realview_class_init(ObjectClass *class, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(class);
+
+    /* Reason: object_unref() hangs */
+    dc->cannot_destroy_with_object_finalize_yet = true;
+}
+
 static const TypeInfo pci_realview_info = {
     .name          = "realview_pci",
     .parent        = TYPE_VERSATILE_PCI,
     .instance_init = pci_realview_init,
+    .class_init    = pci_realview_class_init,
 };
 
 static void versatile_pci_register_types(void)

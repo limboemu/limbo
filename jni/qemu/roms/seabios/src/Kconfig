@@ -20,7 +20,7 @@ choice
             Configure for an emulated machine (QEMU, Xen, KVM, or Bochs).
 
     config CSM
-       bool "Build as Compatibilty Support Module for EFI BIOS"
+       bool "Build as Compatibility Support Module for EFI BIOS"
        help
            Configure to be used by EFI firmware as Compatibility Support
            module (CSM) to provide legacy BIOS services.
@@ -96,12 +96,13 @@ endchoice
             the CBFS filesystem is at a non-standard location (eg,
             0xffe00000 if CBFS ends 2Meg below the end of flash).
 
-    config FLASH_FLOPPY
-        depends on COREBOOT_FLASH
-        bool "Floppy images in CBFS"
+    config MULTIBOOT
+        depends on COREBOOT
+        bool "multiboot support"
         default y
         help
-            Support floppy images in coreboot flash.
+            Add multiboot header in bios.bin.raw and accept files supplied
+            as multiboot modules.
     config ENTRY_EXTRASTACK
         bool "Use internal stack for 16bit interrupt entry points"
         default y
@@ -160,7 +161,7 @@ menu "Hardware support"
         help
             Support for AHCI disk code.
     config SDCARD
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES
         bool "SD controllers"
         default y
         help
@@ -208,11 +209,18 @@ menu "Hardware support"
         help
             Support boot from LSI MegaRAID SAS scsi storage.
     config FLOPPY
-        depends on DRIVES
+        depends on DRIVES && HARDWARE_IRQ
         bool "Floppy controller"
         default y
         help
             Support floppy drive access.
+    config FLASH_FLOPPY
+        depends on DRIVES
+        bool "Floppy images from CBFS or fw_cfg"
+        default y
+        help
+            Support floppy images stored in coreboot flash or from
+            QEMU fw_cfg.
 
     config PS2PORT
         depends on KEYBOARD || MOUSE
@@ -291,6 +299,26 @@ menu "Hardware support"
         default y
         help
             Support parallel ports. This also enables int 17 parallel port calls.
+    config RTC_TIMER
+        bool "Real Time Clock (RTC) scheduling"
+        depends on HARDWARE_IRQ
+        default y
+        help
+            Support MC146818 Real Time Clock chip timer
+            interrupts. This also enables int 1583 and int 1586 calls.
+
+            Disabling this support does not disable access to the RTC
+            cmos registers.
+
+    config HARDWARE_IRQ
+        bool "Hardware interrupts"
+        default y
+        help
+            Program and support hardware interrupts using the i8259
+            programmable interrupt controller (PIC).  This option must
+            be enabled in order to support most boot loaders.  Only
+            disable this option if running on peculiar hardware known
+            not to support irq routing.
 
     config USE_SMM
         depends on QEMU
@@ -309,10 +337,16 @@ menu "Hardware support"
         help
             Initialize the Memory Type Range Registers (on emulators).
     config PMTIMER
-        bool "Use ACPI timer"
+        bool "Support ACPI timer"
         default y
         help
-            Use the ACPI timer instead of the TSC for timekeeping (on qemu).
+            Detect and use the ACPI timer for timekeeping.
+    config TSC_TIMER
+        bool "Support CPU timestamp counter as timer"
+        default y
+        help
+            Support for using the CPU timestamp counter as an internal
+            timing source.
 endmenu
 
 menu "BIOS interfaces"
@@ -420,6 +454,13 @@ menu "BIOS interfaces"
             made writable.  This allows the ram to be directly
             modified by programs.  However, some old DOS high memory
             managers may require the UMB region to be read-only.
+
+    config TCGBIOS
+        depends on S3_RESUME
+        bool "TPM support and TCG BIOS extensions"
+        default y
+        help
+            Provide TPM support along with TCG BIOS extensions
 
 endmenu
 

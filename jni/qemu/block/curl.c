@@ -21,19 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
+#include "qemu/error-report.h"
 #include "block/block_int.h"
 #include "qapi/qmp/qbool.h"
+#include "qapi/qmp/qstring.h"
+#include "crypto/secret.h"
 #include <curl/curl.h>
+#include "qemu/cutils.h"
 
 // #define DEBUG_CURL
 // #define DEBUG_VERBOSE
 
 #ifdef DEBUG_CURL
-#define DPRINTF(fmt, ...) do { printf(fmt, ## __VA_ARGS__); } while (0)
+#define DEBUG_CURL_PRINT 1
 #else
-#define DPRINTF(fmt, ...) do { } while (0)
+#define DEBUG_CURL_PRINT 0
 #endif
+#define DPRINTF(fmt, ...)                                            \
+    do {                                                             \
+        if (DEBUG_CURL_PRINT) {                                      \
+            fprintf(stderr, fmt, ## __VA_ARGS__);                    \
+        }                                                            \
+    } while (0)
 
 #if LIBCURL_VERSION_NUM >= 0x071000
 /* The multi interface timer callback was introduced in 7.16.0 */
@@ -75,6 +87,10 @@ static CURLMcode __curl_multi_socket_action(CURLM *multi_handle,
 #define CURL_BLOCK_OPT_SSLVERIFY "sslverify"
 #define CURL_BLOCK_OPT_TIMEOUT "timeout"
 #define CURL_BLOCK_OPT_COOKIE    "cookie"
+#define CURL_BLOCK_OPT_USERNAME "username"
+#define CURL_BLOCK_OPT_PASSWORD_SECRET "password-secret"
+#define CURL_BLOCK_OPT_PROXY_USERNAME "proxy-username"
+#define CURL_BLOCK_OPT_PROXY_PASSWORD_SECRET "proxy-password-secret"
 
 struct BDRVCURLState;
 
@@ -117,6 +133,10 @@ typedef struct BDRVCURLState {
     char *cookie;
     bool accept_range;
     AioContext *aio_context;
+    char *username;
+    char *password;
+    char *proxyusername;
+    char *proxypassword;
 } BDRVCURLState;
 
 static void curl_clean_state(CURLState *s);
@@ -149,21 +169,23 @@ static int curl_sock_cb(CURL *curl, curl_socket_t fd, int action,
     state->sock_fd = fd;
     s = state->s;
 
-    DPRINTF("CURL (AIO): Sock action %d on fd %d\n", action, fd);
+    DPRINTF("CURL (AIO): Sock action %d on fd %d\n", action, (int)fd);
     switch (action) {
         case CURL_POLL_IN:
-            aio_set_fd_handler(s->aio_context, fd, curl_multi_read,
-                               NULL, state);
+            aio_set_fd_handler(s->aio_context, fd, false,
+                               curl_multi_read, NULL, state);
             break;
         case CURL_POLL_OUT:
-            aio_set_fd_handler(s->aio_context, fd, NULL, curl_multi_do, state);
+            aio_set_fd_handler(s->aio_context, fd, false,
+                               NULL, curl_multi_do, state);
             break;
         case CURL_POLL_INOUT:
-            aio_set_fd_handler(s->aio_context, fd, curl_multi_read,
-                               curl_multi_do, state);
+            aio_set_fd_handler(s->aio_context, fd, false,
+                               curl_multi_read, curl_multi_do, state);
             break;
         case CURL_POLL_REMOVE:
-            aio_set_fd_handler(s->aio_context, fd, NULL, NULL, NULL);
+            aio_set_fd_handler(s->aio_context, fd, false,
+                               NULL, NULL, NULL);
             break;
     }
 
@@ -297,6 +319,18 @@ static void curl_multi_check_completion(BDRVCURLState *s)
             /* ACBs for successful messages get completed in curl_read_cb */
             if (msg->data.result != CURLE_OK) {
                 int i;
+                static int errcount = 100;
+
+                /* Don't lose the original error message from curl, since
+                 * it contains extra data.
+                 */
+                if (errcount > 0) {
+                    error_report("curl: %s", state->errmsg);
+                    if (--errcount == 0) {
+                        error_report("curl: further errors suppressed");
+                    }
+                }
+
                 for (i = 0; i < CURL_NUM_ACB; i++) {
                     CURLAIOCB *acb = state->acb[i];
 
@@ -304,7 +338,7 @@ static void curl_multi_check_completion(BDRVCURLState *s)
                         continue;
                     }
 
-                    acb->common.cb(acb->common.opaque, -EIO);
+                    acb->common.cb(acb->common.opaque, -EPROTO);
                     qemu_aio_unref(acb);
                     state->acb[i] = NULL;
                 }
@@ -401,6 +435,21 @@ static CURLState *curl_init_state(BlockDriverState *bs, BDRVCURLState *s)
         curl_easy_setopt(state->curl, CURLOPT_NOSIGNAL, 1);
         curl_easy_setopt(state->curl, CURLOPT_ERRORBUFFER, state->errmsg);
         curl_easy_setopt(state->curl, CURLOPT_FAILONERROR, 1);
+
+        if (s->username) {
+            curl_easy_setopt(state->curl, CURLOPT_USERNAME, s->username);
+        }
+        if (s->password) {
+            curl_easy_setopt(state->curl, CURLOPT_PASSWORD, s->password);
+        }
+        if (s->proxyusername) {
+            curl_easy_setopt(state->curl,
+                             CURLOPT_PROXYUSERNAME, s->proxyusername);
+        }
+        if (s->proxypassword) {
+            curl_easy_setopt(state->curl,
+                             CURLOPT_PROXYPASSWORD, s->proxypassword);
+        }
 
         /* Restrict supported protocols to avoid security issues in the more
          * obscure protocols.  For example, do not allow POP3/SMTP/IMAP see
@@ -508,9 +557,30 @@ static QemuOptsList runtime_opts = {
             .type = QEMU_OPT_STRING,
             .help = "Pass the cookie or list of cookies with each request"
         },
+        {
+            .name = CURL_BLOCK_OPT_USERNAME,
+            .type = QEMU_OPT_STRING,
+            .help = "Username for HTTP auth"
+        },
+        {
+            .name = CURL_BLOCK_OPT_PASSWORD_SECRET,
+            .type = QEMU_OPT_STRING,
+            .help = "ID of secret used as password for HTTP auth",
+        },
+        {
+            .name = CURL_BLOCK_OPT_PROXY_USERNAME,
+            .type = QEMU_OPT_STRING,
+            .help = "Username for HTTP proxy auth"
+        },
+        {
+            .name = CURL_BLOCK_OPT_PROXY_PASSWORD_SECRET,
+            .type = QEMU_OPT_STRING,
+            .help = "ID of secret used as password for HTTP proxy auth",
+        },
         { /* end of list */ }
     },
 };
+
 
 static int curl_open(BlockDriverState *bs, QDict *options, int flags,
                      Error **errp)
@@ -522,6 +592,7 @@ static int curl_open(BlockDriverState *bs, QDict *options, int flags,
     const char *file;
     const char *cookie;
     double d;
+    const char *secretid;
 
     static int inited = 0;
 
@@ -561,6 +632,26 @@ static int curl_open(BlockDriverState *bs, QDict *options, int flags,
     if (file == NULL) {
         error_setg(errp, "curl block driver requires an 'url' option");
         goto out_noclean;
+    }
+
+    s->username = g_strdup(qemu_opt_get(opts, CURL_BLOCK_OPT_USERNAME));
+    secretid = qemu_opt_get(opts, CURL_BLOCK_OPT_PASSWORD_SECRET);
+
+    if (secretid) {
+        s->password = qcrypto_secret_lookup_as_utf8(secretid, errp);
+        if (!s->password) {
+            goto out_noclean;
+        }
+    }
+
+    s->proxyusername = g_strdup(
+        qemu_opt_get(opts, CURL_BLOCK_OPT_PROXY_USERNAME));
+    secretid = qemu_opt_get(opts, CURL_BLOCK_OPT_PROXY_PASSWORD_SECRET);
+    if (secretid) {
+        s->proxypassword = qcrypto_secret_lookup_as_utf8(secretid, errp);
+        if (!s->proxypassword) {
+            goto out_noclean;
+        }
     }
 
     if (!inited) {

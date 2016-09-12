@@ -10,7 +10,8 @@
  * See the COPYING file in the top-level directory.
  *
  */
-#include "qemu-common.h"
+#include "qemu/osdep.h"
+#include "qemu/cutils.h"
 #include "include/migration/migration.h"
 
 /*

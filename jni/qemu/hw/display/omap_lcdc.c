@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "ui/console.h"
 #include "hw/arm/omap.h"
@@ -25,6 +26,7 @@
 struct omap_lcd_panel_s {
     MemoryRegion *sysmem;
     MemoryRegion iomem;
+    MemoryRegionSection fbsection;
     qemu_irq irq;
     QemuConsole *con;
 
@@ -69,46 +71,8 @@ static void omap_lcd_interrupts(struct omap_lcd_panel_s *s)
 
 #define draw_line_func drawfn
 
-#define DEPTH 8
-#include "omap_lcd_template.h"
-#define DEPTH 15
-#include "omap_lcd_template.h"
-#define DEPTH 16
-#include "omap_lcd_template.h"
 #define DEPTH 32
 #include "omap_lcd_template.h"
-
-static draw_line_func draw_line_table2[33] = {
-    [0 ... 32]	= NULL,
-    [8]		= draw_line2_8,
-    [15]	= draw_line2_15,
-    [16]	= draw_line2_16,
-    [32]	= draw_line2_32,
-}, draw_line_table4[33] = {
-    [0 ... 32]	= NULL,
-    [8]		= draw_line4_8,
-    [15]	= draw_line4_15,
-    [16]	= draw_line4_16,
-    [32]	= draw_line4_32,
-}, draw_line_table8[33] = {
-    [0 ... 32]	= NULL,
-    [8]		= draw_line8_8,
-    [15]	= draw_line8_15,
-    [16]	= draw_line8_16,
-    [32]	= draw_line8_32,
-}, draw_line_table12[33] = {
-    [0 ... 32]	= NULL,
-    [8]		= draw_line12_8,
-    [15]	= draw_line12_15,
-    [16]	= draw_line12_16,
-    [32]	= draw_line12_32,
-}, draw_line_table16[33] = {
-    [0 ... 32]	= NULL,
-    [8]		= draw_line16_8,
-    [15]	= draw_line16_15,
-    [16]	= draw_line16_16,
-    [32]	= draw_line16_32,
-};
 
 static void omap_update_display(void *opaque)
 {
@@ -141,25 +105,25 @@ static void omap_update_display(void *opaque)
     /* Colour depth */
     switch ((omap_lcd->palette[0] >> 12) & 7) {
     case 1:
-        draw_line = draw_line_table2[surface_bits_per_pixel(surface)];
+        draw_line = draw_line2_32;
         bpp = 2;
         break;
 
     case 2:
-        draw_line = draw_line_table4[surface_bits_per_pixel(surface)];
+        draw_line = draw_line4_32;
         bpp = 4;
         break;
 
     case 3:
-        draw_line = draw_line_table8[surface_bits_per_pixel(surface)];
+        draw_line = draw_line8_32;
         bpp = 8;
         break;
 
     case 4 ... 7:
         if (!omap_lcd->tft)
-            draw_line = draw_line_table12[surface_bits_per_pixel(surface)];
+            draw_line = draw_line12_32;
         else
-            draw_line = draw_line_table16[surface_bits_per_pixel(surface)];
+            draw_line = draw_line16_32;
         bpp = 16;
         break;
 
@@ -215,12 +179,19 @@ static void omap_update_display(void *opaque)
 
     step = width * bpp >> 3;
     linesize = surface_stride(surface);
-    framebuffer_update_display(surface, omap_lcd->sysmem,
-                               frame_base, width, height,
+    if (omap_lcd->invalidate) {
+        framebuffer_update_memory_section(&omap_lcd->fbsection,
+                                          omap_lcd->sysmem, frame_base,
+                                          height, step);
+    }
+
+    framebuffer_update_display(surface, &omap_lcd->fbsection,
+                               width, height,
                                step, linesize, 0,
                                omap_lcd->invalidate,
                                draw_line, omap_lcd->palette,
                                &first, &last);
+
     if (first >= 0) {
         dpy_gfx_update(omap_lcd->con, 0, first, width, last - first + 1);
     }
@@ -395,8 +366,7 @@ struct omap_lcd_panel_s *omap_lcdc_init(MemoryRegion *sysmem,
                                         struct omap_dma_lcd_channel_s *dma,
                                         omap_clk clk)
 {
-    struct omap_lcd_panel_s *s = (struct omap_lcd_panel_s *)
-            g_malloc0(sizeof(struct omap_lcd_panel_s));
+    struct omap_lcd_panel_s *s = g_new0(struct omap_lcd_panel_s, 1);
 
     s->irq = irq;
     s->dma = dma;

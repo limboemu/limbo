@@ -1,3 +1,4 @@
-[OrderedDict([('enum', 'Status'), ('data', ['good', 'bad', 'ugly'])])]
-[{'enum_name': 'Status', 'enum_values': ['good', 'bad', 'ugly']}]
-[]
+enum QType ['none', 'qnull', 'qint', 'qstring', 'qdict', 'qlist', 'qfloat', 'qbool']
+    prefix QTYPE
+enum Status ['good', 'bad', 'ugly']
+object q_empty

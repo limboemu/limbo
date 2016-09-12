@@ -22,8 +22,7 @@ FALSE CONSTANT virtio-scsi-debug
 
 FALSE VALUE initialized?
 
-/vd-len BUFFER: virtiodev
-virtiodev virtio-setup-vd
+virtio-setup-vd VALUE virtiodev
 
 STRUCT \ virtio-scsi-config
     /l FIELD vs-cfg>num-queues

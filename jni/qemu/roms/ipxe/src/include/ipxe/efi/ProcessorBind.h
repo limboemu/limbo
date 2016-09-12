@@ -1,7 +1,7 @@
 #ifndef _IPXE_EFI_PROCESSOR_BIND_H
 #define _IPXE_EFI_PROCESSOR_BIND_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /*
  * EFI header files rely on having the CPU architecture directory
@@ -16,6 +16,14 @@ FILE_LICENCE ( GPL2_OR_LATER );
 
 #if __x86_64__
 #include <ipxe/efi/X64/ProcessorBind.h>
+#endif
+
+#if __arm__
+#include <ipxe/efi/Arm/ProcessorBind.h>
+#endif
+
+#if __aarch64__
+#include <ipxe/efi/AArch64/ProcessorBind.h>
 #endif
 
 #endif /* _IPXE_EFI_PROCESSOR_BIND_H */

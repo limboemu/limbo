@@ -37,7 +37,7 @@ struct virtio_blk_outhdr {
 #define VIRTIO_BLK_S_UNSUPP     2
 
 struct disk_op_s;
-int process_virtio_blk_op(struct disk_op_s *op);
+int virtio_blk_process_op(struct disk_op_s *op);
 void virtio_blk_setup(void);
 
 #endif /* _VIRTIO_BLK_H */

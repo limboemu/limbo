@@ -20,14 +20,9 @@
  * Copyright (c) 2013 Mike D. Day, IBM Corporation.
  */
 
-#include <glib.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "qemu/osdep.h"
 #include "qemu/atomic.h"
 #include "qemu/rcu.h"
-#include "qemu/compiler.h"
-#include "qemu/osdep.h"
 #include "qemu/thread.h"
 #include "qemu/rcu_queue.h"
 
@@ -108,6 +103,8 @@ static void *rcu_q_reader(void *arg)
     long long n_reads_local = 0;
     struct list_element *el;
 
+    rcu_register_thread();
+
     *(struct rcu_reader_data **)arg = &rcu_reader;
     atomic_inc(&nthreadsrunning);
     while (goflag == GOFLAG_INIT) {
@@ -129,6 +126,8 @@ static void *rcu_q_reader(void *arg)
     qemu_mutex_lock(&counts_mutex);
     n_reads += n_reads_local;
     qemu_mutex_unlock(&counts_mutex);
+
+    rcu_unregister_thread();
     return NULL;
 }
 

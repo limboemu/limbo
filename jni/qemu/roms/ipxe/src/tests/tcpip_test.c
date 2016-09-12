@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -90,6 +94,12 @@ TCPIP_TEST ( one_byte, DATA ( 0xeb ) );
 /** Double byte */
 TCPIP_TEST ( two_bytes, DATA ( 0xba, 0xbe ) );
 
+/** Positive zero data */
+TCPIP_TEST ( positive_zero, DATA ( 0x00, 0x00 ) );
+
+/** Negative zero data */
+TCPIP_TEST ( negative_zero, DATA ( 0xff, 0xff ) );
+
 /** Final wrap-around carry (big-endian) */
 TCPIP_TEST ( final_carry_big,
 	     DATA ( 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 ) );
@@ -122,9 +132,17 @@ TCPIP_RANDOM_TEST ( partial, 0xcafebabe, 121, 5 );
  *
  * This is a reference implementation taken from RFC1071 (and modified
  * to fix compilation without warnings under gcc).
+ *
+ * The initial value of the one's complement @c sum is changed from
+ * positive zero (0x0000) to negative zero (0xffff).  This ensures
+ * that the return value will always use the positive representation
+ * of zero (0x0000).  Without this change, the return value would use
+ * negative zero (0xffff) if the input data is zero length (or all
+ * zeros) but positive zero (0x0000) for any other data which sums to
+ * zero.
  */
 static uint16_t rfc_tcpip_chksum ( const void *data, size_t len ) {
-	unsigned long sum = 0;
+	unsigned long sum = 0xffff;
 
         while ( len > 1 )  {
 		sum += *( ( uint16_t * ) data );
@@ -138,6 +156,7 @@ static uint16_t rfc_tcpip_chksum ( const void *data, size_t len ) {
 	while ( sum >> 16 )
 		sum = ( ( sum & 0xffff ) + ( sum >> 16 ) );
 
+	assert ( sum != 0x0000 );
 	return ~sum;
 }
 
@@ -223,6 +242,8 @@ static void tcpip_test_exec ( void ) {
 	tcpip_ok ( &empty );
 	tcpip_ok ( &one_byte );
 	tcpip_ok ( &two_bytes );
+	tcpip_ok ( &positive_zero );
+	tcpip_ok ( &negative_zero );
 	tcpip_ok ( &final_carry_big );
 	tcpip_ok ( &final_carry_little );
 	tcpip_random_ok ( &random_aligned );

@@ -157,7 +157,7 @@ class TestEnv(object):
 
         try:
             os.makedirs(self.current_dir)
-        except OSError, e:
+        except OSError as e:
             print >>sys.stderr, \
                 "Error: The working directory '%s' cannot be used. Reason: %s"\
                 % (self.work_dir, e[1])
@@ -244,7 +244,7 @@ class TestEnv(object):
             temp_log = StringIO.StringIO()
             try:
                 retcode = run_app(temp_log, current_cmd)
-            except OSError, e:
+            except OSError as e:
                 multilog("%sError: Start of '%s' failed. Reason: %s\n\n"
                          % (test_summary, os.path.basename(current_cmd[0]),
                             e[1]),
@@ -301,7 +301,7 @@ if __name__ == '__main__':
         JSON:
 
         '--command' accepts a JSON array of commands. Each command presents
-        an application under test with all its paramaters as a list of strings,
+        an application under test with all its parameters as a list of strings,
         e.g. ["qemu-io", "$test_img", "-c", "write $off $len"].
 
         Supported application aliases: 'qemu-img' and 'qemu-io'.
@@ -356,7 +356,7 @@ if __name__ == '__main__':
         opts, args = getopt.gnu_getopt(sys.argv[1:], 'c:hs:kvd:',
                                        ['command=', 'help', 'seed=', 'config=',
                                         'keep_passed', 'verbose', 'duration='])
-    except getopt.error, e:
+    except getopt.error as e:
         print >>sys.stderr, \
             "Error: %s\n\nTry 'runner.py --help' for more information" % e
         sys.exit(1)
@@ -374,7 +374,7 @@ if __name__ == '__main__':
         elif opt in ('-c', '--command'):
             try:
                 command = json.loads(arg)
-            except (TypeError, ValueError, NameError), e:
+            except (TypeError, ValueError, NameError) as e:
                 print >>sys.stderr, \
                     "Error: JSON array of test commands cannot be loaded.\n" \
                     "Reason: %s" % e
@@ -390,7 +390,7 @@ if __name__ == '__main__':
         elif opt == '--config':
             try:
                 config = json.loads(arg)
-            except (TypeError, ValueError, NameError), e:
+            except (TypeError, ValueError, NameError) as e:
                 print >>sys.stderr, \
                     "Error: JSON array with the fuzzer configuration cannot" \
                     " be loaded\nReason: %s" % e
@@ -414,7 +414,7 @@ if __name__ == '__main__':
 
     try:
         image_generator = __import__(generator_name)
-    except ImportError, e:
+    except ImportError as e:
         print >>sys.stderr, \
             "Error: The image generator '%s' cannot be imported.\n" \
             "Reason: %s" % (generator_name, e)

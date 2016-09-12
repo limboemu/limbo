@@ -58,6 +58,25 @@ menu "VGA ROM"
     endchoice
 
     choice
+        depends on VGA_BOCHS
+        prompt "bochs vga variant"
+        default VGA_BOCHS_STDVGA
+
+        config VGA_BOCHS_STDVGA
+            bool "qemu stdvga / bochs svga"
+
+        config VGA_BOCHS_VMWARE
+            bool "qemu vmware svga"
+
+        config VGA_BOCHS_QXL
+            bool "qemu qxl vga"
+
+        config VGA_BOCHS_VIRTIO
+            bool "qemu virtio vga"
+
+    endchoice
+
+    choice
         depends on VGA_GEODEGX2 || VGA_GEODELX
         prompt "Output Mode"
         default VGA_OUTPUT_CRT
@@ -89,6 +108,17 @@ menu "VGA ROM"
         help
             Support emulating text mode features when only a
             framebuffer is available.
+
+    config VGA_FIXUP_ASM
+        depends on BUILD_VGABIOS
+        bool "Fixup assembler to work with broken emulators"
+        default y
+        help
+            This option will cause the build to attempt to avoid
+            certain x86 machine instructions that are known to confuse
+            some emulators.  In particular, it works around
+            deficiencies in the Windows vgabios emulator and the
+            x86emu vgabios emulator (frequently used in Xorg).
 
     config VGA_ALLOCATE_EXTRA_STACK
         depends on BUILD_VGABIOS
@@ -130,7 +160,10 @@ menu "VGA ROM"
         hex
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x1013 if VGA_CIRRUS
-        default 0x1234 if VGA_BOCHS
+        default 0x1234 if VGA_BOCHS_STDVGA
+        default 0x15ad if VGA_BOCHS_VMWARE
+        default 0x1b36 if VGA_BOCHS_QXL
+        default 0x1af4 if VGA_BOCHS_VIRTIO
         default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
         default 0x0000
@@ -142,7 +175,10 @@ menu "VGA ROM"
         hex
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x00b8 if VGA_CIRRUS
-        default 0x1111 if VGA_BOCHS
+        default 0x1111 if VGA_BOCHS_STDVGA
+        default 0x0405 if VGA_BOCHS_VMWARE
+        default 0x0100 if VGA_BOCHS_QXL
+        default 0x1050 if VGA_BOCHS_VIRTIO
         default 0x0030 if VGA_GEODEGX2
         default 0x2081 if VGA_GEODELX
         default 0x0000

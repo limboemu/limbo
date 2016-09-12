@@ -87,7 +87,7 @@ here 100 allot CONSTANT pci-device-vec
         pci-next-mmio @ 100000 #aligned         \ read the current Value and align to 1MB boundary
         dup 100000 + pci-next-mmio !            \ and write back with 1MB for bridge
         10 rshift                               \ mmio-base reg is only the upper 16 bits
-        pci-max-mmio @ FFFF0000 and or          \ and Insert mmio Limit (set it to max)
+        pci-max-mmio @ 1- FFFF0000 and or       \ and Insert mmio Limit (set it to max)
         swap 20 + rtas-config-l!                \ and write it into the bridge
 ;
 
@@ -110,13 +110,16 @@ here 100 allot CONSTANT pci-device-vec
         dup 100000 + pci-next-mem !             \ and write back with 1MB for bridge
         over 24 + rtas-config-w@                \ check if 64bit support
         1 and IF                                \ IF 64 bit support
-                2dup 20 rshift                  \ | keep upper 32 bits
-                swap 28 + rtas-config-l!        \ | and write it into the Base-Upper32-bits
-                pci-max-mem @ 20 rshift         \ | fetch max Limit address and keep upper 32 bits
-                2 pick 2C + rtas-config-l!      \ | and set the Limit
+                pci-next-mem64 @ 100000000 #aligned \ | read the current Value of 64-bit and align to 4GB boundary
+                dup 100000000 + pci-next-mem64 x!   \ | and write back with 1GB for bridge
+                2 pick swap                         \ |
+                20 rshift                           \ | keep upper 32 bits
+                swap 28 + rtas-config-l!            \ | and write it into the Base-Upper32-bits
+                pci-max-mem64 @ 20 rshift           \ | fetch max Limit address and keep upper 32 bits
+                2 pick 2C + rtas-config-l!          \ | and set the Limit
         THEN                                    \ FI
         10 rshift                               \ keep upper 16 bits
-        pci-max-mem @ FFFF0000 and or           \ and Insert mmem Limit (set it to max)
+        pci-max-mem @ 1- FFFF0000 and or        \ and Insert mmem Limit (set it to max)
         swap 24 + rtas-config-l!                \ and write it into the bridge
 ;
 
@@ -129,8 +132,12 @@ here 100 allot CONSTANT pci-device-vec
         1-                                      \ make limit one less than boundary
         over 24 + rtas-config-w@                \ check if 64bit support
         1 and IF                                \ IF 64 bit support
-                2dup 20 rshift                  \ | keep upper 32 bits
-                swap 2C + rtas-config-l!        \ | and write it into the Limit-Upper32-bits
+                pci-next-mem64 @ 100000000 #aligned \ | Reat current value of 64-bar and align at 4GB
+                dup pci-next-mem64 x!               \ | and write it back
+                1-                                  \ | make limite one less than boundary
+                2 pick swap                         \ |
+                20 rshift                           \ | keep upper 32 bits
+                swap 2C + rtas-config-l!            \ | and write it into the Limit-Upper32-bits
         THEN                                    \ FI
         FFFF0000 and                            \ keep upper 16 bits
         over 24 + rtas-config-l@ 0000FFFF and   \ fetch original Value
@@ -150,7 +157,7 @@ here 100 allot CONSTANT pci-device-vec
                 swap 30 + rtas-config-l!        \ | and write it into the Base-Upper16-bits
         THEN                                    \ FI
         8 rshift 000000FF and                   \ keep upper 8 bits
-        pci-max-io @ 0000FF00 and or            \ insert upper 8 bits of Max-Limit
+        pci-max-io @ 1- 0000FF00 and or         \ insert upper 8 bits of Max-Limit
         over rtas-config-l@ FFFF0000 and        \ fetch original Value
         or swap 1C + rtas-config-l!             \ and write it into the bridge
 ;

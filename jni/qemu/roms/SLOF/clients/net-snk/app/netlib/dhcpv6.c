@@ -27,13 +27,15 @@ static uint8_t tid[3];
 static uint32_t dhcpv6_state = -1;
 static filename_ip_t *my_fn_ip;
 
-static void
-generate_transaction_id(void)
+static struct ip6addr_list_entry all_dhcpv6_ll; /* All DHCPv6 servers address */
+
+void
+dhcpv6_generate_transaction_id(void)
 {
-	/* TODO: as per RFC 3315 transaction IDs should be generated randomly */
-	tid[0] = 1;
-	tid[1] = 2;
-	tid[2] = 4;
+	/* As per RFC 3315 transaction IDs should be generated randomly */
+	tid[0] = rand();
+	tid[1] = rand();
+	tid[2] = rand();
 }
 
 static void
@@ -44,8 +46,6 @@ send_info_request(int fd)
 	struct dhcp_message_header *dhcph;
 
 	memset(ether_packet, 0, ETH_MTU_SIZE);
-
-	generate_transaction_id();
 
 	/* Get an IPv6 packet */
 	payload_length = sizeof(struct udphdr) + sizeof(struct dhcp_message_header);
@@ -72,16 +72,14 @@ send_info_request(int fd)
 	dhcph->option.el_time.length = 2;
 	dhcph->option.el_time.time = 0x190; /* 4000 ms */
 	dhcph->option.option_request_option.code = DHCPV6_OPTION_ORO;
-	dhcph->option.option_request_option.length= 6;
+	dhcph->option.option_request_option.length = DHCPV6_OPTREQUEST_NUMOPTS * 2;
 	dhcph->option.option_request_option.option_code[0] = DHCPV6_OPTION_DNS_SERVERS;
 	dhcph->option.option_request_option.option_code[1] = DHCPV6_OPTION_DOMAIN_LIST;
 	dhcph->option.option_request_option.option_code[2] = DHCPV6_OPTION_BOOT_URL;
 
-
 	send_ipv6(fd, ether_packet + sizeof(struct ethhdr),
-	         sizeof(struct ethhdr)+ sizeof(struct ip6hdr)
-		 + sizeof(struct udphdr)
-	         + sizeof( struct dhcp_message_header) );
+		  sizeof(struct ip6hdr) + sizeof(struct udphdr)
+		  + sizeof(struct dhcp_message_header));
 }
 
 static int32_t
@@ -119,6 +117,9 @@ dhcpv6 ( char *ret_buffer, void *fn_ip)
 {
 	int fd;
 
+	all_dhcpv6_ll.addr.part.prefix = 0xff02000000000000ULL;
+	all_dhcpv6_ll.addr.part.interface_id = 0x10002ULL;
+
 	my_fn_ip = (filename_ip_t *) fn_ip;
 	fd = my_fn_ip->fd;
 
@@ -129,8 +130,7 @@ dhcpv6 ( char *ret_buffer, void *fn_ip)
 	return 0;
 }
 
-static struct dhcp6_received_options *
-dhcp6_process_options (uint8_t *option, int32_t option_length)
+static void dhcp6_process_options (uint8_t *option, int32_t option_length)
 {
 	struct dhcp_boot_url *option_boot_url;
 	struct client_identifier *option_clientid;
@@ -138,24 +138,19 @@ dhcp6_process_options (uint8_t *option, int32_t option_length)
 	struct dhcp_dns *option_dns;
 	struct dhcp_dns_list *option_dns_list;
 	struct dhcp6_gen_option *option_gen;
-	struct dhcp6_received_options *received_options;
 	char buffer[256];
 
-
-	received_options = malloc (sizeof(struct dhcp6_received_options));
 	while (option_length > 0) {
 		switch ((uint16_t) *(option+1)) {
 		case DHCPV6_OPTION_CLIENTID:
 			option_clientid = (struct client_identifier *) option;
 			option = option +  option_clientid->length + 4;
 			option_length = option_length - option_clientid->length - 4;
-			received_options->client_id = 1;
 			break;
 		case DHCPV6_OPTION_SERVERID:
 			option_serverid = (struct server_identifier *) option;
 			option = option +  option_serverid->length + 4;
 			option_length = option_length - option_serverid->length - 4;
-			received_options->server_id = 1;
 			break;
 		case DHCPV6_OPTION_DNS_SERVERS:
 			option_dns = (struct dhcp_dns *) option;
@@ -184,7 +179,7 @@ dhcp6_process_options (uint8_t *option, int32_t option_length)
 					    (char *)my_fn_ip->filename,
 					    (int)my_fn_ip->fd,
 					    option_boot_url->length) == -1)
-				return NULL;
+				return;
 			break;
 		default:
 			option_gen = (struct dhcp6_gen_option *) option;
@@ -192,8 +187,6 @@ dhcp6_process_options (uint8_t *option, int32_t option_length)
 			option_length = option_length - option_gen->length - 4;
 		}
 	}
-
-	return received_options;
 }
 
 uint32_t
@@ -204,6 +197,9 @@ handle_dhcpv6(uint8_t * packet, int32_t packetsize)
 	int32_t option_length;
 	struct dhcp_message_reply *reply;
 	reply = (struct dhcp_message_reply *) packet;
+
+	if (memcmp(reply->transaction_id, tid, 3))
+		return -1;			/* Wrong transaction ID */
 
 	if (reply->type == 7)
 		dhcpv6_state = DHCP_STATUSCODE_SUCCESS;

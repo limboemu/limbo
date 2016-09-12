@@ -49,8 +49,8 @@
 #define PMTIMER_HZ 3579545      // Underlying Hz of the PM Timer
 #define PMTIMER_TO_PIT 3        // Ratio of pmtimer rate to pit rate
 
-u32 TimerKHz VARFSEG;
-u16 TimerPort VARFSEG;
+u32 TimerKHz VARFSEG = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
+u16 TimerPort VARFSEG = PORT_PIT_COUNTER0;
 u8 ShiftTSC VARFSEG;
 
 
@@ -92,6 +92,7 @@ tsctimer_setup(void)
         t = (t + 1) >> 1;
     }
     TimerKHz = DIV_ROUND_UP((u32)t, 1000 * PMTIMER_TO_PIT);
+    TimerPort = 0;
 
     dprintf(1, "CPU Mhz=%u\n", (TimerKHz << ShiftTSC) / 1000);
 }
@@ -100,24 +101,16 @@ tsctimer_setup(void)
 void
 timer_setup(void)
 {
-    if (CONFIG_PMTIMER && TimerPort) {
-        dprintf(3, "pmtimer already configured; will not calibrate TSC\n");
+    if (!CONFIG_TSC_TIMER || (CONFIG_PMTIMER && TimerPort != PORT_PIT_COUNTER0))
         return;
-    }
 
+    // Check if CPU has a timestamp counter
     u32 eax, ebx, ecx, edx, cpuid_features = 0;
     cpuid(0, &eax, &ebx, &ecx, &edx);
     if (eax > 0)
         cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-
-    if (!(cpuid_features & CPUID_TSC)) {
-        TimerPort = PORT_PIT_COUNTER0;
-        TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
-        dprintf(3, "386/486 class CPU. Using TSC emulation\n");
-        return;
-    }
-
-    tsctimer_setup();
+    if (cpuid_features & CPUID_TSC)
+        tsctimer_setup();
 }
 
 void
@@ -154,7 +147,7 @@ static u32
 timer_read(void)
 {
     u16 port = GET_GLOBAL(TimerPort);
-    if (!port)
+    if (CONFIG_TSC_TIMER && !port)
         // Read from CPU TSC
         return rdtscll() >> GET_GLOBAL(ShiftTSC);
     if (CONFIG_PMTIMER && port != PORT_PIT_COUNTER0)
@@ -249,6 +242,8 @@ ticks_from_ms(u32 ms)
 void
 pit_setup(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     // timer0: binary count, 16bit count, mode 2
     outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
     // maximum count of 0000H = 18.2Hz

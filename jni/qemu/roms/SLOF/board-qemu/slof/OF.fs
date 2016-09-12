@@ -134,10 +134,6 @@ check-boot-menu
 \ Grab rtas from qemu
 #include "rtas.fs"
 
-390 cp
-
-#include "virtio.fs"
-
 3f0 cp
 
 #include "tree.fs"

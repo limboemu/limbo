@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/input/ps2.h"
 #include "ui/console.h"
@@ -181,10 +182,11 @@ static void ps2_keyboard_event(DeviceState *dev, QemuConsole *src,
 {
     PS2KbdState *s = (PS2KbdState *)dev;
     int scancodes[3], i, count;
+    InputKeyEvent *key = evt->u.key.data;
 
     qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER);
-    count = qemu_input_key_value_to_scancode(evt->key->key,
-                                             evt->key->down,
+    count = qemu_input_key_value_to_scancode(key->key,
+                                             key->down,
                                              scancodes);
     for (i = 0; i < count; i++) {
         ps2_put_keycode(s, scancodes[i]);
@@ -382,36 +384,40 @@ static void ps2_mouse_send_packet(PS2MouseState *s)
 static void ps2_mouse_event(DeviceState *dev, QemuConsole *src,
                             InputEvent *evt)
 {
-    static const int bmap[INPUT_BUTTON_MAX] = {
+    static const int bmap[INPUT_BUTTON__MAX] = {
         [INPUT_BUTTON_LEFT]   = MOUSE_EVENT_LBUTTON,
         [INPUT_BUTTON_MIDDLE] = MOUSE_EVENT_MBUTTON,
         [INPUT_BUTTON_RIGHT]  = MOUSE_EVENT_RBUTTON,
     };
     PS2MouseState *s = (PS2MouseState *)dev;
+    InputMoveEvent *move;
+    InputBtnEvent *btn;
 
     /* check if deltas are recorded when disabled */
     if (!(s->mouse_status & MOUSE_STATUS_ENABLED))
         return;
 
-    switch (evt->kind) {
+    switch (evt->type) {
     case INPUT_EVENT_KIND_REL:
-        if (evt->rel->axis == INPUT_AXIS_X) {
-            s->mouse_dx += evt->rel->value;
-        } else if (evt->rel->axis == INPUT_AXIS_Y) {
-            s->mouse_dy -= evt->rel->value;
+        move = evt->u.rel.data;
+        if (move->axis == INPUT_AXIS_X) {
+            s->mouse_dx += move->value;
+        } else if (move->axis == INPUT_AXIS_Y) {
+            s->mouse_dy -= move->value;
         }
         break;
 
     case INPUT_EVENT_KIND_BTN:
-        if (evt->btn->down) {
-            s->mouse_buttons |= bmap[evt->btn->button];
-            if (evt->btn->button == INPUT_BUTTON_WHEEL_UP) {
+        btn = evt->u.btn.data;
+        if (btn->down) {
+            s->mouse_buttons |= bmap[btn->button];
+            if (btn->button == INPUT_BUTTON_WHEEL_UP) {
                 s->mouse_dz--;
-            } else if (evt->btn->button == INPUT_BUTTON_WHEEL_DOWN) {
+            } else if (btn->button == INPUT_BUTTON_WHEEL_DOWN) {
                 s->mouse_dz++;
             }
         } else {
-            s->mouse_buttons &= ~bmap[evt->btn->button];
+            s->mouse_buttons &= ~bmap[btn->button];
         }
         break;
 
@@ -622,7 +628,7 @@ static void ps2_kbd_reset(void *opaque)
     ps2_common_reset(&s->common);
     s->scan_enabled = 0;
     s->translate = 0;
-    s->scancode_set = 0;
+    s->scancode_set = 2;
 }
 
 static void ps2_mouse_reset(void *opaque)
@@ -677,6 +683,7 @@ static const VMStateDescription vmstate_ps2_keyboard_ledstate = {
     .version_id = 3,
     .minimum_version_id = 2,
     .post_load = ps2_kbd_ledstate_post_load,
+    .needed = ps2_keyboard_ledstate_needed,
     .fields = (VMStateField[]) {
         VMSTATE_INT32(ledstate, PS2KbdState),
         VMSTATE_END_OF_LIST()
@@ -717,13 +724,9 @@ static const VMStateDescription vmstate_ps2_keyboard = {
         VMSTATE_INT32_V(scancode_set, PS2KbdState,3),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection []) {
-        {
-            .vmsd = &vmstate_ps2_keyboard_ledstate,
-            .needed = ps2_keyboard_ledstate_needed,
-        }, {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_ps2_keyboard_ledstate,
+        NULL
     }
 };
 

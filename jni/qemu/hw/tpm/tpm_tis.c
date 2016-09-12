@@ -17,8 +17,12 @@
  * supports version 1.3, 21 March 2013
  * In the developers menu choose the PC Client section then find the TIS
  * specification.
+ *
+ * TPM TIS for TPM 2 implementation following TCG PC Client Platform
+ * TPM Profile (PTP) Specification, Familiy 2.0, Revision 00.43
  */
 
+#include "qemu/osdep.h"
 #include "sysemu/tpm_backend.h"
 #include "tpm_int.h"
 #include "sysemu/block-backend.h"
@@ -27,18 +31,18 @@
 #include "hw/i386/pc.h"
 #include "hw/pci/pci_ids.h"
 #include "tpm_tis.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "qemu/main-loop.h"
+#include "sysemu/tpm_backend.h"
 
-/*#define DEBUG_TIS */
+#define DEBUG_TIS 0
 
-#ifdef DEBUG_TIS
-#define DPRINTF(fmt, ...) \
-    do { fprintf(stderr, fmt, ## __VA_ARGS__); } while (0)
-#else
-#define DPRINTF(fmt, ...) \
-    do { } while (0)
-#endif
+#define DPRINTF(fmt, ...) do { \
+    if (DEBUG_TIS) { \
+        printf(fmt, ## __VA_ARGS__); \
+    } \
+} while (0);
 
 /* whether the STS interrupt is supported */
 #define RAISE_STS_IRQ
@@ -51,6 +55,7 @@
 #define TPM_TIS_REG_INTF_CAPABILITY       0x14
 #define TPM_TIS_REG_STS                   0x18
 #define TPM_TIS_REG_DATA_FIFO             0x24
+#define TPM_TIS_REG_INTERFACE_ID          0x30
 #define TPM_TIS_REG_DATA_XFIFO            0x80
 #define TPM_TIS_REG_DATA_XFIFO_END        0xbc
 #define TPM_TIS_REG_DID_VID               0xf00
@@ -58,6 +63,12 @@
 
 /* vendor-specific registers */
 #define TPM_TIS_REG_DEBUG                 0xf90
+
+#define TPM_TIS_STS_TPM_FAMILY_MASK         (0x3 << 26)/* TPM 2.0 */
+#define TPM_TIS_STS_TPM_FAMILY1_2           (0 << 26)  /* TPM 2.0 */
+#define TPM_TIS_STS_TPM_FAMILY2_0           (1 << 26)  /* TPM 2.0 */
+#define TPM_TIS_STS_RESET_ESTABLISHMENT_BIT (1 << 25)  /* TPM 2.0 */
+#define TPM_TIS_STS_COMMAND_CANCEL          (1 << 24)  /* TPM 2.0 */
 
 #define TPM_TIS_STS_VALID                 (1 << 7)
 #define TPM_TIS_STS_COMMAND_READY         (1 << 6)
@@ -104,15 +115,42 @@
 #endif
 
 #define TPM_TIS_CAP_INTERFACE_VERSION1_3 (2 << 28)
+#define TPM_TIS_CAP_INTERFACE_VERSION1_3_FOR_TPM2_0 (3 << 28)
 #define TPM_TIS_CAP_DATA_TRANSFER_64B    (3 << 9)
 #define TPM_TIS_CAP_DATA_TRANSFER_LEGACY (0 << 9)
 #define TPM_TIS_CAP_BURST_COUNT_DYNAMIC  (0 << 8)
 #define TPM_TIS_CAP_INTERRUPT_LOW_LEVEL  (1 << 4) /* support is mandatory */
-#define TPM_TIS_CAPABILITIES_SUPPORTED   (TPM_TIS_CAP_INTERRUPT_LOW_LEVEL | \
-                                          TPM_TIS_CAP_BURST_COUNT_DYNAMIC | \
-                                          TPM_TIS_CAP_DATA_TRANSFER_64B | \
-                                          TPM_TIS_CAP_INTERFACE_VERSION1_3 | \
-                                          TPM_TIS_INTERRUPTS_SUPPORTED)
+#define TPM_TIS_CAPABILITIES_SUPPORTED1_3 \
+    (TPM_TIS_CAP_INTERRUPT_LOW_LEVEL | \
+     TPM_TIS_CAP_BURST_COUNT_DYNAMIC | \
+     TPM_TIS_CAP_DATA_TRANSFER_64B | \
+     TPM_TIS_CAP_INTERFACE_VERSION1_3 | \
+     TPM_TIS_INTERRUPTS_SUPPORTED)
+
+#define TPM_TIS_CAPABILITIES_SUPPORTED2_0 \
+    (TPM_TIS_CAP_INTERRUPT_LOW_LEVEL | \
+     TPM_TIS_CAP_BURST_COUNT_DYNAMIC | \
+     TPM_TIS_CAP_DATA_TRANSFER_64B | \
+     TPM_TIS_CAP_INTERFACE_VERSION1_3_FOR_TPM2_0 | \
+     TPM_TIS_INTERRUPTS_SUPPORTED)
+
+#define TPM_TIS_IFACE_ID_INTERFACE_TIS1_3   (0xf)     /* TPM 2.0 */
+#define TPM_TIS_IFACE_ID_INTERFACE_FIFO     (0x0)     /* TPM 2.0 */
+#define TPM_TIS_IFACE_ID_INTERFACE_VER_FIFO (0 << 4)  /* TPM 2.0 */
+#define TPM_TIS_IFACE_ID_CAP_5_LOCALITIES   (1 << 8)  /* TPM 2.0 */
+#define TPM_TIS_IFACE_ID_CAP_TIS_SUPPORTED  (1 << 13) /* TPM 2.0 */
+#define TPM_TIS_IFACE_ID_INT_SEL_LOCK       (1 << 19) /* TPM 2.0 */
+
+#define TPM_TIS_IFACE_ID_SUPPORTED_FLAGS1_3 \
+    (TPM_TIS_IFACE_ID_INTERFACE_TIS1_3 | \
+     (~0u << 4)/* all of it is don't care */)
+
+/* if backend was a TPM 2.0: */
+#define TPM_TIS_IFACE_ID_SUPPORTED_FLAGS2_0 \
+    (TPM_TIS_IFACE_ID_INTERFACE_FIFO | \
+     TPM_TIS_IFACE_ID_INTERFACE_VER_FIFO | \
+     TPM_TIS_IFACE_ID_CAP_5_LOCALITIES | \
+     TPM_TIS_IFACE_ID_CAP_TIS_SUPPORTED)
 
 #define TPM_TIS_TPM_DID       0x0001
 #define TPM_TIS_TPM_VID       PCI_VENDOR_ID_IBM
@@ -156,7 +194,8 @@ static void tpm_tis_show_buffer(const TPMSizedBuffer *sb, const char *string)
 
 /*
  * Set the given flags in the STS register by clearing the register but
- * preserving the SELFTEST_DONE flag and then setting the new flags.
+ * preserving the SELFTEST_DONE and TPM_FAMILY_MASK flags and then setting
+ * the new flags.
  *
  * The SELFTEST_DONE flag is acquired from the backend that determines it by
  * peeking into TPM commands.
@@ -168,7 +207,7 @@ static void tpm_tis_show_buffer(const TPMSizedBuffer *sb, const char *string)
  */
 static void tpm_tis_sts_set(TPMLocality *l, uint32_t flags)
 {
-    l->sts &= TPM_TIS_STS_SELFTEST_DONE;
+    l->sts &= TPM_TIS_STS_SELFTEST_DONE | TPM_TIS_STS_TPM_FAMILY_MASK;
     l->sts |= flags;
 }
 
@@ -421,7 +460,7 @@ static void tpm_tis_dump_state(void *opaque, hwaddr addr)
 
     for (idx = 0; regs[idx] != 0xfff; idx++) {
         DPRINTF("tpm_tis: 0x%04x : 0x%08x\n", regs[idx],
-                (uint32_t)tpm_tis_mmio_read(opaque, base + regs[idx], 4));
+                (int)tpm_tis_mmio_read(opaque, base + regs[idx], 4));
     }
 
     DPRINTF("tpm_tis: read offset   : %d\n"
@@ -491,7 +530,17 @@ static uint64_t tpm_tis_mmio_read(void *opaque, hwaddr addr,
         val = tis->loc[locty].ints;
         break;
     case TPM_TIS_REG_INTF_CAPABILITY:
-        val = TPM_TIS_CAPABILITIES_SUPPORTED;
+        switch (s->be_tpm_version) {
+        case TPM_VERSION_UNSPEC:
+            val = 0;
+            break;
+        case TPM_VERSION_1_2:
+            val = TPM_TIS_CAPABILITIES_SUPPORTED1_3;
+            break;
+        case TPM_VERSION_2_0:
+            val = TPM_TIS_CAPABILITIES_SUPPORTED2_0;
+            break;
+        }
         break;
     case TPM_TIS_REG_STS:
         if (tis->active_locty == locty) {
@@ -538,6 +587,9 @@ static uint64_t tpm_tis_mmio_read(void *opaque, hwaddr addr,
             shift = 0; /* no more adjustments */
         }
         break;
+    case TPM_TIS_REG_INTERFACE_ID:
+        val = tis->loc[locty].iface_id;
+        break;
     case TPM_TIS_REG_DID_VID:
         val = (TPM_TIS_TPM_DID << 16) | TPM_TIS_TPM_VID;
         break;
@@ -555,7 +607,7 @@ static uint64_t tpm_tis_mmio_read(void *opaque, hwaddr addr,
         val >>= shift;
     }
 
-    DPRINTF("tpm_tis:  read.%u(%08x) = %08x\n", size, (int)addr, (uint32_t)val);
+    DPRINTF("tpm_tis:  read.%u(%08x) = %08x\n", size, (int)addr, (int)val);
 
     return val;
 }
@@ -578,7 +630,7 @@ static void tpm_tis_mmio_write_intern(void *opaque, hwaddr addr,
     uint16_t len;
     uint32_t mask = (size == 1) ? 0xff : ((size == 2) ? 0xffff : ~0);
 
-    DPRINTF("tpm_tis: write.%u(%08x) = %08x\n", size, (int)addr, (uint32_t)val);
+    DPRINTF("tpm_tis: write.%u(%08x) = %08x\n", size, (int)addr, (int)val);
 
     if (locty == 4 && !hw_access) {
         DPRINTF("tpm_tis: Access to locality 4 only allowed from hardware\n");
@@ -738,6 +790,25 @@ static void tpm_tis_mmio_write_intern(void *opaque, hwaddr addr,
             break;
         }
 
+        if (s->be_tpm_version == TPM_VERSION_2_0) {
+            /* some flags that are only supported for TPM 2 */
+            if (val & TPM_TIS_STS_COMMAND_CANCEL) {
+                if (tis->loc[locty].state == TPM_TIS_STATE_EXECUTION) {
+                    /*
+                     * request the backend to cancel. Some backends may not
+                     * support it
+                     */
+                    tpm_backend_cancel_cmd(s->be_driver);
+                }
+            }
+
+            if (val & TPM_TIS_STS_RESET_ESTABLISHMENT_BIT) {
+                if (locty == 3 || locty == 4) {
+                    tpm_backend_reset_tpm_established_flag(s->be_driver, locty);
+                }
+            }
+        }
+
         val &= (TPM_TIS_STS_COMMAND_READY | TPM_TIS_STS_TPM_GO |
                 TPM_TIS_STS_RESPONSE_RETRY);
 
@@ -815,7 +886,7 @@ static void tpm_tis_mmio_write_intern(void *opaque, hwaddr addr,
             /* drop the byte */
         } else {
             DPRINTF("tpm_tis: Data to send to TPM: %08x (size=%d)\n",
-                    val, size);
+                    (int)val, size);
             if (tis->loc[locty].state == TPM_TIS_STATE_READY) {
                 tis->loc[locty].state = TPM_TIS_STATE_RECEPTION;
                 tpm_tis_sts_set(&tis->loc[locty],
@@ -844,7 +915,7 @@ static void tpm_tis_mmio_write_intern(void *opaque, hwaddr addr,
                 (tis->loc[locty].sts & TPM_TIS_STS_EXPECT)) {
                 /* we have a packet length - see if we have all of it */
 #ifdef RAISE_STS_IRQ
-                bool needIrq = !(tis->loc[locty].sts & TPM_TIS_STS_VALID);
+                bool need_irq = !(tis->loc[locty].sts & TPM_TIS_STS_VALID);
 #endif
                 len = tpm_tis_get_size_from_buffer(&tis->loc[locty].w_buffer);
                 if (len > tis->loc[locty].w_offset) {
@@ -855,10 +926,17 @@ static void tpm_tis_mmio_write_intern(void *opaque, hwaddr addr,
                     tpm_tis_sts_set(&tis->loc[locty], TPM_TIS_STS_VALID);
                 }
 #ifdef RAISE_STS_IRQ
-                if (needIrq) {
+                if (need_irq) {
                     tpm_tis_raise_irq(s, locty, TPM_TIS_INT_STS_VALID);
                 }
 #endif
+            }
+        }
+        break;
+    case TPM_TIS_REG_INTERFACE_ID:
+        if (val & TPM_TIS_IFACE_ID_INT_SEL_LOCK) {
+            for (l = 0; l < TPM_TIS_NUM_LOCALITIES; l++) {
+                tis->loc[l].iface_id |= TPM_TIS_IFACE_ID_INT_SEL_LOCK;
             }
         }
         break;
@@ -887,6 +965,16 @@ static int tpm_tis_do_startup_tpm(TPMState *s)
 }
 
 /*
+ * Get the TPMVersion of the backend device being used
+ */
+TPMVersion tpm_tis_get_tpm_version(Object *obj)
+{
+    TPMState *s = TPM(obj);
+
+    return tpm_backend_get_tpm_version(s->be_driver);
+}
+
+/*
  * This function is called when the machine starts, resets or due to
  * S3 resume.
  */
@@ -896,6 +984,8 @@ static void tpm_tis_reset(DeviceState *dev)
     TPMTISEmuState *tis = &s->s.tis;
     int c;
 
+    s->be_tpm_version = tpm_backend_get_tpm_version(s->be_driver);
+
     tpm_backend_reset(s->be_driver);
 
     tis->active_locty = TPM_TIS_NO_LOCALITY;
@@ -904,7 +994,18 @@ static void tpm_tis_reset(DeviceState *dev)
 
     for (c = 0; c < TPM_TIS_NUM_LOCALITIES; c++) {
         tis->loc[c].access = TPM_TIS_ACCESS_TPM_REG_VALID_STS;
-        tis->loc[c].sts = 0;
+        switch (s->be_tpm_version) {
+        case TPM_VERSION_UNSPEC:
+            break;
+        case TPM_VERSION_1_2:
+            tis->loc[c].sts = TPM_TIS_STS_TPM_FAMILY1_2;
+            tis->loc[c].iface_id = TPM_TIS_IFACE_ID_SUPPORTED_FLAGS1_3;
+            break;
+        case TPM_VERSION_2_0:
+            tis->loc[c].sts = TPM_TIS_STS_TPM_FAMILY2_0;
+            tis->loc[c].iface_id = TPM_TIS_IFACE_ID_SUPPORTED_FLAGS2_0;
+            break;
+        }
         tis->loc[c].inte = TPM_TIS_INT_POLARITY_LOW_LEVEL;
         tis->loc[c].ints = 0;
         tis->loc[c].state = TPM_TIS_STATE_IDLE;
@@ -952,7 +1053,7 @@ static void tpm_tis_realizefn(DeviceState *dev, Error **errp)
 
     if (tis->irq_num > 15) {
         error_setg(errp, "tpm_tis: IRQ %d for TPM TIS is outside valid range "
-                   "of 0 to 15.\n", tis->irq_num);
+                   "of 0 to 15", tis->irq_num);
         return;
     }
 

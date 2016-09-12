@@ -16,35 +16,39 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "sysemu/kvm.h"
 #include "kvm_ppc.h"
 #include "mmu-hash64.h"
 #include "mmu-hash32.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
+#include "exec/log.h"
+#include "helper_regs.h"
 
 //#define DEBUG_MMU
 //#define DEBUG_BATS
 //#define DEBUG_SOFTWARE_TLB
 //#define DUMP_PAGE_TABLES
-//#define DEBUG_SOFTWARE_TLB
 //#define FLUSH_ALL_TLBS
 
 #ifdef DEBUG_MMU
-#  define LOG_MMU_STATE(cpu) log_cpu_state((cpu), 0)
+#  define LOG_MMU_STATE(cpu) log_cpu_state_mask(CPU_LOG_MMU, (cpu), 0)
 #else
 #  define LOG_MMU_STATE(cpu) do { } while (0)
 #endif
 
 #ifdef DEBUG_SOFTWARE_TLB
-#  define LOG_SWTLB(...) qemu_log(__VA_ARGS__)
+#  define LOG_SWTLB(...) qemu_log_mask(CPU_LOG_MMU, __VA_ARGS__)
 #else
 #  define LOG_SWTLB(...) do { } while (0)
 #endif
 
 #ifdef DEBUG_BATS
-#  define LOG_BATS(...) qemu_log(__VA_ARGS__)
+#  define LOG_BATS(...) qemu_log_mask(CPU_LOG_MMU, __VA_ARGS__)
 #else
 #  define LOG_BATS(...) do { } while (0)
 #endif
@@ -162,7 +166,7 @@ static inline int ppc6xx_tlb_pte_check(mmu_ctx_t *ctx, target_ulong pte0,
             if (ctx->raddr != (hwaddr)-1ULL) {
                 /* all matches should have equal RPN, WIMG & PP */
                 if ((ctx->raddr & mmask) != (pte1 & mmask)) {
-                    qemu_log("Bad RPN/WIMG/PP\n");
+                    qemu_log_mask(CPU_LOG_MMU, "Bad RPN/WIMG/PP\n");
                     return -3;
                 }
             }
@@ -508,18 +512,20 @@ static inline int get_segment_6xx_tlb(CPUPPCState *env, mmu_ctx_t *ctx,
             /* Software TLB search */
             ret = ppc6xx_tlb_check(env, ctx, eaddr, rw, type);
 #if defined(DUMP_PAGE_TABLES)
-            if (qemu_log_enabled()) {
+            if (qemu_loglevel_mask(CPU_LOG_MMU)) {
+                CPUState *cs = ENV_GET_CPU(env);
                 hwaddr curaddr;
                 uint32_t a0, a1, a2, a3;
 
                 qemu_log("Page table: " TARGET_FMT_plx " len " TARGET_FMT_plx
-                         "\n", sdr, mask + 0x80);
-                for (curaddr = sdr; curaddr < (sdr + mask + 0x80);
+                         "\n", env->htab_base, env->htab_mask + 0x80);
+                for (curaddr = env->htab_base;
+                     curaddr < (env->htab_base + env->htab_mask + 0x80);
                      curaddr += 16) {
-                    a0 = ldl_phys(curaddr);
-                    a1 = ldl_phys(curaddr + 4);
-                    a2 = ldl_phys(curaddr + 8);
-                    a3 = ldl_phys(curaddr + 12);
+                    a0 = ldl_phys(cs->as, curaddr);
+                    a1 = ldl_phys(cs->as, curaddr + 4);
+                    a2 = ldl_phys(cs->as, curaddr + 8);
+                    a3 = ldl_phys(cs->as, curaddr + 12);
                     if (a0 != 0 || a1 != 0 || a2 != 0 || a3 != 0) {
                         qemu_log(TARGET_FMT_plx ": %08x %08x %08x %08x\n",
                                  curaddr, a0, a1, a2, a3);
@@ -575,8 +581,8 @@ static inline int get_segment_6xx_tlb(CPUPPCState *env, mmu_ctx_t *ctx,
             /* eciwx or ecowx */
             return -4;
         default:
-            qemu_log("ERROR: instruction should not need "
-                        "address translation\n");
+            qemu_log_mask(CPU_LOG_MMU, "ERROR: instruction should not need "
+                          "address translation\n");
             return -4;
         }
         if ((rw == 1 || ctx->key != 1) && (rw == 0 || ctx->key != 0)) {
@@ -656,32 +662,6 @@ static inline void ppc4xx_tlb_invalidate_all(CPUPPCState *env)
         tlb->prot &= ~PAGE_VALID;
     }
     tlb_flush(CPU(cpu), 1);
-}
-
-static inline void ppc4xx_tlb_invalidate_virt(CPUPPCState *env,
-                                              target_ulong eaddr, uint32_t pid)
-{
-#if !defined(FLUSH_ALL_TLBS)
-    CPUState *cs = CPU(ppc_env_get_cpu(env));
-    ppcemb_tlb_t *tlb;
-    hwaddr raddr;
-    target_ulong page, end;
-    int i;
-
-    for (i = 0; i < env->nb_tlb; i++) {
-        tlb = &env->tlb.tlbe[i];
-        if (ppcemb_tlb_check(env, tlb, &raddr, eaddr, pid, 0, i) == 0) {
-            end = tlb->EPN + tlb->size;
-            for (page = tlb->EPN; page < end; page += TARGET_PAGE_SIZE) {
-                tlb_flush_page(cs, page);
-            }
-            tlb->prot &= ~PAGE_VALID;
-            break;
-        }
-    }
-#else
-    ppc4xx_tlb_invalidate_all(env);
-#endif
 }
 
 static int mmu40x_get_physical_address(CPUPPCState *env, mmu_ctx_t *ctx,
@@ -916,9 +896,9 @@ static int ppcmas_tlb_check(CPUPPCState *env, ppcmas_tlb_t *tlb,
 
     mask = ~(booke206_tlb_to_page_size(env, tlb) - 1);
     LOG_SWTLB("%s: TLB ADDR=0x" TARGET_FMT_lx " PID=0x%x MAS1=0x%x MAS2=0x%"
-              PRIx64 " mask=0x" TARGET_FMT_lx " MAS7_3=0x%" PRIx64 " MAS8=%x\n",
-              __func__, address, pid, tlb->mas1, tlb->mas2, mask, tlb->mas7_3,
-              tlb->mas8);
+              PRIx64 " mask=0x%" HWADDR_PRIx " MAS7_3=0x%" PRIx64 " MAS8=0x%"
+              PRIx32 "\n", __func__, address, pid, tlb->mas1, tlb->mas2, mask,
+              tlb->mas7_3, tlb->mas8);
 
     /* Check PID */
     tlb_pid = (tlb->mas1 & MAS1_TID_MASK) >> MAS1_TID_SHIFT;
@@ -1293,10 +1273,12 @@ void dump_mmu(FILE *f, fprintf_function cpu_fprintf, CPUPPCState *env)
         break;
 #if defined(TARGET_PPC64)
     case POWERPC_MMU_64B:
+    case POWERPC_MMU_2_03:
     case POWERPC_MMU_2_06:
     case POWERPC_MMU_2_06a:
-    case POWERPC_MMU_2_06d:
-        dump_slb(f, cpu_fprintf, env);
+    case POWERPC_MMU_2_07:
+    case POWERPC_MMU_2_07a:
+        dump_slb(f, cpu_fprintf, ppc_env_get_cpu(env));
         break;
 #endif
     default:
@@ -1433,15 +1415,17 @@ hwaddr ppc_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
     switch (env->mmu_model) {
 #if defined(TARGET_PPC64)
     case POWERPC_MMU_64B:
+    case POWERPC_MMU_2_03:
     case POWERPC_MMU_2_06:
     case POWERPC_MMU_2_06a:
-    case POWERPC_MMU_2_06d:
-        return ppc_hash64_get_phys_page_debug(env, addr);
+    case POWERPC_MMU_2_07:
+    case POWERPC_MMU_2_07a:
+        return ppc_hash64_get_phys_page_debug(cpu, addr);
 #endif
 
     case POWERPC_MMU_32B:
     case POWERPC_MMU_601:
-        return ppc_hash32_get_phys_page_debug(env, addr);
+        return ppc_hash32_get_phys_page_debug(cpu, addr);
 
     default:
         ;
@@ -1507,6 +1491,7 @@ static int cpu_ppc_handle_mmu_fault(CPUPPCState *env, target_ulong address,
                                     int rw, int mmu_idx)
 {
     CPUState *cs = CPU(ppc_env_get_cpu(env));
+    PowerPCCPU *cpu = POWERPC_CPU(cs);
     mmu_ctx_t ctx;
     int access_type;
     int ret = 0;
@@ -1608,9 +1593,9 @@ static int cpu_ppc_handle_mmu_fault(CPUPPCState *env, target_ulong address,
                 tlb_miss:
                     env->error_code |= ctx.key << 19;
                     env->spr[SPR_HASH1] = env->htab_base +
-                        get_pteg_offset32(env, ctx.hash[0]);
+                        get_pteg_offset32(cpu, ctx.hash[0]);
                     env->spr[SPR_HASH2] = env->htab_base +
-                        get_pteg_offset32(env, ctx.hash[1]);
+                        get_pteg_offset32(cpu, ctx.hash[1]);
                     break;
                 case POWERPC_MMU_SOFT_74xx:
                     if (rw == 1) {
@@ -1763,6 +1748,9 @@ static inline void dump_store_bat(CPUPPCState *env, char ID, int ul, int nr,
 void helper_store_ibatu(CPUPPCState *env, uint32_t nr, target_ulong value)
 {
     target_ulong mask;
+#if defined(FLUSH_ALL_TLBS)
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
+#endif
 
     dump_store_bat(env, 'I', 0, nr, value);
     if (env->IBAT[0][nr] != value) {
@@ -1781,7 +1769,7 @@ void helper_store_ibatu(CPUPPCState *env, uint32_t nr, target_ulong value)
 #if !defined(FLUSH_ALL_TLBS)
         do_invalidate_BAT(env, env->IBAT[0][nr], mask);
 #else
-        tlb_flush(env, 1);
+        tlb_flush(CPU(cpu), 1);
 #endif
     }
 }
@@ -1795,6 +1783,9 @@ void helper_store_ibatl(CPUPPCState *env, uint32_t nr, target_ulong value)
 void helper_store_dbatu(CPUPPCState *env, uint32_t nr, target_ulong value)
 {
     target_ulong mask;
+#if defined(FLUSH_ALL_TLBS)
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
+#endif
 
     dump_store_bat(env, 'D', 0, nr, value);
     if (env->DBAT[0][nr] != value) {
@@ -1813,7 +1804,7 @@ void helper_store_dbatu(CPUPPCState *env, uint32_t nr, target_ulong value)
 #if !defined(FLUSH_ALL_TLBS)
         do_invalidate_BAT(env, env->DBAT[0][nr], mask);
 #else
-        tlb_flush(env, 1);
+        tlb_flush(CPU(cpu), 1);
 #endif
     }
 }
@@ -1828,6 +1819,7 @@ void helper_store_601_batu(CPUPPCState *env, uint32_t nr, target_ulong value)
 {
     target_ulong mask;
 #if defined(FLUSH_ALL_TLBS)
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
     int do_inval;
 #endif
 
@@ -1860,7 +1852,7 @@ void helper_store_601_batu(CPUPPCState *env, uint32_t nr, target_ulong value)
         }
 #if defined(FLUSH_ALL_TLBS)
         if (do_inval) {
-            tlb_flush(env, 1);
+            tlb_flush(CPU(cpu), 1);
         }
 #endif
     }
@@ -1871,6 +1863,7 @@ void helper_store_601_batl(CPUPPCState *env, uint32_t nr, target_ulong value)
 #if !defined(FLUSH_ALL_TLBS)
     target_ulong mask;
 #else
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
     int do_inval;
 #endif
 
@@ -1899,7 +1892,7 @@ void helper_store_601_batl(CPUPPCState *env, uint32_t nr, target_ulong value)
         env->DBAT[1][nr] = value;
 #if defined(FLUSH_ALL_TLBS)
         if (do_inval) {
-            tlb_flush(env, 1);
+            tlb_flush(CPU(cpu), 1);
         }
 #endif
     }
@@ -1937,10 +1930,13 @@ void ppc_tlb_invalidate_all(CPUPPCState *env)
     case POWERPC_MMU_601:
 #if defined(TARGET_PPC64)
     case POWERPC_MMU_64B:
+    case POWERPC_MMU_2_03:
     case POWERPC_MMU_2_06:
     case POWERPC_MMU_2_06a:
-    case POWERPC_MMU_2_06d:
+    case POWERPC_MMU_2_07:
+    case POWERPC_MMU_2_07a:
 #endif /* defined(TARGET_PPC64) */
+        env->tlb_need_flush = 0;
         tlb_flush(CPU(cpu), 1);
         break;
     default:
@@ -1953,9 +1949,6 @@ void ppc_tlb_invalidate_all(CPUPPCState *env)
 void ppc_tlb_invalidate_one(CPUPPCState *env, target_ulong addr)
 {
 #if !defined(FLUSH_ALL_TLBS)
-    PowerPCCPU *cpu = ppc_env_get_cpu(env);
-    CPUState *cs;
-
     addr &= TARGET_PAGE_MASK;
     switch (env->mmu_model) {
     case POWERPC_MMU_SOFT_6xx:
@@ -1965,67 +1958,33 @@ void ppc_tlb_invalidate_one(CPUPPCState *env, target_ulong addr)
             ppc6xx_tlb_invalidate_virt(env, addr, 1);
         }
         break;
-    case POWERPC_MMU_SOFT_4xx:
-    case POWERPC_MMU_SOFT_4xx_Z:
-        ppc4xx_tlb_invalidate_virt(env, addr, env->spr[SPR_40x_PID]);
-        break;
-    case POWERPC_MMU_REAL:
-        cpu_abort(CPU(cpu), "No TLB for PowerPC 4xx in real mode\n");
-        break;
-    case POWERPC_MMU_MPC8xx:
-        /* XXX: TODO */
-        cpu_abort(CPU(cpu), "MPC8xx MMU model is not implemented\n");
-        break;
-    case POWERPC_MMU_BOOKE:
-        /* XXX: TODO */
-        cpu_abort(CPU(cpu), "BookE MMU model is not implemented\n");
-        break;
-    case POWERPC_MMU_BOOKE206:
-        /* XXX: TODO */
-        cpu_abort(CPU(cpu), "BookE 2.06 MMU model is not implemented\n");
-        break;
     case POWERPC_MMU_32B:
     case POWERPC_MMU_601:
-        /* tlbie invalidate TLBs for all segments */
-        addr &= ~((target_ulong)-1ULL << 28);
-        cs = CPU(cpu);
-        /* XXX: this case should be optimized,
-         * giving a mask to tlb_flush_page
+        /* Actual CPUs invalidate entire congruence classes based on the
+         * geometry of their TLBs and some OSes take that into account,
+         * we just mark the TLB to be flushed later (context synchronizing
+         * event or sync instruction on 32-bit).
          */
-        tlb_flush_page(cs, addr | (0x0 << 28));
-        tlb_flush_page(cs, addr | (0x1 << 28));
-        tlb_flush_page(cs, addr | (0x2 << 28));
-        tlb_flush_page(cs, addr | (0x3 << 28));
-        tlb_flush_page(cs, addr | (0x4 << 28));
-        tlb_flush_page(cs, addr | (0x5 << 28));
-        tlb_flush_page(cs, addr | (0x6 << 28));
-        tlb_flush_page(cs, addr | (0x7 << 28));
-        tlb_flush_page(cs, addr | (0x8 << 28));
-        tlb_flush_page(cs, addr | (0x9 << 28));
-        tlb_flush_page(cs, addr | (0xA << 28));
-        tlb_flush_page(cs, addr | (0xB << 28));
-        tlb_flush_page(cs, addr | (0xC << 28));
-        tlb_flush_page(cs, addr | (0xD << 28));
-        tlb_flush_page(cs, addr | (0xE << 28));
-        tlb_flush_page(cs, addr | (0xF << 28));
+        env->tlb_need_flush = 1;
         break;
 #if defined(TARGET_PPC64)
     case POWERPC_MMU_64B:
+    case POWERPC_MMU_2_03:
     case POWERPC_MMU_2_06:
     case POWERPC_MMU_2_06a:
-    case POWERPC_MMU_2_06d:
+    case POWERPC_MMU_2_07:
+    case POWERPC_MMU_2_07a:
         /* tlbie invalidate TLBs for all segments */
         /* XXX: given the fact that there are too many segments to invalidate,
          *      and we still don't have a tlb_flush_mask(env, n, mask) in QEMU,
          *      we just invalidate all TLBs
          */
-        tlb_flush(CPU(cpu), 1);
+        env->tlb_need_flush = 1;
         break;
 #endif /* defined(TARGET_PPC64) */
     default:
-        /* XXX: TODO */
-        cpu_abort(CPU(cpu), "Unknown MMU model\n");
-        break;
+        /* Should never reach here with other MMU models */
+        assert(0);
     }
 #else
     ppc_tlb_invalidate_all(env);
@@ -2041,15 +2000,14 @@ void ppc_store_sdr1(CPUPPCState *env, target_ulong value)
     env->spr[SPR_SDR1] = value;
 #if defined(TARGET_PPC64)
     if (env->mmu_model & POWERPC_MMU_64) {
-        target_ulong htabsize = value & SDR_64_HTABSIZE;
+        PowerPCCPU *cpu = ppc_env_get_cpu(env);
+        Error *local_err = NULL;
 
-        if (htabsize > 28) {
-            fprintf(stderr, "Invalid HTABSIZE 0x" TARGET_FMT_lx
-                    " stored in SDR1\n", htabsize);
-            htabsize = 28;
+        ppc_hash64_set_sdr1(cpu, value, &local_err);
+        if (local_err) {
+            error_report_err(local_err);
+            error_free(local_err);
         }
-        env->htab_mask = (1ULL << (htabsize + 18 - 7)) - 1;
-        env->htab_base = value & SDR_64_HTABORG;
     } else
 #endif /* defined(TARGET_PPC64) */
     {
@@ -2073,28 +2031,23 @@ target_ulong helper_load_sr(CPUPPCState *env, target_ulong sr_num)
 
 void helper_store_sr(CPUPPCState *env, target_ulong srnum, target_ulong value)
 {
-    PowerPCCPU *cpu = ppc_env_get_cpu(env);
-
     qemu_log_mask(CPU_LOG_MMU,
             "%s: reg=%d " TARGET_FMT_lx " " TARGET_FMT_lx "\n", __func__,
             (int)srnum, value, env->sr[srnum]);
 #if defined(TARGET_PPC64)
     if (env->mmu_model & POWERPC_MMU_64) {
-        uint64_t rb = 0, rs = 0;
+        PowerPCCPU *cpu = ppc_env_get_cpu(env);
+        uint64_t esid, vsid;
 
         /* ESID = srnum */
-        rb |= ((uint32_t)srnum & 0xf) << 28;
-        /* Set the valid bit */
-        rb |= SLB_ESID_V;
-        /* Index = ESID */
-        rb |= (uint32_t)srnum;
+        esid = ((uint64_t)(srnum & 0xf) << 28) | SLB_ESID_V;
 
         /* VSID = VSID */
-        rs |= (value & 0xfffffff) << 12;
+        vsid = (value & 0xfffffff) << 12;
         /* flags = flags */
-        rs |= ((value >> 27) & 0xf) << 8;
+        vsid |= ((value >> 27) & 0xf) << 8;
 
-        ppc_store_slb(env, rb, rs);
+        ppc_store_slb(cpu, srnum, esid, vsid);
     } else
 #endif
     if (env->sr[srnum] != value) {
@@ -2112,7 +2065,7 @@ void helper_store_sr(CPUPPCState *env, target_ulong srnum, target_ulong value)
             }
         }
 #else
-        tlb_flush(CPU(cpu), 1);
+        env->tlb_need_flush = 1;
 #endif
     }
 }
@@ -2126,6 +2079,16 @@ void helper_tlbia(CPUPPCState *env)
 void helper_tlbie(CPUPPCState *env, target_ulong addr)
 {
     ppc_tlb_invalidate_one(env, addr);
+}
+
+void helper_tlbiva(CPUPPCState *env, target_ulong addr)
+{
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
+
+    /* tlbiva instruction only exists on BookE */
+    assert(env->mmu_model == POWERPC_MMU_BOOKE);
+    /* XXX: TODO */
+    cpu_abort(CPU(cpu), "BookE MMU model is not implemented\n");
 }
 
 /* Software driven TLBs management */
@@ -2904,14 +2867,19 @@ void helper_booke206_tlbflush(CPUPPCState *env, target_ulong type)
 }
 
 
+void helper_check_tlb_flush(CPUPPCState *env)
+{
+    check_tlb_flush(env);
+}
+
 /*****************************************************************************/
 
 /* try to fill the TLB and return an exception if error. If retaddr is
    NULL, it means that the function was called in C code (i.e. not
    from generated code or from helper.c) */
 /* XXX: fix it to restore all registers */
-void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
-              uintptr_t retaddr)
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+              int mmu_idx, uintptr_t retaddr)
 {
     PowerPCCPU *cpu = POWERPC_CPU(cs);
     PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cs);
@@ -2919,9 +2887,9 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
     int ret;
 
     if (pcc->handle_mmu_fault) {
-        ret = pcc->handle_mmu_fault(cpu, addr, is_write, mmu_idx);
+        ret = pcc->handle_mmu_fault(cpu, addr, access_type, mmu_idx);
     } else {
-        ret = cpu_ppc_handle_mmu_fault(env, addr, is_write, mmu_idx);
+        ret = cpu_ppc_handle_mmu_fault(env, addr, access_type, mmu_idx);
     }
     if (unlikely(ret != 0)) {
         if (likely(retaddr)) {

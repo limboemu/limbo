@@ -8,6 +8,7 @@
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
 #include "hw/pic.h" // pic_eoi1
+#include "hw/ps2port.h" // ps2_check_event
 #include "hw/rtc.h" // rtc_read
 #include "hw/usb-hid.h" // usb_check_event
 #include "output.h" // debug_enter
@@ -55,7 +56,8 @@ clock_setup(void)
     }
 
     enable_hwirq(0, FUNC16(entry_08));
-    enable_hwirq(8, FUNC16(entry_70));
+    if (CONFIG_RTC_TIMER)
+        enable_hwirq(8, FUNC16(entry_70));
 }
 
 
@@ -239,6 +241,16 @@ handle_1a07(struct bregs *regs)
     set_success(regs);
 }
 
+static void
+handle_1abb(struct bregs *regs)
+{
+    if (!CONFIG_TCGBIOS)
+        return;
+
+    dprintf(DEBUG_tcg, "16: Calling tpm_interrupt_handler\n");
+    call32(tpm_interrupt_handler32, MAKE_FLATPTR(GET_SEG(SS), regs), 0);
+}
+
 // Unsupported
 static void
 handle_1aXX(struct bregs *regs)
@@ -260,17 +272,15 @@ handle_1a(struct bregs *regs)
     case 0x05: handle_1a05(regs); break;
     case 0x06: handle_1a06(regs); break;
     case 0x07: handle_1a07(regs); break;
+    case 0xbb: handle_1abb(regs); break;
     default:   handle_1aXX(regs); break;
     }
 }
 
-// INT 08h System Timer ISR Entry Point
-void VISIBLE16
-handle_08(void)
+// Update main tick counter
+static void
+clock_update(void)
 {
-    debug_isr(DEBUG_ISR_08);
-
-    // Update counter
     u32 counter = GET_BDA(timer_counter);
     counter++;
     // compare to one days worth of timer ticks at 18.2 hz
@@ -284,6 +294,15 @@ handle_08(void)
     // Check for internal events.
     floppy_tick();
     usb_check_event();
+    ps2_check_event();
+}
+
+// INT 08h System Timer ISR Entry Point
+void VISIBLE16
+handle_08(void)
+{
+    debug_isr(DEBUG_ISR_08);
+    clock_update();
 
     // chain to user timer tick INT #0x1c
     struct bregs br;
@@ -292,6 +311,20 @@ handle_08(void)
     call16_int(0x1c, &br);
 
     pic_eoi1();
+}
+
+u32 last_timer_check VARLOW;
+
+// Simulate timer irq on machines without hardware irqs
+void
+clock_poll_irq(void)
+{
+    if (CONFIG_HARDWARE_IRQ)
+        return;
+    if (!timer_check(GET_LOW(last_timer_check)))
+        return;
+    SET_LOW(last_timer_check, timer_calc(ticks_to_ms(1)));
+    clock_update();
 }
 
 
@@ -359,6 +392,10 @@ clear_usertimer(void)
 void
 handle_1586(struct bregs *regs)
 {
+    if (!CONFIG_RTC_TIMER) {
+        set_code_unimplemented(regs, RET_EUNSUPPORTED);
+        return;
+    }
     // Use the rtc to wait for the specified time.
     u8 statusflag = 0;
     u32 count = (regs->cx << 16) | regs->dx;
@@ -402,6 +439,10 @@ handle_1583XX(struct bregs *regs)
 void
 handle_1583(struct bregs *regs)
 {
+    if (!CONFIG_RTC_TIMER) {
+        handle_1583XX(regs);
+        return;
+    }
     switch (regs->al) {
     case 0x00: handle_158300(regs); break;
     case 0x01: handle_158301(regs); break;
@@ -415,6 +456,8 @@ handle_1583(struct bregs *regs)
 void VISIBLE16
 handle_70(void)
 {
+    if (!CONFIG_RTC_TIMER)
+        return;
     debug_isr(DEBUG_ISR_70);
 
     // Check which modes are enabled and have occurred.

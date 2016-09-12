@@ -42,24 +42,7 @@ cell *the_heap_start = &the_heap[0];
 cell *the_heap_end = &the_heap[HEAP_SIZE / CELLSIZE];
 
 extern void io_putchar(unsigned char);
-
-
-static unsigned long __attribute__((noinline))
-call_c(cell arg0, cell arg1, cell arg2, cell entry)
-{
-	register unsigned long r3 asm("r3") = arg0.u;
-	register unsigned long r4 asm("r4") = arg1.u;
-	register unsigned long r5 asm("r5") = arg2.u;
-	register unsigned long r6 = entry.u         ;
-
-	asm volatile("mflr 31 ; mtctr %4 ; bctrl ; mtlr 31"
-		     : "=r" (r3)
-		     : "r" (r3), "r" (r4), "r" (r5), "r" (r6)
-		     : "ctr", "r6", "r7", "r8", "r9", "r10", "r11",
-		       "r12", "r13", "r31", "lr", "cc");
-
-	return r3;
-}
+extern unsigned long call_c(cell arg0, cell arg1, cell arg2, cell entry);
 
 
 long

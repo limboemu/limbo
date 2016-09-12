@@ -7,6 +7,10 @@
  * This code is licensed under the GPL
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
 #include "hw/devices.h"
 #include "hw/boards.h"
@@ -16,6 +20,7 @@
 #include "exec/address-spaces.h"
 #include "sysemu/sysemu.h"
 #include "qemu/error-report.h"
+#include "hw/char/pl011.h"
 
 #define TYPE_INTEGRATOR_CM "integrator_core"
 #define INTEGRATOR_CM(obj) \
@@ -238,9 +243,10 @@ static const MemoryRegionOps integratorcm_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int integratorcm_init(SysBusDevice *dev)
+static void integratorcm_init(Object *obj)
 {
-    IntegratorCMState *s = INTEGRATOR_CM(dev);
+    IntegratorCMState *s = INTEGRATOR_CM(obj);
+    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
 
     s->cm_osc = 0x01000048;
     /* ??? What should the high bits of this value be?  */
@@ -265,17 +271,16 @@ static int integratorcm_init(SysBusDevice *dev)
     s->cm_init = 0x00000112;
     s->cm_refcnt_offset = muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), 24,
                                    1000);
-    memory_region_init_ram(&s->flash, OBJECT(s), "integrator.flash", 0x100000,
-                           &error_abort);
+    memory_region_init_ram(&s->flash, obj, "integrator.flash", 0x100000,
+                           &error_fatal);
     vmstate_register_ram_global(&s->flash);
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &integratorcm_ops, s,
+    memory_region_init_io(&s->iomem, obj, &integratorcm_ops, s,
                           "integratorcm", 0x00800000);
     sysbus_init_mmio(dev, &s->iomem);
 
     integratorcm_do_remap(s);
     /* ??? Save/restore.  */
-    return 0;
 }
 
 /* Integrator/CP hardware emulation.  */
@@ -390,18 +395,18 @@ static const MemoryRegionOps icp_pic_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int icp_pic_init(SysBusDevice *sbd)
+static void icp_pic_init(Object *obj)
 {
-    DeviceState *dev = DEVICE(sbd);
-    icp_pic_state *s = INTEGRATOR_PIC(dev);
+    DeviceState *dev = DEVICE(obj);
+    icp_pic_state *s = INTEGRATOR_PIC(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
 
     qdev_init_gpio_in(dev, icp_pic_set_irq, 32);
     sysbus_init_irq(sbd, &s->parent_irq);
     sysbus_init_irq(sbd, &s->parent_fiq);
-    memory_region_init_io(&s->iomem, OBJECT(s), &icp_pic_ops, s,
+    memory_region_init_io(&s->iomem, obj, &icp_pic_ops, s,
                           "icp-pic", 0x00800000);
     sysbus_init_mmio(sbd, &s->iomem);
-    return 0;
 }
 
 /* CP control registers.  */
@@ -533,7 +538,6 @@ static void integratorcp_init(MachineState *machine)
     qemu_irq pic[32];
     DeviceState *dev, *sic, *icp;
     int i;
-    Error *err = NULL;
 
     if (!cpu_model) {
         cpu_model = "arm926";
@@ -552,18 +556,10 @@ static void integratorcp_init(MachineState *machine)
      * realization.
      */
     if (object_property_find(cpuobj, "has_el3", NULL)) {
-        object_property_set_bool(cpuobj, false, "has_el3", &err);
-        if (err) {
-            error_report_err(err);
-            exit(1);
-        }
+        object_property_set_bool(cpuobj, false, "has_el3", &error_fatal);
     }
 
-    object_property_set_bool(cpuobj, true, "realized", &err);
-    if (err) {
-        error_report_err(err);
-        exit(1);
-    }
+    object_property_set_bool(cpuobj, true, "realized", &error_fatal);
 
     cpu = ARM_CPU(cpuobj);
 
@@ -593,8 +589,8 @@ static void integratorcp_init(MachineState *machine)
     sysbus_create_varargs("integrator_pit", 0x13000000,
                           pic[5], pic[6], pic[7], NULL);
     sysbus_create_simple("pl031", 0x15000000, pic[8]);
-    sysbus_create_simple("pl011", 0x16000000, pic[1]);
-    sysbus_create_simple("pl011", 0x17000000, pic[2]);
+    pl011_create(0x16000000, pic[1], serial_hds[0]);
+    pl011_create(0x17000000, pic[2], serial_hds[1]);
     icp = sysbus_create_simple(TYPE_ICP_CONTROL_REGS, 0xcb000000,
                                qdev_get_gpio_in(sic, 3));
     sysbus_create_simple("pl050_keyboard", 0x18000000, pic[3]);
@@ -619,18 +615,13 @@ static void integratorcp_init(MachineState *machine)
     arm_load_kernel(cpu, &integrator_binfo);
 }
 
-static QEMUMachine integratorcp_machine = {
-    .name = "integratorcp",
-    .desc = "ARM Integrator/CP (ARM926EJ-S)",
-    .init = integratorcp_init,
-};
-
-static void integratorcp_machine_init(void)
+static void integratorcp_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&integratorcp_machine);
+    mc->desc = "ARM Integrator/CP (ARM926EJ-S)";
+    mc->init = integratorcp_init;
 }
 
-machine_init(integratorcp_machine_init);
+DEFINE_MACHINE("integratorcp", integratorcp_machine_init)
 
 static Property core_properties[] = {
     DEFINE_PROP_UINT32("memsz", IntegratorCMState, memsz, 0),
@@ -640,9 +631,7 @@ static Property core_properties[] = {
 static void core_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = integratorcm_init;
     dc->props = core_properties;
 }
 
@@ -650,21 +639,15 @@ static const TypeInfo core_info = {
     .name          = TYPE_INTEGRATOR_CM,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(IntegratorCMState),
+    .instance_init = integratorcm_init,
     .class_init    = core_class_init,
 };
-
-static void icp_pic_class_init(ObjectClass *klass, void *data)
-{
-    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
-
-    sdc->init = icp_pic_init;
-}
 
 static const TypeInfo icp_pic_info = {
     .name          = TYPE_INTEGRATOR_PIC,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(icp_pic_state),
-    .class_init    = icp_pic_class_init,
+    .instance_init = icp_pic_init,
 };
 
 static const TypeInfo icp_ctrl_regs_info = {

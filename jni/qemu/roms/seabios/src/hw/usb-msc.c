@@ -63,25 +63,27 @@ usb_msc_send(struct usbdrive_s *udrive_gf, int dir, void *buf, u32 bytes)
 
 // Low-level usb command transmit function.
 int
-usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+usb_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_USB_MSC)
         return 0;
 
-    dprintf(16, "usb_cmd_data id=%p write=%d count=%d bs=%d buf=%p\n"
-            , op->drive_gf, 0, op->count, blocksize, op->buf_fl);
+    dprintf(16, "usb_cmd_data id=%p write=%d count=%d buf=%p\n"
+            , op->drive_gf, 0, op->count, op->buf_fl);
     struct usbdrive_s *udrive_gf = container_of(
         op->drive_gf, struct usbdrive_s, drive);
 
     // Setup command block wrapper.
-    u32 bytes = blocksize * op->count;
     struct cbw_s cbw;
     memset(&cbw, 0, sizeof(cbw));
-    memcpy(cbw.CBWCB, cdbcmd, USB_CDB_SIZE);
+    int blocksize = scsi_fill_cmd(op, cbw.CBWCB, USB_CDB_SIZE);
+    if (blocksize < 0)
+        return default_process_op(op);
+    u32 bytes = blocksize * op->count;
     cbw.dCBWSignature = CBW_SIGNATURE;
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
-    cbw.bmCBWFlags = cdb_is_read(cdbcmd, blocksize) ? USB_DIR_IN : USB_DIR_OUT;
+    cbw.bmCBWFlags = scsi_is_read(op) ? USB_DIR_IN : USB_DIR_OUT;
     cbw.bCBWLUN = GET_GLOBALFLAT(udrive_gf->lun);
     cbw.bCBWCBLength = USB_CDB_SIZE;
 

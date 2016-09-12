@@ -1,4 +1,4 @@
-#include <signal.h>
+#include "qemu/osdep.h"
 #include "hw/xen/xen_backend.h"
 #include "xen_domainbuild.h"
 #include "qemu/timer.h"
@@ -174,11 +174,14 @@ static int xen_domain_watcher(void)
     for (i = 3; i < n; i++) {
         if (i == fd[0])
             continue;
-        if (i == xc_fd(xen_xc)) {
-            continue;
-        }
         close(i);
     }
+
+    /*
+     * Reopen xc interface, since the original is unsafe after fork
+     * and was closed above.
+     */
+    xen_xc = xc_interface_open(0, 0, 0);
 
     /* ignore term signals */
     signal(SIGINT,  SIG_IGN);
@@ -234,7 +237,7 @@ int xen_domain_build_pv(const char *kernel, const char *ramdisk,
     int rc;
 
     memcpy(uuid, qemu_uuid, sizeof(uuid));
-    rc = xc_domain_create(xen_xc, ssidref, uuid, flags, &xen_domid);
+    rc = xen_domain_create(xen_xc, ssidref, uuid, flags, &xen_domid);
     if (rc < 0) {
         fprintf(stderr, "xen: xc_domain_create() failed\n");
         goto err;

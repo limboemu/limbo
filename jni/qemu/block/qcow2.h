@@ -25,8 +25,8 @@
 #ifndef BLOCK_QCOW2_H
 #define BLOCK_QCOW2_H
 
-#include "qemu/aes.h"
-#include "block/coroutine.h"
+#include "crypto/cipher.h"
+#include "qemu/coroutine.h"
 
 //#define DEBUG_ALLOC
 //#define DEBUG_ALLOC2
@@ -62,11 +62,14 @@
 #define MIN_CLUSTER_BITS 9
 #define MAX_CLUSTER_BITS 21
 
-#define MIN_L2_CACHE_SIZE 1 /* cluster */
+/* Must be at least 2 to cover COW */
+#define MIN_L2_CACHE_SIZE 2 /* clusters */
 
 /* Must be at least 4 to cover all cases of refcount table growth */
 #define MIN_REFCOUNT_CACHE_SIZE 4 /* clusters */
 
+/* Whichever is more */
+#define DEFAULT_L2_CACHE_CLUSTERS 8 /* clusters */
 #define DEFAULT_L2_CACHE_BYTE_SIZE 1048576 /* bytes */
 
 /* The refblock cache needs only a fourth of the L2 cache size to cover as many
@@ -93,6 +96,7 @@
 #define QCOW2_OPT_CACHE_SIZE "cache-size"
 #define QCOW2_OPT_L2_CACHE_SIZE "l2-cache-size"
 #define QCOW2_OPT_REFCOUNT_CACHE_SIZE "refcount-cache-size"
+#define QCOW2_OPT_CACHE_CLEAN_INTERVAL "cache-clean-interval"
 
 typedef struct QCowHeader {
     uint32_t magic;
@@ -218,7 +222,7 @@ typedef uint64_t Qcow2GetRefcountFunc(const void *refcount_array,
 typedef void Qcow2SetRefcountFunc(void *refcount_array,
                                   uint64_t index, uint64_t value);
 
-typedef struct BDRVQcowState {
+typedef struct BDRVQcow2State {
     int cluster_bits;
     int cluster_size;
     int cluster_sectors;
@@ -236,6 +240,8 @@ typedef struct BDRVQcowState {
 
     Qcow2Cache* l2_table_cache;
     Qcow2Cache* refcount_block_cache;
+    QEMUTimer *cache_clean_timer;
+    unsigned cache_clean_interval;
 
     uint8_t *cluster_cache;
     uint8_t *cluster_data;
@@ -250,10 +256,8 @@ typedef struct BDRVQcowState {
 
     CoMutex lock;
 
-    uint32_t crypt_method; /* current crypt method, 0 if no key yet */
+    QCryptoCipher *cipher; /* current cipher, NULL if no key yet */
     uint32_t crypt_method_header;
-    AES_KEY aes_encrypt_key;
-    AES_KEY aes_decrypt_key;
     uint64_t snapshots_offset;
     int snapshots_size;
     unsigned int nb_snapshots;
@@ -289,9 +293,7 @@ typedef struct BDRVQcowState {
      * override) */
     char *image_backing_file;
     char *image_backing_format;
-} BDRVQcowState;
-
-struct QCowAIOCB;
+} BDRVQcow2State;
 
 typedef struct Qcow2COWRegion {
     /**
@@ -300,8 +302,8 @@ typedef struct Qcow2COWRegion {
      */
     uint64_t    offset;
 
-    /** Number of sectors to copy */
-    int         nb_sectors;
+    /** Number of bytes to copy */
+    int         nb_bytes;
 } Qcow2COWRegion;
 
 /**
@@ -315,12 +317,6 @@ typedef struct QCowL2Meta
 
     /** Host offset of the first newly allocated cluster */
     uint64_t alloc_offset;
-
-    /**
-     * Number of sectors from the start of the first allocated cluster to
-     * the end of the (possibly shortened) request
-     */
-    int nb_available;
 
     /** Number of newly allocated clusters */
     int nb_clusters;
@@ -401,28 +397,28 @@ typedef enum QCow2MetadataOverlap {
 
 #define REFT_OFFSET_MASK 0xfffffffffffffe00ULL
 
-static inline int64_t start_of_cluster(BDRVQcowState *s, int64_t offset)
+static inline int64_t start_of_cluster(BDRVQcow2State *s, int64_t offset)
 {
     return offset & ~(s->cluster_size - 1);
 }
 
-static inline int64_t offset_into_cluster(BDRVQcowState *s, int64_t offset)
+static inline int64_t offset_into_cluster(BDRVQcow2State *s, int64_t offset)
 {
     return offset & (s->cluster_size - 1);
 }
 
-static inline int size_to_clusters(BDRVQcowState *s, int64_t size)
+static inline uint64_t size_to_clusters(BDRVQcow2State *s, uint64_t size)
 {
     return (size + (s->cluster_size - 1)) >> s->cluster_bits;
 }
 
-static inline int64_t size_to_l1(BDRVQcowState *s, int64_t size)
+static inline int64_t size_to_l1(BDRVQcow2State *s, int64_t size)
 {
     int shift = s->cluster_bits + s->l2_bits;
     return (size + (1ULL << shift) - 1) >> shift;
 }
 
-static inline int offset_to_l2_index(BDRVQcowState *s, int64_t offset)
+static inline int offset_to_l2_index(BDRVQcow2State *s, int64_t offset)
 {
     return (offset >> s->cluster_bits) & (s->l2_size - 1);
 }
@@ -433,12 +429,12 @@ static inline int64_t align_offset(int64_t offset, int n)
     return offset;
 }
 
-static inline int64_t qcow2_vm_state_offset(BDRVQcowState *s)
+static inline int64_t qcow2_vm_state_offset(BDRVQcow2State *s)
 {
     return (int64_t)s->l1_vm_state_index << (s->cluster_bits + s->l2_bits);
 }
 
-static inline uint64_t qcow2_max_refcount_clusters(BDRVQcowState *s)
+static inline uint64_t qcow2_max_refcount_clusters(BDRVQcow2State *s)
 {
     return QCOW_MAX_REFTABLE_SIZE >> s->cluster_bits;
 }
@@ -457,7 +453,7 @@ static inline int qcow2_get_cluster_type(uint64_t l2_entry)
 }
 
 /* Check whether refcounts are eager or lazy */
-static inline bool qcow2_need_accurate_refcounts(BDRVQcowState *s)
+static inline bool qcow2_need_accurate_refcounts(BDRVQcow2State *s)
 {
     return !(s->incompatible_features & QCOW2_INCOMPAT_DIRTY);
 }
@@ -469,8 +465,7 @@ static inline uint64_t l2meta_cow_start(QCowL2Meta *m)
 
 static inline uint64_t l2meta_cow_end(QCowL2Meta *m)
 {
-    return m->offset + m->cow_end.offset
-        + (m->cow_end.nb_sectors << BDRV_SECTOR_BITS);
+    return m->offset + m->cow_end.offset + m->cow_end.nb_bytes;
 }
 
 static inline uint64_t refcount_diff(uint64_t r1, uint64_t r2)
@@ -505,8 +500,8 @@ int qcow2_update_cluster_refcount(BlockDriverState *bs, int64_t cluster_index,
                                   enum qcow2_discard_type type);
 
 int64_t qcow2_alloc_clusters(BlockDriverState *bs, uint64_t size);
-int qcow2_alloc_clusters_at(BlockDriverState *bs, uint64_t offset,
-    int nb_clusters);
+int64_t qcow2_alloc_clusters_at(BlockDriverState *bs, uint64_t offset,
+                                int64_t nb_clusters);
 int64_t qcow2_alloc_bytes(BlockDriverState *bs, int size);
 void qcow2_free_clusters(BlockDriverState *bs,
                           int64_t offset, int64_t size,
@@ -527,21 +522,25 @@ int qcow2_check_metadata_overlap(BlockDriverState *bs, int ign, int64_t offset,
 int qcow2_pre_write_overlap_check(BlockDriverState *bs, int ign, int64_t offset,
                                   int64_t size);
 
+int qcow2_change_refcount_order(BlockDriverState *bs, int refcount_order,
+                                BlockDriverAmendStatusCB *status_cb,
+                                void *cb_opaque, Error **errp);
+
 /* qcow2-cluster.c functions */
 int qcow2_grow_l1_table(BlockDriverState *bs, uint64_t min_size,
                         bool exact_size);
 int qcow2_write_l1_entry(BlockDriverState *bs, int l1_index);
 void qcow2_l2_cache_reset(BlockDriverState *bs);
 int qcow2_decompress_cluster(BlockDriverState *bs, uint64_t cluster_offset);
-void qcow2_encrypt_sectors(BDRVQcowState *s, int64_t sector_num,
-                     uint8_t *out_buf, const uint8_t *in_buf,
-                     int nb_sectors, int enc,
-                     const AES_KEY *key);
+int qcow2_encrypt_sectors(BDRVQcow2State *s, int64_t sector_num,
+                          uint8_t *out_buf, const uint8_t *in_buf,
+                          int nb_sectors, bool enc, Error **errp);
 
 int qcow2_get_cluster_offset(BlockDriverState *bs, uint64_t offset,
-    int *num, uint64_t *cluster_offset);
+                             unsigned int *bytes, uint64_t *cluster_offset);
 int qcow2_alloc_cluster_offset(BlockDriverState *bs, uint64_t offset,
-    int *num, uint64_t *host_offset, QCowL2Meta **m);
+                               unsigned int *bytes, uint64_t *host_offset,
+                               QCowL2Meta **m);
 uint64_t qcow2_alloc_compressed_cluster_offset(BlockDriverState *bs,
                                          uint64_t offset,
                                          int compressed_size);
@@ -552,7 +551,8 @@ int qcow2_discard_clusters(BlockDriverState *bs, uint64_t offset,
 int qcow2_zero_clusters(BlockDriverState *bs, uint64_t offset, int nb_sectors);
 
 int qcow2_expand_zero_clusters(BlockDriverState *bs,
-                               BlockDriverAmendStatusCB *status_cb);
+                               BlockDriverAmendStatusCB *status_cb,
+                               void *cb_opaque);
 
 /* qcow2-snapshot.c functions */
 int qcow2_snapshot_create(BlockDriverState *bs, QEMUSnapshotInfo *sn_info);
@@ -574,18 +574,21 @@ int qcow2_read_snapshots(BlockDriverState *bs);
 Qcow2Cache *qcow2_cache_create(BlockDriverState *bs, int num_tables);
 int qcow2_cache_destroy(BlockDriverState* bs, Qcow2Cache *c);
 
-void qcow2_cache_entry_mark_dirty(Qcow2Cache *c, void *table);
+void qcow2_cache_entry_mark_dirty(BlockDriverState *bs, Qcow2Cache *c,
+     void *table);
 int qcow2_cache_flush(BlockDriverState *bs, Qcow2Cache *c);
+int qcow2_cache_write(BlockDriverState *bs, Qcow2Cache *c);
 int qcow2_cache_set_dependency(BlockDriverState *bs, Qcow2Cache *c,
     Qcow2Cache *dependency);
 void qcow2_cache_depends_on_flush(Qcow2Cache *c);
 
+void qcow2_cache_clean_unused(BlockDriverState *bs, Qcow2Cache *c);
 int qcow2_cache_empty(BlockDriverState *bs, Qcow2Cache *c);
 
 int qcow2_cache_get(BlockDriverState *bs, Qcow2Cache *c, uint64_t offset,
     void **table);
 int qcow2_cache_get_empty(BlockDriverState *bs, Qcow2Cache *c, uint64_t offset,
     void **table);
-int qcow2_cache_put(BlockDriverState *bs, Qcow2Cache *c, void **table);
+void qcow2_cache_put(BlockDriverState *bs, Qcow2Cache *c, void **table);
 
 #endif

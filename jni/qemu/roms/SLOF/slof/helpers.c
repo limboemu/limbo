@@ -114,6 +114,13 @@ long SLOF_pci_config_read16(long offset)
 	return forth_pop();
 }
 
+long SLOF_pci_config_read8(long offset)
+{
+	forth_push(offset);
+	forth_eval("config-b@");
+	return forth_pop();
+}
+
 void SLOF_pci_config_write32(long offset, long value)
 {
 	forth_push(value);
@@ -126,6 +133,13 @@ void SLOF_pci_config_write16(long offset, long value)
 	forth_push(value);
 	forth_push(offset);
 	forth_eval("config-w!");
+}
+
+void SLOF_pci_config_write8(long offset, long value)
+{
+	forth_push(value);
+	forth_push(offset);
+	forth_eval("config-b!");
 }
 
 void *SLOF_translate_my_address(void *addr)

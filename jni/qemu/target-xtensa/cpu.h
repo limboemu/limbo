@@ -25,17 +25,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPU_XTENSA_H
-#define CPU_XTENSA_H
+#ifndef XTENSA_CPU_H
+#define XTENSA_CPU_H
 
 #define ALIGNED_ONLY
 #define TARGET_LONG_BITS 32
-#define ELF_MACHINE EM_XTENSA
 
 #define CPUArchState struct CPUXtensaState
 
-#include "config.h"
 #include "qemu-common.h"
+#include "cpu-qom.h"
 #include "exec/cpu-defs.h"
 #include "fpu/softfloat.h"
 
@@ -65,6 +64,7 @@ enum {
     XTENSA_OPTION_MP_SYNCHRO,
     XTENSA_OPTION_CONDITIONAL_STORE,
     XTENSA_OPTION_ATOMCTL,
+    XTENSA_OPTION_DEPBITS,
 
     /* Interrupts and exceptions */
     XTENSA_OPTION_EXCEPTION,
@@ -287,6 +287,7 @@ typedef struct XtensaGdbReg {
     int targno;
     int type;
     int group;
+    unsigned size;
 } XtensaGdbReg;
 
 typedef struct XtensaGdbRegmap {
@@ -296,7 +297,7 @@ typedef struct XtensaGdbRegmap {
     XtensaGdbReg reg[1 + 16 + 64 + 256 + 256];
 } XtensaGdbRegmap;
 
-typedef struct XtensaConfig {
+struct XtensaConfig {
     const char *name;
     uint64_t options;
     XtensaGdbRegmap gdb_regmap;
@@ -329,12 +330,24 @@ typedef struct XtensaConfig {
 
     xtensa_tlb itlb;
     xtensa_tlb dtlb;
-} XtensaConfig;
+};
 
 typedef struct XtensaConfigList {
     const XtensaConfig *config;
     struct XtensaConfigList *next;
 } XtensaConfigList;
+
+#ifdef HOST_WORDS_BIGENDIAN
+enum {
+    FP_F32_HIGH,
+    FP_F32_LOW,
+};
+#else
+enum {
+    FP_F32_LOW,
+    FP_F32_HIGH,
+};
+#endif
 
 typedef struct CPUXtensaState {
     const XtensaConfig *config;
@@ -343,7 +356,10 @@ typedef struct CPUXtensaState {
     uint32_t sregs[256];
     uint32_t uregs[256];
     uint32_t phys_regs[MAX_NAREG];
-    float32 fregs[16];
+    union {
+        float32 f32[2];
+        float64 f64;
+    } fregs[16];
     float_status fp_status;
 
     xtensa_tlb_entry itlb[7][MAX_TLB_WAY_SIZE];
@@ -364,10 +380,43 @@ typedef struct CPUXtensaState {
     CPU_COMMON
 } CPUXtensaState;
 
-#include "cpu-qom.h"
+/**
+ * XtensaCPU:
+ * @env: #CPUXtensaState
+ *
+ * An Xtensa CPU.
+ */
+struct XtensaCPU {
+    /*< private >*/
+    CPUState parent_obj;
+    /*< public >*/
 
-#define cpu_exec cpu_xtensa_exec
-#define cpu_gen_code cpu_xtensa_gen_code
+    CPUXtensaState env;
+};
+
+static inline XtensaCPU *xtensa_env_get_cpu(const CPUXtensaState *env)
+{
+    return container_of(env, XtensaCPU, env);
+}
+
+#define ENV_GET_CPU(e) CPU(xtensa_env_get_cpu(e))
+
+#define ENV_OFFSET offsetof(XtensaCPU, env)
+
+void xtensa_cpu_do_interrupt(CPUState *cpu);
+bool xtensa_cpu_exec_interrupt(CPUState *cpu, int interrupt_request);
+void xtensa_cpu_do_unassigned_access(CPUState *cpu, hwaddr addr,
+                                     bool is_write, bool is_exec, int opaque,
+                                     unsigned size);
+void xtensa_cpu_dump_state(CPUState *cpu, FILE *f,
+                           fprintf_function cpu_fprintf, int flags);
+hwaddr xtensa_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int xtensa_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
+int xtensa_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
+void xtensa_cpu_do_unaligned_access(CPUState *cpu, vaddr addr,
+                                    MMUAccessType access_type,
+                                    int mmu_idx, uintptr_t retaddr);
+
 #define cpu_signal_handler cpu_xtensa_signal_handler
 #define cpu_list xtensa_cpu_list
 
@@ -383,7 +432,7 @@ XtensaCPU *cpu_xtensa_init(const char *cpu_model);
 
 void xtensa_translate_init(void);
 void xtensa_breakpoint_handler(CPUState *cs);
-int cpu_xtensa_exec(CPUXtensaState *s);
+void xtensa_finalize_config(XtensaConfig *config);
 void xtensa_register_core(XtensaConfigList *node);
 void check_interrupts(CPUXtensaState *s);
 void xtensa_irq_init(CPUXtensaState *env);
@@ -475,7 +524,7 @@ static inline uint32_t xtensa_replicate_windowstart(CPUXtensaState *env)
 #define MMU_MODE2_SUFFIX _ring2
 #define MMU_MODE3_SUFFIX _ring3
 
-static inline int cpu_mmu_index(CPUXtensaState *env)
+static inline int cpu_mmu_index(CPUXtensaState *env, bool ifetch)
 {
     return xtensa_get_cring(env);
 }
@@ -492,7 +541,7 @@ static inline int cpu_mmu_index(CPUXtensaState *env)
 #define XTENSA_TBFLAG_WINDOW_SHIFT 15
 
 static inline void cpu_get_tb_cpu_state(CPUXtensaState *env, target_ulong *pc,
-        target_ulong *cs_base, int *flags)
+        target_ulong *cs_base, uint32_t *flags)
 {
     CPUState *cs = CPU(xtensa_env_get_cpu(env));
 
@@ -534,6 +583,5 @@ static inline void cpu_get_tb_cpu_state(CPUXtensaState *env, target_ulong *pc,
 }
 
 #include "exec/cpu-all.h"
-#include "exec/exec-all.h"
 
 #endif

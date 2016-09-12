@@ -6,6 +6,7 @@
  *
  * This code is licensed under the GPL.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/devices.h"
 #include "ui/console.h"
@@ -69,14 +70,14 @@ static const VMStateDescription vmstate_stellaris_gamepad = {
     }
 };
 
-/* Returns an array 5 ouput slots.  */
+/* Returns an array of 5 output slots.  */
 void stellaris_gamepad_init(int n, qemu_irq *irq, const int *keycode)
 {
     gamepad_state *s;
     int i;
 
-    s = (gamepad_state *)g_malloc0(sizeof (gamepad_state));
-    s->buttons = (gamepad_button *)g_malloc0(n * sizeof (gamepad_button));
+    s = g_new0(gamepad_state, 1);
+    s->buttons = g_new0(gamepad_button, n);
     for (i = 0; i < n; i++) {
         s->buttons[i].irq = irq[i];
         s->buttons[i].keycode = keycode[i];

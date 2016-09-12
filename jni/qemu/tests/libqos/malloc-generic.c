@@ -7,7 +7,7 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
+#include "qemu/osdep.h"
 #include "libqos/malloc-generic.h"
 #include "libqos/malloc.h"
 

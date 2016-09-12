@@ -63,7 +63,6 @@ extern ofmem_t* 	ofmem_arch_get_private(void);
 extern void*    	ofmem_arch_get_malloc_base(void);
 extern ucell    	ofmem_arch_get_heap_top(void);
 extern ucell    	ofmem_arch_get_virt_top(void);
-extern phys_addr_t 	ofmem_arch_get_phys_top(void);
 extern ucell		ofmem_arch_get_iomem_base(void);
 extern ucell		ofmem_arch_get_iomem_top(void);
 extern retain_t*	ofmem_arch_get_retained(void);

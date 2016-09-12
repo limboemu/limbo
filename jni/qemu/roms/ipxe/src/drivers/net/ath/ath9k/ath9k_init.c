@@ -22,6 +22,7 @@ FILE_LICENCE ( BSD2 );
 #include <ipxe/malloc.h>
 #include <ipxe/pci_io.h>
 #include <ipxe/pci.h>
+#include <ipxe/ethernet.h>
 
 #include "ath9k.h"
 
@@ -349,7 +350,7 @@ static void ath9k_init_misc(struct ath_softc *sc)
 	ath9k_hw_set_diversity(sc->sc_ah, 1);
 	sc->rx.defant = ath9k_hw_getdefantenna(sc->sc_ah);
 
-	memcpy(common->bssidmask, ath_bcast_mac, ETH_ALEN);
+	memcpy(common->bssidmask, eth_broadcast, ETH_ALEN);
 }
 
 static int ath9k_init_softc(u16 devid, struct ath_softc *sc, u16 subsysid,

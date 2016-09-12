@@ -37,8 +37,15 @@ static int ip6_is_multicast (ip6_addr_t * ip);
 
 /****************************** LOCAL VARIABLES **************************/
 
+/* List of Ipv6 Addresses */
+static struct ip6addr_list_entry *first_ip6;
+static struct ip6addr_list_entry *last_ip6;
+
 /* Own IPv6 address */
 static struct ip6addr_list_entry *own_ip6;
+
+/* All nodes link-local address */
+struct ip6addr_list_entry all_nodes_ll;
 
 /* Null IPv6 address */
 static ip6_addr_t null_ip6;
@@ -46,6 +53,7 @@ static ip6_addr_t null_ip6;
 /* helper variables */
 static uint8_t null_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+struct ip6_config ip6_state;
 
 /****************************** IMPLEMENTATION ***************************/
 
@@ -55,9 +63,10 @@ static uint8_t null_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
  * @param  fd            Socket descriptor
  * @param  _own_ip       client IPv6 address (e.g. ::1)
  */
-void
-set_ipv6_address (int fd, ip6_addr_t *_own_ip6)
+void set_ipv6_address(int fd, ip6_addr_t *_own_ip6)
 {
+	struct ip6addr_list_entry *ile;
+
 	own_ip6 = malloc (sizeof(struct ip6addr_list_entry));
 
 	/* If no address was passed as a parameter generate a link-local
@@ -73,6 +82,20 @@ set_ipv6_address (int fd, ip6_addr_t *_own_ip6)
 	ip6addr_add (own_ip6);
 
 	ipv6_init(fd);
+
+	/*
+	 * Check whether we've got a non-link-local address during
+	 * ipv6_init() and use that as preferred address if possible
+	 */
+	if (_own_ip6 == NULL) {
+		for (ile = first_ip6; ile != NULL ; ile = ile->next) {
+			if (!ip6_is_multicast(&ile->addr) &&
+			    !ip6_is_linklocal(&ile->addr)) {
+				own_ip6 = ile;
+				break;
+			}
+		}
+	}
 }
 
 /**
@@ -80,8 +103,7 @@ set_ipv6_address (int fd, ip6_addr_t *_own_ip6)
  *
  * @return pointer to client IPv6 address (e.g. ::1)
  */
-ip6_addr_t *
-get_ipv6_address (void)
+ip6_addr_t *get_ipv6_address(void)
 {
 	return (ip6_addr_t *) &(own_ip6->addr);
 }
@@ -92,8 +114,7 @@ get_ipv6_address (void)
  * @return 0 - IPv6 address is not in list
  *         1 - IPv6 address is in list
  */
-static int8_t
-find_ip6addr (ip6_addr_t *ip)
+static int8_t find_ip6addr(ip6_addr_t *ip)
 {
 	struct ip6addr_list_entry *n = NULL;
 
@@ -119,8 +140,7 @@ find_ip6addr (ip6_addr_t *ip)
  * @see handle_udp
  * @see ip6hdr
  */
-int8_t
-handle_ipv6 (int fd, uint8_t * ip6_packet, int32_t packetsize)
+int8_t handle_ipv6(int fd, uint8_t * ip6_packet, uint32_t packetsize)
 {
 
 	struct ip6hdr *ip6 = NULL;
@@ -164,11 +184,9 @@ handle_ipv6 (int fd, uint8_t * ip6_packet, int32_t packetsize)
  * @see                fill_dnshdr
  * @see                fill_btphdr
  */
-void
-fill_ip6hdr (uint8_t * packet, uint16_t packetsize,
-             uint8_t ip_proto, ip6_addr_t *ip6_src, ip6_addr_t *ip6_dst)
+void fill_ip6hdr(uint8_t * packet, uint16_t packetsize,
+		 uint8_t ip_proto, ip6_addr_t *ip6_src, ip6_addr_t *ip6_dst)
 {
-
 	struct ip6hdr * ip6h = (struct ip6hdr *) packet;
 
 	ip6h->ver_tc_fl = 6 << 28;	// set version to 6
@@ -184,8 +202,7 @@ fill_ip6hdr (uint8_t * packet, uint16_t packetsize,
  *      See RFC 4291 "IP Version 6 Addressing Architecture"
  *
  */
-uint64_t
-mac2eui64 (const uint8_t *mac)
+uint64_t mac2eui64(const uint8_t *mac)
 {
 	uint8_t eui64id[8];
 	uint64_t retid;
@@ -205,8 +222,7 @@ mac2eui64 (const uint8_t *mac)
  * @param  own_mac    MAC of NIC
  * @return ll_addr    pointer to newly created link-local address
  */
-ip6_addr_t *
-ip6_create_ll_address (const uint8_t *own_mac)
+ip6_addr_t *ip6_create_ll_address(const uint8_t *own_mac)
 {
 	ip6_addr_t *ll_addr;
 
@@ -223,8 +239,7 @@ ip6_create_ll_address (const uint8_t *own_mac)
  * @param  struct ip6_addr_list_entry *ip6
  * @return true or false
  */
-int8_t
-unknown_prefix (ip6_addr_t *ip)
+int8_t unknown_prefix(ip6_addr_t *ip)
 {
 	struct ip6addr_list_entry *node;
 
@@ -240,8 +255,7 @@ unknown_prefix (ip6_addr_t *ip)
  * @return NULL - malloc failed
  *	   ! NULL - pointer to new prefix_info
  */
-struct prefix_info *
-ip6_create_prefix_info ()
+struct prefix_info *ip6_create_prefix_info()
 {
 	struct prefix_info *prfx_info;
 
@@ -259,8 +273,7 @@ ip6_create_prefix_info ()
  * @param  ip6_addr prefix (as received in RA)
  * @return NULL - pointer to new ip6addr_list entry
  */
-void *
-ip6_prefix2addr (ip6_addr_t prefix)
+void *ip6_prefix2addr(ip6_addr_t prefix)
 {
 	struct ip6addr_list_entry *new_address;
 	uint64_t interface_id;
@@ -287,8 +300,7 @@ ip6_prefix2addr (ip6_addr_t prefix)
  * @return  0 - passed pointer = NULL;
  *	    1 - ok
  */
-int8_t
-ip6addr_add (struct ip6addr_list_entry *new_address)
+int8_t ip6addr_add(struct ip6addr_list_entry *new_address)
 {
 	struct ip6addr_list_entry *solicited_node;
 
@@ -332,8 +344,7 @@ ip6addr_add (struct ip6addr_list_entry *new_address)
  *
  * @param  fd            socket fd
  */
-static void
-ipv6_init (int fd)
+static void ipv6_init(int fd)
 {
 	int i = 0;
 
@@ -349,21 +360,9 @@ ipv6_init (int fd)
 	/* Multicast addresses */
 	all_nodes_ll.addr.part.prefix         = 0xff02000000000000;
 	all_nodes_ll.addr.part.interface_id   = 1;
-	all_dhcpv6_ll.addr.part.prefix        = 0xff02000000000000ULL;
-	all_dhcpv6_ll.addr.part.interface_id  = 0x10002ULL;
-	all_routers_ll.addr.part.prefix       = 0xff02000000000000;
-	all_routers_ll.addr.part.interface_id      = 2;
-
 	ip6addr_add(&all_nodes_ll);
-	/* ... */
 
-	/* Router list */
-	first_router = NULL;
-	last_router = first_router;
-
-	/* Init Neighbour cache */
-	first_neighbor = NULL;
-	last_neighbor  = first_neighbor;
+	ndp_init();
 
 	send_router_solicitation (fd);
 	for(i=0; i < 4 && !is_ra_received(); i++) {
@@ -382,8 +381,7 @@ ipv6_init (int fd)
  * @param  ip6_addr ip_1
  * @param  ip6_addr ip_2
  */
-int8_t
-ip6_cmp (ip6_addr_t *ip_1, ip6_addr_t *ip_2)
+int8_t ip6_cmp(ip6_addr_t *ip_1, ip6_addr_t *ip_2)
 {
 	return ((int8_t) !memcmp( &(ip_1->addr[0]), &(ip_2->addr[0]),
 		IPV6_ADDR_LENGTH ));
@@ -396,11 +394,9 @@ ip6_cmp (ip6_addr_t *ip_1, ip6_addr_t *ip_2)
  * @param  *ip    - pointer to IPv6 address
  * @return true or false
  */
-int
-ip6_is_multicast (ip6_addr_t * ip)
+int ip6_is_multicast(ip6_addr_t * ip)
 {
-	uint8_t mc = 0xFF;
-	return ! memcmp(&ip->addr[0], &mc, 1);
+	return ip->addr[0] == 0xFF;
 }
 
 /**
@@ -408,17 +404,11 @@ ip6_is_multicast (ip6_addr_t * ip)
  *      (e.g. UDP or ICMPv6)
  *
  * @param  *ip    - pointer to IPv6 address
+ * @param  *mc_mac  pointer to an array with 6 bytes (for the MAC address)
  * @return pointer to Multicast MAC address
  */
-static uint8_t *
-ip6_to_multicast_mac (ip6_addr_t * ip)
+static uint8_t *ip6_to_multicast_mac(ip6_addr_t * ip, uint8_t *mc_mac)
 {
-	uint8_t *mc_mac;
-
-	mc_mac = malloc(ETH_ALEN);
-	if (!mc_mac)
-		return NULL;
-
 	mc_mac[0] = 0x33;
 	mc_mac[1] = 0x33;
 	memcpy (mc_mac+2, (uint8_t *) &(ip->addr)+12, 4);
@@ -437,8 +427,8 @@ ip6_to_multicast_mac (ip6_addr_t * ip)
  *				    starting from *packet
  * @return checksum
  */
-static unsigned short
-ip6_checksum (struct ip6hdr *ip6h, unsigned short *packet, int words)
+static unsigned short ip6_checksum(struct ip6hdr *ip6h, unsigned short *packet,
+				   int words)
 {
 	int i=0;
 	unsigned long checksum;
@@ -478,8 +468,7 @@ ip6_checksum (struct ip6hdr *ip6h, unsigned short *packet, int words)
  * @see receive_ether
  * @see ip6hdr
  */
-int
-send_ipv6 (int fd, void* buffer, int len)
+int send_ipv6(int fd, void* buffer, int len)
 {
 	struct neighbor *n;
 	struct ip6hdr *ip6h;
@@ -519,17 +508,9 @@ send_ipv6 (int fd, void* buffer, int len)
 
 	n = find_neighbor (&ip_dst);
 
-	// If packet is a neighbor solicitation
-	if (icmp6h->type == ICMPV6_NEIGHBOUR_SOLICITATION) {
-		mac_addr = ip6_to_multicast_mac (&ip_dst);
-		fill_ethhdr( buffer-sizeof(struct ethhdr), htons(ETHERTYPE_IPv6),
-			     get_mac_address(),
-			     mac_addr);
-	}
-
 	// If address is a multicast address, create a proper mac address
-	else if (ip6_is_multicast (&ip_dst)) {
-		mac_addr = ip6_to_multicast_mac (&ip_dst);
+	if (ip6_is_multicast (&ip_dst)) {
+		mac_addr = ip6_to_multicast_mac (&ip_dst, mac);
 	}
 	else {
 		// Check if the MAC address is already cached
@@ -572,8 +553,7 @@ send_ipv6 (int fd, void* buffer, int len)
 	return send_ether (fd, n->eth_frame, len + sizeof(struct ethhdr));
 }
 
-static int
-check_colons(const char *str)
+static int check_colons(const char *str)
 {
 	char *pch, *prv;
 	int col = 0;
@@ -595,7 +575,7 @@ check_colons(const char *str)
 	dprintf("The number of  col : %d \n",col);
 	dprintf("The number of dcol : %d \n",dcol);
 
-	if((dcol > 1) ||                      /* Cannot have 2 "::" */ 
+	if((dcol > 1) ||                      /* Cannot have 2 "::" */
 	   ((dcol == 1) && (col > 5)) ||      /* Too many ':'s */
 	   ((dcol == 0) && (col != 7)) ) {    /* Too few ':'s */
 		dprintf(" exiting for check_colons \n");
@@ -605,8 +585,7 @@ check_colons(const char *str)
 	return (col+dcol);
 }
 
-static int
-ipv6str_to_bytes(const char *str, char *ip)
+static int ipv6str_to_bytes(const char *str, char *ip)
 {
 	char block[5];
 	int res;

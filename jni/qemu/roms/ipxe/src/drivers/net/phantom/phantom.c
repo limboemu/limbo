@@ -16,9 +16,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -2056,6 +2060,7 @@ static int phantom_probe ( struct pci_device *pci ) {
 	struct net_device *netdev;
 	struct phantom_nic *phantom;
 	struct settings *parent_settings;
+	unsigned int busdevfn;
 	int rc;
 
 	/* Allocate Phantom device */
@@ -2086,19 +2091,20 @@ static int phantom_probe ( struct pci_device *pci ) {
 	 * B2 will have this fixed; remove this hack when B1 is no
 	 * longer in use.
 	 */
-	if ( PCI_FUNC ( pci->busdevfn ) == 0 ) {
+	busdevfn = pci->busdevfn;
+	if ( PCI_FUNC ( busdevfn ) == 0 ) {
 		unsigned int i;
 		for ( i = 0 ; i < 8 ; i++ ) {
 			uint32_t temp;
 			pci->busdevfn =
-				PCI_BUSDEVFN ( PCI_BUS ( pci->busdevfn ),
-					       PCI_SLOT ( pci->busdevfn ), i );
+				PCI_BUSDEVFN ( PCI_SEG ( busdevfn ),
+					       PCI_BUS ( busdevfn ),
+					       PCI_SLOT ( busdevfn ), i );
 			pci_read_config_dword ( pci, 0xc8, &temp );
 			pci_read_config_dword ( pci, 0xc8, &temp );
 			pci_write_config_dword ( pci, 0xc8, 0xf1000 );
 		}
-		pci->busdevfn = PCI_BUSDEVFN ( PCI_BUS ( pci->busdevfn ),
-					       PCI_SLOT ( pci->busdevfn ), 0 );
+		pci->busdevfn = busdevfn;
 	}
 
 	/* Initialise the command PEG */

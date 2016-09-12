@@ -7,8 +7,9 @@
 #include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
-#include "malloc.h" // malloc_fseg
-#include "memmap.h" // add_e820
+#include "e820map.h" // e820_add
+#include "malloc.h" // memalign_tmphigh
+#include "memmap.h" // PAGE_SIZE
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_findprefix
 #include "stacks.h" // call16_int
@@ -41,7 +42,7 @@ ramdisk_setup(void)
         warn_noalloc();
         return;
     }
-    add_e820((u32)pos, size, E820_RESERVED);
+    e820_add((u32)pos, size, E820_RESERVED);
 
     // Copy image into ram.
     int ret = file->copy(file, pos, size);
@@ -53,7 +54,7 @@ ramdisk_setup(void)
     if (!drive)
         return;
     drive->type = DTYPE_RAMDISK;
-    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", filename, pos);
+    dprintf(1, "Mapping floppy %s to addr %p\n", filename, pos);
     char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", &filename[10]);
     boot_add_floppy(drive, desc, bootprio_find_named_rom(filename, 0));
 }
@@ -91,7 +92,7 @@ ramdisk_copy(struct disk_op_s *op, int iswrite)
 }
 
 int
-process_ramdisk_op(struct disk_op_s *op)
+ramdisk_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_FLASH_FLOPPY)
         return 0;
@@ -101,11 +102,7 @@ process_ramdisk_op(struct disk_op_s *op)
         return ramdisk_copy(op, 0);
     case CMD_WRITE:
         return ramdisk_copy(op, 1);
-    case CMD_VERIFY:
-    case CMD_FORMAT:
-    case CMD_RESET:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }

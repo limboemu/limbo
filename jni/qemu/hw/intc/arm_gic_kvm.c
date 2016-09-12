@@ -19,10 +19,16 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
+#include "migration/migration.h"
 #include "sysemu/kvm.h"
 #include "kvm_arm.h"
 #include "gic_internal.h"
+#include "vgic_common.h"
 
 //#define DEBUG_GIC_KVM
 
@@ -52,7 +58,7 @@ typedef struct KVMARMGICClass {
     void (*parent_reset)(DeviceState *dev);
 } KVMARMGICClass;
 
-static void kvm_arm_gic_set_irq(void *opaque, int irq, int level)
+void kvm_arm_gic_set_irq(uint32_t num_irq, int irq, int level)
 {
     /* Meaning of the 'irq' parameter:
      *  [0..N-1] : external interrupts
@@ -63,10 +69,9 @@ static void kvm_arm_gic_set_irq(void *opaque, int irq, int level)
      * has separate fields in the irq number for type,
      * CPU number and interrupt number.
      */
-    GICState *s = (GICState *)opaque;
     int kvm_irq, irqtype, cpu;
 
-    if (irq < (s->num_irq - GIC_INTERNAL)) {
+    if (irq < (num_irq - GIC_INTERNAL)) {
         /* External interrupt. The kernel numbers these like the GIC
          * hardware, with external interrupt IDs starting after the
          * internal ones.
@@ -77,7 +82,7 @@ static void kvm_arm_gic_set_irq(void *opaque, int irq, int level)
     } else {
         /* Internal interrupt: decode into (cpu, interrupt id) */
         irqtype = KVM_ARM_IRQ_TYPE_PPI;
-        irq -= (s->num_irq - GIC_INTERNAL);
+        irq -= (num_irq - GIC_INTERNAL);
         cpu = irq / GIC_INTERNAL;
         irq %= GIC_INTERNAL;
     }
@@ -87,69 +92,36 @@ static void kvm_arm_gic_set_irq(void *opaque, int irq, int level)
     kvm_set_irq(kvm_state, kvm_irq, !!level);
 }
 
+static void kvm_arm_gicv2_set_irq(void *opaque, int irq, int level)
+{
+    GICState *s = (GICState *)opaque;
+
+    kvm_arm_gic_set_irq(s->num_irq, irq, level);
+}
+
 static bool kvm_arm_gic_can_save_restore(GICState *s)
 {
     return s->dev_fd >= 0;
 }
 
-static bool kvm_gic_supports_attr(GICState *s, int group, int attrnum)
-{
-    struct kvm_device_attr attr = {
-        .group = group,
-        .attr = attrnum,
-        .flags = 0,
-    };
-
-    if (s->dev_fd == -1) {
-        return false;
-    }
-
-    return kvm_device_ioctl(s->dev_fd, KVM_HAS_DEVICE_ATTR, &attr) == 0;
-}
-
-static void kvm_gic_access(GICState *s, int group, int offset,
-                                   int cpu, uint32_t *val, bool write)
-{
-    struct kvm_device_attr attr;
-    int type;
-    int err;
-
-    cpu = cpu & 0xff;
-
-    attr.flags = 0;
-    attr.group = group;
-    attr.attr = (((uint64_t)cpu << KVM_DEV_ARM_VGIC_CPUID_SHIFT) &
-                 KVM_DEV_ARM_VGIC_CPUID_MASK) |
-                (((uint64_t)offset << KVM_DEV_ARM_VGIC_OFFSET_SHIFT) &
-                 KVM_DEV_ARM_VGIC_OFFSET_MASK);
-    attr.addr = (uintptr_t)val;
-
-    if (write) {
-        type = KVM_SET_DEVICE_ATTR;
-    } else {
-        type = KVM_GET_DEVICE_ATTR;
-    }
-
-    err = kvm_device_ioctl(s->dev_fd, type, &attr);
-    if (err < 0) {
-        fprintf(stderr, "KVM_{SET/GET}_DEVICE_ATTR failed: %s\n",
-                strerror(-err));
-        abort();
-    }
-}
+#define KVM_VGIC_ATTR(offset, cpu) \
+    ((((uint64_t)(cpu) << KVM_DEV_ARM_VGIC_CPUID_SHIFT) & \
+      KVM_DEV_ARM_VGIC_CPUID_MASK) | \
+     (((uint64_t)(offset) << KVM_DEV_ARM_VGIC_OFFSET_SHIFT) & \
+      KVM_DEV_ARM_VGIC_OFFSET_MASK))
 
 static void kvm_gicd_access(GICState *s, int offset, int cpu,
                             uint32_t *val, bool write)
 {
-    kvm_gic_access(s, KVM_DEV_ARM_VGIC_GRP_DIST_REGS,
-                   offset, cpu, val, write);
+    kvm_device_access(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS,
+                      KVM_VGIC_ATTR(offset, cpu), val, write);
 }
 
 static void kvm_gicc_access(GICState *s, int offset, int cpu,
                             uint32_t *val, bool write)
 {
-    kvm_gic_access(s, KVM_DEV_ARM_VGIC_GRP_CPU_REGS,
-                   offset, cpu, val, write);
+    kvm_device_access(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_CPU_REGS,
+                      KVM_VGIC_ATTR(offset, cpu), val, write);
 }
 
 #define for_each_irq_reg(_ctr, _max_irq, _field_width) \
@@ -173,6 +145,20 @@ static void translate_clear(GICState *s, int irq, int cpu,
     } else {
         /* does not make sense: qemu model doesn't use set/clear regs */
         abort();
+    }
+}
+
+static void translate_group(GICState *s, int irq, int cpu,
+                            uint32_t *field, bool to_kernel)
+{
+    int cm = (irq < GIC_INTERNAL) ? (1 << cpu) : ALL_CPU_MASK;
+
+    if (to_kernel) {
+        *field = GIC_TEST_GROUP(irq, cm);
+    } else {
+        if (*field & 1) {
+            GIC_SET_GROUP(irq, cm);
+        }
     }
 }
 
@@ -237,7 +223,7 @@ static void translate_priority(GICState *s, int irq, int cpu,
     if (to_kernel) {
         *field = GIC_GET_PRIORITY(irq, cpu) & 0xff;
     } else {
-        gic_set_priority(s, cpu, irq, *field & 0xff);
+        gic_set_priority(s, cpu, irq, *field & 0xff, MEMTXATTRS_UNSPECIFIED);
     }
 }
 
@@ -326,11 +312,6 @@ static void kvm_arm_gic_put(GICState *s)
     int num_cpu;
     int num_irq;
 
-    if (!kvm_arm_gic_can_save_restore(s)) {
-            DPRINTF("Cannot put kernel gic state, no kernel interface");
-            return;
-    }
-
     /* Note: We do the restore in a slightly different order than the save
      * (where the order doesn't matter and is simply ordered according to the
      * register offset values */
@@ -339,8 +320,8 @@ static void kvm_arm_gic_put(GICState *s)
      * Distributor State
      */
 
-    /* s->enabled -> GICD_CTLR */
-    reg = s->enabled;
+    /* s->ctlr -> GICD_CTLR */
+    reg = s->ctlr;
     kvm_gicd_access(s, 0x0, 0, &reg, true);
 
     /* Sanity checking on GICD_TYPER and s->num_irq, s->num_cpu */
@@ -364,6 +345,9 @@ static void kvm_arm_gic_put(GICState *s)
     /* irq_state[n].enabled -> GICD_ISENABLERn */
     kvm_dist_put(s, 0x180, 1, s->num_irq, translate_clear);
     kvm_dist_put(s, 0x100, 1, s->num_irq, translate_enabled);
+
+    /* irq_state[n].group -> GICD_IGROUPRn */
+    kvm_dist_put(s, 0x80, 1, s->num_irq, translate_group);
 
     /* s->irq_target[irq] -> GICD_ITARGETSRn
      * (restore targets before pending to ensure the pending state is set on
@@ -397,8 +381,8 @@ static void kvm_arm_gic_put(GICState *s)
      */
 
     for (cpu = 0; cpu < s->num_cpu; cpu++) {
-        /* s->cpu_enabled[cpu] -> GICC_CTLR */
-        reg = s->cpu_enabled[cpu];
+        /* s->cpu_ctlr[cpu] -> GICC_CTLR */
+        reg = s->cpu_ctlr[cpu];
         kvm_gicc_access(s, 0x00, cpu, &reg, true);
 
         /* s->priority_mask[cpu] -> GICC_PMR */
@@ -427,18 +411,13 @@ static void kvm_arm_gic_get(GICState *s)
     int i;
     int cpu;
 
-    if (!kvm_arm_gic_can_save_restore(s)) {
-            DPRINTF("Cannot get kernel gic state, no kernel interface");
-            return;
-    }
-
     /*****************************************************************
      * Distributor State
      */
 
-    /* GICD_CTLR -> s->enabled */
+    /* GICD_CTLR -> s->ctlr */
     kvm_gicd_access(s, 0x0, 0, &reg, false);
-    s->enabled = reg & 1;
+    s->ctlr = reg;
 
     /* Sanity checking on GICD_TYPER -> s->num_irq, s->num_cpu */
     kvm_gicd_access(s, 0x4, 0, &reg, false);
@@ -454,20 +433,13 @@ static void kvm_arm_gic_get(GICState *s)
     /* GICD_IIDR -> ? */
     kvm_gicd_access(s, 0x8, 0, &reg, false);
 
-    /* Verify no GROUP 1 interrupts configured in the kernel */
-    for_each_irq_reg(i, s->num_irq, 1) {
-        kvm_gicd_access(s, 0x80 + (i * 4), 0, &reg, false);
-        if (reg != 0) {
-            fprintf(stderr, "Unsupported GICD_IGROUPRn value: %08x\n",
-                    reg);
-            abort();
-        }
-    }
-
     /* Clear all the IRQ settings */
     for (i = 0; i < s->num_irq; i++) {
         memset(&s->irq_state[i], 0, sizeof(s->irq_state[0]));
     }
+
+    /* GICD_IGROUPRn -> irq_state[n].group */
+    kvm_dist_get(s, 0x80, 1, s->num_irq, translate_group);
 
     /* GICD_ISENABLERn -> irq_state[n].enabled */
     kvm_dist_get(s, 0x100, 1, s->num_irq, translate_enabled);
@@ -496,9 +468,9 @@ static void kvm_arm_gic_get(GICState *s)
      */
 
     for (cpu = 0; cpu < s->num_cpu; cpu++) {
-        /* GICC_CTLR -> s->cpu_enabled[cpu] */
+        /* GICC_CTLR -> s->cpu_ctlr[cpu] */
         kvm_gicc_access(s, 0x00, cpu, &reg, false);
-        s->cpu_enabled[cpu] = (reg & 1);
+        s->cpu_ctlr[cpu] = reg;
 
         /* GICC_PMR -> s->priority_mask[cpu] */
         kvm_gicc_access(s, 0x04, cpu, &reg, false);
@@ -526,14 +498,16 @@ static void kvm_arm_gic_reset(DeviceState *dev)
     KVMARMGICClass *kgc = KVM_ARM_GIC_GET_CLASS(s);
 
     kgc->parent_reset(dev);
-    kvm_arm_gic_put(s);
+
+    if (kvm_arm_gic_can_save_restore(s)) {
+        kvm_arm_gic_put(s);
+    }
 }
 
 static void kvm_arm_gic_realize(DeviceState *dev, Error **errp)
 {
     int i;
     GICState *s = KVM_ARM_GIC(dev);
-    SysBusDevice *sbd = SYS_BUS_DEVICE(dev);
     KVMARMGICClass *kgc = KVM_ARM_GIC_GET_CLASS(s);
     Error *local_err = NULL;
     int ret;
@@ -544,21 +518,17 @@ static void kvm_arm_gic_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    i = s->num_irq - GIC_INTERNAL;
-    /* For the GIC, also expose incoming GPIO lines for PPIs for each CPU.
-     * GPIO array layout is thus:
-     *  [0..N-1] SPIs
-     *  [N..N+31] PPIs for CPU 0
-     *  [N+32..N+63] PPIs for CPU 1
-     *   ...
-     */
-    i += (GIC_INTERNAL * s->num_cpu);
-    qdev_init_gpio_in(dev, kvm_arm_gic_set_irq, i);
-    /* We never use our outbound IRQ lines but provide them so that
-     * we maintain the same interface as the non-KVM GIC.
-     */
-    for (i = 0; i < s->num_cpu; i++) {
-        sysbus_init_irq(sbd, &s->parent_irq[i]);
+    if (s->security_extn) {
+        error_setg(errp, "the in-kernel VGIC does not implement the "
+                   "security extensions");
+        return;
+    }
+
+    gic_init_irqs_and_mmio(s, kvm_arm_gicv2_set_irq, NULL);
+
+    for (i = 0; i < s->num_irq - GIC_INTERNAL; i++) {
+        qemu_irq irq = qdev_get_gpio_in(dev, i);
+        kvm_irqchip_set_qemuirq_gsi(kvm_state, irq, i);
     }
 
     /* Try to create the device via the device control API */
@@ -566,27 +536,25 @@ static void kvm_arm_gic_realize(DeviceState *dev, Error **errp)
     ret = kvm_create_device(kvm_state, KVM_DEV_TYPE_ARM_VGIC_V2, false);
     if (ret >= 0) {
         s->dev_fd = ret;
+
+        /* Newstyle API is used, we may have attributes */
+        if (kvm_device_check_attr(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0)) {
+            uint32_t numirqs = s->num_irq;
+            kvm_device_access(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0,
+                              &numirqs, true);
+        }
+        /* Tell the kernel to complete VGIC initialization now */
+        if (kvm_device_check_attr(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+                                  KVM_DEV_ARM_VGIC_CTRL_INIT)) {
+            kvm_device_access(s->dev_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+                              KVM_DEV_ARM_VGIC_CTRL_INIT, NULL, true);
+        }
     } else if (ret != -ENODEV && ret != -ENOTSUP) {
         error_setg_errno(errp, -ret, "error creating in-kernel VGIC");
         return;
     }
 
-    if (kvm_gic_supports_attr(s, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0)) {
-        uint32_t numirqs = s->num_irq;
-        kvm_gic_access(s, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0, 0, &numirqs, 1);
-    }
-
-    /* Tell the kernel to complete VGIC initialization now */
-    if (kvm_gic_supports_attr(s, KVM_DEV_ARM_VGIC_GRP_CTRL,
-                              KVM_DEV_ARM_VGIC_CTRL_INIT)) {
-        kvm_gic_access(s, KVM_DEV_ARM_VGIC_GRP_CTRL,
-                          KVM_DEV_ARM_VGIC_CTRL_INIT, 0, 0, 1);
-    }
-
     /* Distributor */
-    memory_region_init_reservation(&s->iomem, OBJECT(s),
-                                   "kvm-gic_dist", 0x1000);
-    sysbus_init_mmio(sbd, &s->iomem);
     kvm_arm_register_device(&s->iomem,
                             (KVM_ARM_DEVICE_VGIC_V2 << KVM_ARM_DEVICE_ID_SHIFT)
                             | KVM_VGIC_V2_ADDR_TYPE_DIST,
@@ -597,15 +565,18 @@ static void kvm_arm_gic_realize(DeviceState *dev, Error **errp)
      * provide the "interface for core #N" memory regions, because
      * cores with a VGIC don't have those.
      */
-    memory_region_init_reservation(&s->cpuiomem[0], OBJECT(s),
-                                   "kvm-gic_cpu", 0x1000);
-    sysbus_init_mmio(sbd, &s->cpuiomem[0]);
     kvm_arm_register_device(&s->cpuiomem[0],
                             (KVM_ARM_DEVICE_VGIC_V2 << KVM_ARM_DEVICE_ID_SHIFT)
                             | KVM_VGIC_V2_ADDR_TYPE_CPU,
                             KVM_DEV_ARM_VGIC_GRP_ADDR,
                             KVM_VGIC_V2_ADDR_TYPE_CPU,
                             s->dev_fd);
+
+    if (!kvm_arm_gic_can_save_restore(s)) {
+        error_setg(&s->migration_blocker, "This operating system kernel does "
+                                          "not support vGICv2 migration");
+        migrate_add_blocker(s->migration_blocker);
+    }
 }
 
 static void kvm_arm_gic_class_init(ObjectClass *klass, void *data)

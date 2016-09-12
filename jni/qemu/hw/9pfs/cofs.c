@@ -1,6 +1,5 @@
-
 /*
- * Virtio 9p backend
+ * 9p backend
  *
  * Copyright IBM, Corp. 2011
  *
@@ -12,10 +11,11 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "fsdev/qemu-fsdev.h"
 #include "qemu/thread.h"
-#include "block/coroutine.h"
-#include "virtio-9p-coth.h"
+#include "qemu/coroutine.h"
+#include "coth.h"
 
 static ssize_t __readlink(V9fsState *s, V9fsPath *path, V9fsString *buf)
 {

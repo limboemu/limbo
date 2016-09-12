@@ -7,8 +7,9 @@
  *
  *      QEMU-specific definitions belong in pci.h
  */
+
 #ifndef HW_PCI_IDS_H
-#define HW_PCI_IDS_H 1
+#define HW_PCI_IDS_H
 
 /* Device classes and subclasses */
 
@@ -23,6 +24,7 @@
 #define PCI_CLASS_STORAGE_OTHER          0x0180
 
 #define PCI_CLASS_NETWORK_ETHERNET       0x0200
+#define PCI_CLASS_NETWORK_OTHER          0x0280
 
 #define PCI_CLASS_DISPLAY_VGA            0x0300
 #define PCI_CLASS_DISPLAY_OTHER          0x0380
@@ -46,6 +48,13 @@
 #define PCI_CLASS_COMMUNICATION_SERIAL   0x0700
 #define PCI_CLASS_COMMUNICATION_OTHER    0x0780
 
+#define PCI_CLASS_INPUT_KEYBOARD         0x0900
+#define PCI_CLASS_INPUT_PEN              0x0901
+#define PCI_CLASS_INPUT_MOUSE            0x0902
+#define PCI_CLASS_INPUT_SCANNER          0x0903
+#define PCI_CLASS_INPUT_GAMEPORT         0x0904
+#define PCI_CLASS_INPUT_OTHER            0x0980
+
 #define PCI_CLASS_PROCESSOR_CO           0x0b40
 #define PCI_CLASS_PROCESSOR_POWERPC      0x0b20
 
@@ -56,6 +65,7 @@
 #define PCI_VENDOR_ID_LSI_LOGIC          0x1000
 #define PCI_DEVICE_ID_LSI_53C810         0x0001
 #define PCI_DEVICE_ID_LSI_53C895A        0x0012
+#define PCI_DEVICE_ID_LSI_SAS1068        0x0054
 #define PCI_DEVICE_ID_LSI_SAS1078        0x0060
 #define PCI_DEVICE_ID_LSI_SAS0079        0x0079
 
@@ -105,6 +115,8 @@
 
 #define PCI_VENDOR_ID_ENSONIQ            0x1274
 #define PCI_DEVICE_ID_ENSONIQ_ES1370     0x5000
+
+#define PCI_VENDOR_ID_CHELSIO            0x1425
 
 #define PCI_VENDOR_ID_FREESCALE          0x1957
 #define PCI_DEVICE_ID_MPC8533E           0x0030

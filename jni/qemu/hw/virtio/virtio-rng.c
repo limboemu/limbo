@@ -9,9 +9,10 @@
  * top-level directory.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu/iov.h"
 #include "hw/qdev.h"
-#include "qapi/qmp/qerror.h"
 #include "hw/virtio/virtio.h"
 #include "hw/virtio/virtio-rng.h"
 #include "sysemu/rng.h"
@@ -44,7 +45,7 @@ static void chr_read(void *opaque, const void *buf, size_t size)
 {
     VirtIORNG *vrng = opaque;
     VirtIODevice *vdev = VIRTIO_DEVICE(vrng);
-    VirtQueueElement elem;
+    VirtQueueElement *elem;
     size_t len;
     int offset;
 
@@ -56,17 +57,26 @@ static void chr_read(void *opaque, const void *buf, size_t size)
 
     offset = 0;
     while (offset < size) {
-        if (!virtqueue_pop(vrng->vq, &elem)) {
+        elem = virtqueue_pop(vrng->vq, sizeof(VirtQueueElement));
+        if (!elem) {
             break;
         }
-        len = iov_from_buf(elem.in_sg, elem.in_num,
+        len = iov_from_buf(elem->in_sg, elem->in_num,
                            0, buf + offset, size - offset);
         offset += len;
 
-        virtqueue_push(vrng->vq, &elem, len);
+        virtqueue_push(vrng->vq, elem, len);
         trace_virtio_rng_pushed(vrng, len);
+        g_free(elem);
     }
     virtio_notify(vdev, vrng->vq);
+
+    if (!virtio_queue_empty(vrng->vq)) {
+        /* If we didn't drain the queue, call virtio_rng_process
+         * to take care of asking for more data as appropriate.
+         */
+        virtio_rng_process(vrng);
+    }
 }
 
 static void virtio_rng_process(VirtIORNG *vrng)
@@ -76,6 +86,12 @@ static void virtio_rng_process(VirtIORNG *vrng)
 
     if (!is_guest_ready(vrng)) {
         return;
+    }
+
+    if (vrng->activate_timer) {
+        timer_mod(vrng->rate_limit_timer,
+                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + vrng->conf.period_ms);
+        vrng->activate_timer = false;
     }
 
     if (vrng->quota_remaining < 0) {
@@ -99,27 +115,17 @@ static void handle_input(VirtIODevice *vdev, VirtQueue *vq)
     virtio_rng_process(vrng);
 }
 
-static uint32_t get_features(VirtIODevice *vdev, uint32_t f)
+static uint64_t get_features(VirtIODevice *vdev, uint64_t f, Error **errp)
 {
     return f;
 }
 
-static void virtio_rng_save(QEMUFile *f, void *opaque)
-{
-    VirtIODevice *vdev = opaque;
-
-    virtio_save(vdev, f);
-}
-
-static int virtio_rng_load(QEMUFile *f, void *opaque, int version_id)
+static int virtio_rng_load(QEMUFile *f, void *opaque, size_t size)
 {
     VirtIORNG *vrng = opaque;
     int ret;
 
-    if (version_id != 1) {
-        return -EINVAL;
-    }
-    ret = virtio_load(VIRTIO_DEVICE(vrng), f, version_id);
+    ret = virtio_load(VIRTIO_DEVICE(vrng), f, 1);
     if (ret != 0) {
         return ret;
     }
@@ -139,8 +145,7 @@ static void check_rate_limit(void *opaque)
 
     vrng->quota_remaining = vrng->conf.max_bytes;
     virtio_rng_process(vrng);
-    timer_mod(vrng->rate_limit_timer,
-                   qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + vrng->conf.period_ms);
+    vrng->activate_timer = true;
 }
 
 static void virtio_rng_device_realize(DeviceState *dev, Error **errp)
@@ -196,15 +201,9 @@ static void virtio_rng_device_realize(DeviceState *dev, Error **errp)
 
     vrng->vq = virtio_add_queue(vdev, 8, handle_input);
     vrng->quota_remaining = vrng->conf.max_bytes;
-
     vrng->rate_limit_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
                                                check_rate_limit, vrng);
-
-    timer_mod(vrng->rate_limit_timer,
-                   qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + vrng->conf.period_ms);
-
-    register_savevm(dev, "virtio-rng", -1, 1, virtio_rng_save,
-                    virtio_rng_load, vrng);
+    vrng->activate_timer = true;
 }
 
 static void virtio_rng_device_unrealize(DeviceState *dev, Error **errp)
@@ -214,12 +213,19 @@ static void virtio_rng_device_unrealize(DeviceState *dev, Error **errp)
 
     timer_del(vrng->rate_limit_timer);
     timer_free(vrng->rate_limit_timer);
-    unregister_savevm(dev, "virtio-rng", vrng);
     virtio_cleanup(vdev);
 }
 
+VMSTATE_VIRTIO_DEVICE(rng, 1, virtio_rng_load, virtio_vmstate_save);
+
 static Property virtio_rng_properties[] = {
-    DEFINE_VIRTIO_RNG_PROPERTIES(VirtIORNG, conf),
+    /* Set a default rate limit of 2^47 bytes per minute or roughly 2TB/s.  If
+     * you have an entropy source capable of generating more entropy than this
+     * and you can pass it through via virtio-rng, then hats off to you.  Until
+     * then, this is unlimited for all practical purposes.
+     */
+    DEFINE_PROP_UINT64("max-bytes", VirtIORNG, conf.max_bytes, INT64_MAX),
+    DEFINE_PROP_UINT32("period", VirtIORNG, conf.period_ms, 1 << 16),
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -229,6 +235,7 @@ static void virtio_rng_class_init(ObjectClass *klass, void *data)
     VirtioDeviceClass *vdc = VIRTIO_DEVICE_CLASS(klass);
 
     dc->props = virtio_rng_properties;
+    dc->vmsd = &vmstate_virtio_rng;
     set_bit(DEVICE_CATEGORY_MISC, dc->categories);
     vdc->realize = virtio_rng_device_realize;
     vdc->unrealize = virtio_rng_device_unrealize;

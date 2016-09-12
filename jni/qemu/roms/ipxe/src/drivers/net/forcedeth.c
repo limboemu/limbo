@@ -1749,10 +1749,8 @@ forcedeth_map_regs ( struct forcedeth_private *priv )
 	for ( reg = PCI_BASE_ADDRESS_0; reg <= PCI_BASE_ADDRESS_5; reg += 4 ) {
 		pci_read_config_dword ( priv->pci_dev, reg, &bar );
 
-		if ( ( ( bar & PCI_BASE_ADDRESS_SPACE ) ==
-			 PCI_BASE_ADDRESS_SPACE_MEMORY ) &&
-		       ( pci_bar_size ( priv->pci_dev, reg ) >=
-			 register_size ) ) {
+		if ( ( ! ( bar & PCI_BASE_ADDRESS_SPACE_IO ) ) &&
+		     ( pci_bar_size ( priv->pci_dev, reg ) >= register_size ) ){
 			addr = pci_bar_start ( priv->pci_dev, reg );
 			break;
 		}

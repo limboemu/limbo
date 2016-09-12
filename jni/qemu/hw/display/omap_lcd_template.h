@@ -27,13 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if DEPTH == 8
-# define BPP 1
-# define PIXEL_TYPE uint8_t
-#elif DEPTH == 15 || DEPTH == 16
-# define BPP 2
-# define PIXEL_TYPE uint16_t
-#elif DEPTH == 32
+#if DEPTH == 32
 # define BPP 4
 # define PIXEL_TYPE uint32_t
 #else
@@ -136,7 +130,7 @@ static void glue(draw_line12_, DEPTH)(void *opaque,
     uint8_t r, g, b;
 
     do {
-        v = lduw_p((void *) s);
+        v = lduw_le_p((void *) s);
         r = (v >> 4) & 0xf0;
         g = v & 0xf0;
         b = (v << 4) & 0xf0;
@@ -152,14 +146,14 @@ static void glue(draw_line12_, DEPTH)(void *opaque,
 static void glue(draw_line16_, DEPTH)(void *opaque,
                 uint8_t *d, const uint8_t *s, int width, int deststep)
 {
-#if DEPTH == 16 && defined(HOST_WORDS_BIGENDIAN) == defined(TARGET_WORDS_BIGENDIAN)
+#if defined(HOST_WORDS_BIGENDIAN) == defined(TARGET_WORDS_BIGENDIAN)
     memcpy(d, s, width * 2);
 #else
     uint16_t v;
     uint8_t r, g, b;
 
     do {
-        v = lduw_p((void *) s);
+        v = lduw_le_p((void *) s);
         r = (v >> 8) & 0xf8;
         g = (v >> 3) & 0xfc;
         b = (v << 3) & 0xf8;

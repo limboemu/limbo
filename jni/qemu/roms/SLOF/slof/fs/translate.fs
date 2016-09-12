@@ -33,11 +33,9 @@
       dup l@ FF AND 0<> ( prop_type address data cfgspace_offset? )
       3 pick 0= ( prop_type address data cfgspace_offset? reg_prop? )
       AND NOT IF 
-         2dup 8 + ( prop_type address data address data' )
-         2dup l@ 2 pick 8 + l@ + <= -rot l@  >= and  IF
+         2dup 4 + ( prop_type address data address data' )
+         2dup @ 2 pick 8 + @ + <= -rot @  >= and  IF
             l@ 03000000 and 18 rshift nip
-            \ no 64bit translations supported pretend it is 32bit
-            dup 3 = IF  1-  THEN
             ( prop_type type )
             swap drop ( type )
             UNLOOP EXIT

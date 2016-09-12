@@ -7,6 +7,7 @@
  * Copyright (c) 2008 OKL
  * Copyright (c) 2011 NICTA Pty Ltd
  * Originally written by Hans Jiang
+ * Updated by Jean-Christophe Dubois <jcd@tribudubois.net>
  *
  * This code is licensed under the GPL version 2 or later.  See
  * the COPYING file in the top-level directory.
@@ -14,67 +15,24 @@
  * TODO: implement vectors.
  */
 
-#include "hw/hw.h"
-#include "hw/sysbus.h"
-#include "qemu/host-utils.h"
+#include "qemu/osdep.h"
+#include "hw/intc/imx_avic.h"
+#include "qemu/log.h"
 
-#define DEBUG_INT 1
-#undef DEBUG_INT /* comment out for debugging */
+#ifndef DEBUG_IMX_AVIC
+#define DEBUG_IMX_AVIC 0
+#endif
 
-#ifdef DEBUG_INT
 #define DPRINTF(fmt, args...) \
-do { printf("imx_avic: " fmt , ##args); } while (0)
-#else
-#define DPRINTF(fmt, args...) do {} while (0)
-#endif
-
-/*
- * Define to 1 for messages about attempts to
- * access unimplemented registers or similar.
- */
-#define DEBUG_IMPLEMENTATION 1
-#if DEBUG_IMPLEMENTATION
-#  define IPRINTF(fmt, args...) \
-    do  { fprintf(stderr, "imx_avic: " fmt, ##args); } while (0)
-#else
-#  define IPRINTF(fmt, args...) do {} while (0)
-#endif
-
-#define IMX_AVIC_NUM_IRQS 64
-
-/* Interrupt Control Bits */
-#define ABFLAG (1<<25)
-#define ABFEN (1<<24)
-#define NIDIS (1<<22) /* Normal Interrupt disable */
-#define FIDIS (1<<21) /* Fast interrupt disable */
-#define NIAD  (1<<20) /* Normal Interrupt Arbiter Rise ARM level */
-#define FIAD  (1<<19) /* Fast Interrupt Arbiter Rise ARM level */
-#define NM    (1<<18) /* Normal interrupt mode */
-
-
-#define PRIO_PER_WORD (sizeof(uint32_t) * 8 / 4)
-#define PRIO_WORDS (IMX_AVIC_NUM_IRQS/PRIO_PER_WORD)
-
-#define TYPE_IMX_AVIC "imx_avic"
-#define IMX_AVIC(obj) \
-    OBJECT_CHECK(IMXAVICState, (obj), TYPE_IMX_AVIC)
-
-typedef struct IMXAVICState {
-    SysBusDevice parent_obj;
-
-    MemoryRegion iomem;
-    uint64_t pending;
-    uint64_t enabled;
-    uint64_t is_fiq;
-    uint32_t intcntl;
-    uint32_t intmask;
-    qemu_irq irq;
-    qemu_irq fiq;
-    uint32_t prio[PRIO_WORDS]; /* Priorities are 4-bits each */
-} IMXAVICState;
+    do { \
+        if (DEBUG_IMX_AVIC) { \
+            fprintf(stderr, "[%s]%s: " fmt , TYPE_IMX_AVIC, \
+                                             __func__, ##args); \
+        } \
+    } while (0)
 
 static const VMStateDescription vmstate_imx_avic = {
-    .name = "imx-avic",
+    .name = TYPE_IMX_AVIC,
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (VMStateField[]) {
@@ -87,8 +45,6 @@ static const VMStateDescription vmstate_imx_avic = {
         VMSTATE_END_OF_LIST()
     },
 };
-
-
 
 static inline int imx_avic_prio(IMXAVICState *s, int irq)
 {
@@ -151,8 +107,8 @@ static uint64_t imx_avic_read(void *opaque,
 {
     IMXAVICState *s = (IMXAVICState *)opaque;
 
+    DPRINTF("read(offset = 0x%" HWADDR_PRIx ")\n", offset);
 
-    DPRINTF("read(offset = 0x%x)\n", offset >> 2);
     switch (offset >> 2) {
     case 0: /* INTCNTL */
         return s->intcntl;
@@ -249,7 +205,8 @@ static uint64_t imx_avic_read(void *opaque,
         return 0x4;
 
     default:
-        IPRINTF("imx_avic_read: Bad offset 0x%x\n", (int)offset);
+        qemu_log_mask(LOG_GUEST_ERROR, "[%s]%s: Bad register at offset 0x%"
+                      HWADDR_PRIx "\n", TYPE_IMX_AVIC, __func__, offset);
         return 0;
     }
 }
@@ -261,13 +218,13 @@ static void imx_avic_write(void *opaque, hwaddr offset,
 
     /* Vector Registers not yet supported */
     if (offset >= 0x100 && offset <= 0x2fc) {
-        IPRINTF("imx_avic_write to vector register %d ignored\n",
-                (unsigned int)((offset - 0x100) >> 2));
+        qemu_log_mask(LOG_UNIMP, "[%s]%s: vector %d ignored\n",
+                      TYPE_IMX_AVIC, __func__, (int)((offset - 0x100) >> 2));
         return;
     }
 
-    DPRINTF("imx_avic_write(0x%x) = %x\n",
-            (unsigned int)offset>>2, (unsigned int)val);
+    DPRINTF("(0x%" HWADDR_PRIx ") = 0x%x\n", offset, (unsigned int)val);
+
     switch (offset >> 2) {
     case 0: /* Interrupt Control Register, INTCNTL */
         s->intcntl = val & (ABFEN | NIDIS | FIDIS | NIAD | FIAD | NM);
@@ -341,7 +298,8 @@ static void imx_avic_write(void *opaque, hwaddr offset,
         return;
 
     default:
-        IPRINTF("imx_avic_write: Bad offset %x\n", (int)offset);
+        qemu_log_mask(LOG_GUEST_ERROR, "[%s]%s: Bad register at offset 0x%"
+                      HWADDR_PRIx "\n", TYPE_IMX_AVIC, __func__, offset);
     }
     imx_avic_update(s);
 }
@@ -364,28 +322,26 @@ static void imx_avic_reset(DeviceState *dev)
     memset(s->prio, 0, sizeof s->prio);
 }
 
-static int imx_avic_init(SysBusDevice *sbd)
+static void imx_avic_init(Object *obj)
 {
-    DeviceState *dev = DEVICE(sbd);
-    IMXAVICState *s = IMX_AVIC(dev);
+    DeviceState *dev = DEVICE(obj);
+    IMXAVICState *s = IMX_AVIC(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &imx_avic_ops, s,
-                          "imx_avic", 0x1000);
+    memory_region_init_io(&s->iomem, obj, &imx_avic_ops, s,
+                          TYPE_IMX_AVIC, 0x1000);
     sysbus_init_mmio(sbd, &s->iomem);
 
     qdev_init_gpio_in(dev, imx_avic_set_irq, IMX_AVIC_NUM_IRQS);
     sysbus_init_irq(sbd, &s->irq);
     sysbus_init_irq(sbd, &s->fiq);
-
-    return 0;
 }
 
 
 static void imx_avic_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
-    k->init = imx_avic_init;
+
     dc->vmsd = &vmstate_imx_avic;
     dc->reset = imx_avic_reset;
     dc->desc = "i.MX Advanced Vector Interrupt Controller";
@@ -395,6 +351,7 @@ static const TypeInfo imx_avic_info = {
     .name = TYPE_IMX_AVIC,
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(IMXAVICState),
+    .instance_init = imx_avic_init,
     .class_init = imx_avic_class_init,
 };
 

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stddef.h>
 #include <ipxe/timer.h>
@@ -35,7 +39,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
  *
  * This implementation of the timer is designed to satisfy RFC 2988
  * and therefore be usable as a TCP retransmission timer.
- *
  * 
  */
 
@@ -49,47 +52,59 @@ FILE_LICENCE ( GPL2_OR_LATER );
 static LIST_HEAD ( timers );
 
 /**
+ * Start timer with a specified timeout
+ *
+ * @v timer		Retry timer
+ * @v timeout		Timeout, in ticks
+ *
+ * This starts the timer running with the specified timeout value.  If
+ * stop_timer() is not called before the timer expires, the timer will
+ * be stopped and the timer's callback function will be called.
+ */
+void start_timer_fixed ( struct retry_timer *timer, unsigned long timeout ) {
+
+	/* Add to list of running timers (if applicable) */
+	if ( ! timer->running ) {
+		list_add ( &timer->list, &timers );
+		ref_get ( timer->refcnt );
+		timer->running = 1;
+	}
+
+	/* Record start time */
+	timer->start = currticks();
+
+	/* Record timeout */
+	timer->timeout = timeout;
+
+	DBGC2 ( timer, "Timer %p started at time %ld (expires at %ld)\n",
+		timer, timer->start, ( timer->start + timer->timeout ) );
+}
+
+/**
  * Start timer
  *
  * @v timer		Retry timer
  *
- * This starts the timer running with the current timeout value.  If
- * stop_timer() is not called before the timer expires, the timer will
- * be stopped and the timer's callback function will be called.
+ * This starts the timer running with the current timeout value
+ * (rounded up to the minimum timeout value).  If stop_timer() is not
+ * called before the timer expires, the timer will be stopped and the
+ * timer's callback function will be called.
  */
 void start_timer ( struct retry_timer *timer ) {
-	if ( ! timer->running ) {
-		list_add ( &timer->list, &timers );
-		ref_get ( timer->refcnt );
-	}
-	timer->start = currticks();
-	timer->running = 1;
+	unsigned long timeout = timer->timeout;
+	unsigned long min;
 
-	/* 0 means "use default timeout" */
-	if ( timer->min_timeout == 0 )
-		timer->min_timeout = DEFAULT_MIN_TIMEOUT;
-	/* We must never be less than MIN_TIMEOUT under any circumstances */
-	if ( timer->min_timeout < MIN_TIMEOUT )
-		timer->min_timeout = MIN_TIMEOUT;
-	/* Honor user-specified minimum timeout */
-	if ( timer->timeout < timer->min_timeout )
-		timer->timeout = timer->min_timeout;
+	/* Calculate minimum timeout */
+	min = ( timer->min ? timer->min : DEFAULT_MIN_TIMEOUT );
+	if ( min < MIN_TIMEOUT )
+		min = MIN_TIMEOUT;
 
-	DBG2 ( "Timer %p started at time %ld (expires at %ld)\n",
-	       timer, timer->start, ( timer->start + timer->timeout ) );
-}
+	/* Ensure timeout is at least the minimum */
+	if ( timeout < min )
+		timeout = min;
 
-/**
- * Start timer with a specified fixed timeout
- *
- * @v timer		Retry timer
- * @v timeout		Timeout, in ticks
- */
-void start_timer_fixed ( struct retry_timer *timer, unsigned long timeout ) {
-	start_timer ( timer );
-	timer->timeout = timeout;
-	DBG2 ( "Timer %p expiry time changed to %ld\n",
-	       timer, ( timer->start + timer->timeout ) );
+	/* Start timer with this timeout */
+	start_timer_fixed ( timer, timeout );
 }
 
 /**
@@ -111,8 +126,8 @@ void stop_timer ( struct retry_timer *timer ) {
 	list_del ( &timer->list );
 	runtime = ( now - timer->start );
 	timer->running = 0;
-	DBG2 ( "Timer %p stopped at time %ld (ran for %ld)\n",
-	       timer, now, runtime );
+	DBGC2 ( timer, "Timer %p stopped at time %ld (ran for %ld)\n",
+		timer, now, runtime );
 
 	/* Update timer.  Variables are:
 	 *
@@ -135,8 +150,8 @@ void stop_timer ( struct retry_timer *timer ) {
 		timer->timeout -= ( timer->timeout >> 3 );
 		timer->timeout += ( runtime >> 1 );
 		if ( timer->timeout != old_timeout ) {
-			DBG ( "Timer %p timeout updated to %ld\n",
-			      timer, timer->timeout );
+			DBGC ( timer, "Timer %p timeout updated to %ld\n",
+			       timer, timer->timeout );
 		}
 	}
 
@@ -150,11 +165,12 @@ void stop_timer ( struct retry_timer *timer ) {
  */
 static void timer_expired ( struct retry_timer *timer ) {
 	struct refcnt *refcnt = timer->refcnt;
+	unsigned long max = ( timer->max ? timer->max : DEFAULT_MAX_TIMEOUT );
 	int fail;
 
 	/* Stop timer without performing RTT calculations */
-	DBG2 ( "Timer %p stopped at time %ld on expiry\n",
-	       timer, currticks() );
+	DBGC2 ( timer, "Timer %p stopped at time %ld on expiry\n",
+		timer, currticks() );
 	assert ( timer->running );
 	list_del ( &timer->list );
 	timer->running = 0;
@@ -162,12 +178,10 @@ static void timer_expired ( struct retry_timer *timer ) {
 
 	/* Back off the timeout value */
 	timer->timeout <<= 1;
-	if ( timer->max_timeout == 0 ) /* 0 means "use default timeout" */
-		timer->max_timeout = DEFAULT_MAX_TIMEOUT;
-	if ( ( fail = ( timer->timeout > timer->max_timeout ) ) )
-		timer->timeout = timer->max_timeout;
-	DBG ( "Timer %p timeout backed off to %ld\n",
-	      timer, timer->timeout );
+	if ( ( fail = ( timer->timeout > max ) ) )
+		timer->timeout = max;
+	DBGC ( timer, "Timer %p timeout backed off to %ld\n",
+	       timer, timer->timeout );
 
 	/* Call expiry callback */
 	timer->expired ( timer, fail );

@@ -12,6 +12,7 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "qapi/qmp/qobject.h"
 #include "qapi/qmp/qjson.h"
 #include "sysemu/sysemu.h"
@@ -41,8 +42,7 @@ static void handle_event(int event)
     }
 
     if (event & PVPANIC_PANICKED) {
-        qapi_event_send_guest_panicked(GUEST_PANIC_ACTION_PAUSE, &error_abort);
-        vm_stop(RUN_STATE_GUEST_PANICKED);
+        qemu_system_guest_panicked();
         return;
     }
 }

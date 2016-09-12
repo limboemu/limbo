@@ -99,6 +99,7 @@ def get_changed_sec_name(sec):
     # Section names can change -- see commit 292b1634 for an example.
     changes = {
         "ICH9 LPC": "ICH9-LPC",
+        "e1000-82540em": "e1000",
     }
 
     for item in changes:
@@ -184,7 +185,7 @@ def check_fields(src_fields, dest_fields, desc, sec):
             if unused_count == 0:
                 advance_dest = True
 
-        if unused_count > 0:
+        if unused_count != 0:
             if advance_dest == False:
                 unused_count = unused_count - s_item["size"]
                 if unused_count == 0:

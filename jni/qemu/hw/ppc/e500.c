@@ -14,7 +14,8 @@
  * (at your option) any later version.
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "e500.h"
 #include "e500-ccsr.h"
@@ -600,7 +601,7 @@ static int ppce500_prep_device_tree(MachineState *machine,
 }
 
 /* Create -kernel TLB entries for BookE.  */
-static inline hwaddr booke206_page_size_to_tlb(uint64_t size)
+hwaddr booke206_page_size_to_tlb(uint64_t size)
 {
     return 63 - clz64(size >> 10);
 }
@@ -751,8 +752,8 @@ static qemu_irq *ppce500_init_mpic(MachineState *machine, PPCE500Params *params,
             dev = ppce500_init_mpic_kvm(params, irqs, &err);
         }
         if (machine_kernel_irqchip_required(machine) && !dev) {
-            error_report("kernel_irqchip requested but unavailable: %s",
-                         error_get_pretty(err));
+            error_reportf_err(err,
+                              "kernel_irqchip requested but unavailable: ");
             exit(1);
         }
     }
@@ -1017,7 +1018,7 @@ void ppce500_init(MachineState *machine, PPCE500Params *params)
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 
     bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
-                         1, ELF_MACHINE, 0);
+                         1, PPC_ELF_MACHINE, 0, 0);
     if (bios_size < 0) {
         /*
          * Hrm. No ELF image? Try a uImage, maybe someone is giving us an
@@ -1030,6 +1031,7 @@ void ppce500_init(MachineState *machine, PPCE500Params *params)
             exit(1);
         }
     }
+    g_free(filename);
 
     /* Reserve space for dtb */
     dt_base = (loadaddr + bios_size + DTC_LOAD_PAD) & ~DTC_PAD_MASK;
@@ -1047,10 +1049,6 @@ void ppce500_init(MachineState *machine, PPCE500Params *params)
     boot_info->entry = bios_entry;
     boot_info->dt_base = dt_base;
     boot_info->dt_size = dt_size;
-
-    if (kvm_enabled()) {
-        kvmppc_init();
-    }
 }
 
 static int e500_ccsr_initfn(SysBusDevice *dev)

@@ -14,7 +14,6 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: l1_update; errno: 5; imm: off; once: off; write
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 
@@ -23,7 +22,6 @@ This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: l1_update; errno: 5; imm: off; once: off; write -b
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 
@@ -42,7 +40,6 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: l1_update; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -51,7 +48,6 @@ This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: l1_update; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -78,11 +74,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 Event: l2_load; errno: 5; imm: off; once: off; write
 wrote 131072/131072 bytes at offset 0
 128 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 read failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
@@ -90,11 +82,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 Event: l2_load; errno: 5; imm: off; once: off; write -b
 wrote 131072/131072 bytes at offset 0
 128 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 read failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
@@ -118,11 +106,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 Event: l2_load; errno: 28; imm: off; once: off; write
 wrote 131072/131072 bytes at offset 0
 128 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 read failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
@@ -130,11 +114,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 Event: l2_load; errno: 28; imm: off; once: off; write -b
 wrote 131072/131072 bytes at offset 0
 128 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 read failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
@@ -195,24 +175,24 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 5; imm: off; once: on; write
+Event: l2_alloc_write; errno: 5; imm: off; once: on; write
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 5; imm: off; once: on; write -b
+Event: l2_alloc_write; errno: 5; imm: off; once: on; write -b
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 5; imm: off; once: off; write
+Event: l2_alloc_write; errno: 5; imm: off; once: off; write
 Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 5; imm: off; once: off; write -b
+Event: l2_alloc_write; errno: 5; imm: off; once: off; write -b
 Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
@@ -221,24 +201,24 @@ write failed: Input/output error
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 28; imm: off; once: on; write
+Event: l2_alloc_write; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 28; imm: off; once: on; write -b
+Event: l2_alloc_write; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 28; imm: off; once: off; write
+Event: l2_alloc_write; errno: 28; imm: off; once: off; write
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l2_alloc.write; errno: 28; imm: off; once: off; write -b
+Event: l2_alloc_write; errno: 28; imm: off; once: off; write -b
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
@@ -306,14 +286,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_load; errno: 5; imm: off; once: off; write
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_load; errno: 5; imm: off; once: off; write -b
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
@@ -330,14 +308,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_load; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_load; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
@@ -354,14 +330,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_update_part; errno: 5; imm: off; once: off; write
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_update_part; errno: 5; imm: off; once: off; write -b
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
@@ -378,14 +352,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_update_part; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_update_part; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
@@ -402,14 +374,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_alloc; errno: 5; imm: off; once: off; write
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_alloc; errno: 5; imm: off; once: off; write -b
-Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
@@ -426,14 +396,12 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_alloc; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: refblock_alloc; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
@@ -450,15 +418,11 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: cluster_alloc; errno: 5; imm: off; once: off; write
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: cluster_alloc; errno: 5; imm: off; once: off; write -b
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
@@ -474,15 +438,11 @@ No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: cluster_alloc; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 Event: cluster_alloc; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 
@@ -490,17 +450,17 @@ No errors were found on the image.
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.hookup; errno: 28; imm: off; once: on; write
+Event: refblock_alloc_hookup; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.hookup; errno: 28; imm: off; once: on; write -b
+Event: refblock_alloc_hookup; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.hookup; errno: 28; imm: off; once: off; write
+Event: refblock_alloc_hookup; errno: 28; imm: off; once: off; write
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
@@ -509,7 +469,7 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.hookup; errno: 28; imm: off; once: off; write -b
+Event: refblock_alloc_hookup; errno: 28; imm: off; once: off; write -b
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
@@ -518,42 +478,41 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write; errno: 28; imm: off; once: on; write
+Event: refblock_alloc_write; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write; errno: 28; imm: off; once: on; write -b
+Event: refblock_alloc_write; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write; errno: 28; imm: off; once: off; write
+Event: refblock_alloc_write; errno: 28; imm: off; once: off; write
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write; errno: 28; imm: off; once: off; write -b
+Event: refblock_alloc_write; errno: 28; imm: off; once: off; write -b
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_blocks; errno: 28; imm: off; once: on; write
+Event: refblock_alloc_write_blocks; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_blocks; errno: 28; imm: off; once: on; write -b
+Event: refblock_alloc_write_blocks; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_blocks; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
+Event: refblock_alloc_write_blocks; errno: 28; imm: off; once: off; write
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -561,8 +520,7 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_blocks; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
+Event: refblock_alloc_write_blocks; errno: 28; imm: off; once: off; write -b
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -570,18 +528,17 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_table; errno: 28; imm: off; once: on; write
+Event: refblock_alloc_write_table; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_table; errno: 28; imm: off; once: on; write -b
+Event: refblock_alloc_write_table; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_table; errno: 28; imm: off; once: off; write
-Failed to flush the L2 table cache: No space left on device
+Event: refblock_alloc_write_table; errno: 28; imm: off; once: off; write
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -589,8 +546,7 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.write_table; errno: 28; imm: off; once: off; write -b
-Failed to flush the L2 table cache: No space left on device
+Event: refblock_alloc_write_table; errno: 28; imm: off; once: off; write -b
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 
@@ -598,17 +554,17 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.switch_table; errno: 28; imm: off; once: on; write
+Event: refblock_alloc_switch_table; errno: 28; imm: off; once: on; write
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.switch_table; errno: 28; imm: off; once: on; write -b
+Event: refblock_alloc_switch_table; errno: 28; imm: off; once: on; write -b
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.switch_table; errno: 28; imm: off; once: off; write
+Event: refblock_alloc_switch_table; errno: 28; imm: off; once: off; write
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
@@ -617,7 +573,7 @@ write failed: No space left on device
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: refblock_alloc.switch_table; errno: 28; imm: off; once: off; write -b
+Event: refblock_alloc_switch_table; errno: 28; imm: off; once: off; write -b
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
@@ -629,60 +585,54 @@ This means waste of disk space, but no harm to data.
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.alloc_table; errno: 5; imm: off; once: on
+Event: l1_grow_alloc_table; errno: 5; imm: off; once: on
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.alloc_table; errno: 5; imm: off; once: off
-Failed to flush the L2 table cache: Input/output error
+Event: l1_grow_alloc_table; errno: 5; imm: off; once: off
+write failed: Input/output error
+No errors were found on the image.
+Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
+
+Event: l1_grow_alloc_table; errno: 28; imm: off; once: on
+write failed: No space left on device
+No errors were found on the image.
+Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
+
+Event: l1_grow_alloc_table; errno: 28; imm: off; once: off
+write failed: No space left on device
+No errors were found on the image.
+Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
+
+Event: l1_grow_write_table; errno: 5; imm: off; once: on
+write failed: Input/output error
+No errors were found on the image.
+Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
+
+Event: l1_grow_write_table; errno: 5; imm: off; once: off
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.alloc_table; errno: 28; imm: off; once: on
+Event: l1_grow_write_table; errno: 28; imm: off; once: on
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.alloc_table; errno: 28; imm: off; once: off
-Failed to flush the L2 table cache: No space left on device
+Event: l1_grow_write_table; errno: 28; imm: off; once: off
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.write_table; errno: 5; imm: off; once: on
+Event: l1_grow_activate_table; errno: 5; imm: off; once: on
 write failed: Input/output error
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.write_table; errno: 5; imm: off; once: off
-Failed to flush the L2 table cache: Input/output error
-Failed to flush the refcount block cache: Input/output error
-write failed: Input/output error
-No errors were found on the image.
-Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
-
-Event: l1_grow.write_table; errno: 28; imm: off; once: on
-write failed: No space left on device
-No errors were found on the image.
-Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
-
-Event: l1_grow.write_table; errno: 28; imm: off; once: off
-Failed to flush the L2 table cache: No space left on device
-Failed to flush the refcount block cache: No space left on device
-write failed: No space left on device
-No errors were found on the image.
-Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
-
-Event: l1_grow.activate_table; errno: 5; imm: off; once: on
-write failed: Input/output error
-No errors were found on the image.
-Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
-
-Event: l1_grow.activate_table; errno: 5; imm: off; once: off
+Event: l1_grow_activate_table; errno: 5; imm: off; once: off
 Failed to flush the L2 table cache: Input/output error
 Failed to flush the refcount block cache: Input/output error
 write failed: Input/output error
@@ -691,12 +641,12 @@ write failed: Input/output error
 This means waste of disk space, but no harm to data.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.activate_table; errno: 28; imm: off; once: on
+Event: l1_grow_activate_table; errno: 28; imm: off; once: on
 write failed: No space left on device
 No errors were found on the image.
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
-Event: l1_grow.activate_table; errno: 28; imm: off; once: off
+Event: l1_grow_activate_table; errno: 28; imm: off; once: off
 Failed to flush the L2 table cache: No space left on device
 Failed to flush the refcount block cache: No space left on device
 write failed: No space left on device

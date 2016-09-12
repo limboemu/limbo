@@ -10,14 +10,9 @@
  * See the COPYING file in the top-level directory.
  *
  */
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <strings.h>
-#include <string.h>
-#include <sys/time.h>
-#include <assert.h>
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "qemu/cutils.h"
 #include "include/migration/migration.h"
 
 #define PAGE_SIZE 4096

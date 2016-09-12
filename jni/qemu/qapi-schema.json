@@ -5,6 +5,9 @@
 # QAPI common definitions
 { 'include': 'qapi/common.json' }
 
+# QAPI crypto definitions
+{ 'include': 'qapi/crypto.json' }
+
 # QAPI block definitions
 { 'include': 'qapi/block.json' }
 
@@ -14,8 +17,11 @@
 # Tracing commands
 { 'include': 'qapi/trace.json' }
 
+# QAPI introspection
+{ 'include': 'qapi/introspect.json' }
+
 ##
-# LostTickPolicy:
+# @LostTickPolicy:
 #
 # Policy for handling lost ticks in timer devices.
 #
@@ -71,7 +77,7 @@
 #
 # Since 0.14.0
 ##
-{ 'type': 'NameInfo', 'data': {'*name': 'str'} }
+{ 'struct': 'NameInfo', 'data': {'*name': 'str'} }
 
 ##
 # @query-name:
@@ -95,7 +101,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'KvmInfo', 'data': {'enabled': 'bool', 'present': 'bool'} }
+{ 'struct': 'KvmInfo', 'data': {'enabled': 'bool', 'present': 'bool'} }
 
 ##
 # @query-kvm:
@@ -170,7 +176,7 @@
 #
 # Notes: @singlestep is enabled through the GDB stub
 ##
-{ 'type': 'StatusInfo',
+{ 'struct': 'StatusInfo',
   'data': {'running': 'bool', 'singlestep': 'bool', 'status': 'RunState'} }
 
 ##
@@ -195,7 +201,7 @@
 #
 # Notes: If no UUID was specified for the guest, a null UUID is returned.
 ##
-{ 'type': 'UuidInfo', 'data': {'UUID': 'str'} }
+{ 'struct': 'UuidInfo', 'data': {'UUID': 'str'} }
 
 ##
 # @query-uuid:
@@ -226,7 +232,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'ChardevInfo', 'data': {'label': 'str',
+{ 'struct': 'ChardevInfo', 'data': {'label': 'str',
                                   'filename': 'str',
                                   'frontend-open': 'bool'} }
 
@@ -250,7 +256,7 @@
 #
 # Since: 2.0
 ##
-{ 'type': 'ChardevBackendInfo', 'data': {'name': 'str'} }
+{ 'struct': 'ChardevBackendInfo', 'data': {'name': 'str'} }
 
 ##
 # @query-chardev-backends:
@@ -289,8 +295,6 @@
 # @format: #optional data encoding (default 'utf8').
 #          - base64: data must be base64 encoded text.  Its binary
 #            decoding gets written.
-#            Bug: invalid base64 is currently not rejected.
-#            Whitespace *is* invalid.
 #          - utf8: data's UTF-8 encoding is written
 #          - data itself is always Unicode regardless of format, like
 #            any other string.
@@ -339,7 +343,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'EventInfo', 'data': {'name': 'str'} }
+{ 'struct': 'EventInfo', 'data': {'name': 'str'} }
 
 ##
 # @query-events:
@@ -378,13 +382,17 @@
 #
 # @dirty-sync-count: number of times that dirty ram was synchronized (since 2.1)
 #
+# @postcopy-requests: The number of page requests received from the destination
+#        (since 2.7)
+#
 # Since: 0.14.0
 ##
-{ 'type': 'MigrationStats',
+{ 'struct': 'MigrationStats',
   'data': {'transferred': 'int', 'remaining': 'int', 'total': 'int' ,
            'duplicate': 'int', 'skipped': 'int', 'normal': 'int',
            'normal-bytes': 'int', 'dirty-pages-rate' : 'int',
-           'mbps' : 'number', 'dirty-sync-count' : 'int' } }
+           'mbps' : 'number', 'dirty-sync-count' : 'int',
+           'postcopy-requests' : 'int' } }
 
 ##
 # @XBZRLECacheStats
@@ -405,7 +413,7 @@
 #
 # Since: 1.2
 ##
-{ 'type': 'XBZRLECacheStats',
+{ 'struct': 'XBZRLECacheStats',
   'data': {'cache-size': 'int', 'bytes': 'int', 'pages': 'int',
            'cache-miss': 'int', 'cache-miss-rate': 'number',
            'overflow': 'int' } }
@@ -424,6 +432,8 @@
 #
 # @active: in the process of doing migration.
 #
+# @postcopy-active: like active, but now in postcopy mode. (since 2.5)
+#
 # @completed: migration is finished.
 #
 # @failed: some error occurred during migration process.
@@ -433,7 +443,7 @@
 ##
 { 'enum': 'MigrationStatus',
   'data': [ 'none', 'setup', 'cancelling', 'cancelled',
-            'active', 'completed', 'failed' ] }
+            'active', 'postcopy-active', 'completed', 'failed' ] }
 
 ##
 # @MigrationInfo
@@ -474,16 +484,26 @@
 #        may be expensive, but do not actually occur during the iterative
 #        migration rounds themselves. (since 1.6)
 #
+# @cpu-throttle-percentage: #optional percentage of time guest cpus are being
+#        throttled during auto-converge. This is only present when auto-converge
+#        has started throttling guest cpus. (Since 2.7)
+#
+# @error-desc: #optional the human readable error description string, when
+#              @status is 'failed'. Clients should not attempt to parse the
+#              error strings. (Since 2.7)
+#
 # Since: 0.14.0
 ##
-{ 'type': 'MigrationInfo',
+{ 'struct': 'MigrationInfo',
   'data': {'*status': 'MigrationStatus', '*ram': 'MigrationStats',
            '*disk': 'MigrationStats',
            '*xbzrle-cache': 'XBZRLECacheStats',
            '*total-time': 'int',
            '*expected-downtime': 'int',
            '*downtime': 'int',
-           '*setup-time': 'int'} }
+           '*setup-time': 'int',
+           '*cpu-throttle-percentage': 'int',
+           '*error-desc': 'str'} }
 
 ##
 # @query-migrate
@@ -515,13 +535,29 @@
 #          to enable the capability on the source VM. The feature is disabled by
 #          default. (since 1.6)
 #
+# @compress: Use multiple compression threads to accelerate live migration.
+#          This feature can help to reduce the migration traffic, by sending
+#          compressed pages. Please note that if compress and xbzrle are both
+#          on, compress only takes effect in the ram bulk stage, after that,
+#          it will be disabled and only xbzrle takes effect, this can help to
+#          minimize migration traffic. The feature is disabled by default.
+#          (since 2.4 )
+#
+# @events: generate events for each migration state change
+#          (since 2.4 )
+#
 # @auto-converge: If enabled, QEMU will automatically throttle down the guest
 #          to speed up convergence of RAM migration. (since 1.6)
+#
+# @postcopy-ram: Start executing on the migration target before all of RAM has
+#          been migrated, pulling the remaining pages along as needed. NOTE: If
+#          the migration fails during postcopy the VM will fail.  (since 2.6)
 #
 # Since: 1.2
 ##
 { 'enum': 'MigrationCapability',
-  'data': ['xbzrle', 'rdma-pin-all', 'auto-converge', 'zero-blocks'] }
+  'data': ['xbzrle', 'rdma-pin-all', 'auto-converge', 'zero-blocks',
+           'compress', 'events', 'postcopy-ram'] }
 
 ##
 # @MigrationCapabilityStatus
@@ -534,7 +570,7 @@
 #
 # Since: 1.2
 ##
-{ 'type': 'MigrationCapabilityStatus',
+{ 'struct': 'MigrationCapabilityStatus',
   'data': { 'capability' : 'MigrationCapability', 'state' : 'bool' } }
 
 ##
@@ -560,6 +596,182 @@
 ##
 { 'command': 'query-migrate-capabilities', 'returns':   ['MigrationCapabilityStatus']}
 
+# @MigrationParameter
+#
+# Migration parameters enumeration
+#
+# @compress-level: Set the compression level to be used in live migration,
+#          the compression level is an integer between 0 and 9, where 0 means
+#          no compression, 1 means the best compression speed, and 9 means best
+#          compression ratio which will consume more CPU.
+#
+# @compress-threads: Set compression thread count to be used in live migration,
+#          the compression thread count is an integer between 1 and 255.
+#
+# @decompress-threads: Set decompression thread count to be used in live
+#          migration, the decompression thread count is an integer between 1
+#          and 255. Usually, decompression is at least 4 times as fast as
+#          compression, so set the decompress-threads to the number about 1/4
+#          of compress-threads is adequate.
+#
+# @cpu-throttle-initial: Initial percentage of time guest cpus are throttled
+#                        when migration auto-converge is activated. The
+#                        default value is 20. (Since 2.7)
+#
+# @cpu-throttle-increment: throttle percentage increase each time
+#                          auto-converge detects that migration is not making
+#                          progress. The default value is 10. (Since 2.7)
+#
+# @tls-creds: ID of the 'tls-creds' object that provides credentials for
+#             establishing a TLS connection over the migration data channel.
+#             On the outgoing side of the migration, the credentials must
+#             be for a 'client' endpoint, while for the incoming side the
+#             credentials must be for a 'server' endpoint. Setting this
+#             will enable TLS for all migrations. The default is unset,
+#             resulting in unsecured migration at the QEMU level. (Since 2.7)
+#
+# @tls-hostname: hostname of the target host for the migration. This is
+#                required when using x509 based TLS credentials and the
+#                migration URI does not already include a hostname. For
+#                example if using fd: or exec: based migration, the
+#                hostname must be provided so that the server's x509
+#                certificate identity can be validated. (Since 2.7)
+#
+# Since: 2.4
+##
+{ 'enum': 'MigrationParameter',
+  'data': ['compress-level', 'compress-threads', 'decompress-threads',
+           'cpu-throttle-initial', 'cpu-throttle-increment',
+           'tls-creds', 'tls-hostname'] }
+
+#
+# @migrate-set-parameters
+#
+# Set the following migration parameters
+#
+# @compress-level: compression level
+#
+# @compress-threads: compression thread count
+#
+# @decompress-threads: decompression thread count
+#
+# @cpu-throttle-initial: Initial percentage of time guest cpus are throttled
+#                        when migration auto-converge is activated. The
+#                        default value is 20. (Since 2.7)
+#
+# @cpu-throttle-increment: throttle percentage increase each time
+#                          auto-converge detects that migration is not making
+#                          progress. The default value is 10. (Since 2.7)
+#
+# @tls-creds: ID of the 'tls-creds' object that provides credentials for
+#             establishing a TLS connection over the migration data channel.
+#             On the outgoing side of the migration, the credentials must
+#             be for a 'client' endpoint, while for the incoming side the
+#             credentials must be for a 'server' endpoint. Setting this
+#             will enable TLS for all migrations. The default is unset,
+#             resulting in unsecured migration at the QEMU level. (Since 2.7)
+#
+# @tls-hostname: hostname of the target host for the migration. This is
+#                required when using x509 based TLS credentials and the
+#                migration URI does not already include a hostname. For
+#                example if using fd: or exec: based migration, the
+#                hostname must be provided so that the server's x509
+#                certificate identity can be validated. (Since 2.7)
+#
+# Since: 2.4
+##
+{ 'command': 'migrate-set-parameters',
+  'data': { '*compress-level': 'int',
+            '*compress-threads': 'int',
+            '*decompress-threads': 'int',
+            '*cpu-throttle-initial': 'int',
+            '*cpu-throttle-increment': 'int',
+            '*tls-creds': 'str',
+            '*tls-hostname': 'str'} }
+
+#
+# @MigrationParameters
+#
+# @compress-level: compression level
+#
+# @compress-threads: compression thread count
+#
+# @decompress-threads: decompression thread count
+#
+# @cpu-throttle-initial: Initial percentage of time guest cpus are throttled
+#                        when migration auto-converge is activated. The
+#                        default value is 20. (Since 2.7)
+#
+# @cpu-throttle-increment: throttle percentage increase each time
+#                          auto-converge detects that migration is not making
+#                          progress. The default value is 10. (Since 2.7)
+#
+# @tls-creds: ID of the 'tls-creds' object that provides credentials for
+#             establishing a TLS connection over the migration data channel.
+#             On the outgoing side of the migration, the credentials must
+#             be for a 'client' endpoint, while for the incoming side the
+#             credentials must be for a 'server' endpoint. Setting this
+#             will enable TLS for all migrations. The default is unset,
+#             resulting in unsecured migration at the QEMU level. (Since 2.7)
+#
+# @tls-hostname: hostname of the target host for the migration. This is
+#                required when using x509 based TLS credentials and the
+#                migration URI does not already include a hostname. For
+#                example if using fd: or exec: based migration, the
+#                hostname must be provided so that the server's x509
+#                certificate identity can be validated. (Since 2.7)
+#
+# Since: 2.4
+##
+{ 'struct': 'MigrationParameters',
+  'data': { 'compress-level': 'int',
+            'compress-threads': 'int',
+            'decompress-threads': 'int',
+            'cpu-throttle-initial': 'int',
+            'cpu-throttle-increment': 'int',
+            'tls-creds': 'str',
+            'tls-hostname': 'str'} }
+##
+# @query-migrate-parameters
+#
+# Returns information about the current migration parameters
+#
+# Returns: @MigrationParameters
+#
+# Since: 2.4
+##
+{ 'command': 'query-migrate-parameters',
+  'returns': 'MigrationParameters' }
+
+##
+# @client_migrate_info
+#
+# Set migration information for remote display.  This makes the server
+# ask the client to automatically reconnect using the new parameters
+# once migration finished successfully.  Only implemented for SPICE.
+#
+# @protocol:     must be "spice"
+# @hostname:     migration target hostname
+# @port:         #optional spice tcp port for plaintext channels
+# @tls-port:     #optional spice tcp port for tls-secured channels
+# @cert-subject: #optional server certificate subject
+#
+# Since: 0.14.0
+##
+{ 'command': 'client_migrate_info',
+  'data': { 'protocol': 'str', 'hostname': 'str', '*port': 'int',
+            '*tls-port': 'int', '*cert-subject': 'str' } }
+
+##
+# @migrate-start-postcopy
+#
+# Followup to a migration command to switch the migration to postcopy mode.
+# The postcopy-ram capability must be set before the original migration
+# command.
+#
+# Since: 2.5
+{ 'command': 'migrate-start-postcopy' }
+
 ##
 # @MouseInfo:
 #
@@ -575,7 +787,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'MouseInfo',
+{ 'struct': 'MouseInfo',
   'data': {'name': 'str', 'index': 'int', 'current': 'bool',
            'absolute': 'bool'} }
 
@@ -591,39 +803,117 @@
 { 'command': 'query-mice', 'returns': ['MouseInfo'] }
 
 ##
+# @CpuInfoArch:
+#
+# An enumeration of cpu types that enable additional information during
+# @query-cpus.
+#
+# Since: 2.6
+##
+{ 'enum': 'CpuInfoArch',
+  'data': ['x86', 'sparc', 'ppc', 'mips', 'tricore', 'other' ] }
+
+##
 # @CpuInfo:
 #
 # Information about a virtual CPU
 #
 # @CPU: the index of the virtual CPU
 #
-# @current: this only exists for backwards compatible and should be ignored
+# @current: this only exists for backwards compatibility and should be ignored
 #
 # @halted: true if the virtual CPU is in the halt state.  Halt usually refers
 #          to a processor specific low power mode.
 #
-# @pc: #optional If the target is i386 or x86_64, this is the 64-bit instruction
-#                pointer.
-#                If the target is Sparc, this is the PC component of the
-#                instruction pointer.
-#
-# @nip: #optional If the target is PPC, the instruction pointer
-#
-# @npc: #optional If the target is Sparc, the NPC component of the instruction
-#                 pointer
-#
-# @PC: #optional If the target is MIPS, the instruction pointer
+# @qom_path: path to the CPU object in the QOM tree (since 2.4)
 #
 # @thread_id: ID of the underlying host thread
+#
+# @arch: architecture of the cpu, which determines which additional fields
+#        will be listed (since 2.6)
 #
 # Since: 0.14.0
 #
 # Notes: @halted is a transient state that changes frequently.  By the time the
 #        data is sent to the client, the guest may no longer be halted.
 ##
-{ 'type': 'CpuInfo',
-  'data': {'CPU': 'int', 'current': 'bool', 'halted': 'bool', '*pc': 'int',
-           '*nip': 'int', '*npc': 'int', '*PC': 'int', 'thread_id': 'int'} }
+{ 'union': 'CpuInfo',
+  'base': {'CPU': 'int', 'current': 'bool', 'halted': 'bool',
+           'qom_path': 'str', 'thread_id': 'int', 'arch': 'CpuInfoArch' },
+  'discriminator': 'arch',
+  'data': { 'x86': 'CpuInfoX86',
+            'sparc': 'CpuInfoSPARC',
+            'ppc': 'CpuInfoPPC',
+            'mips': 'CpuInfoMIPS',
+            'tricore': 'CpuInfoTricore',
+            'other': 'CpuInfoOther' } }
+
+##
+# @CpuInfoX86:
+#
+# Additional information about a virtual i386 or x86_64 CPU
+#
+# @pc: the 64-bit instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoX86', 'data': { 'pc': 'int' } }
+
+##
+# @CpuInfoSPARC:
+#
+# Additional information about a virtual SPARC CPU
+#
+# @pc: the PC component of the instruction pointer
+#
+# @npc: the NPC component of the instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoSPARC', 'data': { 'pc': 'int', 'npc': 'int' } }
+
+##
+# @CpuInfoPPC:
+#
+# Additional information about a virtual PPC CPU
+#
+# @nip: the instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoPPC', 'data': { 'nip': 'int' } }
+
+##
+# @CpuInfoMIPS:
+#
+# Additional information about a virtual MIPS CPU
+#
+# @PC: the instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoMIPS', 'data': { 'PC': 'int' } }
+
+##
+# @CpuInfoTricore:
+#
+# Additional information about a virtual Tricore CPU
+#
+# @PC: the instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoTricore', 'data': { 'PC': 'int' } }
+
+##
+# @CpuInfoOther:
+#
+# No additional information is available about the virtual CPU
+#
+# Since 2.6
+#
+##
+{ 'struct': 'CpuInfoOther', 'data': { } }
 
 ##
 # @query-cpus:
@@ -647,7 +937,7 @@
 #
 # Since: 2.0
 ##
-{ 'type': 'IOThreadInfo',
+{ 'struct': 'IOThreadInfo',
   'data': {'id': 'str', 'thread-id': 'int'} }
 
 ##
@@ -700,7 +990,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'VncBasicInfo',
+{ 'struct': 'VncBasicInfo',
   'data': { 'host': 'str',
             'service': 'str',
             'family': 'NetworkAddressFamily',
@@ -715,7 +1005,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'VncServerInfo',
+{ 'struct': 'VncServerInfo',
   'base': 'VncBasicInfo',
   'data': { '*auth': 'str' } }
 
@@ -732,7 +1022,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'VncClientInfo',
+{ 'struct': 'VncClientInfo',
   'base': 'VncBasicInfo',
   'data': { '*x509_dname': 'str', '*sasl_username': 'str' } }
 
@@ -772,7 +1062,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'VncInfo',
+{ 'struct': 'VncInfo',
   'data': {'enabled': 'bool', '*host': 'str',
            '*family': 'NetworkAddressFamily',
            '*service': 'str', '*auth': 'str', '*clients': ['VncClientInfo']} }
@@ -826,7 +1116,7 @@
 #
 # Since: 2.3
 ##
-{ 'type': 'VncInfo2',
+{ 'struct': 'VncInfo2',
   'data': { 'id'        : 'str',
             'server'    : ['VncBasicInfo'],
             'clients'   : ['VncClientInfo'],
@@ -869,7 +1159,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'SpiceBasicInfo',
+{ 'struct': 'SpiceBasicInfo',
   'data': { 'host': 'str',
             'port': 'str',
             'family': 'NetworkAddressFamily' } }
@@ -883,7 +1173,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'SpiceServerInfo',
+{ 'struct': 'SpiceServerInfo',
   'base': 'SpiceBasicInfo',
   'data': { '*auth': 'str' } }
 
@@ -907,7 +1197,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'SpiceChannel',
+{ 'struct': 'SpiceChannel',
   'base': 'SpiceBasicInfo',
   'data': {'connection-id': 'int', 'channel-type': 'int', 'channel-id': 'int',
            'tls': 'bool'} }
@@ -965,7 +1255,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'SpiceInfo',
+{ 'struct': 'SpiceInfo',
   'data': {'enabled': 'bool', 'migrated': 'bool', '*host': 'str', '*port': 'int',
            '*tls-port': 'int', '*auth': 'str', '*compiled-version': 'str',
            'mouse-mode': 'SpiceQueryMouseMode', '*channels': ['SpiceChannel']} }
@@ -991,7 +1281,7 @@
 # Since: 0.14.0
 #
 ##
-{ 'type': 'BalloonInfo', 'data': {'actual': 'int' } }
+{ 'struct': 'BalloonInfo', 'data': {'actual': 'int' } }
 
 ##
 # @query-balloon:
@@ -1018,7 +1308,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'PciMemoryRange', 'data': {'base': 'int', 'limit': 'int'} }
+{ 'struct': 'PciMemoryRange', 'data': {'base': 'int', 'limit': 'int'} }
 
 ##
 # @PciMemoryRegion
@@ -1036,41 +1326,80 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'PciMemoryRegion',
+{ 'struct': 'PciMemoryRegion',
   'data': {'bar': 'int', 'type': 'str', 'address': 'int', 'size': 'int',
            '*prefetch': 'bool', '*mem_type_64': 'bool' } }
+
+##
+# @PciBusInfo:
+#
+# Information about a bus of a PCI Bridge device
+#
+# @number: primary bus interface number.  This should be the number of the
+#          bus the device resides on.
+#
+# @secondary: secondary bus interface number.  This is the number of the
+#             main bus for the bridge
+#
+# @subordinate: This is the highest number bus that resides below the
+#               bridge.
+#
+# @io_range: The PIO range for all devices on this bridge
+#
+# @memory_range: The MMIO range for all devices on this bridge
+#
+# @prefetchable_range: The range of prefetchable MMIO for all devices on
+#                      this bridge
+#
+# Since: 2.4
+##
+{ 'struct': 'PciBusInfo',
+  'data': {'number': 'int', 'secondary': 'int', 'subordinate': 'int',
+           'io_range': 'PciMemoryRange',
+           'memory_range': 'PciMemoryRange',
+           'prefetchable_range': 'PciMemoryRange' } }
 
 ##
 # @PciBridgeInfo:
 #
 # Information about a PCI Bridge device
 #
-# @bus.number: primary bus interface number.  This should be the number of the
-#              bus the device resides on.
-#
-# @bus.secondary: secondary bus interface number.  This is the number of the
-#                 main bus for the bridge
-#
-# @bus.subordinate: This is the highest number bus that resides below the
-#                   bridge.
-#
-# @bus.io_range: The PIO range for all devices on this bridge
-#
-# @bus.memory_range: The MMIO range for all devices on this bridge
-#
-# @bus.prefetchable_range: The range of prefetchable MMIO for all devices on
-#                          this bridge
+# @bus: information about the bus the device resides on
 #
 # @devices: a list of @PciDeviceInfo for each device on this bridge
 #
 # Since: 0.14.0
 ##
-{ 'type': 'PciBridgeInfo',
-  'data': {'bus': { 'number': 'int', 'secondary': 'int', 'subordinate': 'int',
-                    'io_range': 'PciMemoryRange',
-                    'memory_range': 'PciMemoryRange',
-                    'prefetchable_range': 'PciMemoryRange' },
-           '*devices': ['PciDeviceInfo']} }
+{ 'struct': 'PciBridgeInfo',
+  'data': {'bus': 'PciBusInfo', '*devices': ['PciDeviceInfo']} }
+
+##
+# @PciDeviceClass:
+#
+# Information about the Class of a PCI device
+#
+# @desc: #optional a string description of the device's class
+#
+# @class: the class code of the device
+#
+# Since: 2.4
+##
+{ 'struct': 'PciDeviceClass',
+  'data': {'*desc': 'str', 'class': 'int'} }
+
+##
+# @PciDeviceId:
+#
+# Information about the Id of a PCI device
+#
+# @device: the PCI device id
+#
+# @vendor: the PCI vendor id
+#
+# Since: 2.4
+##
+{ 'struct': 'PciDeviceId',
+  'data': {'device': 'int', 'vendor': 'int'} }
 
 ##
 # @PciDeviceInfo:
@@ -1083,13 +1412,9 @@
 #
 # @function: the function of the slot used by the device
 #
-# @class_info.desc: #optional a string description of the device's class
+# @class_info: the class of the device
 #
-# @class_info.class: the class code of the device
-#
-# @id.device: the PCI device id
-#
-# @id.vendor: the PCI vendor id
+# @id: the PCI device id
 #
 # @irq: #optional if an IRQ is assigned to the device, the IRQ number
 #
@@ -1104,10 +1429,9 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'PciDeviceInfo',
+{ 'struct': 'PciDeviceInfo',
   'data': {'bus': 'int', 'slot': 'int', 'function': 'int',
-           'class_info': {'*desc': 'str', 'class': 'int'},
-           'id': {'device': 'int', 'vendor': 'int'},
+           'class_info': 'PciDeviceClass', 'id': 'PciDeviceId',
            '*irq': 'int', 'qdev_id': 'str', '*pci_bridge': 'PciBridgeInfo',
            'regions': ['PciMemoryRegion']} }
 
@@ -1122,7 +1446,7 @@
 #
 # Since: 0.14.0
 ##
-{ 'type': 'PciInfo', 'data': {'bus': 'int', 'devices': ['PciDeviceInfo']} }
+{ 'struct': 'PciInfo', 'data': {'bus': 'int', 'devices': ['PciDeviceInfo']} }
 
 ##
 # @query-pci:
@@ -1341,8 +1665,28 @@
 #
 # Since: 1.6
 ###
-{ 'type': 'Abort',
+{ 'struct': 'Abort',
   'data': { } }
+
+##
+# @ActionCompletionMode
+#
+# An enumeration of Transactional completion modes.
+#
+# @individual: Do not attempt to cancel any other Actions if any Actions fail
+#              after the Transaction request succeeds. All Actions that
+#              can complete successfully will do so without waiting on others.
+#              This is the default.
+#
+# @grouped: If any Action fails after the Transaction succeeds, cancel all
+#           Actions. Actions do not complete until all Actions are ready to
+#           complete. May be rejected by Actions that do not support this
+#           completion mode.
+#
+# Since: 2.5
+##
+{ 'enum': 'ActionCompletionMode',
+  'data': [ 'individual', 'grouped' ] }
 
 ##
 # @TransactionAction
@@ -1356,15 +1700,38 @@
 # abort since 1.6
 # blockdev-snapshot-internal-sync since 1.7
 # blockdev-backup since 2.3
+# blockdev-snapshot since 2.5
+# block-dirty-bitmap-add since 2.5
+# block-dirty-bitmap-clear since 2.5
 ##
 { 'union': 'TransactionAction',
   'data': {
-       'blockdev-snapshot-sync': 'BlockdevSnapshot',
+       'blockdev-snapshot': 'BlockdevSnapshot',
+       'blockdev-snapshot-sync': 'BlockdevSnapshotSync',
        'drive-backup': 'DriveBackup',
        'blockdev-backup': 'BlockdevBackup',
        'abort': 'Abort',
-       'blockdev-snapshot-internal-sync': 'BlockdevSnapshotInternal'
+       'blockdev-snapshot-internal-sync': 'BlockdevSnapshotInternal',
+       'block-dirty-bitmap-add': 'BlockDirtyBitmapAdd',
+       'block-dirty-bitmap-clear': 'BlockDirtyBitmap'
    } }
+
+##
+# @TransactionProperties
+#
+# Optional arguments to modify the behavior of a Transaction.
+#
+# @completion-mode: #optional Controls how jobs launched asynchronously by
+#                   Actions will complete or fail as a group.
+#                   See @ActionCompletionMode for details.
+#
+# Since: 2.5
+##
+{ 'struct': 'TransactionProperties',
+  'data': {
+       '*completion-mode': 'ActionCompletionMode'
+  }
+}
 
 ##
 # @transaction
@@ -1373,8 +1740,12 @@
 # operation fails, then the entire set of actions will be abandoned and the
 # appropriate error returned.
 #
-#  List of:
-#  @TransactionAction: information needed for the respective operation
+# @actions: List of @TransactionAction;
+#           information needed for the respective operations.
+#
+# @properties: #optional structure of additional options to control the
+#              execution of the transaction. See @TransactionProperties
+#              for additional detail.
 #
 # Returns: nothing on success
 #          Errors depend on the operations of the transaction
@@ -1386,7 +1757,10 @@
 # Since 1.1
 ##
 { 'command': 'transaction',
-  'data': { 'actions': [ 'TransactionAction' ] } }
+  'data': { 'actions': [ 'TransactionAction' ],
+            '*properties': 'TransactionProperties'
+          }
+}
 
 ##
 # @human-monitor-command:
@@ -1495,18 +1869,15 @@
 #        1) A primitive type such as 'u8', 'u16', 'bool', 'str', or 'double'.
 #           These types are mapped to the appropriate JSON type.
 #
-#        2) A legacy type in the form 'legacy<subtype>' where subtype is the
-#           legacy qdev typename.  These types are always treated as strings.
-#
-#        3) A child type in the form 'child<subtype>' where subtype is a qdev
+#        2) A child type in the form 'child<subtype>' where subtype is a qdev
 #           device type name.  Child properties create the composition tree.
 #
-#        4) A link type in the form 'link<subtype>' where subtype is a qdev
+#        3) A link type in the form 'link<subtype>' where subtype is a qdev
 #           device type name.  Link properties form the device model graph.
 #
 # Since: 1.2
 ##
-{ 'type': 'ObjectPropertyInfo',
+{ 'struct': 'ObjectPropertyInfo',
   'data': { 'name': 'str', 'type': 'str' } }
 
 ##
@@ -1552,17 +1923,16 @@
 #
 # @property: The property name to read
 #
-# Returns: The property value.  The type depends on the property type.  legacy<>
-#          properties are returned as #str.  child<> and link<> properties are
-#          returns as #str pathnames.  All integer property types (u8, u16, etc)
-#          are returned as #int.
+# Returns: The property value.  The type depends on the property
+#          type. child<> and link<> properties are returned as #str
+#          pathnames.  All integer property types (u8, u16, etc) are
+#          returned as #int.
 #
 # Since: 1.2
 ##
 { 'command': 'qom-get',
   'data': { 'path': 'str', 'property': 'str' },
-  'returns': 'visitor',
-  'gen': 'no' }
+  'returns': 'any' }
 
 ##
 # @qom-set:
@@ -1579,8 +1949,7 @@
 # Since: 1.2
 ##
 { 'command': 'qom-set',
-  'data': { 'path': 'str', 'property': 'str', 'value': 'visitor' },
-  'gen': 'no' }
+  'data': { 'path': 'str', 'property': 'str', 'value': 'any' } }
 
 ##
 # @set_password:
@@ -1672,8 +2041,10 @@
 #          device's password.  The behavior of reads and writes to the block
 #          device between when these calls are executed is undefined.
 #
-# Notes:  It is strongly recommended that this interface is not used especially
-#         for changing block devices.
+# Notes:  This interface is deprecated, and it is strongly recommended that you
+#         avoid using it.  For changing block devices, use
+#         blockdev-change-medium; for changing VNC parameters, use
+#         change-vnc-password.
 #
 # Since: 0.14.0
 ##
@@ -1691,7 +2062,7 @@
 #
 # Notes: This command is experimental and may change syntax in future releases.
 ##
-{ 'type': 'ObjectTypeInfo',
+{ 'struct': 'ObjectTypeInfo',
   'data': { 'name': 'str' } }
 
 ##
@@ -1723,7 +2094,7 @@
 #
 # Since: 1.2
 ##
-{ 'type': 'DevicePropertyInfo',
+{ 'struct': 'DevicePropertyInfo',
   'data': { 'name': 'str', 'type': 'str', '*description': 'str' } }
 
 ##
@@ -1813,7 +2184,7 @@
 #
 # Remove a device from a guest
 #
-# @id: the name of the device
+# @id: the name or QOM path of the device
 #
 # Returns: Nothing on success
 #          If @id is not a valid device, DeviceNotFound
@@ -1851,8 +2222,7 @@
 # @dump-guest-memory
 #
 # Dump guest's memory to vmcore. It is a synchronous operation that can take
-# very long depending on the amount of guest memory. This command is only
-# supported on i386 and x86_64.
+# very long depending on the amount of guest memory.
 #
 # @paging: if true, do paging to get guest's memory mapping. This allows
 #          using gdb to process the core file.
@@ -1868,6 +2238,7 @@
 #             2. The guest can be in real-mode even if paging is enabled. For
 #                example, the guest uses ACPI to sleep, and ACPI sleep state
 #                goes in real-mode
+#             3. Currently only supported on i386 and x86_64.
 #
 # @protocol: the filename or file descriptor of the vmcore. The supported
 #            protocols are:
@@ -1876,6 +2247,10 @@
 #               string is the file's path.
 #            2. fd: the protocol starts with "fd:", and the following string
 #               is the fd's name.
+#
+# @detach: #optional if true, QMP will return immediately rather than
+#          waiting for the dump to finish. The user can track progress
+#          using "query-dump". (since 2.6).
 #
 # @begin: #optional if specified, the starting physical address.
 #
@@ -1893,8 +2268,56 @@
 # Since: 1.2
 ##
 { 'command': 'dump-guest-memory',
-  'data': { 'paging': 'bool', 'protocol': 'str', '*begin': 'int',
-            '*length': 'int', '*format': 'DumpGuestMemoryFormat' } }
+  'data': { 'paging': 'bool', 'protocol': 'str', '*detach': 'bool',
+            '*begin': 'int', '*length': 'int',
+            '*format': 'DumpGuestMemoryFormat'} }
+
+##
+# @DumpStatus
+#
+# Describe the status of a long-running background guest memory dump.
+#
+# @none: no dump-guest-memory has started yet.
+#
+# @active: there is one dump running in background.
+#
+# @completed: the last dump has finished successfully.
+#
+# @failed: the last dump has failed.
+#
+# Since 2.6
+##
+{ 'enum': 'DumpStatus',
+  'data': [ 'none', 'active', 'completed', 'failed' ] }
+
+##
+# @DumpQueryResult
+#
+# The result format for 'query-dump'.
+#
+# @status: enum of @DumpStatus, which shows current dump status
+#
+# @completed: bytes written in latest dump (uncompressed)
+#
+# @total: total bytes to be written in latest dump (uncompressed)
+#
+# Since 2.6
+##
+{ 'struct': 'DumpQueryResult',
+  'data': { 'status': 'DumpStatus',
+            'completed': 'int',
+            'total': 'int' } }
+
+##
+# @query-dump
+#
+# Query latest dump status.
+#
+# Returns: A @DumpStatus object showing the dump status.
+#
+# Since: 2.6
+##
+{ 'command': 'query-dump', 'returns': 'DumpQueryResult' }
 
 ##
 # @DumpGuestMemoryCapability:
@@ -1903,7 +2326,7 @@
 #
 # Since: 2.0
 ##
-{ 'type': 'DumpGuestMemoryCapability',
+{ 'struct': 'DumpGuestMemoryCapability',
   'data': {
       'formats': ['DumpGuestMemoryFormat'] } }
 
@@ -1921,6 +2344,20 @@
   'returns': 'DumpGuestMemoryCapability' }
 
 ##
+# @dump-skeys
+#
+# Dump guest's storage keys
+#
+# @filename: the path to the file to dump to
+#
+# This command is only supported on s390 architecture.
+#
+# Since: 2.5
+##
+{ 'command': 'dump-skeys',
+  'data': { 'filename': 'str' } }
+
+##
 # @netdev_add:
 #
 # Add a network backend.
@@ -1930,11 +2367,12 @@
 #
 # @id: the name of the new network backend
 #
-# @props: #optional a list of properties to be passed to the backend in
-#         the format 'name=value', like 'ifname=tap0,script=no'
+# Additional arguments depend on the type.
 #
-# Notes: The semantics of @props is not well defined.  Future commands will be
-#        introduced that provide stronger typing for backend creation.
+# TODO This command effectively bypasses QAPI completely due to its
+# "additional arguments" business.  It shouldn't have been added to
+# the schema in this form.  It should be qapified properly, or
+# replaced by a properly qapified command.
 #
 # Since: 0.14.0
 #
@@ -1942,8 +2380,8 @@
 #          If @type is not a valid network backend, DeviceNotFound
 ##
 { 'command': 'netdev_add',
-  'data': {'type': 'str', 'id': 'str', '*props': '**'},
-  'gen': 'no' }
+  'data': {'type': 'str', 'id': 'str'},
+  'gen': false }                # so we can get the additional arguments
 
 ##
 # @netdev_del:
@@ -1976,8 +2414,7 @@
 # Since: 2.0
 ##
 { 'command': 'object-add',
-  'data': {'qom-type': 'str', 'id': 'str', '*props': 'dict'},
-  'gen': 'no' }
+  'data': {'qom-type': 'str', 'id': 'str', '*props': 'any'} }
 
 ##
 # @object-del:
@@ -2000,7 +2437,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevNoneOptions',
+{ 'struct': 'NetdevNoneOptions',
   'data': { } }
 
 ##
@@ -2020,7 +2457,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetLegacyNicOptions',
+{ 'struct': 'NetLegacyNicOptions',
   'data': {
     '*netdev':  'str',
     '*macaddr': 'str',
@@ -2035,7 +2472,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'String',
+{ 'struct': 'String',
   'data': {
     'str': 'str' } }
 
@@ -2049,9 +2486,18 @@
 #
 # @restrict: #optional isolate the guest from the host
 #
+# @ipv4: #optional whether to support IPv4, default true for enabled
+#        (since 2.6)
+#
+# @ipv6: #optional whether to support IPv6, default true for enabled
+#        (since 2.6)
+#
 # @ip: #optional legacy parameter, use net= instead
 #
-# @net: #optional IP address and optional netmask
+# @net: #optional IP network address that the guest will see, in the
+#       form addr[/netmask] The netmask is optional, and can be
+#       either in the form a.b.c.d or as a number of valid top-most
+#       bits. Default is 10.0.2.0/24.
 #
 # @host: #optional guest-visible address of the host
 #
@@ -2067,6 +2513,18 @@
 # @dnssearch: #optional list of DNS suffixes to search, passed as DHCP option
 #             to the guest
 #
+# @ipv6-prefix: #optional IPv6 network prefix (default is fec0::) (since
+#               2.6). The network prefix is given in the usual
+#               hexadecimal IPv6 address notation.
+#
+# @ipv6-prefixlen: #optional IPv6 network prefix length (default is 64)
+#                  (since 2.6)
+#
+# @ipv6-host: #optional guest-visible IPv6 address of the host (since 2.6)
+#
+# @ipv6-dns: #optional guest-visible IPv6 address of the virtual
+#            nameserver (since 2.6)
+#
 # @smb: #optional root directory of the built-in SMB server
 #
 # @smbserver: #optional IP address of the built-in SMB server
@@ -2078,10 +2536,12 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevUserOptions',
+{ 'struct': 'NetdevUserOptions',
   'data': {
     '*hostname':  'str',
     '*restrict':  'bool',
+    '*ipv4':      'bool',
+    '*ipv6':      'bool',
     '*ip':        'str',
     '*net':       'str',
     '*host':      'str',
@@ -2090,6 +2550,10 @@
     '*dhcpstart': 'str',
     '*dns':       'str',
     '*dnssearch': ['String'],
+    '*ipv6-prefix':      'str',
+    '*ipv6-prefixlen':   'int',
+    '*ipv6-host':        'str',
+    '*ipv6-dns':         'str',
     '*smb':       'str',
     '*smbserver': 'str',
     '*hostfwd':   ['String'],
@@ -2128,9 +2592,12 @@
 #
 # @queues: #optional number of queues to be created for multiqueue capable tap
 #
+# @poll-us: #optional maximum number of microseconds that could
+# be spent on busy polling for tap (since 2.7)
+#
 # Since 1.2
 ##
-{ 'type': 'NetdevTapOptions',
+{ 'struct': 'NetdevTapOptions',
   'data': {
     '*ifname':     'str',
     '*fd':         'str',
@@ -2144,7 +2611,8 @@
     '*vhostfd':    'str',
     '*vhostfds':   'str',
     '*vhostforce': 'bool',
-    '*queues':     'uint32'} }
+    '*queues':     'uint32',
+    '*poll-us':    'uint32'} }
 
 ##
 # @NetdevSocketOptions
@@ -2166,7 +2634,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevSocketOptions',
+{ 'struct': 'NetdevSocketOptions',
   'data': {
     '*fd':        'str',
     '*listen':    'str',
@@ -2214,7 +2682,7 @@
 #
 # Since 2.1
 ##
-{ 'type': 'NetdevL2TPv3Options',
+{ 'struct': 'NetdevL2TPv3Options',
   'data': {
     'src':          'str',
     'dst':          'str',
@@ -2246,7 +2714,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevVdeOptions',
+{ 'struct': 'NetdevVdeOptions',
   'data': {
     '*sock':  'str',
     '*port':  'uint16',
@@ -2265,7 +2733,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevDumpOptions',
+{ 'struct': 'NetdevDumpOptions',
   'data': {
     '*len':  'size',
     '*file': 'str' } }
@@ -2281,7 +2749,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevBridgeOptions',
+{ 'struct': 'NetdevBridgeOptions',
   'data': {
     '*br':     'str',
     '*helper': 'str' } }
@@ -2295,7 +2763,7 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetdevHubPortOptions',
+{ 'struct': 'NetdevHubPortOptions',
   'data': {
     'hubid':     'int32' } }
 
@@ -2315,7 +2783,7 @@
 #
 # Since 2.0
 ##
-{ 'type': 'NetdevNetmapOptions',
+{ 'struct': 'NetdevNetmapOptions',
   'data': {
     'ifname':     'str',
     '*devname':    'str' } }
@@ -2329,24 +2797,44 @@
 #
 # @vhostforce: #optional vhost on for non-MSIX virtio guests (default: false).
 #
+# @queues: #optional number of queues to be created for multiqueue vhost-user
+#          (default: 1) (Since 2.5)
+#
 # Since 2.1
 ##
-{ 'type': 'NetdevVhostUserOptions',
+{ 'struct': 'NetdevVhostUserOptions',
   'data': {
     'chardev':        'str',
-    '*vhostforce':    'bool' } }
+    '*vhostforce':    'bool',
+    '*queues':        'int' } }
 
 ##
-# @NetClientOptions
+# @NetClientDriver
 #
-# A discriminated record of network device traits.
+# Available netdev drivers.
+#
+# Since 2.7
+##
+{ 'enum': 'NetClientDriver',
+  'data': [ 'none', 'nic', 'user', 'tap', 'l2tpv3', 'socket', 'vde', 'dump',
+            'bridge', 'hubport', 'netmap', 'vhost-user' ] }
+
+##
+# @Netdev
+#
+# Captures the configuration of a network device.
+#
+# @id: identifier for monitor commands.
+#
+# @type: Specify the driver used for interpreting remaining arguments.
 #
 # Since 1.2
 #
 # 'l2tpv3' - since 2.1
-#
 ##
-{ 'union': 'NetClientOptions',
+{ 'union': 'Netdev',
+  'base': { 'id': 'str', 'type': 'NetClientDriver' },
+  'discriminator': 'type',
   'data': {
     'none':     'NetdevNoneOptions',
     'nic':      'NetLegacyNicOptions',
@@ -2376,28 +2864,53 @@
 #
 # Since 1.2
 ##
-{ 'type': 'NetLegacy',
+{ 'struct': 'NetLegacy',
   'data': {
     '*vlan': 'int32',
     '*id':   'str',
     '*name': 'str',
-    'opts':  'NetClientOptions' } }
+    'opts':  'NetLegacyOptions' } }
 
 ##
-# @Netdev
+# @NetLegacyOptions
 #
-# Captures the configuration of a network device.
-#
-# @id: identifier for monitor commands.
-#
-# @opts: device type specific properties
+# Like Netdev, but for use only by the legacy command line options
 #
 # Since 1.2
 ##
-{ 'type': 'Netdev',
+{ 'union': 'NetLegacyOptions',
   'data': {
-    'id':   'str',
-    'opts': 'NetClientOptions' } }
+    'none':     'NetdevNoneOptions',
+    'nic':      'NetLegacyNicOptions',
+    'user':     'NetdevUserOptions',
+    'tap':      'NetdevTapOptions',
+    'l2tpv3':   'NetdevL2TPv3Options',
+    'socket':   'NetdevSocketOptions',
+    'vde':      'NetdevVdeOptions',
+    'dump':     'NetdevDumpOptions',
+    'bridge':   'NetdevBridgeOptions',
+    'netmap':   'NetdevNetmapOptions',
+    'vhost-user': 'NetdevVhostUserOptions' } }
+
+##
+# @NetFilterDirection
+#
+# Indicates whether a netfilter is attached to a netdev's transmit queue or
+# receive queue or both.
+#
+# @all: the filter is attached both to the receive and the transmit
+#       queue of the netdev (default).
+#
+# @rx: the filter is attached to the receive queue of the netdev,
+#      where it will receive packets sent to the netdev.
+#
+# @tx: the filter is attached to the transmit queue of the netdev,
+#      where it will receive packets sent by the netdev.
+#
+# Since 2.5
+##
+{ 'enum': 'NetFilterDirection',
+  'data': [ 'all', 'rx', 'tx' ] }
 
 ##
 # @InetSocketAddress
@@ -2418,7 +2931,7 @@
 #
 # Since 1.3
 ##
-{ 'type': 'InetSocketAddress',
+{ 'struct': 'InetSocketAddress',
   'data': {
     'host': 'str',
     'port': 'str',
@@ -2435,7 +2948,7 @@
 #
 # Since 1.3
 ##
-{ 'type': 'UnixSocketAddress',
+{ 'struct': 'UnixSocketAddress',
   'data': {
     'path': 'str' } }
 
@@ -2498,11 +3011,14 @@
 # @cpu-max: maximum number of CPUs supported by the machine type
 #           (since 1.5.0)
 #
+# @hotpluggable-cpus: cpu hotplug via -device is supported (since 2.7.0)
+#
 # Since: 1.2.0
 ##
-{ 'type': 'MachineInfo',
+{ 'struct': 'MachineInfo',
   'data': { 'name': 'str', '*alias': 'str',
-            '*is-default': 'bool', 'cpu-max': 'int' } }
+            '*is-default': 'bool', 'cpu-max': 'int',
+            'hotpluggable-cpus': 'bool'} }
 
 ##
 # @query-machines:
@@ -2524,7 +3040,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'CpuDefinitionInfo',
+{ 'struct': 'CpuDefinitionInfo',
   'data': { 'name': 'str' } }
 
 ##
@@ -2549,7 +3065,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'AddfdInfo', 'data': {'fdset-id': 'int', 'fd': 'int'} }
+{ 'struct': 'AddfdInfo', 'data': {'fdset-id': 'int', 'fd': 'int'} }
 
 ##
 # @add-fd:
@@ -2605,7 +3121,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'FdsetFdInfo',
+{ 'struct': 'FdsetFdInfo',
   'data': {'fd': 'int', '*opaque': 'str'} }
 
 ##
@@ -2619,7 +3135,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'FdsetInfo',
+{ 'struct': 'FdsetInfo',
   'data': {'fdset-id': 'int', 'fds': ['FdsetFdInfo']} }
 
 ##
@@ -2645,7 +3161,7 @@
 #
 # Since: 1.2.0
 ##
-{ 'type': 'TargetInfo',
+{ 'struct': 'TargetInfo',
   'data': { 'arch': 'str' } }
 
 ##
@@ -2669,6 +3185,8 @@
 # Since: 1.3.0
 #
 # 'unmapped' and 'pause' since 2.0
+# 'ro' and 'kp_comma' since 2.4
+# 'kp_equals' and 'power' since 2.6
 ##
 { 'enum': 'QKeyCode',
   'data': [ 'unmapped',
@@ -2686,7 +3204,8 @@
             'kp_9', 'less', 'f11', 'f12', 'print', 'home', 'pgup', 'pgdn', 'end',
             'left', 'up', 'down', 'right', 'insert', 'delete', 'stop', 'again',
             'props', 'undo', 'front', 'copy', 'open', 'paste', 'find', 'cut',
-             'lf', 'help', 'meta_l', 'meta_r', 'compose', 'pause' ] }
+            'lf', 'help', 'meta_l', 'meta_r', 'compose', 'pause', 'ro',
+            'kp_comma', 'kp_equals', 'power' ] }
 
 ##
 # @KeyValue
@@ -2735,6 +3254,21 @@
 ##
 { 'command': 'screendump', 'data': {'filename': 'str'} }
 
+
+##
+# @ChardevCommon:
+#
+# Configuration shared across all chardev backends
+#
+# @logfile: #optional The name of a logfile to save output
+# @logappend: #optional true to append instead of truncate
+#             (default to false to truncate)
+#
+# Since: 2.6
+##
+{ 'struct': 'ChardevCommon', 'data': { '*logfile': 'str',
+                                       '*logappend': 'bool' } }
+
 ##
 # @ChardevFile:
 #
@@ -2742,11 +3276,15 @@
 #
 # @in:  #optional The name of the input file
 # @out: The name of the output file
+# @append: #optional Open the file in append mode (default false to
+#          truncate) (Since 2.6)
 #
 # Since: 1.4
 ##
-{ 'type': 'ChardevFile', 'data': { '*in' : 'str',
-                                   'out' : 'str' } }
+{ 'struct': 'ChardevFile', 'data': { '*in' : 'str',
+                                   'out' : 'str',
+                                   '*append': 'bool' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevHostdev:
@@ -2759,7 +3297,8 @@
 #
 # Since: 1.4
 ##
-{ 'type': 'ChardevHostdev', 'data': { 'device' : 'str' } }
+{ 'struct': 'ChardevHostdev', 'data': { 'device' : 'str' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevSocket:
@@ -2768,6 +3307,7 @@
 #
 # @addr: socket address to listen on (server=true)
 #        or connect to (server=false)
+# @tls-creds: #optional the ID of the TLS credentials object (since 2.6)
 # @server: #optional create server socket (default: true)
 # @wait: #optional wait for incoming connection on server
 #        sockets (default: false).
@@ -2781,12 +3321,14 @@
 #
 # Since: 1.4
 ##
-{ 'type': 'ChardevSocket', 'data': { 'addr'       : 'SocketAddress',
+{ 'struct': 'ChardevSocket', 'data': { 'addr'       : 'SocketAddress',
+                                     '*tls-creds'  : 'str',
                                      '*server'    : 'bool',
                                      '*wait'      : 'bool',
                                      '*nodelay'   : 'bool',
                                      '*telnet'    : 'bool',
-                                     '*reconnect' : 'int' } }
+                                     '*reconnect' : 'int' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevUdp:
@@ -2798,8 +3340,9 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevUdp', 'data': { 'remote' : 'SocketAddress',
-                                  '*local' : 'SocketAddress' } }
+{ 'struct': 'ChardevUdp', 'data': { 'remote' : 'SocketAddress',
+                                  '*local' : 'SocketAddress' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevMux:
@@ -2810,7 +3353,8 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevMux', 'data': { 'chardev' : 'str' } }
+{ 'struct': 'ChardevMux', 'data': { 'chardev' : 'str' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevStdio:
@@ -2823,7 +3367,9 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevStdio', 'data': { '*signal' : 'bool' } }
+{ 'struct': 'ChardevStdio', 'data': { '*signal' : 'bool' },
+  'base': 'ChardevCommon' }
+
 
 ##
 # @ChardevSpiceChannel:
@@ -2834,7 +3380,8 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevSpiceChannel', 'data': { 'type'  : 'str' } }
+{ 'struct': 'ChardevSpiceChannel', 'data': { 'type'  : 'str' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevSpicePort:
@@ -2845,7 +3392,8 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevSpicePort', 'data': { 'fqdn'  : 'str' } }
+{ 'struct': 'ChardevSpicePort', 'data': { 'fqdn'  : 'str' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevVC:
@@ -2859,10 +3407,11 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevVC', 'data': { '*width'  : 'int',
+{ 'struct': 'ChardevVC', 'data': { '*width'  : 'int',
                                  '*height' : 'int',
                                  '*cols'   : 'int',
-                                 '*rows'   : 'int' } }
+                                 '*rows'   : 'int' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevRingbuf:
@@ -2873,7 +3422,8 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'ChardevRingbuf', 'data': { '*size'  : 'int' } }
+{ 'struct': 'ChardevRingbuf', 'data': { '*size'  : 'int' },
+  'base': 'ChardevCommon' }
 
 ##
 # @ChardevBackend:
@@ -2882,22 +3432,20 @@
 #
 # Since: 1.4 (testdev since 2.2)
 ##
-{ 'type': 'ChardevDummy', 'data': { } }
-
 { 'union': 'ChardevBackend', 'data': { 'file'   : 'ChardevFile',
                                        'serial' : 'ChardevHostdev',
                                        'parallel': 'ChardevHostdev',
                                        'pipe'   : 'ChardevHostdev',
                                        'socket' : 'ChardevSocket',
                                        'udp'    : 'ChardevUdp',
-                                       'pty'    : 'ChardevDummy',
-                                       'null'   : 'ChardevDummy',
+                                       'pty'    : 'ChardevCommon',
+                                       'null'   : 'ChardevCommon',
                                        'mux'    : 'ChardevMux',
-                                       'msmouse': 'ChardevDummy',
-                                       'braille': 'ChardevDummy',
-                                       'testdev': 'ChardevDummy',
+                                       'msmouse': 'ChardevCommon',
+                                       'braille': 'ChardevCommon',
+                                       'testdev': 'ChardevCommon',
                                        'stdio'  : 'ChardevStdio',
-                                       'console': 'ChardevDummy',
+                                       'console': 'ChardevCommon',
                                        'spicevmc' : 'ChardevSpiceChannel',
                                        'spiceport' : 'ChardevSpicePort',
                                        'vc'     : 'ChardevVC',
@@ -2915,7 +3463,7 @@
 #
 # Since: 1.4
 ##
-{ 'type' : 'ChardevReturn', 'data': { '*pty' : 'str' } }
+{ 'struct' : 'ChardevReturn', 'data': { '*pty' : 'str' } }
 
 ##
 # @chardev-add:
@@ -3002,7 +3550,7 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'TPMPassthroughOptions', 'data': { '*path' : 'str',
+{ 'struct': 'TPMPassthroughOptions', 'data': { '*path' : 'str',
                                              '*cancel-path' : 'str'} }
 
 ##
@@ -3030,7 +3578,7 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'TPMInfo',
+{ 'struct': 'TPMInfo',
   'data': {'id': 'str',
            'model': 'TpmModel',
            'options': 'TpmTypeOptions' } }
@@ -3092,7 +3640,7 @@
 #
 # Since 1.5
 ##
-{ 'type': 'AcpiTableOptions',
+{ 'struct': 'AcpiTableOptions',
   'data': {
     '*sig':               'str',
     '*rev':               'uint8',
@@ -3138,7 +3686,7 @@
 #
 # Since 1.5
 ##
-{ 'type': 'CommandLineParameterInfo',
+{ 'struct': 'CommandLineParameterInfo',
   'data': { 'name': 'str',
             'type': 'CommandLineParameterType',
             '*help': 'str',
@@ -3155,7 +3703,7 @@
 #
 # Since 1.5
 ##
-{ 'type': 'CommandLineOptionInfo',
+{ 'struct': 'CommandLineOptionInfo',
   'data': { 'option': 'str', 'parameters': ['CommandLineParameterInfo'] } }
 
 ##
@@ -3199,11 +3747,22 @@
 #
 # Since: 1.5
 ##
-{ 'type': 'X86CPUFeatureWordInfo',
+{ 'struct': 'X86CPUFeatureWordInfo',
   'data': { 'cpuid-input-eax': 'int',
             '*cpuid-input-ecx': 'int',
             'cpuid-register': 'X86CPURegister32',
             'features': 'int' } }
+
+##
+# @DummyForceArrays
+#
+# Not used by QMP; hack to let us use X86CPUFeatureWordInfoList internally
+#
+# Since 2.5
+##
+{ 'struct': 'DummyForceArrays',
+  'data': { 'unused': ['X86CPUFeatureWordInfo'] } }
+
 
 ##
 # @RxState:
@@ -3252,7 +3811,7 @@
 # Since 1.6
 ##
 
-{ 'type': 'RxFilterInfo',
+{ 'struct': 'RxFilterInfo',
   'data': {
     'name':               'str',
     'promiscuous':        'bool',
@@ -3292,17 +3851,17 @@
 # Since: 2.0
 ##
 { 'enum'  : 'InputButton',
-  'data'  : [ 'Left', 'Middle', 'Right', 'WheelUp', 'WheelDown' ] }
+  'data'  : [ 'left', 'middle', 'right', 'wheel-up', 'wheel-down' ] }
 
 ##
-# @InputButton
+# @InputAxis
 #
 # Position axis of a pointer input device (mouse, tablet).
 #
 # Since: 2.0
 ##
 { 'enum'  : 'InputAxis',
-  'data'  : [ 'X', 'Y' ] }
+  'data'  : [ 'x', 'y' ] }
 
 ##
 # @InputKeyEvent
@@ -3314,7 +3873,7 @@
 #
 # Since: 2.0
 ##
-{ 'type'  : 'InputKeyEvent',
+{ 'struct'  : 'InputKeyEvent',
   'data'  : { 'key'     : 'KeyValue',
               'down'    : 'bool' } }
 
@@ -3328,7 +3887,7 @@
 #
 # Since: 2.0
 ##
-{ 'type'  : 'InputBtnEvent',
+{ 'struct'  : 'InputBtnEvent',
   'data'  : { 'button'  : 'InputButton',
               'down'    : 'bool' } }
 
@@ -3343,7 +3902,7 @@
 #
 # Since: 2.0
 ##
-{ 'type'  : 'InputMoveEvent',
+{ 'struct'  : 'InputMoveEvent',
   'data'  : { 'axis'    : 'InputAxis',
               'value'   : 'int' } }
 
@@ -3366,35 +3925,34 @@
               'abs'     : 'InputMoveEvent' } }
 
 ##
-# @x-input-send-event
+# @input-send-event
 #
 # Send input event(s) to guest.
 #
-# @console: #optional console to send event(s) to.
-#           This parameter can be used to send the input event to
-#           specific input devices in case (a) multiple input devices
-#           of the same kind are added to the virtual machine and (b)
-#           you have configured input routing (see docs/multiseat.txt)
-#           for those input devices.  If input routing is not
-#           configured this parameter has no effect.
-#           If @console is missing, only devices that aren't associated
-#           with a console are admissible.
-#           If @console is specified, it must exist, and both devices
-#           associated with that console and devices not associated with a
-#           console are admissible, but the former take precedence.
-
-#
+# @device: #optional display device to send event(s) to.
+# @head: #optional head to send event(s) to, in case the
+#        display device supports multiple scanouts.
 # @events: List of InputEvent union.
 #
 # Returns: Nothing on success.
 #
-# Since: 2.2
+# The @display and @head parameters can be used to send the input
+# event to specific input devices in case (a) multiple input devices
+# of the same kind are added to the virtual machine and (b) you have
+# configured input routing (see docs/multiseat.txt) for those input
+# devices.  The parameters work exactly like the device and head
+# properties of input devices.  If @device is missing, only devices
+# that have no input routing config are admissible.  If @device is
+# specified, both input devices with and without input routing config
+# are admissible, but devices with input routing config take
+# precedence.
 #
-# Note: this command is experimental, and not a stable API.
-#
+# Since: 2.6
 ##
-{ 'command': 'x-input-send-event',
-  'data': { '*console':'int', 'events': [ 'InputEvent' ] } }
+{ 'command': 'input-send-event',
+  'data': { '*device': 'str',
+            '*head'  : 'int',
+            'events' : [ 'InputEvent' ] } }
 
 ##
 # @NumaOptions
@@ -3426,7 +3984,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'NumaNodeOptions',
+{ 'struct': 'NumaNodeOptions',
   'data': {
    '*nodeid': 'uint16',
    '*cpus':   ['uint16'],
@@ -3473,7 +4031,7 @@
 # Since: 2.1
 ##
 
-{ 'type': 'Memdev',
+{ 'struct': 'Memdev',
   'data': {
     'size':       'size',
     'merge':      'bool',
@@ -3516,7 +4074,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'PCDIMMDeviceInfo',
+{ 'struct': 'PCDIMMDeviceInfo',
   'data': { '*id': 'str',
             'addr': 'int',
             'size': 'int',
@@ -3549,8 +4107,9 @@
 ## @ACPISlotType
 #
 # @DIMM: memory slot
+# @CPU: logical CPU slot (since 2.7)
 #
-{ 'enum': 'ACPISlotType', 'data': [ 'DIMM' ] }
+{ 'enum': 'ACPISlotType', 'data': [ 'DIMM', 'CPU' ] }
 
 ## @ACPIOSTInfo
 #
@@ -3570,7 +4129,7 @@
 #
 # Since: 2.1
 ##
-{ 'type': 'ACPIOSTInfo',
+{ 'struct': 'ACPIOSTInfo',
   'data'  : { '*device': 'str',
               'slot': 'str',
               'slot-type': 'ACPISlotType',
@@ -3606,10 +4165,14 @@
 #
 # @none: nothing is done
 #
+# @inject-nmi: a non-maskable interrupt is injected into the first VCPU (all
+#              VCPUS on x86) (since 2.4)
+#
 # Since: 2.1
 ##
 { 'enum': 'WatchdogExpirationAction',
-  'data': [ 'reset', 'shutdown', 'poweroff', 'pause', 'debug', 'none' ] }
+  'data': [ 'reset', 'shutdown', 'poweroff', 'pause', 'debug', 'none',
+            'inject-nmi' ] }
 
 ##
 # @IoOperationType
@@ -3648,3 +4211,130 @@
 # Since: 2.1
 ##
 { 'command': 'rtc-reset-reinjection' }
+
+# Rocker ethernet network switch
+{ 'include': 'qapi/rocker.json' }
+
+##
+# ReplayMode:
+#
+# Mode of the replay subsystem.
+#
+# @none: normal execution mode. Replay or record are not enabled.
+#
+# @record: record mode. All non-deterministic data is written into the
+#          replay log.
+#
+# @play: replay mode. Non-deterministic data required for system execution
+#        is read from the log.
+#
+# Since: 2.5
+##
+{ 'enum': 'ReplayMode',
+  'data': [ 'none', 'record', 'play' ] }
+
+##
+# @xen-load-devices-state:
+#
+# Load the state of all devices from file. The RAM and the block devices
+# of the VM are not loaded by this command.
+#
+# @filename: the file to load the state of the devices from as binary
+# data. See xen-save-devices-state.txt for a description of the binary
+# format.
+#
+# Since: 2.7
+##
+{ 'command': 'xen-load-devices-state', 'data': {'filename': 'str'} }
+
+##
+# @GICCapability:
+#
+# The struct describes capability for a specific GIC (Generic
+# Interrupt Controller) version. These bits are not only decided by
+# QEMU/KVM software version, but also decided by the hardware that
+# the program is running upon.
+#
+# @version:  version of GIC to be described. Currently, only 2 and 3
+#            are supported.
+#
+# @emulated: whether current QEMU/hardware supports emulated GIC
+#            device in user space.
+#
+# @kernel:   whether current QEMU/hardware supports hardware
+#            accelerated GIC device in kernel.
+#
+# Since: 2.6
+##
+{ 'struct': 'GICCapability',
+  'data': { 'version': 'int',
+            'emulated': 'bool',
+            'kernel': 'bool' } }
+
+##
+# @query-gic-capabilities:
+#
+# This command is ARM-only. It will return a list of GICCapability
+# objects that describe its capability bits.
+#
+# Returns: a list of GICCapability objects.
+#
+# Since: 2.6
+##
+{ 'command': 'query-gic-capabilities', 'returns': ['GICCapability'] }
+
+##
+# CpuInstanceProperties
+#
+# List of properties to be used for hotplugging a CPU instance,
+# it should be passed by management with device_add command when
+# a CPU is being hotplugged.
+#
+# Note: currently there are 4 properties that could be present
+# but management should be prepared to pass through other
+# properties with device_add command to allow for future
+# interface extension. This also requires the filed names to be kept in
+# sync with the properties passed to -device/device_add.
+#
+# @node-id: #optional NUMA node ID the CPU belongs to
+# @socket-id: #optional socket number within node/board the CPU belongs to
+# @core-id: #optional core number within socket the CPU belongs to
+# @thread-id: #optional thread number within core the CPU belongs to
+#
+# Since: 2.7
+##
+{ 'struct': 'CpuInstanceProperties',
+  'data': { '*node-id': 'int',
+            '*socket-id': 'int',
+            '*core-id': 'int',
+            '*thread-id': 'int'
+  }
+}
+
+##
+# @HotpluggableCPU
+#
+# @type: CPU object type for usage with device_add command
+# @props: list of properties to be used for hotplugging CPU
+# @vcpus-count: number of logical VCPU threads @HotpluggableCPU provides
+# @qom-path: #optional link to existing CPU object if CPU is present or
+#            omitted if CPU is not present.
+#
+# Since: 2.7
+##
+{ 'struct': 'HotpluggableCPU',
+  'data': { 'type': 'str',
+            'vcpus-count': 'int',
+            'props': 'CpuInstanceProperties',
+            '*qom-path': 'str'
+          }
+}
+
+##
+# @query-hotpluggable-cpus
+#
+# Returns: a list of HotpluggableCPU objects.
+#
+# Since: 2.7
+##
+{ 'command': 'query-hotpluggable-cpus', 'returns': ['HotpluggableCPU'] }

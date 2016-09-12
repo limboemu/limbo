@@ -10,6 +10,9 @@
  * directory.
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include <sys/ioctl.h>
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
@@ -27,6 +30,7 @@ typedef struct KVMS390FLICState {
     S390FLICState parent_obj;
 
     uint32_t fd;
+    bool clear_io_supported;
 } KVMS390FLICState;
 
 DeviceState *s390_flic_kvm_create(void)
@@ -127,6 +131,24 @@ int kvm_s390_inject_flic(struct kvm_s390_irq *irq)
     return flic_enqueue_irqs(irq, sizeof(*irq), flic);
 }
 
+static int kvm_s390_clear_io_flic(S390FLICState *fs, uint16_t subchannel_id,
+                           uint16_t subchannel_nr)
+{
+    KVMS390FLICState *flic = KVM_S390_FLIC(fs);
+    int rc;
+    uint32_t sid = subchannel_id << 16 | subchannel_nr;
+    struct kvm_device_attr attr = {
+        .group = KVM_DEV_FLIC_CLEAR_IO_IRQ,
+        .addr = (uint64_t) &sid,
+        .attr = sizeof(sid),
+    };
+    if (unlikely(!flic->clear_io_supported)) {
+        return -ENOSYS;
+    }
+    rc = ioctl(flic->fd, KVM_SET_DEVICE_ATTR, &attr);
+    return rc ? -errno : 0;
+}
+
 /**
  * __get_all_irqs - store all pending irqs in buffer
  * @flic: pointer to flic device state
@@ -173,7 +195,7 @@ static int kvm_s390_register_io_adapter(S390FLICState *fs, uint32_t id,
         .swap = swap,
     };
     KVMS390FLICState *flic = KVM_S390_FLIC(fs);
-    int r, ret;
+    int r;
     struct kvm_device_attr attr = {
         .group = KVM_DEV_FLIC_ADAPTER_REGISTER,
         .addr = (uint64_t)&adapter,
@@ -186,8 +208,7 @@ static int kvm_s390_register_io_adapter(S390FLICState *fs, uint32_t id,
 
     r = ioctl(flic->fd, KVM_SET_DEVICE_ATTR, &attr);
 
-    ret = r ? -errno : 0;
-    return ret;
+    return r ? -errno : 0;
 }
 
 static int kvm_s390_io_adapter_map(S390FLICState *fs, uint32_t id,
@@ -228,6 +249,8 @@ static int kvm_s390_add_adapter_routes(S390FLICState *fs,
         routes->gsi[i] = ret;
         routes->adapter.ind_offset++;
     }
+    kvm_irqchip_commit_routes(kvm_state);
+
     /* Restore passed-in structure to original state. */
     routes->adapter.ind_offset = ind_offset;
     return 0;
@@ -353,6 +376,7 @@ static void kvm_s390_flic_realize(DeviceState *dev, Error **errp)
 {
     KVMS390FLICState *flic_state = KVM_S390_FLIC(dev);
     struct kvm_create_device cd = {0};
+    struct kvm_device_attr test_attr = {0};
     int ret;
 
     flic_state->fd = -1;
@@ -368,6 +392,11 @@ static void kvm_s390_flic_realize(DeviceState *dev, Error **errp)
         return;
     }
     flic_state->fd = cd.fd;
+
+    /* Check clear_io_irq support */
+    test_attr.group = KVM_DEV_FLIC_CLEAR_IO_IRQ;
+    flic_state->clear_io_supported = !ioctl(flic_state->fd,
+                                            KVM_HAS_DEVICE_ATTR, test_attr);
 
     /* Register savevm handler for floating interrupts */
     register_savevm(NULL, "s390-flic", 0, 1, kvm_flic_save,
@@ -415,6 +444,7 @@ static void kvm_s390_flic_class_init(ObjectClass *oc, void *data)
     fsc->io_adapter_map = kvm_s390_io_adapter_map;
     fsc->add_adapter_routes = kvm_s390_add_adapter_routes;
     fsc->release_adapter_routes = kvm_s390_release_adapter_routes;
+    fsc->clear_io_irq = kvm_s390_clear_io_flic;
 }
 
 static const TypeInfo kvm_s390_flic_info = {

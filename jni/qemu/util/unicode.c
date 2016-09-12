@@ -10,7 +10,8 @@
  * later.  See the COPYING file in the top-level directory.
  */
 
-#include "qemu-common.h"
+#include "qemu/osdep.h"
+#include "qemu/unicode.h"
 
 /**
  * mod_utf8_codepoint:

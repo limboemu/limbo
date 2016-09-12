@@ -332,7 +332,13 @@ int dhcp(char *ret_buffer, filename_ip_t * fn_ip, unsigned int retries, int flag
 	int i = (int) retries+1;
 	int rc = -1;
 
-	printf("    ");
+	printf("  Requesting information via DHCP%s:     ",
+	       flags == F_IPV4 ? "v4" : flags == F_IPV6 ? "v6" : "");
+
+	if (flags != F_IPV6)
+		dhcpv4_generate_transaction_id();
+	if (flags != F_IPV4)
+		dhcpv6_generate_transaction_id();
 
 	do {
 		printf("\b\b\b%03d", i-1);
@@ -353,7 +359,6 @@ int dhcp(char *ret_buffer, filename_ip_t * fn_ip, unsigned int retries, int flag
 			set_ipv6_address(fn_ip->fd, 0);
 			rc = dhcpv6(ret_buffer, fn_ip);
 			if (rc == 0) {
-				printf("\n");
 				memcpy(&fn_ip->own_ip6, get_ipv6_address(), 16);
 				break;
 			}
@@ -362,9 +367,21 @@ int dhcp(char *ret_buffer, filename_ip_t * fn_ip, unsigned int retries, int flag
 		if (rc != -1) /* either success or non-dhcp failure */
 			break;
 	} while (1);
-	printf("\b\b\b\b");
+	printf("\b\b\b\bdone\n");
 
 	return rc;
+}
+
+/**
+ * Seed the random number generator with our mac and current timestamp
+ */
+static void seed_rng(uint8_t mac[])
+{
+	unsigned int seed;
+
+	asm volatile("mftbl %0" : "=r"(seed));
+	seed ^= (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
+	srand(seed);
 }
 
 int
@@ -388,8 +405,7 @@ netboot(int argc, char *argv[])
 	int32_t block_size = strtol(argv[5], 0, 10);
 	uint8_t own_mac[6];
 
-	printf("\n");
-	printf(" Bootloader 1.6 \n");
+	puts("\n Initializing NIC");
 	memset(&fn_ip, 0, sizeof(filename_ip_t));
 
 	/***********************************************************
@@ -438,6 +454,8 @@ netboot(int argc, char *argv[])
 	// init ethernet layer
 	set_mac_address(own_mac);
 
+	seed_rng(own_mac);
+
 	if (argc > 6) {
 		parse_args(argv[6], &obp_tftp_args);
 		if(obp_tftp_args.bootp_retries - rc < DEFAULT_BOOT_RETRIES)
@@ -468,10 +486,8 @@ netboot(int argc, char *argv[])
 		}
 	}
 	else if (ip_version == 6) {
-		if (memcmp(&obp_tftp_args.ci6addr, null_ip6, 16) != 0
-		    && memcmp(&obp_tftp_args.si6addr, null_ip6, 16) != 0
+		if (memcmp(&obp_tftp_args.si6addr, null_ip6, 16) != 0
 		    && obp_tftp_args.filename[0] != 0) {
-
 			memcpy(&fn_ip.server_ip6.addr[0],
 			       &obp_tftp_args.si6addr.addr, 16);
 			obp_tftp_args.ip_init = IP_INIT_IPV6_MANUAL;
@@ -484,7 +500,6 @@ netboot(int argc, char *argv[])
 	// construction of fn_ip from parameter
 	switch(obp_tftp_args.ip_init) {
 	case IP_INIT_BOOTP:
-		printf("  Requesting IP address via BOOTP: ");
 		// if giaddr in not specified, then we have to identify
 		// the BOOTP server via broadcasts
 		if(memcmp(obp_tftp_args.giaddr, null_ip, 4) == 0) {
@@ -499,19 +514,25 @@ netboot(int argc, char *argv[])
 		rc = bootp(ret_buffer, &fn_ip, obp_tftp_args.bootp_retries);
 		break;
 	case IP_INIT_DHCP:
-		printf("  Requesting IP address via DHCPv4: ");
 		rc = dhcp(ret_buffer, &fn_ip, obp_tftp_args.bootp_retries, F_IPV4);
 		break;
 	case IP_INIT_DHCPV6_STATELESS:
-		printf("  Requesting information via DHCPv6: ");
 		rc = dhcp(ret_buffer, &fn_ip,
 			  obp_tftp_args.bootp_retries, F_IPV6);
 		break;
 	case IP_INIT_IPV6_MANUAL:
-		set_ipv6_address(fn_ip.fd, &obp_tftp_args.ci6addr);
+		if (memcmp(&obp_tftp_args.ci6addr, null_ip6, 16)) {
+			set_ipv6_address(fn_ip.fd, &obp_tftp_args.ci6addr);
+		} else {
+			/*
+			 * If no client address has been specified, then
+			 * use a link-local or stateless autoconfig address
+			 */
+			set_ipv6_address(fn_ip.fd, NULL);
+			memcpy(&fn_ip.own_ip6, get_ipv6_address(), 16);
+		}
 		break;
 	case IP_INIT_DEFAULT:
-		printf("  Requesting IP address via DHCP: ");
 		rc = dhcp(ret_buffer, &fn_ip, obp_tftp_args.bootp_retries, 0);
 		break;
 	case IP_INIT_NONE:
@@ -548,10 +569,15 @@ netboot(int argc, char *argv[])
 		return -101;
 	}
 
-	if(ip_version == 4)
-		printf("%d.%d.%d.%d\n",
+	if (ip_version == 4) {
+		printf("  Using IPv4 address: %d.%d.%d.%d\n",
 			((fn_ip.own_ip >> 24) & 0xFF), ((fn_ip.own_ip >> 16) & 0xFF),
 			((fn_ip.own_ip >>  8) & 0xFF), ( fn_ip.own_ip        & 0xFF));
+	} else if (ip_version == 6) {
+		char ip6_str[40];
+		ipv6_to_str(fn_ip.own_ip6.addr, ip6_str);
+		printf("  Using IPv6 address: %s\n", ip6_str);
+	}
 
 	if (rc == -2) {
 		sprintf(buf,
@@ -818,7 +844,7 @@ int parse_tftp_args(char buffer[], char *server_ip, char filename[], int fd,
 		tmp = raw + 7;
 		tmp[j] = '\0';
 		strcpy(domainname, tmp);
-		if (dns_get_ip(fd, (int8_t *)domainname, server_ip6, 6) == 0) {
+		if (dns_get_ip(fd, domainname, server_ip6, 6) == 0) {
 			printf("\n DNS failed for IPV6\n");
                         return -1;
                 }

@@ -99,7 +99,7 @@ this code that are retained.
 | The result is stored in the location pointed to by `zPtr'.
 *----------------------------------------------------------------------------*/
 
-static inline void shift32RightJamming(uint32_t a, int_fast16_t count, uint32_t *zPtr)
+static inline void shift32RightJamming(uint32_t a, int count, uint32_t *zPtr)
 {
     uint32_t z;
 
@@ -125,7 +125,7 @@ static inline void shift32RightJamming(uint32_t a, int_fast16_t count, uint32_t 
 | The result is stored in the location pointed to by `zPtr'.
 *----------------------------------------------------------------------------*/
 
-static inline void shift64RightJamming(uint64_t a, int_fast16_t count, uint64_t *zPtr)
+static inline void shift64RightJamming(uint64_t a, int count, uint64_t *zPtr)
 {
     uint64_t z;
 
@@ -161,10 +161,10 @@ static inline void shift64RightJamming(uint64_t a, int_fast16_t count, uint64_t 
 
 static inline void
  shift64ExtraRightJamming(
-     uint64_t a0, uint64_t a1, int_fast16_t count, uint64_t *z0Ptr, uint64_t *z1Ptr)
+     uint64_t a0, uint64_t a1, int count, uint64_t *z0Ptr, uint64_t *z1Ptr)
 {
     uint64_t z0, z1;
-    int8 negCount = ( - count ) & 63;
+    int8_t negCount = ( - count ) & 63;
 
     if ( count == 0 ) {
         z1 = a1;
@@ -198,10 +198,10 @@ static inline void
 
 static inline void
  shift128Right(
-     uint64_t a0, uint64_t a1, int_fast16_t count, uint64_t *z0Ptr, uint64_t *z1Ptr)
+     uint64_t a0, uint64_t a1, int count, uint64_t *z0Ptr, uint64_t *z1Ptr)
 {
     uint64_t z0, z1;
-    int8 negCount = ( - count ) & 63;
+    int8_t negCount = ( - count ) & 63;
 
     if ( count == 0 ) {
         z1 = a1;
@@ -233,10 +233,10 @@ static inline void
 
 static inline void
  shift128RightJamming(
-     uint64_t a0, uint64_t a1, int_fast16_t count, uint64_t *z0Ptr, uint64_t *z1Ptr)
+     uint64_t a0, uint64_t a1, int count, uint64_t *z0Ptr, uint64_t *z1Ptr)
 {
     uint64_t z0, z1;
-    int8 negCount = ( - count ) & 63;
+    int8_t negCount = ( - count ) & 63;
 
     if ( count == 0 ) {
         z1 = a1;
@@ -287,14 +287,14 @@ static inline void
      uint64_t a0,
      uint64_t a1,
      uint64_t a2,
-     int_fast16_t count,
+     int count,
      uint64_t *z0Ptr,
      uint64_t *z1Ptr,
      uint64_t *z2Ptr
  )
 {
     uint64_t z0, z1, z2;
-    int8 negCount = ( - count ) & 63;
+    int8_t negCount = ( - count ) & 63;
 
     if ( count == 0 ) {
         z2 = a2;
@@ -342,7 +342,7 @@ static inline void
 
 static inline void
  shortShift128Left(
-     uint64_t a0, uint64_t a1, int_fast16_t count, uint64_t *z0Ptr, uint64_t *z1Ptr)
+     uint64_t a0, uint64_t a1, int count, uint64_t *z0Ptr, uint64_t *z1Ptr)
 {
 
     *z1Ptr = a1<<count;
@@ -364,14 +364,14 @@ static inline void
      uint64_t a0,
      uint64_t a1,
      uint64_t a2,
-     int_fast16_t count,
+     int count,
      uint64_t *z0Ptr,
      uint64_t *z1Ptr,
      uint64_t *z2Ptr
  )
 {
     uint64_t z0, z1, z2;
-    int8 negCount;
+    int8_t negCount;
 
     z2 = a2<<count;
     z1 = a1<<count;
@@ -428,7 +428,7 @@ static inline void
  )
 {
     uint64_t z0, z1, z2;
-    int8 carry0, carry1;
+    int8_t carry0, carry1;
 
     z2 = a2 + b2;
     carry1 = ( z2 < a2 );
@@ -484,7 +484,7 @@ static inline void
  )
 {
     uint64_t z0, z1, z2;
-    int8 borrow0, borrow1;
+    int8_t borrow0, borrow1;
 
     z2 = a2 - b2;
     borrow1 = ( a2 < b2 );
@@ -635,7 +635,7 @@ static uint64_t estimateDiv128To64( uint64_t a0, uint64_t a1, uint64_t b )
 | value.
 *----------------------------------------------------------------------------*/
 
-static uint32_t estimateSqrt32(int_fast16_t aExp, uint32_t a)
+static uint32_t estimateSqrt32(int aExp, uint32_t a)
 {
     static const uint16_t sqrtOddAdjustments[] = {
         0x0004, 0x0022, 0x005D, 0x00B1, 0x011D, 0x019F, 0x0236, 0x02E0,
@@ -645,7 +645,7 @@ static uint32_t estimateSqrt32(int_fast16_t aExp, uint32_t a)
         0x0A2D, 0x08AF, 0x075A, 0x0629, 0x051A, 0x0429, 0x0356, 0x029E,
         0x0200, 0x0179, 0x0109, 0x00AF, 0x0068, 0x0034, 0x0012, 0x0002
     };
-    int8 index;
+    int8_t index;
     uint32_t z;
 
     index = ( a>>27 ) & 15;
@@ -669,7 +669,7 @@ static uint32_t estimateSqrt32(int_fast16_t aExp, uint32_t a)
 | `a'.  If `a' is zero, 32 is returned.
 *----------------------------------------------------------------------------*/
 
-static int8 countLeadingZeros32( uint32_t a )
+static int8_t countLeadingZeros32( uint32_t a )
 {
 #if SOFTFLOAT_GNUC_PREREQ(3, 4)
     if (a) {
@@ -678,7 +678,7 @@ static int8 countLeadingZeros32( uint32_t a )
         return 32;
     }
 #else
-    static const int8 countLeadingZerosHigh[] = {
+    static const int8_t countLeadingZerosHigh[] = {
         8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -696,7 +696,7 @@ static int8 countLeadingZeros32( uint32_t a )
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
-    int8 shiftCount;
+    int8_t shiftCount;
 
     shiftCount = 0;
     if ( a < 0x10000 ) {
@@ -717,7 +717,7 @@ static int8 countLeadingZeros32( uint32_t a )
 | `a'.  If `a' is zero, 64 is returned.
 *----------------------------------------------------------------------------*/
 
-static int8 countLeadingZeros64( uint64_t a )
+static int8_t countLeadingZeros64( uint64_t a )
 {
 #if SOFTFLOAT_GNUC_PREREQ(3, 4)
     if (a) {
@@ -726,7 +726,7 @@ static int8 countLeadingZeros64( uint64_t a )
         return 64;
     }
 #else
-    int8 shiftCount;
+    int8_t shiftCount;
 
     shiftCount = 0;
     if ( a < ( (uint64_t) 1 )<<32 ) {

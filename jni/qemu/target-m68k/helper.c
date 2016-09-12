@@ -18,7 +18,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "exec/gdbstub.h"
 
 #include "exec/helper-proto.h"
@@ -556,10 +558,10 @@ float64 HELPER(sub_cmp_f64)(CPUM68KState *env, float64 a, float64 b)
     /* ??? Should flush denormals to zero.  */
     float64 res;
     res = float64_sub(a, b, &env->fp_status);
-    if (float64_is_quiet_nan(res)) {
+    if (float64_is_quiet_nan(res, &env->fp_status)) {
         /* +/-inf compares equal against itself, but sub returns nan.  */
-        if (!float64_is_quiet_nan(a)
-            && !float64_is_quiet_nan(b)) {
+        if (!float64_is_quiet_nan(a, &env->fp_status)
+            && !float64_is_quiet_nan(b, &env->fp_status)) {
             res = float64_zero;
             if (float64_lt_quiet(a, res, &env->fp_status))
                 res = float64_chs(res);

@@ -21,11 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "config-host.h"
+#include "qemu/osdep.h"
 
 #include "net/net.h"
 #include "clients.h"
 #include "monitor/monitor.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "qemu/error-report.h"
 #include "qemu/option.h"
@@ -37,11 +38,8 @@ typedef struct NetSocketState {
     NetClientState nc;
     int listen_fd;
     int fd;
-    int state; /* 0 = getting length, 1 = getting data */
-    unsigned int index;
-    unsigned int packet_len;
+    SocketReadState rs;
     unsigned int send_index;      /* number of bytes sent (only SOCK_STREAM) */
-    uint8_t buf[NET_BUFSIZE];
     struct sockaddr_in dgram_dst; /* contains inet host and port destination iff connectionless (SOCK_DGRAM) */
     IOHandler *send_fn;           /* differs between SOCK_STREAM/SOCK_DGRAM */
     bool read_poll;               /* waiting to receive data? */
@@ -51,21 +49,12 @@ typedef struct NetSocketState {
 static void net_socket_accept(void *opaque);
 static void net_socket_writable(void *opaque);
 
-/* Only read packets from socket when peer can receive them */
-static int net_socket_can_send(void *opaque)
-{
-    NetSocketState *s = opaque;
-
-    return qemu_can_send_packet(&s->nc);
-}
-
 static void net_socket_update_fd_handler(NetSocketState *s)
 {
-    qemu_set_fd_handler2(s->fd,
-                         s->read_poll  ? net_socket_can_send : NULL,
-                         s->read_poll  ? s->send_fn : NULL,
-                         s->write_poll ? net_socket_writable : NULL,
-                         s);
+    qemu_set_fd_handler(s->fd,
+                        s->read_poll ? s->send_fn : NULL,
+                        s->write_poll ? net_socket_writable : NULL,
+                        s);
 }
 
 static void net_socket_read_poll(NetSocketState *s, bool enable)
@@ -142,18 +131,37 @@ static ssize_t net_socket_receive_dgram(NetClientState *nc, const uint8_t *buf, 
     return ret;
 }
 
+static void net_socket_send_completed(NetClientState *nc, ssize_t len)
+{
+    NetSocketState *s = DO_UPCAST(NetSocketState, nc, nc);
+
+    if (!s->read_poll) {
+        net_socket_read_poll(s, true);
+    }
+}
+
+static void net_socket_rs_finalize(SocketReadState *rs)
+{
+    NetSocketState *s = container_of(rs, NetSocketState, rs);
+
+    if (qemu_send_packet_async(&s->nc, rs->buf,
+                               rs->packet_len,
+                               net_socket_send_completed) == 0) {
+        net_socket_read_poll(s, false);
+    }
+}
+
 static void net_socket_send(void *opaque)
 {
     NetSocketState *s = opaque;
-    int size, err;
-    unsigned l;
+    int size;
+    int ret;
     uint8_t buf1[NET_BUFSIZE];
     const uint8_t *buf;
 
     size = qemu_recv(s->fd, buf1, sizeof(buf1), 0);
     if (size < 0) {
-        err = socket_error();
-        if (err != EWOULDBLOCK)
+        if (errno != EWOULDBLOCK)
             goto eoc;
     } else if (size == 0) {
         /* end of connection */
@@ -166,57 +174,18 @@ static void net_socket_send(void *opaque)
         closesocket(s->fd);
 
         s->fd = -1;
-        s->state = 0;
-        s->index = 0;
-        s->packet_len = 0;
+        net_socket_rs_init(&s->rs, net_socket_rs_finalize);
         s->nc.link_down = true;
-        memset(s->buf, 0, sizeof(s->buf));
         memset(s->nc.info_str, 0, sizeof(s->nc.info_str));
 
         return;
     }
     buf = buf1;
-    while (size > 0) {
-        /* reassemble a packet from the network */
-        switch(s->state) {
-        case 0:
-            l = 4 - s->index;
-            if (l > size)
-                l = size;
-            memcpy(s->buf + s->index, buf, l);
-            buf += l;
-            size -= l;
-            s->index += l;
-            if (s->index == 4) {
-                /* got length */
-                s->packet_len = ntohl(*(uint32_t *)s->buf);
-                s->index = 0;
-                s->state = 1;
-            }
-            break;
-        case 1:
-            l = s->packet_len - s->index;
-            if (l > size)
-                l = size;
-            if (s->index + l <= sizeof(s->buf)) {
-                memcpy(s->buf + s->index, buf, l);
-            } else {
-                fprintf(stderr, "serious error: oversized packet received,"
-                    "connection terminated.\n");
-                s->state = 0;
-                goto eoc;
-            }
 
-            s->index += l;
-            buf += l;
-            size -= l;
-            if (s->index >= s->packet_len) {
-                qemu_send_packet(&s->nc, s->buf, s->packet_len);
-                s->index = 0;
-                s->state = 0;
-            }
-            break;
-        }
+    ret = net_fill_rstate(&s->rs, buf, size);
+
+    if (ret == -1) {
+        goto eoc;
     }
 }
 
@@ -225,7 +194,7 @@ static void net_socket_send_dgram(void *opaque)
     NetSocketState *s = opaque;
     int size;
 
-    size = qemu_recv(s->fd, s->buf, sizeof(s->buf), 0);
+    size = qemu_recv(s->fd, s->rs.buf, sizeof(s->rs.buf), 0);
     if (size < 0)
         return;
     if (size == 0) {
@@ -234,7 +203,10 @@ static void net_socket_send_dgram(void *opaque)
         net_socket_write_poll(s, false);
         return;
     }
-    qemu_send_packet(&s->nc, s->buf, size);
+    if (qemu_send_packet_async(&s->nc, s->rs.buf, size,
+                               net_socket_send_completed) == 0) {
+        net_socket_read_poll(s, false);
+    }
 }
 
 static int net_socket_mcast_create(struct sockaddr_in *mcastaddr, struct in_addr *localaddr)
@@ -339,7 +311,7 @@ static void net_socket_cleanup(NetClientState *nc)
 }
 
 static NetClientInfo net_dgram_socket_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_SOCKET,
+    .type = NET_CLIENT_DRIVER_SOCKET,
     .size = sizeof(NetSocketState),
     .receive = net_socket_receive_dgram,
     .cleanup = net_socket_cleanup,
@@ -394,6 +366,7 @@ static NetSocketState *net_socket_fd_init_dgram(NetClientState *peer,
     s->fd = fd;
     s->listen_fd = -1;
     s->send_fn = net_socket_send_dgram;
+    net_socket_rs_init(&s->rs, net_socket_rs_finalize);
     net_socket_read_poll(s, true);
 
     /* mcast: save bound address as dst */
@@ -422,7 +395,7 @@ static void net_socket_connect(void *opaque)
 }
 
 static NetClientInfo net_socket_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_SOCKET,
+    .type = NET_CLIENT_DRIVER_SOCKET,
     .size = sizeof(NetSocketState),
     .receive = net_socket_receive,
     .cleanup = net_socket_cleanup,
@@ -444,6 +417,7 @@ static NetSocketState *net_socket_fd_init_stream(NetClientState *peer,
 
     s->fd = fd;
     s->listen_fd = -1;
+    net_socket_rs_init(&s->rs, net_socket_rs_finalize);
 
     /* Disable Nagle algorithm on TCP sockets to reduce latency */
     socket_set_nodelay(fd);
@@ -559,7 +533,7 @@ static int net_socket_connect_init(NetClientState *peer,
                                    const char *host_str)
 {
     NetSocketState *s;
-    int fd, connected, ret, err;
+    int fd, connected, ret;
     struct sockaddr_in saddr;
 
     if (parse_host_port(&saddr, host_str) < 0)
@@ -576,14 +550,12 @@ static int net_socket_connect_init(NetClientState *peer,
     for(;;) {
         ret = connect(fd, (struct sockaddr *)&saddr, sizeof(saddr));
         if (ret < 0) {
-            err = socket_error();
-            if (err == EINTR || err == EWOULDBLOCK) {
-            } else if (err == EINPROGRESS) {
+            if (errno == EINTR || errno == EWOULDBLOCK) {
+                /* continue */
+            } else if (errno == EINPROGRESS ||
+                       errno == EALREADY ||
+                       errno == EINVAL) {
                 break;
-#ifdef _WIN32
-            } else if (err == WSAEALREADY || err == WSAEINVAL) {
-                break;
-#endif
             } else {
                 perror("connect");
                 closesocket(fd);
@@ -692,14 +664,15 @@ static int net_socket_udp_init(NetClientState *peer,
     return 0;
 }
 
-int net_init_socket(const NetClientOptions *opts, const char *name,
-                    NetClientState *peer)
+int net_init_socket(const Netdev *netdev, const char *name,
+                    NetClientState *peer, Error **errp)
 {
+    /* FIXME error_setg(errp, ...) on failure */
     Error *err = NULL;
     const NetdevSocketOptions *sock;
 
-    assert(opts->kind == NET_CLIENT_OPTIONS_KIND_SOCKET);
-    sock = opts->socket;
+    assert(netdev->type == NET_CLIENT_DRIVER_SOCKET);
+    sock = &netdev->u.socket;
 
     if (sock->has_fd + sock->has_listen + sock->has_connect + sock->has_mcast +
         sock->has_udp != 1) {

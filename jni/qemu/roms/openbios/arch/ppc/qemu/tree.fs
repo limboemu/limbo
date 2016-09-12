@@ -42,6 +42,14 @@ new-device
 	: close ;
 finish-device
 
+new-device
+	" rom" device-name
+	h# ff800000 encode-int 0 encode-int encode+ " reg" property
+	1 encode-int " #address-cells" property
+	h# ff800000 encode-int h# 800000 encode-int encode+
+	h# ff800000 encode-int encode+ " ranges" property
+finish-device
+
 \ -------------------------------------------------------------
 \ /packages
 \ -------------------------------------------------------------

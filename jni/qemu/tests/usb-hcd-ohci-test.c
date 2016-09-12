@@ -7,10 +7,8 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
-#include "libqtest.h"
 #include "qemu/osdep.h"
+#include "libqtest.h"
 #include "libqos/usb.h"
 
 

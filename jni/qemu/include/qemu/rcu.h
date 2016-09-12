@@ -23,15 +23,7 @@
  * IBM's contributions to this file may be relicensed under LGPLv2 or later.
  */
 
-#include <stdlib.h>
-#include <assert.h>
-#include <limits.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <glib.h>
 
-#include "qemu/compiler.h"
 #include "qemu/thread.h"
 #include "qemu/queue.h"
 #include "qemu/atomic.h"
@@ -71,7 +63,7 @@ struct rcu_reader_data {
     /* Data used by reader only */
     unsigned depth;
 
-    /* Data used for registry, protected by rcu_gp_lock */
+    /* Data used for registry, protected by rcu_registry_lock */
     QLIST_ENTRY(rcu_reader_data) node;
 };
 
@@ -88,10 +80,6 @@ static inline void rcu_read_lock(void)
 
     ctr = atomic_read(&rcu_gp_ctr);
     atomic_xchg(&p_rcu_reader->ctr, ctr);
-    if (atomic_read(&p_rcu_reader->waiting)) {
-        atomic_set(&p_rcu_reader->waiting, false);
-        qemu_event_set(&rcu_gp_event);
-    }
 }
 
 static inline void rcu_read_unlock(void)
@@ -104,7 +92,7 @@ static inline void rcu_read_unlock(void)
     }
 
     atomic_xchg(&p_rcu_reader->ctr, 0);
-    if (atomic_read(&p_rcu_reader->waiting)) {
+    if (unlikely(atomic_read(&p_rcu_reader->waiting))) {
         atomic_set(&p_rcu_reader->waiting, false);
         qemu_event_set(&rcu_gp_event);
     }

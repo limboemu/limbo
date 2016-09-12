@@ -101,8 +101,6 @@ static inline u32 get_unaligned_le32(const void *p)
  */
 #define	ATH_KEYMAX	        128     /* max key cache size we handle */
 
-static const u8 ath_bcast_mac[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
 struct ath_ani {
 	int caldone;
 	unsigned int longcal_timer;
@@ -228,10 +226,6 @@ struct ath_common {
 
 	int btcoex_enabled;
 };
-
-struct io_buffer *ath_rxbuf_alloc(struct ath_common *common,
-				u32 len,
-				u32 *iob_addr);
 
 void ath_hw_setbssidmask(struct ath_common *common);
 int ath_hw_keyreset(struct ath_common *common, u16 entry);

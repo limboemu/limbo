@@ -509,7 +509,7 @@ vxge_probe(struct pci_device *pdev)
 	vxge_debug(VXGE_INFO, "vxge_probe for device " PCI_FMT "\n",
 			PCI_ARGS(pdev));
 
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &revision);
+	pci_read_config_byte(pdev, PCI_REVISION, &revision);
 	titan1 = is_titan1(pdev->device, revision);
 
 	mmio_start = pci_bar_start(pdev, PCI_BASE_ADDRESS_0);

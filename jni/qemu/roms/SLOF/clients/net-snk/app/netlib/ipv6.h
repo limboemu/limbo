@@ -26,6 +26,7 @@
 
 #define IPV6_ADDR_LENGTH	 16 /* Size of IPv6 adress in bytes */
 #define IPV6_LL_PREFIX		 0xFE80000000000000ULL
+#define IPV6_LL_PREFIX_MASK	 0xFFC0000000000000ULL
 #define IPV6_SOLIC_NODE_PREFIX   0xFF02000000000000ULL
 #define IPV6_SOLIC_NODE_IFACE_ID 0x00000001FF000000ULL
 
@@ -126,32 +127,17 @@ struct ip6_config {
 	uint8_t managed_mode:1,
 		other_config:1,
 		reserved:6;
-} ip6_state;
+};
 
 /******************** VARIABLES **********************************************/
 /* Function pointer send_ip. Points either to send_ipv4() or send_ipv6() */
 extern int   (*send_ip) (int fd, void *, int);
 
-/* IPv6 link-local multicast addresses */
-struct ip6addr_list_entry all_routers_ll; // Routers
-struct ip6addr_list_entry all_dhcpv6_ll;  // DHCPv6 servers
-struct ip6addr_list_entry all_nodes_ll;   // All IPv6 nodes
-
-/* List of Ipv6 Addresses */
-struct ip6addr_list_entry *first_ip6;
-struct ip6addr_list_entry *last_ip6;
-
-/* Neighbor cache */
-struct neighbor *first_neighbor;
-struct neighbor *last_neighbor;
-
-/* Router list */
-struct router *first_router;
-struct router *last_router;
+extern struct ip6_config ip6_state;
 
 /******************** FUNCTIONS *********************************************/
 /* Handles IPv6-packets that are detected by receive_ether. */
-int8_t handle_ipv6(int fd, uint8_t * ip6_packet, int32_t packetsize);
+int8_t handle_ipv6(int fd, uint8_t * ip6_packet, uint32_t packetsize);
 
 /* Fill IPv6 header */
 void fill_ip6hdr(uint8_t * packet, uint16_t packetsize,
@@ -178,6 +164,12 @@ void * ip6_prefix2addr (ip6_addr_t prefix);
 
 /* Compare IPv6 adresses */
 int8_t ip6_cmp( ip6_addr_t *ip_1, ip6_addr_t *ip_2 );
+
+/* Check if it is a link-local address */
+static inline int ip6_is_linklocal(ip6_addr_t *ip)
+{
+	return (ip->part.prefix & IPV6_LL_PREFIX_MASK) == IPV6_LL_PREFIX;
+}
 
 /* Check if prefix is already in our list */
 int8_t unknown_prefix (ip6_addr_t *ip);

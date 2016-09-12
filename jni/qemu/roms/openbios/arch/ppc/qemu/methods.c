@@ -114,6 +114,8 @@ static void
 ciface_quiesce( unsigned long args[], unsigned long ret[] )
 {
 	usb_exit();
+
+	ob_ide_quiesce();
 #if 0
 	unsigned long msr;
 	/* This seems to be the correct thing to do - but I'm not sure */
@@ -164,21 +166,21 @@ DECLARE_UNNAMED_NODE( mmu, INSTALL_OPEN, 0 );
 DECLARE_NODE( mmu_ciface, 0, 0, "+/openprom/client-services" );
 
 
-/* ( phys size align --- base ) */
+/* ( [phys] size align --- base ) */
 static void
 mem_claim( void )
 {
 	ucell align = POP();
 	ucell size = POP();
-	ucell phys = POP();
-	ucell ret = ofmem_claim_phys( phys, size, align );
+	phys_addr_t phys = -1;
 
-	if( ret == -1 ) {
-		printk("MEM: claim failure\n");
-		throw( -13 );
-		return;
+	if (!align) {
+		phys = POP();
 	}
-	PUSH( ret );
+
+	phys = ofmem_claim_phys(phys, size, align);
+
+	PUSH(phys);
 }
 
 /* ( phys size --- ) */
@@ -188,24 +190,24 @@ mem_release( void )
 	POP(); POP();
 }
 
-/* ( phys size align --- base ) */
+/* ( [virt] size align --- base ) */
 static void
 mmu_claim( void )
 {
 	ucell align = POP();
 	ucell size = POP();
-	ucell phys = POP();
-	ucell ret = ofmem_claim_virt( phys, size, align );
+	ucell virt = -1;
 
-	if( ret == -1 ) {
-		printk("MMU: CLAIM failure\n");
-		throw( -13 );
-		return;
+	if (!align) {
+		virt = POP();
 	}
-	PUSH( ret );
+
+	virt = ofmem_claim_virt(virt, size, align);
+
+	PUSH(virt);
 }
 
-/* ( phys size --- ) */
+/* ( virt size --- ) */
 static void
 mmu_release( void )
 {

@@ -22,11 +22,12 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "hw/ptimer.h"
 #include "qemu/log.h"
-#include "qapi/qmp/qerror.h"
 #include "qemu/main-loop.h"
 
 #include "hw/stream.h"
@@ -134,7 +135,7 @@ struct XilinxAXIDMA {
 };
 
 /*
- * Helper calls to extract info from desriptors and other trivial
+ * Helper calls to extract info from descriptors and other trivial
  * state from regs.
  */
 static inline int stream_desc_sof(struct SDesc *d)
@@ -177,16 +178,6 @@ static inline int streamid_from_addr(hwaddr addr)
     sid &= 1;
     return sid;
 }
-
-#ifdef DEBUG_ENET
-static void stream_desc_show(struct SDesc *d)
-{
-    qemu_log("buffer_addr  = " PRIx64 "\n", d->buffer_address);
-    qemu_log("nxtdesc      = " PRIx64 "\n", d->nxtdesc);
-    qemu_log("control      = %x\n", d->control);
-    qemu_log("status       = %x\n", d->status);
-}
-#endif
 
 static void stream_desc_load(struct Stream *s, hwaddr addr)
 {

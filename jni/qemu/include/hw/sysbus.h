@@ -1,5 +1,5 @@
 #ifndef HW_SYSBUS_H
-#define HW_SYSBUS_H 1
+#define HW_SYSBUS_H
 
 /* Devices attached directly to the main system bus.  */
 
@@ -41,6 +41,24 @@ typedef struct SysBusDeviceClass {
     /*< public >*/
 
     int (*init)(SysBusDevice *dev);
+
+    /*
+     * Let the sysbus device format its own non-PIO, non-MMIO unit address.
+     *
+     * Sometimes a class of SysBusDevices has neither MMIO nor PIO resources,
+     * yet instances of it would like to distinguish themselves, in
+     * OpenFirmware device paths, from other instances of the same class on the
+     * sysbus. For that end we expose this callback.
+     *
+     * The implementation is not supposed to change *@dev, or incur other
+     * observable change.
+     *
+     * The function returns a dynamically allocated string. On error, NULL
+     * should be returned; the unit address portion of the OFW node will be
+     * omitted then. (This is not considered a fatal error.)
+     */
+    char *(*explicit_ofw_unit_address)(const SysBusDevice *dev);
+    void (*connect_irq_notifier)(SysBusDevice *dev, qemu_irq irq);
 } SysBusDeviceClass;
 
 struct SysBusDevice {
@@ -54,7 +72,7 @@ struct SysBusDevice {
         MemoryRegion *memory;
     } mmio[QDEV_MAX_MMIO];
     int num_pio;
-    pio_addr_t pio[QDEV_MAX_PIO];
+    uint32_t pio[QDEV_MAX_PIO];
 };
 
 typedef int FindSysbusDeviceFunc(SysBusDevice *sbdev, void *opaque);
@@ -63,7 +81,7 @@ void sysbus_init_mmio(SysBusDevice *dev, MemoryRegion *memory);
 MemoryRegion *sysbus_mmio_get_region(SysBusDevice *dev, int n);
 void sysbus_init_irq(SysBusDevice *dev, qemu_irq *p);
 void sysbus_pass_irq(SysBusDevice *dev, SysBusDevice *target);
-void sysbus_init_ioports(SysBusDevice *dev, pio_addr_t ioport, pio_addr_t size);
+void sysbus_init_ioports(SysBusDevice *dev, uint32_t ioport, uint32_t size);
 
 
 bool sysbus_has_irq(SysBusDevice *dev, int n);
@@ -100,4 +118,4 @@ static inline DeviceState *sysbus_try_create_simple(const char *name,
     return sysbus_try_create_varargs(name, addr, irq, NULL);
 }
 
-#endif /* !HW_SYSBUS_H */
+#endif /* HW_SYSBUS_H */

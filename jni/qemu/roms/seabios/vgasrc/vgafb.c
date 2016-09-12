@@ -273,28 +273,22 @@ gfx_direct(struct gfx_op *op)
     int bypp = DIV_ROUND_UP(depth, 8);
     void *dest_far = (fb + op->displaystart + op->y * op->linelength
                       + op->x * bypp);
+    u8 data[64];
+    int i;
     switch (op->op) {
     default:
-    case GO_READ8: {
-        u8 data[64];
+    case GO_READ8:
         memcpy_high(MAKE_FLATPTR(GET_SEG(SS), data), dest_far, bypp * 8);
-        int i;
         for (i=0; i<8; i++)
             op->pixels[i] = reverse_color(depth, *(u32*)&data[i*bypp]);
         break;
-    }
-    case GO_WRITE8: {
-        u8 data[64];
-        int i;
+    case GO_WRITE8:
         for (i=0; i<8; i++)
             *(u32*)&data[i*bypp] = get_color(depth, op->pixels[i]);
         memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
         break;
-    }
-    case GO_MEMSET: {
+    case GO_MEMSET: ;
         u32 color = get_color(depth, op->pixels[0]);
-        u8 data[64];
-        int i;
         for (i=0; i<8; i++)
             *(u32*)&data[i*bypp] = color;
         memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
@@ -303,7 +297,6 @@ gfx_direct(struct gfx_op *op)
             memcpy_high(dest_far + op->linelength * i
                         , dest_far, op->xlen * bypp);
         break;
-    }
     case GO_MEMMOVE: ;
         void *src_far = (fb + op->displaystart + op->srcy * op->linelength
                          + op->x * bypp);

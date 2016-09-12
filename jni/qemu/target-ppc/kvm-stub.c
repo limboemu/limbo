@@ -9,7 +9,9 @@
  * See the COPYING file in the top-level directory.
  *
  */
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "cpu.h"
 #include "hw/ppc/openpic.h"
 
 int kvm_openpic_connect_vcpu(DeviceState *d, CPUState *cs)

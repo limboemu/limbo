@@ -1,7 +1,7 @@
 /*
  * String printing Visitor
  *
- * Copyright Red Hat, Inc. 2012
+ * Copyright Red Hat, Inc. 2012-2016
  *
  * Author: Paolo Bonzini <pbonzini@redhat.com>
  *
@@ -10,17 +10,17 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qapi/string-output-visitor.h"
 #include "qapi/visitor-impl.h"
-#include "qapi/qmp/qerror.h"
 #include "qemu/host-utils.h"
 #include <math.h>
 #include "qemu/range.h"
 
 enum ListMode {
     LM_NONE,             /* not traversing a list of repeated options */
-    LM_STARTED,          /* start_list() succeeded */
+    LM_STARTED,          /* next_list() ready to be called */
 
     LM_IN_PROGRESS,      /* next_list() has been called.
                           *
@@ -48,7 +48,7 @@ enum ListMode {
 
     LM_UNSIGNED_INTERVAL,/* Same as above, only for an unsigned interval. */
 
-    LM_END
+    LM_END,              /* next_list() called, about to see last element. */
 };
 
 typedef enum ListMode ListMode;
@@ -58,14 +58,20 @@ struct StringOutputVisitor
     Visitor visitor;
     bool human;
     GString *string;
-    bool head;
+    char **result;
     ListMode list_mode;
     union {
         int64_t s;
         uint64_t u;
     } range_start, range_end;
     GList *ranges;
+    void *list; /* Only needed for sanity checking the caller */
 };
+
+static StringOutputVisitor *to_sov(Visitor *v)
+{
+    return container_of(v, StringOutputVisitor, visitor);
+}
 
 static void string_output_set(StringOutputVisitor *sov, char *string)
 {
@@ -79,37 +85,37 @@ static void string_output_set(StringOutputVisitor *sov, char *string)
 static void string_output_append(StringOutputVisitor *sov, int64_t a)
 {
     Range *r = g_malloc0(sizeof(*r));
-    r->begin = a;
-    r->end = a + 1;
-    sov->ranges = g_list_insert_sorted_merged(sov->ranges, r, range_compare);
+
+    range_set_bounds(r, a, a);
+    sov->ranges = range_list_insert(sov->ranges, r);
 }
 
 static void string_output_append_range(StringOutputVisitor *sov,
                                        int64_t s, int64_t e)
 {
     Range *r = g_malloc0(sizeof(*r));
-    r->begin = s;
-    r->end = e + 1;
-    sov->ranges = g_list_insert_sorted_merged(sov->ranges, r, range_compare);
+
+    range_set_bounds(r, s, e);
+    sov->ranges = range_list_insert(sov->ranges, r);
 }
 
 static void format_string(StringOutputVisitor *sov, Range *r, bool next,
                           bool human)
 {
-    if (r->end - r->begin > 1) {
+    if (range_lob(r) != range_upb(r)) {
         if (human) {
             g_string_append_printf(sov->string, "0x%" PRIx64 "-0x%" PRIx64,
-                                   r->begin, r->end - 1);
+                                   range_lob(r), range_upb(r));
 
         } else {
             g_string_append_printf(sov->string, "%" PRId64 "-%" PRId64,
-                                   r->begin, r->end - 1);
+                                   range_lob(r), range_upb(r));
         }
     } else {
         if (human) {
-            g_string_append_printf(sov->string, "0x%" PRIx64, r->begin);
+            g_string_append_printf(sov->string, "0x%" PRIx64, range_lob(r));
         } else {
-            g_string_append_printf(sov->string, "%" PRId64, r->begin);
+            g_string_append_printf(sov->string, "%" PRId64, range_lob(r));
         }
     }
     if (next) {
@@ -117,10 +123,10 @@ static void format_string(StringOutputVisitor *sov, Range *r, bool next,
     }
 }
 
-static void print_type_int(Visitor *v, int64_t *obj, const char *name,
-                           Error **errp)
+static void print_type_int64(Visitor *v, const char *name, int64_t *obj,
+                             Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
     GList *l;
 
     switch (sov->list_mode) {
@@ -193,10 +199,18 @@ static void print_type_int(Visitor *v, int64_t *obj, const char *name,
     }
 }
 
-static void print_type_size(Visitor *v, uint64_t *obj, const char *name,
-                           Error **errp)
+static void print_type_uint64(Visitor *v, const char *name, uint64_t *obj,
+                             Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    /* FIXME: print_type_int64 mishandles values over INT64_MAX */
+    int64_t i = *obj;
+    print_type_int64(v, name, &i, errp);
+}
+
+static void print_type_size(Visitor *v, const char *name, uint64_t *obj,
+                            Error **errp)
+{
+    StringOutputVisitor *sov = to_sov(v);
     static const char suffixes[] = { 'B', 'K', 'M', 'G', 'T', 'P', 'E' };
     uint64_t div, val;
     char *out;
@@ -224,17 +238,17 @@ static void print_type_size(Visitor *v, uint64_t *obj, const char *name,
     string_output_set(sov, out);
 }
 
-static void print_type_bool(Visitor *v, bool *obj, const char *name,
+static void print_type_bool(Visitor *v, const char *name, bool *obj,
                             Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
     string_output_set(sov, g_strdup(*obj ? "true" : "false"));
 }
 
-static void print_type_str(Visitor *v, char **obj, const char *name,
+static void print_type_str(Visitor *v, const char *name, char **obj,
                            Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
     char *out;
 
     if (sov->human) {
@@ -245,75 +259,60 @@ static void print_type_str(Visitor *v, char **obj, const char *name,
     string_output_set(sov, out);
 }
 
-static void print_type_number(Visitor *v, double *obj, const char *name,
+static void print_type_number(Visitor *v, const char *name, double *obj,
                               Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
     string_output_set(sov, g_strdup_printf("%f", *obj));
 }
 
 static void
-start_list(Visitor *v, const char *name, Error **errp)
+start_list(Visitor *v, const char *name, GenericList **list, size_t size,
+           Error **errp)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
 
     /* we can't traverse a list in a list */
     assert(sov->list_mode == LM_NONE);
-    sov->list_mode = LM_STARTED;
-    sov->head = true;
+    /* We don't support visits without a list */
+    assert(list);
+    sov->list = list;
+    /* List handling is only needed if there are at least two elements */
+    if (*list && (*list)->next) {
+        sov->list_mode = LM_STARTED;
+    }
 }
 
-static GenericList *
-next_list(Visitor *v, GenericList **list, Error **errp)
+static GenericList *next_list(Visitor *v, GenericList *tail, size_t size)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
-    GenericList *ret = NULL;
-    if (*list) {
-        if (sov->head) {
-            ret = *list;
-        } else {
-            ret = (*list)->next;
-        }
+    StringOutputVisitor *sov = to_sov(v);
+    GenericList *ret = tail->next;
 
-        if (sov->head) {
-            if (ret && ret->next == NULL) {
-                sov->list_mode = LM_NONE;
-            }
-            sov->head = false;
-        } else {
-            if (ret && ret->next == NULL) {
-                sov->list_mode = LM_END;
-            }
-        }
+    if (ret && !ret->next) {
+        sov->list_mode = LM_END;
     }
-
     return ret;
 }
 
-static void
-end_list(Visitor *v, Error **errp)
+static void end_list(Visitor *v, void **obj)
 {
-    StringOutputVisitor *sov = DO_UPCAST(StringOutputVisitor, visitor, v);
+    StringOutputVisitor *sov = to_sov(v);
 
+    assert(sov->list == obj);
     assert(sov->list_mode == LM_STARTED ||
            sov->list_mode == LM_END ||
            sov->list_mode == LM_NONE ||
            sov->list_mode == LM_IN_PROGRESS);
     sov->list_mode = LM_NONE;
-    sov->head = true;
-
 }
 
-char *string_output_get_string(StringOutputVisitor *sov)
+static void string_output_complete(Visitor *v, void *opaque)
 {
-    char *string = g_string_free(sov->string, false);
+    StringOutputVisitor *sov = to_sov(v);
+
+    assert(opaque == sov->result);
+    *sov->result = g_string_free(sov->string, false);
     sov->string = NULL;
-    return string;
-}
-
-Visitor *string_output_get_visitor(StringOutputVisitor *sov)
-{
-    return &sov->visitor;
 }
 
 static void free_range(void *range, void *dummy)
@@ -321,8 +320,10 @@ static void free_range(void *range, void *dummy)
     g_free(range);
 }
 
-void string_output_visitor_cleanup(StringOutputVisitor *sov)
+static void string_output_free(Visitor *v)
 {
+    StringOutputVisitor *sov = to_sov(v);
+
     if (sov->string) {
         g_string_free(sov->string, true);
     }
@@ -332,7 +333,7 @@ void string_output_visitor_cleanup(StringOutputVisitor *sov)
     g_free(sov);
 }
 
-StringOutputVisitor *string_output_visitor_new(bool human)
+Visitor *string_output_visitor_new(bool human, char **result)
 {
     StringOutputVisitor *v;
 
@@ -340,8 +341,12 @@ StringOutputVisitor *string_output_visitor_new(bool human)
 
     v->string = g_string_new(NULL);
     v->human = human;
-    v->visitor.type_enum = output_type_enum;
-    v->visitor.type_int = print_type_int;
+    v->result = result;
+    *result = NULL;
+
+    v->visitor.type = VISITOR_OUTPUT;
+    v->visitor.type_int64 = print_type_int64;
+    v->visitor.type_uint64 = print_type_uint64;
     v->visitor.type_size = print_type_size;
     v->visitor.type_bool = print_type_bool;
     v->visitor.type_str = print_type_str;
@@ -349,6 +354,8 @@ StringOutputVisitor *string_output_visitor_new(bool human)
     v->visitor.start_list = start_list;
     v->visitor.next_list = next_list;
     v->visitor.end_list = end_list;
+    v->visitor.complete = string_output_complete;
+    v->visitor.free = string_output_free;
 
-    return v;
+    return &v->visitor;
 }

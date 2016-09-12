@@ -1,42 +1,64 @@
-/* setjmp and longjmp. Use of these functions is deprecated. */
-
-FILE_LICENCE ( GPL2_OR_LATER )
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL )
 
 	.text
 	.arch i386
 	.code32
-	
-/**************************************************************************
-SETJMP - Save stack context for non-local goto
-**************************************************************************/
+
+	/* Must match jmp_buf structure layout */
+	.struct	0
+env_retaddr:	.long	0
+env_stack:	.long	0
+env_ebx:	.long	0
+env_esi:	.long	0
+env_edi:	.long	0
+env_ebp:	.long	0
+	.previous
+
+/*
+ * Save stack context for non-local goto
+ */
 	.globl	setjmp
 setjmp:
-	movl	4(%esp),%ecx		/* jmpbuf */
-	movl	0(%esp),%edx		/* return address */
-	movl	%edx,0(%ecx)
-	movl	%ebx,4(%ecx)
-	movl	%esp,8(%ecx)
-	movl	%ebp,12(%ecx)
-	movl	%esi,16(%ecx)
-	movl	%edi,20(%ecx)
-	movl	$0,%eax
+	/* Get jmp_buf pointer in %edx */
+	movl	4(%esp),%edx
+	/* Save return address */
+	movl	0(%esp),%eax
+	movl	%eax, env_retaddr(%edx)
+	/* Save stack pointer */
+	movl	%esp, env_stack(%edx)
+	/* Save other registers */
+	movl	%ebx, env_ebx(%edx)
+	movl	%esi, env_esi(%edx)
+	movl	%edi, env_edi(%edx)
+	movl	%ebp, env_ebp(%edx)
+	/* Return 0 when returning as setjmp() */
+	xorl	%eax, %eax
 	ret
+	.size	setjmp, . - setjmp
 
-/**************************************************************************
-LONGJMP - Non-local jump to a saved stack context
-**************************************************************************/
+/*
+ * Non-local jump to a saved stack context
+ */
 	.globl	longjmp
 longjmp:
-	movl	4(%esp),%edx		/* jumpbuf */
-	movl	8(%esp),%eax		/* result */
-	movl	0(%edx),%ecx
-	movl	4(%edx),%ebx
-	movl	8(%edx),%esp
-	movl	12(%edx),%ebp
-	movl	16(%edx),%esi
-	movl	20(%edx),%edi
-	cmpl	$0,%eax
-	jne	1f
-	movl	$1,%eax
-1:	movl	%ecx,0(%esp)
+	/* Get jmp_buf pointer in %edx */
+	movl	4(%esp),%edx
+	/* Get result in %eax */
+	movl	8(%esp),%eax
+	/* Force result to non-zero */
+	testl	%eax, %eax
+	jnz	1f
+	incl	%eax
+1:	/* Restore stack pointer */
+	movl	env_stack(%edx), %esp
+	/* Restore other registers */
+	movl	env_ebx(%edx), %ebx
+	movl	env_esi(%edx), %esi
+	movl	env_edi(%edx), %edi
+	movl	env_ebp(%edx), %ebp
+	/* Replace return address on the new stack */
+	popl	%ecx	/* discard */
+	pushl	env_retaddr(%edx)
+	/* Return to setjmp() caller */
 	ret
+	.size	longjmp, . - longjmp

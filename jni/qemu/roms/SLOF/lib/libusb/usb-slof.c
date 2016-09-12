@@ -26,7 +26,7 @@
 #define dprintf(_x ...)
 #endif
 
-int slof_usb_handle(struct usb_dev *dev)
+static int slof_usb_handle(struct usb_dev *dev)
 {
 	struct slof_usb_dev sdev;
 	sdev.port = dev->port;
@@ -58,4 +58,36 @@ int slof_usb_handle(struct usb_dev *dev)
 		forth_eval("s\" dev-hub.fs\" INCLUDED");
 	}
 	return true;
+}
+
+void usb_slof_populate_new_device(struct usb_dev *dev)
+{
+	switch (usb_get_intf_class(dev->class)) {
+	case 3:
+		dprintf("HID found %06X\n", dev->class);
+		slof_usb_handle(dev);
+		break;
+	case 8:
+		dprintf("MASS STORAGE found %d %06X\n", dev->intf_num,
+			dev->class);
+		if ((dev->class & 0x50) != 0x50) { /* Bulk-only supported */
+			printf("Device not supported %06X\n", dev->class);
+			break;
+		}
+
+		if (!usb_msc_reset(dev)) {
+			printf("%s: bulk reset failed\n", __func__);
+			break;
+		}
+		SLOF_msleep(100);
+		slof_usb_handle(dev);
+		break;
+	case 9:
+		dprintf("HUB found\n");
+		slof_usb_handle(dev);
+		break;
+	default:
+		printf("USB Interface class -%x- Not supported\n", dev->class);
+		break;
+	}
 }

@@ -30,6 +30,7 @@
 
 / {
 	prop-int = <0xdeadbeef>;
+	prop-int64 = /bits/ 64 <0xdeadbeef01abcdef>;
 	subnode@1 {
 		prop-int = [deadbeef];
 	};

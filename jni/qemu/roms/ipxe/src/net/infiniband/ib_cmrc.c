@@ -69,6 +69,8 @@ FILE_LICENCE ( BSD2 );
 struct ib_cmrc_connection {
 	/** Reference count */
 	struct refcnt refcnt;
+	/** Name */
+	const char *name;
 	/** Data transfer interface */
 	struct interface xfer;
 	/** Infiniband device */
@@ -108,14 +110,19 @@ struct ib_cmrc_connection {
  * shutdown process has run.
  */
 static void ib_cmrc_shutdown ( struct ib_cmrc_connection *cmrc ) {
+	struct ib_device *ibdev = cmrc->ibdev;
 
-	DBGC ( cmrc, "CMRC %p shutting down\n", cmrc );
+	DBGC ( cmrc, "CMRC %s %s shutting down\n",
+	       ibdev->name, cmrc->name );
 
 	/* Shut down Infiniband interface */
-	ib_destroy_conn ( cmrc->ibdev, cmrc->qp, cmrc->conn );
-	ib_destroy_qp ( cmrc->ibdev, cmrc->qp );
-	ib_destroy_cq ( cmrc->ibdev, cmrc->cq );
-	ib_close ( cmrc->ibdev );
+	ib_destroy_conn ( ibdev, cmrc->qp, cmrc->conn );
+	ib_destroy_qp ( ibdev, cmrc->qp );
+	ib_destroy_cq ( ibdev, cmrc->cq );
+	ib_close ( ibdev );
+
+	/* Cancel any pending shutdown */
+	process_del ( &cmrc->shutdown );
 
 	/* Drop the remaining reference */
 	ref_put ( &cmrc->refcnt );
@@ -146,7 +153,7 @@ static void ib_cmrc_close ( struct ib_cmrc_connection *cmrc, int rc ) {
  * @v private_data	Private data, if available
  * @v private_data_len	Length of private data
  */
-static void ib_cmrc_changed ( struct ib_device *ibdev __unused,
+static void ib_cmrc_changed ( struct ib_device *ibdev,
 			      struct ib_queue_pair *qp,
 			      struct ib_connection *conn __unused, int rc_cm,
 			      void *private_data, size_t private_data_len ) {
@@ -155,22 +162,24 @@ static void ib_cmrc_changed ( struct ib_device *ibdev __unused,
 
 	/* Record connection status */
 	if ( rc_cm == 0 ) {
-		DBGC ( cmrc, "CMRC %p connected\n", cmrc );
+		DBGC ( cmrc, "CMRC %s %s connected\n",
+		       ibdev->name, cmrc->name );
 		cmrc->connected = 1;
 	} else {
-		DBGC ( cmrc, "CMRC %p disconnected: %s\n",
-		       cmrc, strerror ( rc_cm ) );
+		DBGC ( cmrc, "CMRC %s %s disconnected: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc_cm ) );
 		cmrc->connected = 0;
 	}
 
 	/* Pass up any private data */
-	DBGC2 ( cmrc, "CMRC %p received private data:\n", cmrc );
+	DBGC2 ( cmrc, "CMRC %s %s received private data:\n",
+		ibdev->name, cmrc->name );
 	DBGC2_HDA ( cmrc, 0, private_data, private_data_len );
 	if ( private_data &&
 	     ( rc_xfer = xfer_deliver_raw ( &cmrc->xfer, private_data,
 					    private_data_len ) ) != 0 ) {
-		DBGC ( cmrc, "CMRC %p could not deliver private data: %s\n",
-		       cmrc, strerror ( rc_xfer ) );
+		DBGC ( cmrc, "CMRC %s %s could not deliver private data: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc_xfer ) );
 		ib_cmrc_close ( cmrc, rc_xfer );
 		return;
 	}
@@ -198,7 +207,7 @@ static struct ib_connection_operations ib_cmrc_conn_op = {
  * @v iobuf		I/O buffer
  * @v rc		Completion status code
  */
-static void ib_cmrc_complete_send ( struct ib_device *ibdev __unused,
+static void ib_cmrc_complete_send ( struct ib_device *ibdev,
 				    struct ib_queue_pair *qp,
 				    struct io_buffer *iobuf, int rc ) {
 	struct ib_cmrc_connection *cmrc = ib_qp_get_ownerdata ( qp );
@@ -208,8 +217,8 @@ static void ib_cmrc_complete_send ( struct ib_device *ibdev __unused,
 
 	/* Close the connection on any send errors */
 	if ( rc != 0 ) {
-		DBGC ( cmrc, "CMRC %p send error: %s\n",
-		       cmrc, strerror ( rc ) );
+		DBGC ( cmrc, "CMRC %s %s send error: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc ) );
 		ib_cmrc_close ( cmrc, rc );
 		return;
 	}
@@ -225,7 +234,7 @@ static void ib_cmrc_complete_send ( struct ib_device *ibdev __unused,
  * @v iobuf		I/O buffer
  * @v rc		Completion status code
  */
-static void ib_cmrc_complete_recv ( struct ib_device *ibdev __unused,
+static void ib_cmrc_complete_recv ( struct ib_device *ibdev,
 				    struct ib_queue_pair *qp,
 				    struct ib_address_vector *dest __unused,
 				    struct ib_address_vector *source __unused,
@@ -234,20 +243,20 @@ static void ib_cmrc_complete_recv ( struct ib_device *ibdev __unused,
 
 	/* Close the connection on any receive errors */
 	if ( rc != 0 ) {
-		DBGC ( cmrc, "CMRC %p receive error: %s\n",
-		       cmrc, strerror ( rc ) );
+		DBGC ( cmrc, "CMRC %s %s receive error: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc ) );
 		free_iob ( iobuf );
 		ib_cmrc_close ( cmrc, rc );
 		return;
 	}
 
-	DBGC2 ( cmrc, "CMRC %p received:\n", cmrc );
+	DBGC2 ( cmrc, "CMRC %s %s received:\n", ibdev->name, cmrc->name );
 	DBGC2_HDA ( cmrc, 0, iobuf->data, iob_len ( iobuf ) );
 
 	/* Pass up data */
 	if ( ( rc = xfer_deliver_iob ( &cmrc->xfer, iobuf ) ) != 0 ) {
-		DBGC ( cmrc, "CMRC %p could not deliver data: %s\n",
-		       cmrc, strerror ( rc ) );
+		DBGC ( cmrc, "CMRC %s %s could not deliver data: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc ) );
 		ib_cmrc_close ( cmrc, rc );
 		return;
 	}
@@ -275,6 +284,7 @@ static struct ib_queue_pair_operations ib_cmrc_queue_pair_ops = {
 static int ib_cmrc_xfer_deliver ( struct ib_cmrc_connection *cmrc,
 				  struct io_buffer *iobuf,
 				  struct xfer_metadata *meta __unused ) {
+	struct ib_device *ibdev = cmrc->ibdev;
 	int rc;
 
 	/* If no connection has yet been attempted, send this datagram
@@ -284,8 +294,9 @@ static int ib_cmrc_xfer_deliver ( struct ib_cmrc_connection *cmrc,
 
 		/* Abort if we have already sent a CM connection request */
 		if ( cmrc->conn ) {
-			DBGC ( cmrc, "CMRC %p attempt to send before "
-			       "connection is complete\n", cmrc );
+			DBGC ( cmrc, "CMRC %s %s attempt to send before "
+			       "connection is complete\n",
+			       ibdev->name, cmrc->name );
 			rc = -EIO;
 			goto out;
 		}
@@ -296,18 +307,21 @@ static int ib_cmrc_xfer_deliver ( struct ib_cmrc_connection *cmrc,
 					      iobuf->data, iob_len ( iobuf ),
 					      &ib_cmrc_conn_op );
 		if ( ! cmrc->conn ) {
-			DBGC ( cmrc, "CMRC %p could not connect\n", cmrc );
+			DBGC ( cmrc, "CMRC %s %s could not connect\n",
+			       ibdev->name, cmrc->name );
 			rc = -ENOMEM;
 			goto out;
 		}
+		DBGC ( cmrc, "CMRC %s %s using CM %08x\n",
+		       ibdev->name, cmrc->name, cmrc->conn->local_id );
 
 	} else {
 
 		/* Send via QP */
 		if ( ( rc = ib_post_send ( cmrc->ibdev, cmrc->qp, NULL,
 					   iob_disown ( iobuf ) ) ) != 0 ) {
-			DBGC ( cmrc, "CMRC %p could not send: %s\n",
-			       cmrc, strerror ( rc ) );
+			DBGC ( cmrc, "CMRC %s %s could not send: %s\n",
+			       ibdev->name, cmrc->name, strerror ( rc ) );
 			goto out;
 		}
 
@@ -377,10 +391,12 @@ static struct process_descriptor ib_cmrc_shutdown_desc =
  * @v ibdev		Infiniband device
  * @v dgid		Destination GID
  * @v service_id	Service ID
+ * @v name		Connection name
  * @ret rc		Returns status code
  */
 int ib_cmrc_open ( struct interface *xfer, struct ib_device *ibdev,
-		   union ib_gid *dgid, union ib_guid *service_id ) {
+		   union ib_gid *dgid, union ib_guid *service_id,
+		   const char *name ) {
 	struct ib_cmrc_connection *cmrc;
 	int rc;
 
@@ -391,6 +407,7 @@ int ib_cmrc_open ( struct interface *xfer, struct ib_device *ibdev,
 		goto err_alloc;
 	}
 	ref_init ( &cmrc->refcnt, NULL );
+	cmrc->name = name;
 	intf_init ( &cmrc->xfer, &ib_cmrc_xfer_desc, &cmrc->refcnt );
 	cmrc->ibdev = ibdev;
 	memcpy ( &cmrc->dgid, dgid, sizeof ( cmrc->dgid ) );
@@ -400,8 +417,8 @@ int ib_cmrc_open ( struct interface *xfer, struct ib_device *ibdev,
 
 	/* Open Infiniband device */
 	if ( ( rc = ib_open ( ibdev ) ) != 0 ) {
-		DBGC ( cmrc, "CMRC %p could not open device: %s\n",
-		       cmrc, strerror ( rc ) );
+		DBGC ( cmrc, "CMRC %s %s could not open device: %s\n",
+		       ibdev->name, cmrc->name, strerror ( rc ) );
 		goto err_open;
 	}
 
@@ -409,8 +426,8 @@ int ib_cmrc_open ( struct interface *xfer, struct ib_device *ibdev,
 	cmrc->cq = ib_create_cq ( ibdev, IB_CMRC_NUM_CQES,
 				  &ib_cmrc_completion_ops );
 	if ( ! cmrc->cq ) {
-		DBGC ( cmrc, "CMRC %p could not create completion queue\n",
-		       cmrc );
+		DBGC ( cmrc, "CMRC %s %s could not create completion queue\n",
+		       ibdev->name, cmrc->name );
 		rc = -ENOMEM;
 		goto err_create_cq;
 	}
@@ -418,14 +435,16 @@ int ib_cmrc_open ( struct interface *xfer, struct ib_device *ibdev,
 	/* Create queue pair */
 	cmrc->qp = ib_create_qp ( ibdev, IB_QPT_RC, IB_CMRC_NUM_SEND_WQES,
 				  cmrc->cq, IB_CMRC_NUM_RECV_WQES, cmrc->cq,
-				  &ib_cmrc_queue_pair_ops );
+				  &ib_cmrc_queue_pair_ops, name );
 	if ( ! cmrc->qp ) {
-		DBGC ( cmrc, "CMRC %p could not create queue pair\n", cmrc );
+		DBGC ( cmrc, "CMRC %s %s could not create queue pair\n",
+		       ibdev->name, cmrc->name );
 		rc = -ENOMEM;
 		goto err_create_qp;
 	}
 	ib_qp_set_ownerdata ( cmrc->qp, cmrc );
-	DBGC ( cmrc, "CMRC %p using QPN %lx\n", cmrc, cmrc->qp->qpn );
+	DBGC ( cmrc, "CMRC %s %s using QPN %#lx\n",
+	       ibdev->name, cmrc->name, cmrc->qp->qpn );
 
 	/* Attach to parent interface, transfer reference (implicitly)
 	 * to our shutdown process, and return.

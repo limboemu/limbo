@@ -22,6 +22,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "sysemu/char.h"
 #include "hw/isa/isa.h"
@@ -641,28 +643,3 @@ static void parallel_register_types(void)
 }
 
 type_init(parallel_register_types)
-
-static void parallel_init(ISABus *bus, int index, CharDriverState *chr)
-{
-    DeviceState *dev;
-    ISADevice *isadev;
-
-    isadev = isa_create(bus, "isa-parallel");
-    dev = DEVICE(isadev);
-    qdev_prop_set_uint32(dev, "index", index);
-    qdev_prop_set_chr(dev, "chardev", chr);
-    qdev_init_nofail(dev);
-}
-
-void parallel_hds_isa_init(ISABus *bus, int n)
-{
-    int i;
-
-    assert(n <= MAX_PARALLEL_PORTS);
-
-    for (i = 0; i < n; i++) {
-        if (parallel_hds[i]) {
-            parallel_init(bus, i, parallel_hds[i]);
-        }
-    }
-}

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stddef.h>
@@ -76,18 +80,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
 	__einfo_error ( EINFO_ENOTTY_ALGORITHM )
 #define EINFO_ENOTTY_ALGORITHM \
 	__einfo_uniqify ( EINFO_ENOTTY, 0x01, "Inappropriate algorithm" )
-
-/**
- * Invalidate ASN.1 object cursor
- *
- * @v cursor		ASN.1 object cursor
- */
-void asn1_invalidate_cursor ( struct asn1_cursor *cursor ) {
-	static uint8_t asn1_invalid_object[] = { ASN1_END, 0 };
-
-	cursor->data = asn1_invalid_object;
-	cursor->len = 0;
-}
 
 /**
  * Start parsing ASN.1 object

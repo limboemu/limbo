@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdlib.h>
 #include <string.h>
@@ -139,7 +143,8 @@ const char * x509_name ( struct x509_certificate *cert ) {
 	} else {
 		/* Certificate has no commonName: use SHA-1 fingerprint */
 		x509_fingerprint ( cert, digest, fingerprint );
-		base16_encode ( fingerprint, sizeof ( fingerprint ), buf );
+		base16_encode ( fingerprint, sizeof ( fingerprint ),
+				buf, sizeof ( buf ) );
 	}
 	return buf;
 }
@@ -1761,5 +1766,11 @@ int x509_validate_chain ( struct x509_chain *chain, time_t time,
 	return -EACCES_USELESS;
 }
 
+/* Drag in objects via x509_validate() */
+REQUIRING_SYMBOL ( x509_validate );
+
 /* Drag in certificate store */
 REQUIRE_OBJECT ( certstore );
+
+/* Drag in crypto configuration */
+REQUIRE_OBJECT ( config_crypto );

@@ -22,17 +22,18 @@
  * THE SOFTWARE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
+#include "qemu/osdep.h"
 
 #include <libssh2.h>
 #include <libssh2_sftp.h>
 
 #include "block/block_int.h"
+#include "qapi/error.h"
+#include "qemu/error-report.h"
 #include "qemu/sockets.h"
 #include "qemu/uri.h"
 #include "qapi/qmp/qint.h"
+#include "qapi/qmp/qstring.h"
 
 /* DEBUG_SSH=1 enables the DPRINTF (debugging printf) statements in
  * this block driver code.
@@ -191,7 +192,7 @@ sftp_error_report(BDRVSSHState *s, const char *fs, ...)
 static int parse_uri(const char *filename, QDict *options, Error **errp)
 {
     URI *uri = NULL;
-    QueryParams *qp = NULL;
+    QueryParams *qp;
     int i;
 
     uri = uri_parse(filename);
@@ -247,9 +248,6 @@ static int parse_uri(const char *filename, QDict *options, Error **errp)
     return 0;
 
  err:
-    if (qp) {
-      query_params_free(qp);
-    }
     if (uri) {
       uri_free(uri);
     }
@@ -510,36 +508,73 @@ static int authenticate(BDRVSSHState *s, const char *user, Error **errp)
     return ret;
 }
 
+static QemuOptsList ssh_runtime_opts = {
+    .name = "ssh",
+    .head = QTAILQ_HEAD_INITIALIZER(ssh_runtime_opts.head),
+    .desc = {
+        {
+            .name = "host",
+            .type = QEMU_OPT_STRING,
+            .help = "Host to connect to",
+        },
+        {
+            .name = "port",
+            .type = QEMU_OPT_NUMBER,
+            .help = "Port to connect to",
+        },
+        {
+            .name = "path",
+            .type = QEMU_OPT_STRING,
+            .help = "Path of the image on the host",
+        },
+        {
+            .name = "user",
+            .type = QEMU_OPT_STRING,
+            .help = "User as which to connect",
+        },
+        {
+            .name = "host_key_check",
+            .type = QEMU_OPT_STRING,
+            .help = "Defines how and what to check the host key against",
+        },
+    },
+};
+
 static int connect_to_ssh(BDRVSSHState *s, QDict *options,
                           int ssh_flags, int creat_mode, Error **errp)
 {
     int r, ret;
+    QemuOpts *opts = NULL;
+    Error *local_err = NULL;
     const char *host, *user, *path, *host_key_check;
     int port;
 
-    if (!qdict_haskey(options, "host")) {
+    opts = qemu_opts_create(&ssh_runtime_opts, NULL, 0, &error_abort);
+    qemu_opts_absorb_qdict(opts, options, &local_err);
+    if (local_err) {
+        ret = -EINVAL;
+        error_propagate(errp, local_err);
+        goto err;
+    }
+
+    host = qemu_opt_get(opts, "host");
+    if (!host) {
         ret = -EINVAL;
         error_setg(errp, "No hostname was specified");
         goto err;
     }
-    host = qdict_get_str(options, "host");
 
-    if (qdict_haskey(options, "port")) {
-        port = qdict_get_int(options, "port");
-    } else {
-        port = 22;
-    }
+    port = qemu_opt_get_number(opts, "port", 22);
 
-    if (!qdict_haskey(options, "path")) {
+    path = qemu_opt_get(opts, "path");
+    if (!path) {
         ret = -EINVAL;
         error_setg(errp, "No path was specified");
         goto err;
     }
-    path = qdict_get_str(options, "path");
 
-    if (qdict_haskey(options, "user")) {
-        user = qdict_get_str(options, "user");
-    } else {
+    user = qemu_opt_get(opts, "user");
+    if (!user) {
         user = g_get_user_name();
         if (!user) {
             error_setg_errno(errp, errno, "Can't get user name");
@@ -548,9 +583,8 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
         }
     }
 
-    if (qdict_haskey(options, "host_key_check")) {
-        host_key_check = qdict_get_str(options, "host_key_check");
-    } else {
+    host_key_check = qemu_opt_get(opts, "host_key_check");
+    if (!host_key_check) {
         host_key_check = "yes";
     }
 
@@ -561,7 +595,7 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
     /* Open the socket and connect. */
     s->sock = inet_connect(s->hostport, errp);
     if (s->sock < 0) {
-        ret = -errno;
+        ret = -EIO;
         goto err;
     }
 
@@ -614,20 +648,13 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
         goto err;
     }
 
+    qemu_opts_del(opts);
+
     r = libssh2_sftp_fstat(s->sftp_handle, &s->attrs);
     if (r < 0) {
         sftp_error_setg(errp, s, "failed to read file attributes");
         return -EINVAL;
     }
-
-    /* Delete the options we've used; any not deleted will cause the
-     * block layer to give an error about unused options.
-     */
-    qdict_del(options, "host");
-    qdict_del(options, "port");
-    qdict_del(options, "user");
-    qdict_del(options, "path");
-    qdict_del(options, "host_key_check");
 
     return 0;
 
@@ -647,6 +674,8 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
         libssh2_session_free(s->session);
     }
     s->session = NULL;
+
+    qemu_opts_del(opts);
 
     return ret;
 }
@@ -779,7 +808,7 @@ static void restart_coroutine(void *opaque)
 
     DPRINTF("co=%p", co);
 
-    qemu_coroutine_enter(co, NULL);
+    qemu_coroutine_enter(co);
 }
 
 static coroutine_fn void set_fd_handler(BDRVSSHState *s, BlockDriverState *bs)
@@ -801,14 +830,15 @@ static coroutine_fn void set_fd_handler(BDRVSSHState *s, BlockDriverState *bs)
             rd_handler, wr_handler);
 
     aio_set_fd_handler(bdrv_get_aio_context(bs), s->sock,
-                       rd_handler, wr_handler, co);
+                       false, rd_handler, wr_handler, co);
 }
 
 static coroutine_fn void clear_fd_handler(BDRVSSHState *s,
                                           BlockDriverState *bs)
 {
     DPRINTF("s->sock=%d", s->sock);
-    aio_set_fd_handler(bdrv_get_aio_context(bs), s->sock, NULL, NULL, NULL);
+    aio_set_fd_handler(bdrv_get_aio_context(bs), s->sock,
+                       false, NULL, NULL, NULL);
 }
 
 /* A non-blocking call returned EAGAIN, so yield, ensuring the

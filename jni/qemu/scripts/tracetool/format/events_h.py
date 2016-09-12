@@ -6,7 +6,7 @@ trace/generated-events.h
 """
 
 __author__     = "Lluís Vilanova <vilanova@ac.upc.edu>"
-__copyright__  = "Copyright 2012-2014, Lluís Vilanova <vilanova@ac.upc.edu>"
+__copyright__  = "Copyright 2012-2016, Lluís Vilanova <vilanova@ac.upc.edu>"
 __license__    = "GPL version 2 or (at your option) any later version"
 
 __maintainer__ = "Stefan Hajnoczi"
@@ -21,8 +21,6 @@ def generate(events, backend):
         '',
         '#ifndef TRACE__GENERATED_EVENTS_H',
         '#define TRACE__GENERATED_EVENTS_H',
-        '',
-        '#include <stdbool.h>',
         '')
 
     # event identifiers
@@ -34,16 +32,26 @@ def generate(events, backend):
     out('    TRACE_EVENT_COUNT',
         '} TraceEventID;')
 
+    # per-vCPU event identifiers
+    out('typedef enum {')
+
+    for e in events:
+        if "vcpu" in e.properties:
+            out('    TRACE_VCPU_%s,' % e.name.upper())
+
+    out('    TRACE_VCPU_EVENT_COUNT',
+        '} TraceEventVCPUID;')
+
     # static state
     for e in events:
         if 'disable' in e.properties:
             enabled = 0
         else:
             enabled = 1
-        if "tcg-trans" in e.properties:
+        if "tcg-exec" in e.properties:
             # a single define for the two "sub-events"
             out('#define TRACE_%(name)s_ENABLED %(enabled)d',
-                name=e.original.original.name.upper(),
+                name=e.original.name.upper(),
                 enabled=enabled)
         out('#define TRACE_%s_ENABLED %d' % (e.name.upper(), enabled))
 

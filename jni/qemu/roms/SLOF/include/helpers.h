@@ -30,8 +30,10 @@ extern long SLOF_dma_map_in(void *virt, long size, int cacheable);
 extern void SLOF_dma_map_out(long phys, void *virt, long size);
 extern long SLOF_pci_config_read32(long offset);
 extern long SLOF_pci_config_read16(long offset);
+extern long SLOF_pci_config_read8(long offset);
 extern void SLOF_pci_config_write32(long offset, long value);
 extern void SLOF_pci_config_write16(long offset, long value);
+extern void SLOF_pci_config_write8(long offset, long value);
 extern void *SLOF_translate_my_address(void *addr);
 
 #define offset_of(type, member) ((long) &((type *)0)->member)

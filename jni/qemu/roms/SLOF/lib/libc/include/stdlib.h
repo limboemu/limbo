@@ -29,5 +29,6 @@ unsigned long int strtoul(const char *nptr, char **endptr, int base);
 long int strtol(const char *nptr, char **endptr, int base);
 
 int rand(void);
+void srand(unsigned int seed);
 
 #endif

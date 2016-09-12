@@ -125,3 +125,17 @@
 : parse-hex ( str len -- value )
   base @ hex -rot $number if 0 then swap base !
 ;
+
+
+\ -----------------------------------------------------
+\ miscellaneous functions
+\ -----------------------------------------------------
+
+: rot13 ( c - c )
+  dup upc [char] A [char] M between if d# 13 + exit then
+  dup upc [char] N [char] Z between if d# 13 - then
+;
+
+: rot13-str ( str len -- newstr len )
+  strdup 2dup bounds ?do i c@ rot13 i c! loop
+;

@@ -32,10 +32,7 @@
 
 #define HAS_YM3812	1
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
+#include "qemu/osdep.h"
 #include <math.h>
 //#include "driver.h"		/* use M.A.M.E. */
 #include "fmopl.h"
@@ -1177,7 +1174,7 @@ void OPLResetChip(FM_OPL *OPL)
 	OPLWriteReg(OPL,0x03,0); /* Timer2 */
 	OPLWriteReg(OPL,0x04,0); /* IRQ mask clear */
 	for(i = 0xff ; i >= 0x20 ; i-- ) OPLWriteReg(OPL,i,0);
-	/* reset OPerator paramater */
+	/* reset operator parameter */
 	for( c = 0 ; c < OPL->max_ch ; c++ )
 	{
 		OPL_CH *CH = &OPL->P_CH[c];

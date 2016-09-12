@@ -11,7 +11,7 @@
  *****************************************************************************/
 
 
-/*>>>>>>>>>>>>>>>>>>>>> DEFINITIONS & DECLARATIONS <<<<<<<<<<<<<<<<<<<<<<*/
+/********************** DEFINITIONS & DECLARATIONS ***********************/
 
 #include <ipv4.h>
 #include <udp.h>
@@ -81,32 +81,26 @@ struct icmphdr {
 	} payload;
 };
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> PROTOTYPES <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** PROTOTYPES *******************************/
 
-static unsigned short
-checksum(unsigned short *packet, int words);
+static unsigned short checksum(unsigned short *packet, int words);
 
-static void
-arp_send_request(int fd, uint32_t dest_ip);
+static void arp_send_request(int fd, uint32_t dest_ip);
 
-static void
-arp_send_reply(int fd, uint32_t src_ip, uint8_t * src_mac);
+static void arp_send_reply(int fd, uint32_t src_ip, uint8_t * src_mac);
 
-static void
-fill_arphdr(uint8_t * packet, uint8_t opcode,
-            const uint8_t * src_mac, uint32_t src_ip,
-            const uint8_t * dest_mac, uint32_t dest_ip);
+static void fill_arphdr(uint8_t * packet, uint8_t opcode,
+			const uint8_t * src_mac, uint32_t src_ip,
+			const uint8_t * dest_mac, uint32_t dest_ip);
 
-static arp_entry_t*
-lookup_mac_addr(uint32_t ipv4_addr);
+static arp_entry_t *lookup_mac_addr(uint32_t ipv4_addr);
 
-static void
-fill_udp_checksum(struct iphdr *ipv4_hdr);
+static void fill_udp_checksum(struct iphdr *ipv4_hdr);
 
-static int8_t
-handle_icmp(int fd, struct iphdr * iph, uint8_t * packet, int32_t packetsize);
+static int8_t handle_icmp(int fd, struct iphdr * iph, uint8_t * packet,
+			  int32_t packetsize);
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> LOCAL VARIABLES <<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** LOCAL VARIABLES **************************/
 
 /* Routing parameters */
 static uint32_t own_ip       = 0;
@@ -126,18 +120,19 @@ static       uint8_t multicast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static unsigned int arp_consumer = 0;
 static unsigned int arp_producer = 0;
 static arp_entry_t  arp_table[ARP_ENTRIES];
-static arp_entry_t  pending_pkt;
+
+static uint8_t pending_pkt_frame[ETH_MTU_SIZE];
+static int pending_pkt_len;
 
 /* Function pointer send_ip. Points either to send_ipv4() or send_ipv6() */
 int   (*send_ip) (int fd, void *, int);
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>> IMPLEMENTATION <<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+/***************************** IMPLEMENTATION ****************************/
 
 /**
  * IPv4: Initialize the environment for the IPv4 layer.
  */
-static void
-ipv4_init(void)
+static void ipv4_init(void)
 {
 	int i;
 
@@ -153,7 +148,7 @@ ipv4_init(void)
 		arp_table[i].pkt_pending = 0;
 	}
 
-	/* Set IP send function to send_ipv4() */ 
+	/* Set IP send function to send_ipv4() */
 	send_ip = &send_ipv4;
 }
 
@@ -162,8 +157,7 @@ ipv4_init(void)
  *
  * @param  _own_ip  client IPv4 address (e.g. 127.0.0.1)
  */
-void
-set_ipv4_address(uint32_t _own_ip)
+void set_ipv4_address(uint32_t _own_ip)
 {
 	own_ip = _own_ip;
 	ipv4_init();
@@ -174,8 +168,7 @@ set_ipv4_address(uint32_t _own_ip)
  *
  * @return client IPv4 address (e.g. 127.0.0.1)
  */
-uint32_t
-get_ipv4_address(void)
+uint32_t get_ipv4_address(void)
 {
 	return own_ip;
 }
@@ -185,8 +178,7 @@ get_ipv4_address(void)
  *
  * @param  _own_ip  multicast IPv4 address (224.0.0.0 - 239.255.255.255)
  */
-void
-set_ipv4_multicast(uint32_t _multicast_ip)
+void set_ipv4_multicast(uint32_t _multicast_ip)
 {
 	// is this IP Multicast out of range (224.0.0.0 - 239.255.255.255)
 	if((htonl(_multicast_ip) < 0xE0000000)
@@ -210,8 +202,7 @@ set_ipv4_multicast(uint32_t _multicast_ip)
  *
  * @return multicast IPv4 address (224.0.0.0 - 239.255.255.255 or 0 if not set)
  */
-uint32_t
-get_ipv4_multicast(void)
+uint32_t get_ipv4_multicast(void)
 {
 	return multicast_ip;
 }
@@ -221,8 +212,7 @@ get_ipv4_multicast(void)
  *
  * @param  _router_ip   router IPv4 address
  */
-void
-set_ipv4_router(uint32_t _router_ip)
+void set_ipv4_router(uint32_t _router_ip)
 {
 	router_ip = _router_ip;
 	ipv4_init();
@@ -233,8 +223,7 @@ set_ipv4_router(uint32_t _router_ip)
  *
  * @return router IPv4 address
  */
-uint32_t
-get_ipv4_router(void)
+uint32_t get_ipv4_router(void)
 {
 	return router_ip;
 }
@@ -244,8 +233,7 @@ get_ipv4_router(void)
  *
  * @param  _subnet_mask   netmask of the own IPv4 address
  */
-void
-set_ipv4_netmask(uint32_t _subnet_mask)
+void set_ipv4_netmask(uint32_t _subnet_mask)
 {
 	subnet_mask = _subnet_mask;
 	ipv4_init();
@@ -256,8 +244,7 @@ set_ipv4_netmask(uint32_t _subnet_mask)
  *
  * @return netmask of the own IPv4 address
  */
-uint32_t
-get_ipv4_netmask(void)
+uint32_t get_ipv4_netmask(void)
 {
 	return subnet_mask;
 }
@@ -280,9 +267,9 @@ get_ipv4_netmask(void)
  * @see                fill_dnshdr
  * @see                fill_btphdr
  */
-void
-fill_iphdr(uint8_t * packet, uint16_t packetsize,
-           uint8_t ip_proto, uint32_t ip_src, uint32_t ip_dst) {
+void fill_iphdr(uint8_t * packet, uint16_t packetsize,
+           uint8_t ip_proto, uint32_t ip_src, uint32_t ip_dst)
+{
 	struct iphdr * iph = (struct iphdr *) packet;
 
 	iph -> ip_hlv = 0x45;
@@ -308,8 +295,7 @@ fill_iphdr(uint8_t * packet, uint16_t packetsize,
  * @see               receive_ether
  * @see               iphdr
  */
-int8_t
-handle_ipv4(int fd, uint8_t * ip_packet, int32_t packetsize)
+int8_t handle_ipv4(int fd, uint8_t * ip_packet, uint32_t packetsize)
 {
 	struct iphdr * iph;
 	int32_t old_sum;
@@ -422,8 +408,7 @@ handle_ipv4(int fd, uint8_t * ip_packet, int32_t packetsize)
  * @see               receive_ether
  * @see               iphdr
  */
-int
-send_ipv4(int fd, void* buffer, int len)
+int send_ipv4(int fd, void* buffer, int len)
 {
 	arp_entry_t *arp_entry = 0;
 	struct iphdr *ip;
@@ -506,13 +491,11 @@ send_ipv4(int fd, void* buffer, int len)
 		arp_entry->pkt_pending = 1;
 		arp_entry->ipv4_addr = ip_dst;
 		memset(arp_entry->mac_addr, 0, 6);
-		pending_pkt.ipv4_addr = ip_dst;
-		memset(pending_pkt.mac_addr, 0, 6);
-		fill_ethhdr (pending_pkt.eth_frame, htons(ETHERTYPE_IP),
+		fill_ethhdr (pending_pkt_frame, htons(ETHERTYPE_IP),
 		             get_mac_address(), null_mac_addr);
-		memcpy(&pending_pkt.eth_frame[sizeof(struct ethhdr)],
+		memcpy(&pending_pkt_frame[sizeof(struct ethhdr)],
 		       buffer, len);
-		pending_pkt.eth_len = len + sizeof(struct ethhdr);
+		pending_pkt_len = len + sizeof(struct ethhdr);
 
 		set_timer(TICKS_SEC);
 		do {
@@ -538,11 +521,9 @@ send_ipv4(int fd, void* buffer, int len)
  *
  * @param  ipv4_hdr    Points to the place where IPv4-header starts.
  */
-
-static void
-fill_udp_checksum(struct iphdr *ipv4_hdr)
+static void fill_udp_checksum(struct iphdr *ipv4_hdr)
 {
-	int i;
+	unsigned i;
 	unsigned long checksum = 0;
 	struct iphdr ip_hdr;
 	char *ptr;
@@ -585,8 +566,7 @@ fill_udp_checksum(struct iphdr *ipv4_hdr)
  * @return            Checksum
  * @see               iphdr
  */
-static unsigned short
-checksum(unsigned short * packet, int words)
+static unsigned short checksum(unsigned short * packet, int words)
 {
 	unsigned long checksum;
 
@@ -598,8 +578,7 @@ checksum(unsigned short * packet, int words)
 	return ~checksum;
 }
 
-static arp_entry_t*
-lookup_mac_addr(uint32_t ipv4_addr)
+static arp_entry_t* lookup_mac_addr(uint32_t ipv4_addr)
 {
 	unsigned int i;
 
@@ -618,8 +597,7 @@ lookup_mac_addr(uint32_t ipv4_addr)
  * @param  fd        socket fd
  * @param  dest_ip   IP of the host which MAC should be obtained
  */
-static void
-arp_send_request(int fd, uint32_t dest_ip)
+static void arp_send_request(int fd, uint32_t dest_ip)
 {
 	arp_entry_t *arp_entry = &arp_table[arp_producer];
 
@@ -642,8 +620,7 @@ arp_send_request(int fd, uint32_t dest_ip)
  * @param  src_ip    requester IP address (foreign IP)
  * @param  src_mac   requester MAC address (foreign MAC)
  */
-static void
-arp_send_reply(int fd, uint32_t src_ip, uint8_t * src_mac)
+static void arp_send_reply(int fd, uint32_t src_ip, uint8_t * src_mac)
 {
 	arp_entry_t *arp_entry = &arp_table[arp_producer];
 
@@ -674,10 +651,9 @@ arp_send_reply(int fd, uint32_t src_ip, uint8_t * src_mac)
  * @see                arphdr
  * @see                fill_ethhdr
  */
-static void
-fill_arphdr(uint8_t * packet, uint8_t opcode,
-	    const uint8_t * src_mac, uint32_t src_ip,
-	    const uint8_t * dest_mac, uint32_t dest_ip)
+static void fill_arphdr(uint8_t * packet, uint8_t opcode,
+                        const uint8_t * src_mac, uint32_t src_ip,
+                        const uint8_t * dest_mac, uint32_t dest_ip)
 {
 	struct arphdr * arph = (struct arphdr *) packet;
 
@@ -706,8 +682,7 @@ fill_arphdr(uint8_t * packet, uint8_t opcode,
  * @see               receive_ether
  * @see               arphdr
  */
-int8_t
-handle_arp(int fd, uint8_t * packet, int32_t packetsize)
+int8_t handle_arp(int fd, uint8_t * packet, uint32_t packetsize)
 {
 	struct arphdr * arph = (struct arphdr *) packet;
 
@@ -754,11 +729,11 @@ handle_arp(int fd, uint8_t * packet, int32_t packetsize)
 
 		// do we have something to send
 		if (arp_table[i].pkt_pending) {
-			struct ethhdr * ethh = (struct ethhdr *) pending_pkt.eth_frame;
+			struct ethhdr * ethh = (struct ethhdr *) pending_pkt_frame;
 			memcpy(ethh -> dest_mac, arp_table[i].mac_addr, 6);
 
-			send_ether(fd, pending_pkt.eth_frame, pending_pkt.eth_len);
-			pending_pkt.pkt_pending = 0;
+			send_ether(fd, pending_pkt_frame, pending_pkt_len);
+			arp_table[i].pkt_pending = 0;
 			arp_table[i].eth_len = 0;
 		}
 		return 0; // no error
@@ -780,8 +755,7 @@ handle_arp(int fd, uint8_t * packet, int32_t packetsize)
  * @param  fd            socket descriptor
  * @param  _ping_dst_ip  destination IPv4 address
  */
-void
-ping_ipv4(int fd, uint32_t _ping_dst_ip)
+void ping_ipv4(int fd, uint32_t _ping_dst_ip)
 {
 	unsigned char packet[sizeof(struct iphdr) + sizeof(struct icmphdr)];
 	struct icmphdr *icmp;
@@ -814,8 +788,7 @@ ping_ipv4(int fd, uint32_t _ping_dst_ip)
  *
  * @return  ping_dst_ip  host IPv4 address
  */
-uint32_t
-pong_ipv4(void)
+uint32_t pong_ipv4(void)
 {
 	return ping_dst_ip;
 }
@@ -830,8 +803,8 @@ pong_ipv4(void)
  *                      NON ZERO - packet was not handled (e.g. bad format)
  * @see                 handle_ipv4
  */
-static int8_t
-handle_icmp(int fd, struct iphdr * iph, uint8_t * packet, int32_t packetsize)
+static int8_t handle_icmp(int fd, struct iphdr * iph, uint8_t * packet,
+			  int32_t packetsize)
 {
 	struct icmphdr *icmp = (struct icmphdr *) packet;
 

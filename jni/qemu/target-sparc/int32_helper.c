@@ -17,9 +17,11 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "trace.h"
 #include "sysemu/sysemu.h"
+#include "exec/log.h"
 
 #define DEBUG_PCALL
 

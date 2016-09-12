@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -57,9 +61,9 @@ static void ib_path_complete ( struct ib_device *ibdev,
 	if ( ( rc == 0 ) && ( mad->hdr.status != htons ( IB_MGMT_STATUS_OK ) ))
 		rc = -ENETUNREACH;
 	if ( rc != 0 ) {
-		DBGC ( ibdev, "IBDEV %p path lookup for " IB_GID_FMT
+		DBGC ( ibdev, "IBDEV %s path lookup for " IB_GID_FMT
 		       " failed: %s\n",
-		       ibdev, IB_GID_ARGS ( dgid ), strerror ( rc ) );
+		       ibdev->name, IB_GID_ARGS ( dgid ), strerror ( rc ) );
 		goto out;
 	}
 
@@ -67,9 +71,15 @@ static void ib_path_complete ( struct ib_device *ibdev,
 	path->av.lid = ntohs ( pathrec->dlid );
 	path->av.sl = ( pathrec->reserved__sl & 0x0f );
 	path->av.rate = ( pathrec->rate_selector__rate & 0x3f );
-	DBGC ( ibdev, "IBDEV %p path to " IB_GID_FMT " is %04x sl %d rate "
-	       "%d\n", ibdev, IB_GID_ARGS ( dgid ), path->av.lid, path->av.sl,
-	       path->av.rate );
+	DBGC ( ibdev, "IBDEV %s path to " IB_GID_FMT " lid %d sl %d rate "
+	       "%d\n", ibdev->name, IB_GID_ARGS ( dgid ), path->av.lid,
+	       path->av.sl, path->av.rate );
+
+	/* Use only the LID if no GRH is needed for this path */
+	if ( memcmp ( &path->av.gid.s.prefix, &ibdev->gid.s.prefix,
+		      sizeof ( path->av.gid.s.prefix ) ) == 0 ) {
+		path->av.gid_present = 0;
+	}
 
  out:
 	/* Destroy the completed transaction */
@@ -241,13 +251,6 @@ int ib_resolve_path ( struct ib_device *ibdev, struct ib_address_vector *av ) {
 	struct ib_cached_path *cached;
 	unsigned int cache_idx;
 
-	/* Sanity check */
-	if ( ! av->gid_present ) {
-		DBGC ( ibdev, "IBDEV %p attempt to look up path without GID\n",
-		       ibdev );
-		return -EINVAL;
-	}
-
 	/* Look in cache for a matching entry */
 	cached = ib_find_path_cache_entry ( ibdev, gid );
 	if ( cached && cached->path->av.lid ) {
@@ -255,11 +258,12 @@ int ib_resolve_path ( struct ib_device *ibdev, struct ib_address_vector *av ) {
 		av->lid = cached->path->av.lid;
 		av->rate = cached->path->av.rate;
 		av->sl = cached->path->av.sl;
-		DBGC2 ( ibdev, "IBDEV %p cache hit for " IB_GID_FMT "\n",
-			ibdev, IB_GID_ARGS ( gid ) );
+		av->gid_present = cached->path->av.gid_present;
+		DBGC2 ( ibdev, "IBDEV %s cache hit for " IB_GID_FMT "\n",
+			ibdev->name, IB_GID_ARGS ( gid ) );
 		return 0;
 	}
-	DBGC ( ibdev, "IBDEV %p cache miss for " IB_GID_FMT "%s\n", ibdev,
+	DBGC ( ibdev, "IBDEV %s cache miss for " IB_GID_FMT "%s\n", ibdev->name,
 	       IB_GID_ARGS ( gid ), ( cached ? " (in progress)" : "" ) );
 
 	/* If lookup is already in progress, do nothing */
@@ -278,8 +282,8 @@ int ib_resolve_path ( struct ib_device *ibdev, struct ib_address_vector *av ) {
 	/* Create new path */
 	cached->path = ib_create_path ( ibdev, av, &ib_cached_path_op );
 	if ( ! cached->path ) {
-		DBGC ( ibdev, "IBDEV %p could not create path\n",
-		       ibdev );
+		DBGC ( ibdev, "IBDEV %s could not create path\n",
+		       ibdev->name );
 		return -ENOMEM;
 	}
 	ib_path_set_ownerdata ( cached->path, cached );

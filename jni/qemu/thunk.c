@@ -16,19 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
+#include "qemu/osdep.h"
 
 #include "qemu.h"
 #include "exec/user/thunk.h"
 
 //#define DEBUG
 
-#define MAX_STRUCTS 128
-
-/* XXX: make it dynamic */
-StructEntry struct_entries[MAX_STRUCTS];
+static unsigned int max_struct_entries;
+StructEntry *struct_entries;
 
 static const argtype *thunk_type_next_ptr(const argtype *type_ptr);
 
@@ -70,6 +66,7 @@ void thunk_register_struct(int id, const char *name, const argtype *types)
     StructEntry *se;
     int nb_fields, offset, max_align, align, size, i, j;
 
+    assert(id < max_struct_entries);
     se = struct_entries + id;
 
     /* first we count the number of fields */
@@ -117,6 +114,8 @@ void thunk_register_struct_direct(int id, const char *name,
                                   const StructEntry *se1)
 {
     StructEntry *se;
+
+    assert(id < max_struct_entries);
     se = struct_entries + id;
     *se = *se1;
     se->name = name;
@@ -244,6 +243,7 @@ const argtype *thunk_convert(void *dst, const void *src,
             const argtype *field_types;
             const int *dst_offsets, *src_offsets;
 
+            assert(*type_ptr < max_struct_entries);
             se = struct_entries + *type_ptr++;
             if (se->convert[0] != NULL) {
                 /* specific conversion is needed */
@@ -273,37 +273,36 @@ const argtype *thunk_convert(void *dst, const void *src,
 /* from em86 */
 
 /* Utility function: Table-driven functions to translate bitmasks
- * between X86 and Alpha formats...
+ * between host and target formats
  */
-unsigned int target_to_host_bitmask(unsigned int x86_mask,
+unsigned int target_to_host_bitmask(unsigned int target_mask,
                                     const bitmask_transtbl * trans_tbl)
 {
     const bitmask_transtbl *btp;
-    unsigned int	alpha_mask = 0;
+    unsigned int host_mask = 0;
 
-    for(btp = trans_tbl; btp->x86_mask && btp->alpha_mask; btp++) {
-	if((x86_mask & btp->x86_mask) == btp->x86_bits) {
-	    alpha_mask |= btp->alpha_bits;
-	}
+    for (btp = trans_tbl; btp->target_mask && btp->host_mask; btp++) {
+        if ((target_mask & btp->target_mask) == btp->target_bits) {
+            host_mask |= btp->host_bits;
+        }
     }
-    return(alpha_mask);
+    return host_mask;
 }
 
-unsigned int host_to_target_bitmask(unsigned int alpha_mask,
+unsigned int host_to_target_bitmask(unsigned int host_mask,
                                     const bitmask_transtbl * trans_tbl)
 {
     const bitmask_transtbl *btp;
-    unsigned int	x86_mask = 0;
+    unsigned int target_mask = 0;
 
-    for(btp = trans_tbl; btp->x86_mask && btp->alpha_mask; btp++) {
-	if((alpha_mask & btp->alpha_mask) == btp->alpha_bits) {
-	    x86_mask |= btp->x86_bits;
-	}
+    for (btp = trans_tbl; btp->target_mask && btp->host_mask; btp++) {
+        if ((host_mask & btp->host_mask) == btp->host_bits) {
+            target_mask |= btp->target_bits;
+        }
     }
-    return(x86_mask);
+    return target_mask;
 }
 
-#ifndef NO_THUNK_TYPE_SIZE
 int thunk_type_size_array(const argtype *type_ptr, int is_host)
 {
     return thunk_type_size(type_ptr, is_host);
@@ -313,4 +312,9 @@ int thunk_type_align_array(const argtype *type_ptr, int is_host)
 {
     return thunk_type_align(type_ptr, is_host);
 }
-#endif /* ndef NO_THUNK_TYPE_SIZE */
+
+void thunk_init(unsigned int max_structs)
+{
+    max_struct_entries = max_structs;
+    struct_entries = g_new0(StructEntry, max_structs);
+}

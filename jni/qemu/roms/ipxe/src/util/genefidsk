@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# Generate an EFI bootable disk image
+
+set -e
+
+function help() {
+	echo "Usage: ${0} [OPTIONS] <ipxe.efi>"
+	echo
+	echo "where OPTIONS are:"
+	echo " -h       Show this help"
+	echo " -b       Specify boot file name (e.g. bootx64.efi)"
+	echo " -o FILE  Save disk image to file"
+}
+
+BOOT=bootx64.efi
+
+while getopts "hb:o:" opt; do
+	case ${opt} in
+		h)
+			help
+			exit 0
+			;;
+		b)
+			BOOT="${OPTARG}"
+			;;
+		o)
+			OUT="${OPTARG}"
+			;;
+	esac
+done
+
+shift $((OPTIND - 1))
+IN=$1
+
+if [ -z "${IN}" ]; then
+	echo "${0}: no input file given" >&2
+	help
+	exit 1
+fi
+
+if [ -z "${OUT}" ]; then
+	echo "${0}: no output file given" >&2
+	help
+	exit 1
+fi
+
+# Create sparse output file
+rm -f ${OUT}
+truncate -s 1440K ${OUT}
+
+# Format disk
+mformat -i ${OUT} -f 1440 ::
+
+# Create directory structure
+mmd -i ${OUT} ::efi
+mmd -i ${OUT} ::efi/boot
+
+# Copy bootable image
+mcopy -i ${OUT} ${IN} ::efi/boot/${BOOT}

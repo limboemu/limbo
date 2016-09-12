@@ -9,7 +9,7 @@
  * for a monotonically increasing tick counter.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/api.h>
 #include <config/timer.h>

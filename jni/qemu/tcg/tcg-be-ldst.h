@@ -24,13 +24,12 @@
 
 typedef struct TCGLabelQemuLdst {
     bool is_ld;             /* qemu_ld: true, qemu_st: false */
-    TCGMemOp opc;
+    TCGMemOpIdx oi;
     TCGType type;           /* result type of a load */
     TCGReg addrlo_reg;      /* reg index for low word of guest virtual addr */
     TCGReg addrhi_reg;      /* reg index for high word of guest virtual addr */
     TCGReg datalo_reg;      /* reg index for low word to be loaded or stored */
     TCGReg datahi_reg;      /* reg index for high word to be loaded or stored */
-    int mem_index;          /* soft MMU memory index */
     tcg_insn_unit *raddr;   /* gen code addr of the next IR of qemu_ld/st IR */
     tcg_insn_unit *label_ptr[2]; /* label pointers to be updated */
     struct TCGLabelQemuLdst *next;
@@ -57,7 +56,7 @@ static inline void tcg_out_tb_init(TCGContext *s)
 static void tcg_out_qemu_ld_slow_path(TCGContext *s, TCGLabelQemuLdst *l);
 static void tcg_out_qemu_st_slow_path(TCGContext *s, TCGLabelQemuLdst *l);
 
-static void tcg_out_tb_finalize(TCGContext *s)
+static bool tcg_out_tb_finalize(TCGContext *s)
 {
     TCGLabelQemuLdst *lb;
 
@@ -68,7 +67,16 @@ static void tcg_out_tb_finalize(TCGContext *s)
         } else {
             tcg_out_qemu_st_slow_path(s, lb);
         }
+
+        /* Test for (pending) buffer overflow.  The assumption is that any
+           one operation beginning below the high water mark cannot overrun
+           the buffer completely.  Thus we can test for overflow after
+           generating code without having to check during generation.  */
+        if (unlikely((void *)s->code_ptr > s->code_gen_highwater)) {
+            return false;
+        }
     }
+    return true;
 }
 
 /*

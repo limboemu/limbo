@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include <CoreAudio/CoreAudio.h>
-#include <string.h>             /* strerror */
 #include <pthread.h>            /* pthread_X */
 
 #include "qemu-common.h"
@@ -32,27 +32,247 @@
 #define AUDIO_CAP "coreaudio"
 #include "audio_int.h"
 
-struct {
+#ifndef MAC_OS_X_VERSION_10_6
+#define MAC_OS_X_VERSION_10_6 1060
+#endif
+
+typedef struct {
     int buffer_frames;
     int nbuffers;
-    int isAtexit;
-} conf = {
-    .buffer_frames = 512,
-    .nbuffers = 4,
-    .isAtexit = 0
-};
+} CoreaudioConf;
 
 typedef struct coreaudioVoiceOut {
     HWVoiceOut hw;
     pthread_mutex_t mutex;
-    int isAtexit;
     AudioDeviceID outputDeviceID;
     UInt32 audioDevicePropertyBufferFrameSize;
     AudioStreamBasicDescription outputStreamBasicDescription;
+    AudioDeviceIOProcID ioprocid;
     int live;
     int decr;
     int rpos;
 } coreaudioVoiceOut;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
+/* The APIs used here only become available from 10.6 */
+
+static OSStatus coreaudio_get_voice(AudioDeviceID *id)
+{
+    UInt32 size = sizeof(*id);
+    AudioObjectPropertyAddress addr = {
+        kAudioHardwarePropertyDefaultOutputDevice,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectGetPropertyData(kAudioObjectSystemObject,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      &size,
+                                      id);
+}
+
+static OSStatus coreaudio_get_framesizerange(AudioDeviceID id,
+                                             AudioValueRange *framerange)
+{
+    UInt32 size = sizeof(*framerange);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyBufferFrameSizeRange,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectGetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      &size,
+                                      framerange);
+}
+
+static OSStatus coreaudio_get_framesize(AudioDeviceID id, UInt32 *framesize)
+{
+    UInt32 size = sizeof(*framesize);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyBufferFrameSize,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectGetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      &size,
+                                      framesize);
+}
+
+static OSStatus coreaudio_set_framesize(AudioDeviceID id, UInt32 *framesize)
+{
+    UInt32 size = sizeof(*framesize);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyBufferFrameSize,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectSetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      size,
+                                      framesize);
+}
+
+static OSStatus coreaudio_get_streamformat(AudioDeviceID id,
+                                           AudioStreamBasicDescription *d)
+{
+    UInt32 size = sizeof(*d);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyStreamFormat,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectGetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      &size,
+                                      d);
+}
+
+static OSStatus coreaudio_set_streamformat(AudioDeviceID id,
+                                           AudioStreamBasicDescription *d)
+{
+    UInt32 size = sizeof(*d);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyStreamFormat,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectSetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      size,
+                                      d);
+}
+
+static OSStatus coreaudio_get_isrunning(AudioDeviceID id, UInt32 *result)
+{
+    UInt32 size = sizeof(*result);
+    AudioObjectPropertyAddress addr = {
+        kAudioDevicePropertyDeviceIsRunning,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+
+    return AudioObjectGetPropertyData(id,
+                                      &addr,
+                                      0,
+                                      NULL,
+                                      &size,
+                                      result);
+}
+#else
+/* Legacy versions of functions using deprecated APIs */
+
+static OSStatus coreaudio_get_voice(AudioDeviceID *id)
+{
+    UInt32 size = sizeof(*id);
+
+    return AudioHardwareGetProperty(
+        kAudioHardwarePropertyDefaultOutputDevice,
+        &size,
+        id);
+}
+
+static OSStatus coreaudio_get_framesizerange(AudioDeviceID id,
+                                             AudioValueRange *framerange)
+{
+    UInt32 size = sizeof(*framerange);
+
+    return AudioDeviceGetProperty(
+        id,
+        0,
+        0,
+        kAudioDevicePropertyBufferFrameSizeRange,
+        &size,
+        framerange);
+}
+
+static OSStatus coreaudio_get_framesize(AudioDeviceID id, UInt32 *framesize)
+{
+    UInt32 size = sizeof(*framesize);
+
+    return AudioDeviceGetProperty(
+        id,
+        0,
+        false,
+        kAudioDevicePropertyBufferFrameSize,
+        &size,
+        framesize);
+}
+
+static OSStatus coreaudio_set_framesize(AudioDeviceID id, UInt32 *framesize)
+{
+    UInt32 size = sizeof(*framesize);
+
+    return AudioDeviceSetProperty(
+        id,
+        NULL,
+        0,
+        false,
+        kAudioDevicePropertyBufferFrameSize,
+        size,
+        framesize);
+}
+
+static OSStatus coreaudio_get_streamformat(AudioDeviceID id,
+                                           AudioStreamBasicDescription *d)
+{
+    UInt32 size = sizeof(*d);
+
+    return AudioDeviceGetProperty(
+        id,
+        0,
+        false,
+        kAudioDevicePropertyStreamFormat,
+        &size,
+        d);
+}
+
+static OSStatus coreaudio_set_streamformat(AudioDeviceID id,
+                                           AudioStreamBasicDescription *d)
+{
+    UInt32 size = sizeof(*d);
+
+    return AudioDeviceSetProperty(
+        id,
+        0,
+        0,
+        0,
+        kAudioDevicePropertyStreamFormat,
+        size,
+        d);
+}
+
+static OSStatus coreaudio_get_isrunning(AudioDeviceID id, UInt32 *result)
+{
+    UInt32 size = sizeof(*result);
+
+    return AudioDeviceGetProperty(
+        id,
+        0,
+        0,
+        kAudioDevicePropertyDeviceIsRunning,
+        &size,
+        result);
+}
+#endif
 
 static void coreaudio_logstatus (OSStatus status)
 {
@@ -148,20 +368,12 @@ static inline UInt32 isPlaying (AudioDeviceID outputDeviceID)
 {
     OSStatus status;
     UInt32 result = 0;
-    UInt32 propertySize = sizeof(outputDeviceID);
-    status = AudioDeviceGetProperty(
-        outputDeviceID, 0, 0,
-        kAudioDevicePropertyDeviceIsRunning, &propertySize, &result);
+    status = coreaudio_get_isrunning(outputDeviceID, &result);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr(status,
                          "Could not determine whether Device is playing\n");
     }
     return result;
-}
-
-static void coreaudio_atexit (void)
-{
-    conf.isAtexit = 1;
 }
 
 static int coreaudio_lock (coreaudioVoiceOut *core, const char *fn_name)
@@ -287,14 +499,15 @@ static int coreaudio_write (SWVoiceOut *sw, void *buf, int len)
     return audio_pcm_sw_write (sw, buf, len);
 }
 
-static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
+static int coreaudio_init_out(HWVoiceOut *hw, struct audsettings *as,
+                              void *drv_opaque)
 {
     OSStatus status;
     coreaudioVoiceOut *core = (coreaudioVoiceOut *) hw;
-    UInt32 propertySize;
     int err;
     const char *typ = "playback";
     AudioValueRange frameRange;
+    CoreaudioConf *conf = drv_opaque;
 
     /* create mutex */
     err = pthread_mutex_init(&core->mutex, NULL);
@@ -305,12 +518,7 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
 
     audio_pcm_init_info (&hw->info, as);
 
-    /* open default output device */
-    propertySize = sizeof(core->outputDeviceID);
-    status = AudioHardwareGetProperty(
-        kAudioHardwarePropertyDefaultOutputDevice,
-        &propertySize,
-        &core->outputDeviceID);
+    status = coreaudio_get_voice(&core->outputDeviceID);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ,
                            "Could not get default output Device\n");
@@ -322,42 +530,29 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
     }
 
     /* get minimum and maximum buffer frame sizes */
-    propertySize = sizeof(frameRange);
-    status = AudioDeviceGetProperty(
-        core->outputDeviceID,
-        0,
-        0,
-        kAudioDevicePropertyBufferFrameSizeRange,
-        &propertySize,
-        &frameRange);
+    status = coreaudio_get_framesizerange(core->outputDeviceID,
+                                          &frameRange);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ,
                            "Could not get device buffer frame range\n");
         return -1;
     }
 
-    if (frameRange.mMinimum > conf.buffer_frames) {
+    if (frameRange.mMinimum > conf->buffer_frames) {
         core->audioDevicePropertyBufferFrameSize = (UInt32) frameRange.mMinimum;
         dolog ("warning: Upsizing Buffer Frames to %f\n", frameRange.mMinimum);
     }
-    else if (frameRange.mMaximum < conf.buffer_frames) {
+    else if (frameRange.mMaximum < conf->buffer_frames) {
         core->audioDevicePropertyBufferFrameSize = (UInt32) frameRange.mMaximum;
         dolog ("warning: Downsizing Buffer Frames to %f\n", frameRange.mMaximum);
     }
     else {
-        core->audioDevicePropertyBufferFrameSize = conf.buffer_frames;
+        core->audioDevicePropertyBufferFrameSize = conf->buffer_frames;
     }
 
     /* set Buffer Frame Size */
-    propertySize = sizeof(core->audioDevicePropertyBufferFrameSize);
-    status = AudioDeviceSetProperty(
-        core->outputDeviceID,
-        NULL,
-        0,
-        false,
-        kAudioDevicePropertyBufferFrameSize,
-        propertySize,
-        &core->audioDevicePropertyBufferFrameSize);
+    status = coreaudio_set_framesize(core->outputDeviceID,
+                                     &core->audioDevicePropertyBufferFrameSize);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ,
                            "Could not set device buffer frame size %" PRIu32 "\n",
@@ -366,30 +561,18 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
     }
 
     /* get Buffer Frame Size */
-    propertySize = sizeof(core->audioDevicePropertyBufferFrameSize);
-    status = AudioDeviceGetProperty(
-        core->outputDeviceID,
-        0,
-        false,
-        kAudioDevicePropertyBufferFrameSize,
-        &propertySize,
-        &core->audioDevicePropertyBufferFrameSize);
+    status = coreaudio_get_framesize(core->outputDeviceID,
+                                     &core->audioDevicePropertyBufferFrameSize);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ,
                            "Could not get device buffer frame size\n");
         return -1;
     }
-    hw->samples = conf.nbuffers * core->audioDevicePropertyBufferFrameSize;
+    hw->samples = conf->nbuffers * core->audioDevicePropertyBufferFrameSize;
 
     /* get StreamFormat */
-    propertySize = sizeof(core->outputStreamBasicDescription);
-    status = AudioDeviceGetProperty(
-        core->outputDeviceID,
-        0,
-        false,
-        kAudioDevicePropertyStreamFormat,
-        &propertySize,
-        &core->outputStreamBasicDescription);
+    status = coreaudio_get_streamformat(core->outputDeviceID,
+                                        &core->outputStreamBasicDescription);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ,
                            "Could not get Device Stream properties\n");
@@ -399,15 +582,8 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
 
     /* set Samplerate */
     core->outputStreamBasicDescription.mSampleRate = (Float64) as->freq;
-    propertySize = sizeof(core->outputStreamBasicDescription);
-    status = AudioDeviceSetProperty(
-        core->outputDeviceID,
-        0,
-        0,
-        0,
-        kAudioDevicePropertyStreamFormat,
-        propertySize,
-        &core->outputStreamBasicDescription);
+    status = coreaudio_set_streamformat(core->outputDeviceID,
+                                        &core->outputStreamBasicDescription);
     if (status != kAudioHardwareNoError) {
         coreaudio_logerr2 (status, typ, "Could not set samplerate %d\n",
                            as->freq);
@@ -416,8 +592,12 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
     }
 
     /* set Callback */
-    status = AudioDeviceAddIOProc(core->outputDeviceID, audioDeviceIOProc, hw);
-    if (status != kAudioHardwareNoError) {
+    core->ioprocid = NULL;
+    status = AudioDeviceCreateIOProcID(core->outputDeviceID,
+                                       audioDeviceIOProc,
+                                       hw,
+                                       &core->ioprocid);
+    if (status != kAudioHardwareNoError || core->ioprocid == NULL) {
         coreaudio_logerr2 (status, typ, "Could not set IOProc\n");
         core->outputDeviceID = kAudioDeviceUnknown;
         return -1;
@@ -425,10 +605,10 @@ static int coreaudio_init_out (HWVoiceOut *hw, struct audsettings *as)
 
     /* start Playback */
     if (!isPlaying(core->outputDeviceID)) {
-        status = AudioDeviceStart(core->outputDeviceID, audioDeviceIOProc);
+        status = AudioDeviceStart(core->outputDeviceID, core->ioprocid);
         if (status != kAudioHardwareNoError) {
             coreaudio_logerr2 (status, typ, "Could not start playback\n");
-            AudioDeviceRemoveIOProc(core->outputDeviceID, audioDeviceIOProc);
+            AudioDeviceDestroyIOProcID(core->outputDeviceID, core->ioprocid);
             core->outputDeviceID = kAudioDeviceUnknown;
             return -1;
         }
@@ -443,18 +623,18 @@ static void coreaudio_fini_out (HWVoiceOut *hw)
     int err;
     coreaudioVoiceOut *core = (coreaudioVoiceOut *) hw;
 
-    if (!conf.isAtexit) {
+    if (!audio_is_cleaning_up()) {
         /* stop playback */
         if (isPlaying(core->outputDeviceID)) {
-            status = AudioDeviceStop(core->outputDeviceID, audioDeviceIOProc);
+            status = AudioDeviceStop(core->outputDeviceID, core->ioprocid);
             if (status != kAudioHardwareNoError) {
                 coreaudio_logerr (status, "Could not stop playback\n");
             }
         }
 
         /* remove callback */
-        status = AudioDeviceRemoveIOProc(core->outputDeviceID,
-                                         audioDeviceIOProc);
+        status = AudioDeviceDestroyIOProcID(core->outputDeviceID,
+                                            core->ioprocid);
         if (status != kAudioHardwareNoError) {
             coreaudio_logerr (status, "Could not remove IOProc\n");
         }
@@ -477,7 +657,7 @@ static int coreaudio_ctl_out (HWVoiceOut *hw, int cmd, ...)
     case VOICE_ENABLE:
         /* start playback */
         if (!isPlaying(core->outputDeviceID)) {
-            status = AudioDeviceStart(core->outputDeviceID, audioDeviceIOProc);
+            status = AudioDeviceStart(core->outputDeviceID, core->ioprocid);
             if (status != kAudioHardwareNoError) {
                 coreaudio_logerr (status, "Could not resume playback\n");
             }
@@ -486,9 +666,10 @@ static int coreaudio_ctl_out (HWVoiceOut *hw, int cmd, ...)
 
     case VOICE_DISABLE:
         /* stop playback */
-        if (!conf.isAtexit) {
+        if (!audio_is_cleaning_up()) {
             if (isPlaying(core->outputDeviceID)) {
-                status = AudioDeviceStop(core->outputDeviceID, audioDeviceIOProc);
+                status = AudioDeviceStop(core->outputDeviceID,
+                                         core->ioprocid);
                 if (status != kAudioHardwareNoError) {
                     coreaudio_logerr (status, "Could not pause playback\n");
                 }
@@ -499,28 +680,35 @@ static int coreaudio_ctl_out (HWVoiceOut *hw, int cmd, ...)
     return 0;
 }
 
+static CoreaudioConf glob_conf = {
+    .buffer_frames = 512,
+    .nbuffers = 4,
+};
+
 static void *coreaudio_audio_init (void)
 {
-    atexit(coreaudio_atexit);
-    return &coreaudio_audio_init;
+    CoreaudioConf *conf = g_malloc(sizeof(CoreaudioConf));
+    *conf = glob_conf;
+
+    return conf;
 }
 
 static void coreaudio_audio_fini (void *opaque)
 {
-    (void) opaque;
+    g_free(opaque);
 }
 
 static struct audio_option coreaudio_options[] = {
     {
         .name  = "BUFFER_SIZE",
         .tag   = AUD_OPT_INT,
-        .valp  = &conf.buffer_frames,
+        .valp  = &glob_conf.buffer_frames,
         .descr = "Size of the buffer in frames"
     },
     {
         .name  = "BUFFER_COUNT",
         .tag   = AUD_OPT_INT,
-        .valp  = &conf.nbuffers,
+        .valp  = &glob_conf.nbuffers,
         .descr = "Number of buffers"
     },
     { /* End of list */ }

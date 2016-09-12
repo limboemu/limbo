@@ -66,9 +66,13 @@ USB_FFS_FILES = \
 
 VIO_FFS_FILES = \
 	$(SLOFBRDDIR)/pci-device_1af4_1000.fs \
+	$(SLOFBRDDIR)/pci-device_1af4_1041.fs \
 	$(SLOFBRDDIR)/pci-device_1af4_1001.fs \
+	$(SLOFBRDDIR)/pci-device_1af4_1042.fs \
 	$(SLOFBRDDIR)/pci-device_1af4_1004.fs \
+	$(SLOFBRDDIR)/pci-device_1af4_1048.fs \
 	$(SLOFBRDDIR)/pci-device_1af4_1009.fs \
+	$(SLOFBRDDIR)/pci-device_1af4_1050.fs \
 	$(SLOFBRDDIR)/vio-hvterm.fs \
 	$(SLOFBRDDIR)/vio-vscsi.fs \
 	$(SLOFBRDDIR)/vio-veth.fs \
@@ -103,6 +107,7 @@ OF_FFS_FILES = \
 	$(SLOFBRDDIR)/pci-device_1013_00b8.fs \
 	$(SLOFBRDDIR)/pci-device_8086_100e.fs \
 	$(SLOFBRDDIR)/e1k.fs \
+	$(SLOFBRDDIR)/qemu-vga.fs \
 	$(FCODE_FFS_FILES)
 
 # Uncomment the following line to enable the USB code:

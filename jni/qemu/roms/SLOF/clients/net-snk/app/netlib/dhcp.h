@@ -43,6 +43,7 @@ struct btphdr {
 	uint8_t vend[64];    /**< Optional parameters field (DHCP-options)     */
 };
 
+void dhcpv4_generate_transaction_id(void);
 int bootp(char *ret_buffer, filename_ip_t *, unsigned int);
 int dhcpv4(char *ret_buffer, filename_ip_t *);
 void dhcp_send_release(int fd);

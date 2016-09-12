@@ -5,6 +5,7 @@
 /config-target.*
 /config.status
 /config-temp
+/trace-events-all
 /trace/generated-tracers.h
 /trace/generated-tracers.c
 /trace/generated-tracers-dtrace.h
@@ -17,12 +18,15 @@
 /trace/generated-tcg-tracers.h
 /trace/generated-ust-provider.h
 /trace/generated-ust.c
-/libcacard/trace/generated-tracers.c
+/ui/shader/texture-blit-frag.h
+/ui/shader/texture-blit-vert.h
 *-timestamp
 /*-softmmu
 /*-darwin-user
 /*-linux-user
 /*-bsd-user
+/ivshmem-client
+/ivshmem-server
 /libdis*
 /libuser
 /linux-headers/asm
@@ -32,6 +36,7 @@
 /qapi-visit.[ch]
 /qapi-event.[ch]
 /qmp-commands.h
+/qmp-introspect.[ch]
 /qmp-marshal.c
 /qemu-doc.html
 /qemu-tech.html
@@ -47,6 +52,7 @@
 /qemu-ga
 /qemu-bridge-helper
 /qemu-monitor.texi
+/qemu-monitor-info.texi
 /qmp-commands.txt
 /vscclient
 /fsdev/virtfs-proxy-helper
@@ -56,6 +62,7 @@
 *.cp
 *.dvi
 *.exe
+*.msi
 *.dll
 *.so
 *.mo
@@ -88,6 +95,10 @@
 /pc-bios/optionrom/linuxboot.bin
 /pc-bios/optionrom/linuxboot.raw
 /pc-bios/optionrom/linuxboot.img
+/pc-bios/optionrom/linuxboot_dma.asm
+/pc-bios/optionrom/linuxboot_dma.bin
+/pc-bios/optionrom/linuxboot_dma.raw
+/pc-bios/optionrom/linuxboot_dma.img
 /pc-bios/optionrom/multiboot.asm
 /pc-bios/optionrom/multiboot.bin
 /pc-bios/optionrom/multiboot.raw
@@ -102,4 +113,5 @@
 cscope.*
 tags
 TAGS
+docker-src.*
 *~

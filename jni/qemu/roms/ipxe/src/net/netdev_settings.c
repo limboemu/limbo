@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <errno.h>
@@ -59,6 +63,11 @@ const struct setting busid_setting __setting ( SETTING_NETDEV, busid ) = {
 const struct setting chip_setting __setting ( SETTING_NETDEV, chip ) = {
 	.name = "chip",
 	.description = "Chip",
+	.type = &setting_type_string,
+};
+const struct setting ifname_setting __setting ( SETTING_NETDEV, ifname ) = {
+	.name = "ifname",
+	.description = "Interface name",
 	.type = &setting_type_string,
 };
 
@@ -121,6 +130,10 @@ static int netdev_fetch_bustype ( struct net_device *netdev, void *data,
 		[BUS_TYPE_MCA] = "MCA",
 		[BUS_TYPE_ISA] = "ISA",
 		[BUS_TYPE_TAP] = "TAP",
+		[BUS_TYPE_EFI] = "EFI",
+		[BUS_TYPE_XEN] = "XEN",
+		[BUS_TYPE_HV] = "HV",
+		[BUS_TYPE_USB] = "USB",
 	};
 	struct device_description *desc = &netdev->dev->desc;
 	const char *bustype;
@@ -128,7 +141,8 @@ static int netdev_fetch_bustype ( struct net_device *netdev, void *data,
 	assert ( desc->bus_type < ( sizeof ( bustypes ) /
 				    sizeof ( bustypes[0] ) ) );
 	bustype = bustypes[desc->bus_type];
-	assert ( bustype != NULL );
+	if ( ! bustype )
+		return -ENOENT;
 	strncpy ( data, bustype, len );
 	return strlen ( bustype );
 }
@@ -191,6 +205,22 @@ static int netdev_fetch_chip ( struct net_device *netdev, void *data,
 	return strlen ( chip );
 }
 
+/**
+ * Fetch ifname setting
+ *
+ * @v netdev		Network device
+ * @v data		Buffer to fill with setting data
+ * @v len		Length of buffer
+ * @ret len		Length of setting data, or negative error
+ */
+static int netdev_fetch_ifname ( struct net_device *netdev, void *data,
+				 size_t len ) {
+	const char *ifname = netdev->name;
+
+	strncpy ( data, ifname, len );
+	return strlen ( ifname );
+}
+
 /** A network device setting operation */
 struct netdev_setting_operation {
 	/** Setting */
@@ -221,6 +251,7 @@ static struct netdev_setting_operation netdev_setting_operations[] = {
 	{ &busloc_setting, NULL, netdev_fetch_busloc },
 	{ &busid_setting, NULL, netdev_fetch_busid },
 	{ &chip_setting, NULL, netdev_fetch_chip },
+	{ &ifname_setting, NULL, netdev_fetch_ifname },
 };
 
 /**

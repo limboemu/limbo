@@ -55,6 +55,10 @@ do {
     printf "  %-16s %s\n", "Signature:", $pci->{signature};
     printf "  %-16s 0x%04x\n", "Vendor ID:", $pci->{vendor_id};
     printf "  %-16s 0x%04x\n", "Device ID:", $pci->{device_id};
+    if ( $pci->{device_list} ) {
+      printf "  %-16s %s\n", "Device list:",
+	     ( join ( ", ", map { sprintf "0x%04x", $_ } $pci->device_list ) );
+    }
     printf "  %-16s 0x%02x%02x%02x\n", "Device class:",
 	   $pci->{base_class}, $pci->{sub_class}, $pci->{prog_intf};
     printf "  %-16s 0x%04x (%d)\n", "Image length:",

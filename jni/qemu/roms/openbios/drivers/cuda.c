@@ -144,8 +144,22 @@ static int cuda_adb_req (void *host, const uint8_t *snd_buf, int len,
  //   CUDA_DPRINTF("len: %d %02x\n", len, snd_buf[0]);
     len = cuda_request(host, ADB_PACKET, snd_buf, len, buffer);
     if (len > 1 && buffer[0] == ADB_PACKET) {
-        pos = buffer + 2;
-        len -= 2;
+        /* We handle 2 types of ADB packet here:
+               Normal: <type> <status> <data> ...
+               Error : <type> <status> <cmd> (<data> ...)
+           Ideally we should use buffer[1] (status) to determine whether this
+           is a normal or error packet but this requires a corresponding fix
+           in QEMU <= 2.4. Hence we temporarily handle it this way to ease
+           the transition. */
+        if (len > 2 && buffer[2] == snd_buf[0]) {
+            /* Error */
+            pos = buffer + 3;
+            len -= 3;
+        } else {
+            /* Normal */
+            pos = buffer + 2;
+            len -= 2;
+        }
     } else {
         pos = buffer + 1;
         len = -1;
@@ -380,7 +394,8 @@ powermgt_init(char *path)
 
 	ph = find_dev(buf);
 	set_property(ph, "device_type", "power-mgt", 10);
-	set_property(ph, "compatible", "power-mgt", 10);
+	set_property(ph, "mgt-kind", "min-consumption-pwm-led", strlen("min-consumption-pwm-led") + 1);
+	set_property(ph, "compatible", "cuda", strlen("cuda") + 1);
 }
 
 cuda_t *cuda_init (const char *path, phys_addr_t base)

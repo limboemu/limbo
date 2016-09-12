@@ -11,7 +11,7 @@
  *****************************************************************************/
 
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ALGORITHMS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+/******************************* ALGORITHMS ******************************/
 
 /** \file netbase.c <pre>
  * *********************** Receive-handle diagram *************************
@@ -36,12 +36,12 @@
  *  | APPLICATION        +----------------+-----------+
  *  V                    |                            |
  * upper               DNS (handle_dns)      BootP / DHCP (handle_bootp_client)
- * 
+ *
  * ************************************************************************
  * </pre> */
 
 
-/*>>>>>>>>>>>>>>>>>>>>>>> DEFINITIONS & DECLARATIONS <<<<<<<<<<<<<<<<<<<<*/
+/************************ DEFINITIONS & DECLARATIONS *********************/
 
 #include <ethernet.h>
 #include <string.h>
@@ -50,22 +50,22 @@
 #include <ipv6.h>
 
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> LOCAL VARIABLES <<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** LOCAL VARIABLES **************************/
 
 static uint8_t ether_packet[ETH_MTU_SIZE];
 static uint8_t own_mac[6] = {0, 0, 0, 0, 0, 0};
 static uint8_t multicast_mac[] = {0x01, 0x00, 0x5E};
 static const uint8_t broadcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> IMPLEMENTATION <<<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** IMPLEMENTATION ***************************/
 
 /**
  * Ethernet: Set the own MAC address to initializes ethernet layer.
  *
  * @param  own_mac  own hardware-address (MAC)
  */
-void
-set_mac_address(const uint8_t * _own_mac) {
+void set_mac_address(const uint8_t * _own_mac)
+{
 	if (_own_mac)
 		memcpy(own_mac, _own_mac, 6);
 	else
@@ -77,19 +77,19 @@ set_mac_address(const uint8_t * _own_mac) {
  *
  * @return  own hardware-address (MAC)
  */
-const uint8_t *
-get_mac_address(void) {
+const uint8_t *get_mac_address(void)
+{
 	return own_mac;
 }
 
 /**
  * Ethernet: Check if given multicast address is a multicast MAC address
- *           starting with 0x3333 
+ *           starting with 0x3333
  *
- * @return  true or false 
+ * @return  true or false
  */
-static uint8_t
-is_multicast_mac(uint8_t * mac) {
+static uint8_t is_multicast_mac(uint8_t * mac)
+{
 
     	uint16_t mc = 0x3333;
     	if (memcmp(mac, &mc, 2) == 0)
@@ -97,7 +97,6 @@ is_multicast_mac(uint8_t * mac) {
 
 	return 0;
 }
-
 
 /**
  * Ethernet: Receives an ethernet-packet and handles it according to
@@ -107,8 +106,8 @@ is_multicast_mac(uint8_t * mac) {
  * @return  ZERO - packet was handled or no packets received;
  *          NON ZERO - error condition occurs.
  */
-int32_t
-receive_ether(int fd) {
+int32_t receive_ether(int fd)
+{
 	int32_t bytes_received;
 	struct ethhdr * ethh;
 
@@ -118,7 +117,10 @@ receive_ether(int fd) {
 	if (!bytes_received) // No messages
 		return 0;
 
-	if (bytes_received < sizeof(struct ethhdr))
+	if (bytes_received < 0)
+		return -1; /* recv() failed */
+
+	if ((size_t) bytes_received < sizeof(struct ethhdr))
 		return -1; // packet is too small
 
 	ethh = (struct ethhdr *) ether_packet;
@@ -176,9 +178,9 @@ send_ether(int fd, void* buffer, int len)
  * @see                fill_dnshdr
  * @see                fill_btphdr
  */
-void
-fill_ethhdr(uint8_t * packet, uint16_t eth_type,
-            const uint8_t * src_mac, const uint8_t * dest_mac) {
+void fill_ethhdr(uint8_t * packet, uint16_t eth_type,
+		 const uint8_t * src_mac, const uint8_t * dest_mac)
+{
 	struct ethhdr * ethh = (struct ethhdr *) packet;
 
 	ethh -> type = htons(eth_type);

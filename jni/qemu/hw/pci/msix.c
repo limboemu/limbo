@@ -14,10 +14,12 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/pci/msi.h"
 #include "hw/pci/msix.h"
 #include "hw/pci/pci.h"
+#include "hw/xen/xen.h"
 #include "qemu/range.h"
 
 #define MSIX_CAP_LENGTH 12
@@ -70,15 +72,22 @@ void msix_set_pending(PCIDevice *dev, unsigned int vector)
     *msix_pending_byte(dev, vector) |= msix_pending_mask(vector);
 }
 
-static void msix_clr_pending(PCIDevice *dev, int vector)
+void msix_clr_pending(PCIDevice *dev, int vector)
 {
     *msix_pending_byte(dev, vector) &= ~msix_pending_mask(vector);
 }
 
 static bool msix_vector_masked(PCIDevice *dev, unsigned int vector, bool fmask)
 {
-    unsigned offset = vector * PCI_MSIX_ENTRY_SIZE + PCI_MSIX_ENTRY_VECTOR_CTRL;
-    return fmask || dev->msix_table[offset] & PCI_MSIX_ENTRY_CTRL_MASKBIT;
+    unsigned offset = vector * PCI_MSIX_ENTRY_SIZE;
+    uint8_t *data = &dev->msix_table[offset + PCI_MSIX_ENTRY_DATA];
+    /* MSIs on Xen can be remapped into pirqs. In those cases, masking
+     * and unmasking go through the PV evtchn path. */
+    if (xen_enabled() && xen_is_pirq_msi(pci_get_long(data))) {
+        return false;
+    }
+    return fmask || dev->msix_table[offset + PCI_MSIX_ENTRY_VECTOR_CTRL] &
+        PCI_MSIX_ENTRY_CTRL_MASKBIT;
 }
 
 bool msix_is_masked(PCIDevice *dev, unsigned int vector)
@@ -200,8 +209,14 @@ static uint64_t msix_pba_mmio_read(void *opaque, hwaddr addr,
     return pci_get_long(dev->msix_pba + addr);
 }
 
+static void msix_pba_mmio_write(void *opaque, hwaddr addr,
+                                uint64_t val, unsigned size)
+{
+}
+
 static const MemoryRegionOps msix_pba_mmio_ops = {
     .read = msix_pba_mmio_read,
+    .write = msix_pba_mmio_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .valid = {
         .min_access_size = 4,
@@ -234,7 +249,7 @@ int msix_init(struct PCIDevice *dev, unsigned short nentries,
     uint8_t *config;
 
     /* Nothing to do if MSI is not supported by interrupt controller */
-    if (!msi_supported) {
+    if (!msi_nonbroken) {
         return -ENOTSUP;
     }
 
@@ -295,29 +310,35 @@ int msix_init_exclusive_bar(PCIDevice *dev, unsigned short nentries,
 {
     int ret;
     char *name;
+    uint32_t bar_size = 4096;
+    uint32_t bar_pba_offset = bar_size / 2;
+    uint32_t bar_pba_size = (nentries / 8 + 1) * 8;
 
     /*
      * Migration compatibility dictates that this remains a 4k
      * BAR with the vector table in the lower half and PBA in
-     * the upper half.  Do not use these elsewhere!
+     * the upper half for nentries which is lower or equal to 128.
+     * No need to care about using more than 65 entries for legacy
+     * machine types who has at most 64 queues.
      */
-#define MSIX_EXCLUSIVE_BAR_SIZE 4096
-#define MSIX_EXCLUSIVE_BAR_TABLE_OFFSET 0
-#define MSIX_EXCLUSIVE_BAR_PBA_OFFSET (MSIX_EXCLUSIVE_BAR_SIZE / 2)
-#define MSIX_EXCLUSIVE_CAP_OFFSET 0
-
-    if (nentries * PCI_MSIX_ENTRY_SIZE > MSIX_EXCLUSIVE_BAR_PBA_OFFSET) {
-        return -EINVAL;
+    if (nentries * PCI_MSIX_ENTRY_SIZE > bar_pba_offset) {
+        bar_pba_offset = nentries * PCI_MSIX_ENTRY_SIZE;
     }
 
+    if (bar_pba_offset + bar_pba_size > 4096) {
+        bar_size = bar_pba_offset + bar_pba_size;
+    }
+
+    bar_size = pow2ceil(bar_size);
+
     name = g_strdup_printf("%s-msix", dev->name);
-    memory_region_init(&dev->msix_exclusive_bar, OBJECT(dev), name, MSIX_EXCLUSIVE_BAR_SIZE);
+    memory_region_init(&dev->msix_exclusive_bar, OBJECT(dev), name, bar_size);
     g_free(name);
 
     ret = msix_init(dev, nentries, &dev->msix_exclusive_bar, bar_nr,
-                    MSIX_EXCLUSIVE_BAR_TABLE_OFFSET, &dev->msix_exclusive_bar,
-                    bar_nr, MSIX_EXCLUSIVE_BAR_PBA_OFFSET,
-                    MSIX_EXCLUSIVE_CAP_OFFSET);
+                    0, &dev->msix_exclusive_bar,
+                    bar_nr, bar_pba_offset,
+                    0);
     if (ret) {
         return ret;
     }
@@ -435,7 +456,7 @@ void msix_notify(PCIDevice *dev, unsigned vector)
 
     msg = msix_get_message(dev, vector);
 
-    stl_le_phys(&dev->bus_master_as, msg.address, msg.data);
+    msi_send_message(dev, msg);
 }
 
 void msix_reset(PCIDevice *dev)

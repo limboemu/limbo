@@ -5,8 +5,8 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#ifndef TARGET_SIGNAL_H
-#define TARGET_SIGNAL_H
+#ifndef UNICORE32_TARGET_SIGNAL_H
+#define UNICORE32_TARGET_SIGNAL_H
 
 /* this struct defines a stack used during syscall handling */
 typedef struct target_sigaltstack {
@@ -21,6 +21,10 @@ typedef struct target_sigaltstack {
 #define TARGET_SS_ONSTACK               1
 #define TARGET_SS_DISABLE               2
 
-#define get_sp_from_cpustate(cpustate)  (cpustate->regs[29])
+static inline abi_ulong get_sp_from_cpustate(CPUUniCore32State *state)
+{
+    return state->regs[29];
+}
 
-#endif /* TARGET_SIGNAL_H */
+
+#endif /* UNICORE32_TARGET_SIGNAL_H */

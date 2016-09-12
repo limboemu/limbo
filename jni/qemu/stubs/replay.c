@@ -1,0 +1,69 @@
+#include "qemu/osdep.h"
+#include "sysemu/replay.h"
+#include "sysemu/sysemu.h"
+
+ReplayMode replay_mode;
+
+int64_t replay_save_clock(unsigned int kind, int64_t clock)
+{
+    abort();
+    return 0;
+}
+
+int64_t replay_read_clock(unsigned int kind)
+{
+    abort();
+    return 0;
+}
+
+bool replay_checkpoint(ReplayCheckpoint checkpoint)
+{
+    return true;
+}
+
+bool replay_events_enabled(void)
+{
+    return false;
+}
+
+void replay_finish(void)
+{
+}
+
+void replay_register_char_driver(CharDriverState *chr)
+{
+}
+
+void replay_chr_be_write(CharDriverState *s, uint8_t *buf, int len)
+{
+    abort();
+}
+
+void replay_char_write_event_save(int res, int offset)
+{
+    abort();
+}
+
+void replay_char_write_event_load(int *res, int *offset)
+{
+    abort();
+}
+
+int replay_char_read_all_load(uint8_t *buf)
+{
+    abort();
+}
+
+void replay_char_read_all_save_error(int res)
+{
+    abort();
+}
+
+void replay_char_read_all_save_buf(uint8_t *buf, int offset)
+{
+    abort();
+}
+
+void replay_block_event(QEMUBH *bh, uint64_t id)
+{
+}

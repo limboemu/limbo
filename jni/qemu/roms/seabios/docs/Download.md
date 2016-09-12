@@ -9,8 +9,10 @@ The SeaBIOS project uses the [git](http://git-scm.com/) revision
 control system. To download the latest source from revision control,
 run:
 
-`$ git clone git://git.seabios.org/seabios.git seabios`\
-`$ cd seabios`
+```
+$ git clone git://git.seabios.org/seabios.git seabios
+$ cd seabios
+```
 
 There's also a [website](http://git.seabios.org/) to browse the latest
 source code online.

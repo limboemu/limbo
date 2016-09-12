@@ -47,12 +47,10 @@ enum {
 };
 
 /* Interrupt vectors */
-extern void gdbmach_nocode_sigfpe ( void );
-extern void gdbmach_nocode_sigtrap ( void );
-extern void gdbmach_nocode_sigstkflt ( void );
-extern void gdbmach_nocode_sigill ( void );
-extern void gdbmach_withcode_sigbus ( void );
-extern void gdbmach_withcode_sigsegv ( void );
+extern void gdbmach_sigfpe ( void );
+extern void gdbmach_sigtrap ( void );
+extern void gdbmach_sigstkflt ( void );
+extern void gdbmach_sigill ( void );
 
 static inline void gdbmach_set_pc ( gdbreg_t *regs, gdbreg_t pc ) {
 	regs [ GDBMACH_EIP ] = pc;

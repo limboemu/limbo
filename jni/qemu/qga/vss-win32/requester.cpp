@@ -10,12 +10,11 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <stdio.h>
+#include "qemu/osdep.h"
 #include "vss-common.h"
 #include "requester.h"
-#include "assert.h"
-#include "inc/win2003/vswriter.h"
-#include "inc/win2003/vsbackup.h"
+#include <inc/win2003/vswriter.h>
+#include <inc/win2003/vsbackup.h>
 
 /* Max wait time for frozen event (VSS can only hold writes for 10 seconds) */
 #define VSS_TIMEOUT_FREEZE_MSEC 10000
@@ -23,10 +22,12 @@
 /* Call QueryStatus every 10 ms while waiting for frozen event */
 #define VSS_TIMEOUT_EVENT_MSEC 10
 
-#define err_set(e, err, fmt, ...) \
-    ((e)->error_set((e)->errp, err, (e)->err_class, fmt, ## __VA_ARGS__))
+#define err_set(e, err, fmt, ...)                                           \
+    ((e)->error_setg_win32_wrapper((e)->errp, __FILE__, __LINE__, __func__, \
+                                   err, fmt, ## __VA_ARGS__))
+/* Bad idea, works only when (e)->errp != NULL: */
 #define err_is_set(e) ((e)->errp && *(e)->errp)
-
+/* To lift this restriction, error_propagate(), like we do in QEMU code */
 
 /* Handle to VSSAPI.DLL */
 static HMODULE hLib;

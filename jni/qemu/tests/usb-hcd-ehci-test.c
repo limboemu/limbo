@@ -7,12 +7,9 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
-#include <stdio.h>
+#include "qemu/osdep.h"
 #include "libqtest.h"
 #include "libqos/pci-pc.h"
-#include "qemu/osdep.h"
 #include "hw/usb/uhci-regs.h"
 #include "hw/usb/ehci-regs.h"
 #include "libqos/usb.h"

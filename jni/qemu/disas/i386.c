@@ -31,8 +31,10 @@
    and the small letter tells about the operand size.  Refer to
    the Intel manual for details.  */
 
-#include <stdlib.h>
+#include "qemu/osdep.h"
 #include "disas/bfd.h"
+#include "qemu/cutils.h"
+
 /* include/opcode/i386.h r1.78 */
 
 /* opcode/i386.h -- Intel 80386 opcode macros
@@ -152,8 +154,6 @@
 
 /* opcodes/i386-dis.c r1.126 */
 #include "qemu-common.h"
-
-#include <setjmp.h>
 
 static int fetch_data2(struct disassemble_info *, bfd_byte *);
 static int fetch_data(struct disassemble_info *, bfd_byte *);
@@ -357,7 +357,7 @@ fetch_data(struct disassemble_info *info, bfd_byte *addr)
 #define Rd { OP_R, d_mode }
 #define Rm { OP_R, m_mode }
 #define Ib { OP_I, b_mode }
-#define sIb { OP_sI, b_mode }	/* sign extened byte */
+#define sIb { OP_sI, b_mode }	/* sign extended byte */
 #define Iv { OP_I, v_mode }
 #define Iq { OP_I, q_mode }
 #define Iv64 { OP_I64, v_mode }
@@ -3406,7 +3406,7 @@ static const struct dis386 three_byte_table[][256] = {
   }
 };
 
-#define INTERNAL_DISASSEMBLER_ERROR _("<internal disassembler error>")
+#define INTERNAL_DISASSEMBLER_ERROR "<internal disassembler error>"
 
 static void
 ckprefix (void)

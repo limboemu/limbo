@@ -10,13 +10,11 @@
 #ifndef DMA_H
 #define DMA_H
 
-#include <stdio.h>
 #include "exec/memory.h"
 #include "exec/address-spaces.h"
 #include "hw/hw.h"
 #include "block/block.h"
 #include "block/accounting.h"
-#include "sysemu/kvm.h"
 
 typedef struct ScatterGatherEntry ScatterGatherEntry;
 
@@ -68,9 +66,7 @@ static inline void dma_barrier(AddressSpace *as, DMADirection dir)
      * use lighter barriers based on the direction of the
      * transfer, the DMA context, etc...
      */
-    if (kvm_enabled()) {
-        smp_mb();
-    }
+    smp_mb();
 }
 
 /* Checks that the given range of addresses is valid for DMA.  This is
@@ -88,7 +84,8 @@ static inline int dma_memory_rw_relaxed(AddressSpace *as, dma_addr_t addr,
                                         void *buf, dma_addr_t len,
                                         DMADirection dir)
 {
-    return address_space_rw(as, addr, buf, len, dir == DMA_DIRECTION_FROM_DEVICE);
+    return (bool)address_space_rw(as, addr, MEMTXATTRS_UNSPECIFIED,
+                                  buf, len, dir == DMA_DIRECTION_FROM_DEVICE);
 }
 
 static inline int dma_memory_read_relaxed(AddressSpace *as, dma_addr_t addr,
@@ -197,19 +194,19 @@ void qemu_sglist_add(QEMUSGList *qsg, dma_addr_t base, dma_addr_t len);
 void qemu_sglist_destroy(QEMUSGList *qsg);
 #endif
 
-typedef BlockAIOCB *DMAIOFunc(BlockBackend *blk, int64_t sector_num,
-                              QEMUIOVector *iov, int nb_sectors,
-                              BlockCompletionFunc *cb, void *opaque);
+typedef BlockAIOCB *DMAIOFunc(int64_t offset, QEMUIOVector *iov,
+                              BlockCompletionFunc *cb, void *cb_opaque,
+                              void *opaque);
 
-BlockAIOCB *dma_blk_io(BlockBackend *blk,
-                       QEMUSGList *sg, uint64_t sector_num,
-                       DMAIOFunc *io_func, BlockCompletionFunc *cb,
-                       void *opaque, DMADirection dir);
+BlockAIOCB *dma_blk_io(AioContext *ctx,
+                       QEMUSGList *sg, uint64_t offset,
+                       DMAIOFunc *io_func, void *io_func_opaque,
+                       BlockCompletionFunc *cb, void *opaque, DMADirection dir);
 BlockAIOCB *dma_blk_read(BlockBackend *blk,
-                         QEMUSGList *sg, uint64_t sector,
+                         QEMUSGList *sg, uint64_t offset,
                          BlockCompletionFunc *cb, void *opaque);
 BlockAIOCB *dma_blk_write(BlockBackend *blk,
-                          QEMUSGList *sg, uint64_t sector,
+                          QEMUSGList *sg, uint64_t offset,
                           BlockCompletionFunc *cb, void *opaque);
 uint64_t dma_buf_read(uint8_t *ptr, int32_t len, QEMUSGList *sg);
 uint64_t dma_buf_write(uint8_t *ptr, int32_t len, QEMUSGList *sg);

@@ -1,5 +1,6 @@
 #ifndef HW_NVME_H
 #define HW_NVME_H
+#include "qemu/cutils.h"
 
 typedef struct NvmeBar {
     uint64_t    cap;
@@ -638,6 +639,7 @@ typedef struct NvmeRequest {
     struct NvmeSQueue       *sq;
     BlockAIOCB              *aiocb;
     uint16_t                status;
+    bool                    has_sg;
     NvmeCqe                 cqe;
     BlockAcctCookie         acct;
     QEMUSGList              qsg;

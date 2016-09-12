@@ -16,11 +16,14 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
+#include "qemu-common.h"
 #include "qemu/iov.h"
 #include "qemu/sockets.h"
+#include "qemu/cutils.h"
 
-size_t iov_from_buf(const struct iovec *iov, unsigned int iov_cnt,
-                    size_t offset, const void *buf, size_t bytes)
+size_t iov_from_buf_full(const struct iovec *iov, unsigned int iov_cnt,
+                         size_t offset, const void *buf, size_t bytes)
 {
     size_t done;
     unsigned int i;
@@ -38,8 +41,8 @@ size_t iov_from_buf(const struct iovec *iov, unsigned int iov_cnt,
     return done;
 }
 
-size_t iov_to_buf(const struct iovec *iov, const unsigned int iov_cnt,
-                  size_t offset, void *buf, size_t bytes)
+size_t iov_to_buf_full(const struct iovec *iov, const unsigned int iov_cnt,
+                       size_t offset, void *buf, size_t bytes)
 {
     size_t done;
     unsigned int i;
@@ -133,7 +136,7 @@ do_send_recv(int sockfd, struct iovec *iov, unsigned iov_cnt, bool do_send)
 #endif
 }
 
-ssize_t iov_send_recv(int sockfd, struct iovec *iov, unsigned iov_cnt,
+ssize_t iov_send_recv(int sockfd, const struct iovec *_iov, unsigned iov_cnt,
                       size_t offset, size_t bytes,
                       bool do_send)
 {
@@ -141,6 +144,16 @@ ssize_t iov_send_recv(int sockfd, struct iovec *iov, unsigned iov_cnt,
     ssize_t ret;
     size_t orig_len, tail;
     unsigned niov;
+    struct iovec *local_iov, *iov;
+
+    if (bytes <= 0) {
+        return 0;
+    }
+
+    local_iov = g_new0(struct iovec, iov_cnt);
+    iov_copy(local_iov, iov_cnt, _iov, iov_cnt, offset, bytes);
+    offset = 0;
+    iov = local_iov;
 
     while (bytes > 0) {
         /* Find the start position, skipping `offset' bytes:
@@ -187,6 +200,7 @@ ssize_t iov_send_recv(int sockfd, struct iovec *iov, unsigned iov_cnt,
 
         if (ret < 0) {
             assert(errno != EINTR);
+            g_free(local_iov);
             if (errno == EAGAIN && total > 0) {
                 return total;
             }
@@ -205,6 +219,7 @@ ssize_t iov_send_recv(int sockfd, struct iovec *iov, unsigned iov_cnt,
         bytes -= ret;
     }
 
+    g_free(local_iov);
     return total;
 }
 
@@ -232,7 +247,8 @@ unsigned iov_copy(struct iovec *dst_iov, unsigned int dst_iov_cnt,
 {
     size_t len;
     unsigned int i, j;
-    for (i = 0, j = 0; i < iov_cnt && j < dst_iov_cnt && bytes; i++) {
+    for (i = 0, j = 0;
+         i < iov_cnt && j < dst_iov_cnt && (offset || bytes); i++) {
         if (offset >= iov[i].iov_len) {
             offset -= iov[i].iov_len;
             continue;

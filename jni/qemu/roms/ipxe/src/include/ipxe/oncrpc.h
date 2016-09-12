@@ -11,7 +11,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** ONC RCP Version */
 #define ONCRPC_VERS 2

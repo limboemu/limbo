@@ -37,6 +37,7 @@ my $known_licences = {
     desc => "GPL version 2 (or, at your option, any later version)",
     can_subsume => {
       gpl_any => 1,
+      gpl2_or_later_or_ubdl => 1,
       public_domain => 1,
       bsd3 => 1,
       bsd2 => 1,
@@ -49,11 +50,23 @@ my $known_licences = {
     can_subsume => {
       gpl_any => 1,
       gpl2_or_later => 1,
+      gpl2_or_later_or_ubdl => 1,
       public_domain => 1,
       bsd3 => 1,
       bsd2 => 1,
       mit  => 1,
       isc  => 1,
+    },
+  },
+  gpl2_or_later_or_ubdl => {
+    desc => ( "GPL version 2 (or, at your option, any later version) or ".
+	      "Unmodified Binary Distribution Licence" ),
+    can_subsume => {
+      public_domain => 1,
+      bsd3 => 1,
+      bsd2 => 1,
+      mit => 1,
+      isc => 1,
     },
   },
   public_domain => {

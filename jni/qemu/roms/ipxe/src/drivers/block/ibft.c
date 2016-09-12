@@ -260,6 +260,7 @@ static int ibft_fill_nic ( struct ibft_nic *nic,
 	ibft_set_ipaddr_setting ( NULL, &nic->dns[0], &dns_setting,
 				  ( sizeof ( nic->dns ) /
 				    sizeof ( nic->dns[0] ) ) );
+	ibft_set_ipaddr_setting ( parent, &nic->dhcp, &dhcp_server_setting, 1 );
 	DBG ( "iBFT NIC DNS = %s", ibft_ipaddr ( &nic->dns[0] ) );
 	DBG ( ", %s\n", ibft_ipaddr ( &nic->dns[1] ) );
 	if ( ( rc = ibft_set_string_setting ( NULL, strings, &nic->hostname,

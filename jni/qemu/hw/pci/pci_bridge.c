@@ -29,6 +29,7 @@
  *                    VA Linux Systems Japan K.K.
  */
 
+#include "qemu/osdep.h"
 #include "hw/pci/pci_bridge.h"
 #include "hw/pci/pci_bus.h"
 #include "qemu/range.h"
@@ -115,7 +116,7 @@ pcibus_t pci_bridge_get_base(const PCIDevice *bridge, uint8_t type)
     return base;
 }
 
-/* accessor funciton to get bridge filtering limit */
+/* accessor function to get bridge filtering limit */
 pcibus_t pci_bridge_get_limit(const PCIDevice *bridge, uint8_t type)
 {
     pcibus_t limit;
@@ -332,7 +333,7 @@ void pci_bridge_reset(DeviceState *qdev)
 }
 
 /* default qdev initialization function for PCI-to-PCI bridge */
-int pci_bridge_initfn(PCIDevice *dev, const char *typename)
+void pci_bridge_initfn(PCIDevice *dev, const char *typename)
 {
     PCIBus *parent = dev->bus;
     PCIBridge *br = PCI_BRIDGE(dev);
@@ -378,7 +379,6 @@ int pci_bridge_initfn(PCIDevice *dev, const char *typename)
     br->windows = pci_bridge_region_init(br);
     QLIST_INIT(&sec_bus->child);
     QLIST_INSERT_HEAD(&parent->child, sec_bus, sibling);
-    return 0;
 }
 
 /* default qdev clean up function for PCI-to-PCI bridge */

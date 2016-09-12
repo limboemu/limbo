@@ -20,8 +20,8 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef HW_TIMER_A9_GTIMER_H_H
-#define HW_TIMER_A9_GTIMER_H_H
+#ifndef A9GTIMER_H
+#define A9GTIMER_H
 
 #include "hw/sysbus.h"
 
@@ -37,7 +37,7 @@
 #define R_CONTROL_TIMER_ENABLE      (1 << 0)
 #define R_CONTROL_COMP_ENABLE       (1 << 1)
 #define R_CONTROL_IRQ_ENABLE        (1 << 2)
-#define R_CONTROL_AUTO_INCREMENT    (1 << 2)
+#define R_CONTROL_AUTO_INCREMENT    (1 << 3)
 #define R_CONTROL_PRESCALER_SHIFT   8
 #define R_CONTROL_PRESCALER_LEN     8
 #define R_CONTROL_PRESCALER_MASK    (((1 << R_CONTROL_PRESCALER_LEN) - 1) << \
@@ -94,4 +94,4 @@ typedef struct A9GTimerUpdate {
     uint64_t new;
 } A9GTimerUpdate;
 
-#endif /* #ifdef HW_TIMER_A9_GTIMER_H_H */
+#endif /* A9GTIMER_H */

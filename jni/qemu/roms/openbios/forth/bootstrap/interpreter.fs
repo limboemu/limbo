@@ -163,9 +163,11 @@ defer outer-interpreter
 : evaluate ( str len -- ?? )
   2dup + -rot
   over + over do 
-    i c@ 0a = if 
+    i c@ dup 0a = swap 0d = or if
       i over - 
+      rot >r
       (evaluate)
+      r>
       i 1+ 
     then 
   loop 

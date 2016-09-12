@@ -15,7 +15,7 @@ HOSTCFLAGS+= -Wstrict-aliasing -Wwrite-strings -Wmissing-prototypes -Wnested-ext
 HOSTCFLAGS+= -W
 # Flags for dependency generation
 HOSTCFLAGS+= -MMD -MP -MT $@ -MF '$(*D)/$(*F).d'
-HOSTINCLUDES := -I$(SRCDIR)/include -I$(SRCDIR)/kernel -I$(SRCDIR)/kernel/include -I$(ODIR)/target/include
+HOSTINCLUDES := -I$(SRCDIR)/include -I$(SRCDIR)/kernel -I$(SRCDIR)/kernel/include -iquote $(ODIR)/target/include
 
 CC     := $(TARGET)gcc
 AS     := $(TARGET)as

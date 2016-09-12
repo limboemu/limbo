@@ -9,7 +9,7 @@
 
 extern unsigned long va_shift; // Set in entry.S
 // Defined in ldscript
-extern char _start, _data, _stack, _estack, _end, _iomem;
+extern char _start, _data, _stack, _estack, _fcstack, _efcstack, _end, _iomem;
 
 // XXX check use and merge
 #define phys_to_virt(phys) ((void *) ((unsigned long) (phys)))

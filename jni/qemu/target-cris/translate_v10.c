@@ -18,6 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "crisv10-decode.h"
 
 static const char *regnames_v10[] =
@@ -58,7 +59,7 @@ static inline int dec10_size(unsigned int size)
 
 static inline void cris_illegal_insn(DisasContext *dc)
 {
-    qemu_log("illegal insn at pc=%x\n", dc->pc);
+    qemu_log_mask(LOG_GUEST_ERROR, "illegal insn at pc=%x\n", dc->pc);
     t_gen_raise_exception(EXCP_BREAK);
 }
 
@@ -96,7 +97,7 @@ static void gen_store_v10_conditional(DisasContext *dc, TCGv addr, TCGv val,
 static void gen_store_v10(DisasContext *dc, TCGv addr, TCGv val,
                        unsigned int size)
 {
-    int mem_index = cpu_mmu_index(&dc->cpu->env);
+    int mem_index = cpu_mmu_index(&dc->cpu->env, false);
 
     /* If we get a fault on a delayslot we must keep the jmp state in
        the cpu-state to be able to re-execute the jmp.  */
@@ -129,7 +130,7 @@ static void cris_set_prefix(DisasContext *dc)
     dc->tb_flags |= PFIX_FLAG;
     tcg_gen_ori_tl(cpu_PR[PR_CCS], cpu_PR[PR_CCS], PFIX_FLAG);
 
-    /* prefix insns dont clear the x flag.  */
+    /* prefix insns don't clear the x flag.  */
     dc->clear_x = 0;
     cris_lock_irq(dc);
 }
@@ -535,16 +536,8 @@ static void dec10_reg_scc(DisasContext *dc)
 
     LOG_DIS("s%s $r%u\n", cc_name(cond), dc->src);
 
-    if (cond != CC_A)
-    {
-        TCGLabel *l1 = gen_new_label();
-        gen_tst_cc (dc, cpu_R[dc->src], cond);
-        tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_R[dc->src], 0, l1);
-        tcg_gen_movi_tl(cpu_R[dc->src], 1);
-        gen_set_label(l1);
-    } else {
-        tcg_gen_movi_tl(cpu_R[dc->src], 1);
-    }
+    gen_tst_cc(dc, cpu_R[dc->src], cond);
+    tcg_gen_setcondi_tl(TCG_COND_NE, cpu_R[dc->src], cpu_R[dc->src], 0);
 
     cris_cc_mask(dc, 0);
 }
@@ -1207,9 +1200,6 @@ static unsigned int crisv10_decoder(CPUCRISState *env, DisasContext *dc)
 {
     unsigned int insn_len = 2;
 
-    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP)))
-        tcg_gen_debug_insn_start(dc->pc);
-
     /* Load a halfword onto the instruction register.  */
     dc->ir = cpu_lduw_code(env, dc->pc);
 
@@ -1257,45 +1247,46 @@ static unsigned int crisv10_decoder(CPUCRISState *env, DisasContext *dc)
 
 void cris_initialize_crisv10_tcg(void)
 {
-	int i;
+    int i;
 
-	cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
-	cc_x = tcg_global_mem_new(TCG_AREG0,
-				  offsetof(CPUCRISState, cc_x), "cc_x");
-	cc_src = tcg_global_mem_new(TCG_AREG0,
-				    offsetof(CPUCRISState, cc_src), "cc_src");
-	cc_dest = tcg_global_mem_new(TCG_AREG0,
-				     offsetof(CPUCRISState, cc_dest),
-				     "cc_dest");
-	cc_result = tcg_global_mem_new(TCG_AREG0,
-				       offsetof(CPUCRISState, cc_result),
-				       "cc_result");
-	cc_op = tcg_global_mem_new(TCG_AREG0,
-				   offsetof(CPUCRISState, cc_op), "cc_op");
-	cc_size = tcg_global_mem_new(TCG_AREG0,
-				     offsetof(CPUCRISState, cc_size),
-				     "cc_size");
-	cc_mask = tcg_global_mem_new(TCG_AREG0,
-				     offsetof(CPUCRISState, cc_mask),
-				     "cc_mask");
+    cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
+    tcg_ctx.tcg_env = cpu_env;
+    cc_x = tcg_global_mem_new(cpu_env,
+                              offsetof(CPUCRISState, cc_x), "cc_x");
+    cc_src = tcg_global_mem_new(cpu_env,
+                                offsetof(CPUCRISState, cc_src), "cc_src");
+    cc_dest = tcg_global_mem_new(cpu_env,
+                                 offsetof(CPUCRISState, cc_dest),
+                                 "cc_dest");
+    cc_result = tcg_global_mem_new(cpu_env,
+                                   offsetof(CPUCRISState, cc_result),
+                                   "cc_result");
+    cc_op = tcg_global_mem_new(cpu_env,
+                               offsetof(CPUCRISState, cc_op), "cc_op");
+    cc_size = tcg_global_mem_new(cpu_env,
+                                 offsetof(CPUCRISState, cc_size),
+                                 "cc_size");
+    cc_mask = tcg_global_mem_new(cpu_env,
+                                 offsetof(CPUCRISState, cc_mask),
+                                 "cc_mask");
 
-	env_pc = tcg_global_mem_new(TCG_AREG0, 
-				    offsetof(CPUCRISState, pc),
-				    "pc");
-	env_btarget = tcg_global_mem_new(TCG_AREG0,
-					 offsetof(CPUCRISState, btarget),
-					 "btarget");
-	env_btaken = tcg_global_mem_new(TCG_AREG0,
-					 offsetof(CPUCRISState, btaken),
-					 "btaken");
-	for (i = 0; i < 16; i++) {
-		cpu_R[i] = tcg_global_mem_new(TCG_AREG0,
-					      offsetof(CPUCRISState, regs[i]),
-					      regnames_v10[i]);
-	}
-	for (i = 0; i < 16; i++) {
-		cpu_PR[i] = tcg_global_mem_new(TCG_AREG0,
-					       offsetof(CPUCRISState, pregs[i]),
-					       pregnames_v10[i]);
-	}
+    env_pc = tcg_global_mem_new(cpu_env,
+                                offsetof(CPUCRISState, pc),
+                                "pc");
+    env_btarget = tcg_global_mem_new(cpu_env,
+                                     offsetof(CPUCRISState, btarget),
+                                     "btarget");
+    env_btaken = tcg_global_mem_new(cpu_env,
+                                    offsetof(CPUCRISState, btaken),
+                                    "btaken");
+    for (i = 0; i < 16; i++) {
+        cpu_R[i] = tcg_global_mem_new(cpu_env,
+                                      offsetof(CPUCRISState, regs[i]),
+                                      regnames_v10[i]);
+    }
+    for (i = 0; i < 16; i++) {
+        cpu_PR[i] = tcg_global_mem_new(cpu_env,
+                                       offsetof(CPUCRISState, pregs[i]),
+                                       pregnames_v10[i]);
+    }
 }

@@ -43,8 +43,8 @@ SECTIONS {
 
 	.got :
 	{
-	  . = ALIGN(8);
-	  _got = .;
+	  . = ALIGN(256);
+	  _got = DEFINED (.TOC.) ? .TOC. : ADDR (.got) + 0x8000;
           *(.got .toc)
 	  _got_end = .;
 	}  	

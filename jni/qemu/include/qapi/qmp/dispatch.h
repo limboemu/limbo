@@ -11,19 +11,13 @@
  *
  */
 
-#ifndef QMP_CORE_H
-#define QMP_CORE_H
+#ifndef QAPI_QMP_DISPATCH_H
+#define QAPI_QMP_DISPATCH_H
 
 #include "qapi/qmp/qobject.h"
 #include "qapi/qmp/qdict.h"
-#include "qapi/error.h"
 
 typedef void (QmpCommandFunc)(QDict *, QObject **, Error **);
-
-typedef enum QmpCommandType
-{
-    QCT_NORMAL,
-} QmpCommandType;
 
 typedef enum QmpCommandOptions
 {
@@ -34,7 +28,6 @@ typedef enum QmpCommandOptions
 typedef struct QmpCommand
 {
     const char *name;
-    QmpCommandType type;
     QmpCommandFunc *fn;
     QmpCommandOptions options;
     QTAILQ_ENTRY(QmpCommand) node;
@@ -55,4 +48,3 @@ typedef void (*qmp_cmd_callback_fn)(QmpCommand *cmd, void *opaque);
 void qmp_for_each_command(qmp_cmd_callback_fn fn, void *opaque);
 
 #endif
-

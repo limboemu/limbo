@@ -17,9 +17,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -194,7 +198,6 @@ static int realtek_init_eeprom ( struct net_device *netdev ) {
 		DBGC ( rtl, "REALTEK %p EEPROM is a 93C46\n", rtl );
 		init_at93c46 ( &rtl->eeprom, 16 );
 	}
-	rtl->eeprom.bus = &rtl->spibit.bus;
 
 	/* Check for EEPROM presence.  Some onboard NICs will have no
 	 * EEPROM connected, with the BIOS being responsible for
@@ -1085,6 +1088,7 @@ static void realtek_detect ( struct realtek_nic *rtl ) {
 			       rtl );
 			rtl->legacy = 1;
 		}
+		rtl->eeprom.bus = &rtl->spibit.bus;
 	}
 }
 
@@ -1132,7 +1136,8 @@ static int realtek_probe ( struct pci_device *pci ) {
 	realtek_detect ( rtl );
 
 	/* Initialise EEPROM */
-	if ( ( rc = realtek_init_eeprom ( netdev ) ) == 0 ) {
+	if ( rtl->eeprom.bus &&
+	     ( ( rc = realtek_init_eeprom ( netdev ) ) == 0 ) ) {
 
 		/* Read MAC address from EEPROM */
 		if ( ( rc = nvs_read ( &rtl->eeprom.nvs, RTL_EEPROM_MAC,

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdlib.h>
 #include <errno.h>
@@ -29,7 +33,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/uaccess.h>
 #include <ipxe/umalloc.h>
 #include <ipxe/image.h>
-#include <ipxe/profile.h>
+#include <ipxe/xferbuf.h>
 #include <ipxe/downloader.h>
 
 /** @file
@@ -37,14 +41,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
  * Image downloader
  *
  */
-
-/** Receive profiler */
-static struct profiler downloader_rx_profiler __profiler =
-	{ .name = "downloader.rx" };
-
-/** Data copy profiler */
-static struct profiler downloader_copy_profiler __profiler =
-	{ .name = "downloader.copy" };
 
 /** A downloader */
 struct downloader {
@@ -58,8 +54,8 @@ struct downloader {
 
 	/** Image to contain downloaded file */
 	struct image *image;
-	/** Current position within image buffer */
-	size_t pos;
+	/** Data transfer buffer */
+	struct xfer_buffer buffer;
 };
 
 /**
@@ -92,40 +88,12 @@ static void downloader_finished ( struct downloader *downloader, int rc ) {
 			 downloader->image->name, strerror ( rc ) );
 	}
 
+	/* Update image length */
+	downloader->image->len = downloader->buffer.len;
+
 	/* Shut down interfaces */
 	intf_shutdown ( &downloader->xfer, rc );
 	intf_shutdown ( &downloader->job, rc );
-}
-
-/**
- * Ensure that download buffer is large enough for the specified size
- *
- * @v downloader	Downloader
- * @v len		Required minimum size
- * @ret rc		Return status code
- */
-static int downloader_ensure_size ( struct downloader *downloader,
-				    size_t len ) {
-	userptr_t new_buffer;
-
-	/* If buffer is already large enough, do nothing */
-	if ( len <= downloader->image->len )
-		return 0;
-
-	DBGC ( downloader, "Downloader %p extending to %zd bytes\n",
-	       downloader, len );
-
-	/* Extend buffer */
-	new_buffer = urealloc ( downloader->image->data, len );
-	if ( ! new_buffer ) {
-		DBGC ( downloader, "Downloader %p could not extend buffer to "
-		       "%zd bytes\n", downloader, len );
-		return -ENOSPC;
-	}
-	downloader->image->data = new_buffer;
-	downloader->image->len = len;
-
-	return 0;
 }
 
 /****************************************************************************
@@ -148,8 +116,8 @@ static int downloader_progress ( struct downloader *downloader,
 	 * arrive out of order (e.g. with multicast protocols), but
 	 * it's a reasonable first approximation.
 	 */
-	progress->completed = downloader->pos;
-	progress->total = downloader->image->len;
+	progress->completed = downloader->buffer.pos;
+	progress->total = downloader->buffer.len;
 
 	return 0;
 }
@@ -168,47 +136,75 @@ static int downloader_progress ( struct downloader *downloader,
  * @v meta		Data transfer metadata
  * @ret rc		Return status code
  */
-static int downloader_xfer_deliver ( struct downloader *downloader,
-				     struct io_buffer *iobuf,
-				     struct xfer_metadata *meta ) {
-	size_t len;
-	size_t max;
+static int downloader_deliver ( struct downloader *downloader,
+				struct io_buffer *iobuf,
+				struct xfer_metadata *meta ) {
 	int rc;
 
-	/* Start profiling */
-	profile_start ( &downloader_rx_profiler );
+	/* Add data to buffer */
+	if ( ( rc = xferbuf_deliver ( &downloader->buffer, iob_disown ( iobuf ),
+				      meta ) ) != 0 )
+		goto err_deliver;
 
-	/* Calculate new buffer position */
-	if ( meta->flags & XFER_FL_ABS_OFFSET )
-		downloader->pos = 0;
-	downloader->pos += meta->offset;
+	return 0;
 
-	/* Ensure that we have enough buffer space for this data */
-	len = iob_len ( iobuf );
-	max = ( downloader->pos + len );
-	if ( ( rc = downloader_ensure_size ( downloader, max ) ) != 0 )
-		goto done;
-
-	/* Copy data to buffer */
-	profile_start ( &downloader_copy_profiler );
-	copy_to_user ( downloader->image->data, downloader->pos,
-		       iobuf->data, len );
-	profile_stop ( &downloader_copy_profiler );
-
-	/* Update current buffer position */
-	downloader->pos += len;
-
- done:
-	free_iob ( iobuf );
-	if ( rc != 0 )
-		downloader_finished ( downloader, rc );
-	profile_stop ( &downloader_rx_profiler );
+ err_deliver:
+	downloader_finished ( downloader, rc );
 	return rc;
+}
+
+/**
+ * Get underlying data transfer buffer
+ *
+ * @v downloader	Downloader
+ * @ret xferbuf		Data transfer buffer, or NULL on error
+ */
+static struct xfer_buffer *
+downloader_buffer ( struct downloader *downloader ) {
+
+	/* Provide direct access to underlying data transfer buffer */
+	return &downloader->buffer;
+}
+
+/**
+ * Redirect data transfer interface
+ *
+ * @v downloader	Downloader
+ * @v type		New location type
+ * @v args		Remaining arguments depend upon location type
+ * @ret rc		Return status code
+ */
+static int downloader_vredirect ( struct downloader *downloader, int type,
+				  va_list args ) {
+	va_list tmp;
+	struct uri *uri;
+	int rc;
+
+	/* Intercept redirects to a LOCATION_URI and update the image URI */
+	if ( type == LOCATION_URI ) {
+
+		/* Extract URI argument */
+		va_copy ( tmp, args );
+		uri = va_arg ( tmp, struct uri * );
+		va_end ( tmp );
+
+		/* Set image URI */
+		if ( ( rc = image_set_uri ( downloader->image, uri ) ) != 0 )
+			return rc;
+	}
+
+	/* Redirect to new location */
+	if ( ( rc = xfer_vreopen ( &downloader->xfer, type, args ) ) != 0 )
+		return rc;
+
+	return 0;
 }
 
 /** Downloader data transfer interface operations */
 static struct interface_operation downloader_xfer_operations[] = {
-	INTF_OP ( xfer_deliver, struct downloader *, downloader_xfer_deliver ),
+	INTF_OP ( xfer_deliver, struct downloader *, downloader_deliver ),
+	INTF_OP ( xfer_buffer, struct downloader *, downloader_buffer ),
+	INTF_OP ( xfer_vredirect, struct downloader *, downloader_vredirect ),
 	INTF_OP ( intf_close, struct downloader *, downloader_finished ),
 };
 
@@ -262,6 +258,7 @@ int create_downloader ( struct interface *job, struct image *image ) {
 	intf_init ( &downloader->xfer, &downloader_xfer_desc,
 		    &downloader->refcnt );
 	downloader->image = image_get ( image );
+	xferbuf_umalloc_init ( &downloader->buffer, &image->data );
 
 	/* Instantiate child objects and attach to our interfaces */
 	if ( ( rc = xfer_open_uri ( &downloader->xfer, image->uri ) ) != 0 )

@@ -11,17 +11,6 @@
  *****************************************************************************/
 #include <nvram.h>
 
-#define STRING_INIT(str)	\
-	char str[255];		\
-	char * str##_address;	\
-	int  str##_length;
-
-#define STRING_FROM_STACK(str)				\
-	str##_length = TOS.u; POP;				\
-	str##_address = TOS.a; POP;			\
-	memcpy(str, str##_address, str##_length);	\
-	memset(str + str##_length, 0, 255 - str##_length);
-
 PRIM(nvram_X2d_c_X40)
 	unsigned int offset = TOS.u;
 	TOS.u=nvram_read_byte(offset);
@@ -80,21 +69,18 @@ MIRP
 
 /* get-named-nvram-partition ( name.addr name.len -- addr len FAILED? ) */
 PRIM(get_X2d_named_X2d_nvram_X2d_partition)
-	STRING_INIT(name)
 	partition_t partition;
+	int namelen = TOS.n; POP;
 
-	STRING_FROM_STACK(name)
-	partition = get_partition(-1, name);
+	partition = get_partition_fs(TOS.a, namelen);
 
 	if(partition.len && partition.len != -1) {
-		PUSH;
 		TOS.u = partition.addr;
 		PUSH;
 		TOS.u = partition.len;
 		PUSH;
 		TOS.u = 0; // FALSE
 	} else {
-		PUSH;
 		TOS.u = -1; // TRUE
 	}
 MIRP
@@ -103,23 +89,16 @@ MIRP
 
 /* new-nvram-partition ( type name.addr name.len len -- part.offs part.len FALSE | TRUE) */
 PRIM(new_X2d_nvram_X2d_partition)
-	int type, len, i, slen;
-	char name[12], *addr;
+	int type, len, namelen;
 	partition_t partition;
+	char *name;
 
 	len = TOS.u; POP;
-	slen = TOS.u; POP;
-	addr = (char *)TOS.u; POP;
+	namelen = TOS.u; POP;
+	name = (char *)TOS.u; POP;
 	type = TOS.u; POP;
 
-	for (i=0; i<12; i++) {
-		if(slen>i)
-			name[i]=addr[i];
-		else
-			name[i]=0;
-	}
-
-	partition=new_nvram_partition(type, name, len);
+	partition = new_nvram_partition_fs(type, name, namelen, len);
 
 	if(!partition.len) {
 		PUSH; TOS.u = -1; // TRUE
@@ -165,15 +144,17 @@ MIRP
 
 // ( part.start part.len name.addr name.len -- var.addr var.len TRUE | false )
 PRIM(internal_X2d_get_X2d_env)
-	STRING_INIT(name)
+	char *name;
+	int namelen;
 	partition_t part;
 	char *val;
 
-	STRING_FROM_STACK(name)
+	namelen = TOS.u; POP;
+	name = TOS.a; POP;
 	part.len = TOS.u; POP;
 	part.addr = TOS.u; POP;
 
-	val=get_env(part, name);
+	val = nvram_get_env(part, name, namelen);
 	if(val) {
 		PUSH; TOS.a = val;
 		PUSH; TOS.u = strlen(val);
@@ -185,17 +166,19 @@ MIRP
 
 // ( part.start part.len name.addr name.len val.addr val.len -- FALSE|TRUE)
 PRIM(internal_X2d_add_X2d_env)
-	STRING_INIT(name)
-	STRING_INIT(value)
+	char *name, *val;
+	int namelen, vallen;
 	partition_t part;
 	int ret;
 
-	STRING_FROM_STACK(value)
-	STRING_FROM_STACK(name)
+	vallen = TOS.u; POP;
+	val = TOS.a; POP;
+	namelen = TOS.u; POP;
+	name = TOS.a; POP;
 	part.len = TOS.u; POP;
 	part.addr = TOS.u; POP;
 
-	ret=add_env(part, name, value);
+	ret = nvram_add_env(part, name, namelen, val, vallen);
 	if(ret) {
 		PUSH; TOS.u = -1; // TRUE
 	} else {
@@ -205,15 +188,17 @@ MIRP
 
 // ( part.addr part.len name.addr name.len -- FALSE|TRUE)
 PRIM(internal_X2d_del_X2d_env)
-	STRING_INIT(name)
+	char *name;
+	int namelen;
 	partition_t part;
 	int ret;
 
-	STRING_FROM_STACK(name);
+	namelen = TOS.u; POP;
+	name = TOS.a; POP;
 	part.len = TOS.u; POP;
 	part.addr = TOS.u; POP;
 
-	ret=del_env(part, name);
+	ret = nvram_del_env(part, name, namelen);
 	if(ret) {
 		PUSH; TOS.u = -1; // TRUE
 	} else {
@@ -224,17 +209,19 @@ MIRP
 
 // internal-set-env ( part.addr part.len name.addr name.len val.addr val.len -- FALSE|TRUE)
 PRIM(internal_X2d_set_X2d_env)
-	STRING_INIT(name)
-	STRING_INIT(value)
+	char *name, *value;
+	int namelen, valuelen;
 	partition_t part;
 	int ret;
 
-	STRING_FROM_STACK(value)
-	STRING_FROM_STACK(name)
+	valuelen = TOS.u; POP;
+	value = TOS.a; POP;
+	namelen = TOS.u; POP;
+	name = TOS.a; POP;
 	part.len = TOS.u; POP;
 	part.addr = TOS.u; POP;
 
-	ret=set_env(part, name, value);
+	ret = nvram_set_env(part, name, namelen, value, valuelen);
 	if(ret) {
 		PUSH; TOS.u = -1; // TRUE
 	} else {

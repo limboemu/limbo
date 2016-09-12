@@ -7,10 +7,8 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
-#include "libqtest.h"
 #include "qemu/osdep.h"
+#include "libqtest.h"
 
 /* Tests only initialization so far. TODO: Replace with functional tests */
 static void console_pci_nop(void)
@@ -29,13 +27,9 @@ static void serialport_pci_nop(void)
 
 int main(int argc, char **argv)
 {
-    int ret;
-
     g_test_init(&argc, &argv, NULL);
     qtest_add_func("/virtio/console/pci/nop", console_pci_nop);
     qtest_add_func("/virtio/serialport/pci/nop", serialport_pci_nop);
 
-    ret = g_test_run();
-
-    return ret;
+    return g_test_run();
 }

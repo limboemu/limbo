@@ -11,7 +11,7 @@
  *
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "net/net.h"
 #include "hw/hw.h"
@@ -159,7 +159,6 @@ static void main_cpu_reset(void *opaque)
 static void bamboo_init(MachineState *machine)
 {
     ram_addr_t ram_size = machine->ram_size;
-    const char *cpu_model = machine->cpu_model;
     const char *kernel_filename = machine->kernel_filename;
     const char *kernel_cmdline = machine->kernel_cmdline;
     const char *initrd_filename = machine->initrd_filename;
@@ -184,10 +183,10 @@ static void bamboo_init(MachineState *machine)
     int i;
 
     /* Setup CPU. */
-    if (cpu_model == NULL) {
-        cpu_model = "440EP";
+    if (machine->cpu_model == NULL) {
+        machine->cpu_model = "440EP";
     }
-    cpu = cpu_ppc_init(cpu_model);
+    cpu = cpu_ppc_init(machine->cpu_model);
     if (cpu == NULL) {
         fprintf(stderr, "Unable to initialize CPU!\n");
         exit(1);
@@ -257,7 +256,8 @@ static void bamboo_init(MachineState *machine)
                               NULL, NULL);
         if (success < 0) {
             success = load_elf(kernel_filename, NULL, NULL, &elf_entry,
-                               &elf_lowaddr, NULL, 1, ELF_MACHINE, 0);
+                               &elf_lowaddr, NULL, 1, PPC_ELF_MACHINE,
+                               0, 0);
             entry = elf_entry;
             loadaddr = elf_lowaddr;
         }
@@ -289,20 +289,12 @@ static void bamboo_init(MachineState *machine)
             exit(1);
         }
     }
-
-    if (kvm_enabled())
-        kvmppc_init();
 }
 
-static QEMUMachine bamboo_machine = {
-    .name = "bamboo",
-    .desc = "bamboo",
-    .init = bamboo_init,
-};
-
-static void bamboo_machine_init(void)
+static void bamboo_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&bamboo_machine);
+    mc->desc = "bamboo";
+    mc->init = bamboo_init;
 }
 
-machine_init(bamboo_machine_init);
+DEFINE_MACHINE("bamboo", bamboo_machine_init)

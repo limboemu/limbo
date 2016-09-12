@@ -2,7 +2,7 @@
 #define __MEGASAS_H
 
 struct disk_op_s;
-int megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int megasas_process_op(struct disk_op_s *op);
 void megasas_setup(void);
 
 #endif /* __MEGASAS_H */

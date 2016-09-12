@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ctype.h>
 #include <ipxe/console.h>
@@ -72,9 +76,14 @@ int getkey ( unsigned long timeout ) {
 	if ( character != ESC )
 		return character;
 
+	character = getchar_timeout ( GETKEY_TIMEOUT );
+	if ( character < 0 )
+		return ESC;
+
+	if ( isalpha ( character ) )
+		return ( toupper ( character ) - 'A' + 1 );
+
 	while ( ( character = getchar_timeout ( GETKEY_TIMEOUT ) ) >= 0 ) {
-		if ( character == '[' )
-			continue;
 		if ( isdigit ( character ) ) {
 			n = ( ( n * 10 ) + ( character - '0' ) );
 			continue;

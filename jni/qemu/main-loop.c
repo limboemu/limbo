@@ -22,7 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include "qemu-common.h"
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu/cutils.h"
 #include "qemu/timer.h"
 #include "qemu/sockets.h"	// struct in_addr needed for libslirp.h
 #include "sysemu/qtest.h"
@@ -82,9 +84,7 @@ static int qemu_signal_init(void)
     sigemptyset(&set);
     sigaddset(&set, SIG_IPI);
     sigaddset(&set, SIGIO);
-#if !defined(__ANDROID__)
     sigaddset(&set, SIGALRM);
-#endif //__ANDROID__
     sigaddset(&set, SIGBUS);
     /* SIGINT cannot be handled via signalfd, so that ^C can be used
      * to interrupt QEMU when it is being run under gdb.  SIGHUP and
@@ -102,8 +102,7 @@ static int qemu_signal_init(void)
 
     fcntl_setfl(sigfd, O_NONBLOCK);
 
-    qemu_set_fd_handler2(sigfd, NULL, sigfd_handler, NULL,
-                         (void *)(intptr_t)sigfd);
+    qemu_set_fd_handler(sigfd, sigfd_handler, NULL, (void *)(intptr_t)sigfd);
 
     return 0;
 }
@@ -117,6 +116,14 @@ static int qemu_signal_init(void)
 #endif
 
 static AioContext *qemu_aio_context;
+static QEMUBH *qemu_notify_bh;
+
+static void notify_event_cb(void *opaque)
+{
+    /* No need to do anything; this bottom half is only used to
+     * kick the kernel out of ppoll/poll/WaitForMultipleObjects.
+     */
+}
 
 AioContext *qemu_get_aio_context(void)
 {
@@ -128,7 +135,7 @@ void qemu_notify_event(void)
     if (!qemu_aio_context) {
         return;
     }
-    aio_notify(qemu_aio_context);
+    qemu_bh_schedule(qemu_notify_bh);
 }
 
 static GArray *gpollfds;
@@ -151,8 +158,12 @@ int qemu_init_main_loop(Error **errp)
         error_propagate(errp, local_error);
         return -EMFILE;
     }
+    qemu_notify_bh = qemu_bh_new(notify_event_cb, NULL);
     gpollfds = g_array_new(FALSE, FALSE, sizeof(GPollFD));
     src = aio_get_g_source(qemu_aio_context);
+    g_source_attach(src, NULL);
+    g_source_unref(src);
+    src = iohandler_get_g_source();
     g_source_attach(src, NULL);
     g_source_unref(src);
     return 0;
@@ -221,7 +232,7 @@ static int os_host_main_loop_wait(int64_t timeout)
     if (!timeout && (spin_counter > MAX_MAIN_LOOP_SPIN)) {
         static bool notified;
 
-        if (!notified && !qtest_enabled()) {
+        if (!notified && !qtest_driver()) {
             fprintf(stderr,
                     "main-loop: WARNING: I/O thread spun for %d iterations\n",
                     MAX_MAIN_LOOP_SPIN);
@@ -481,7 +492,6 @@ int main_loop_wait(int nonblocking)
 #ifdef CONFIG_SLIRP
     slirp_pollfds_fill(gpollfds, &timeout);
 #endif
-    qemu_iohandler_fill(gpollfds);
 
     if (timeout == UINT32_MAX) {
         timeout_ns = -1;
@@ -494,11 +504,13 @@ int main_loop_wait(int nonblocking)
                                           &main_loop_tlg));
 
     ret = os_host_main_loop_wait(timeout_ns);
-    qemu_iohandler_poll(gpollfds, ret);
 #ifdef CONFIG_SLIRP
     slirp_pollfds_poll(gpollfds, (ret < 0));
 #endif
 
+    /* CPU thread can infinitely wait for event after
+       missing the warp */
+    qemu_start_warp_timer();
     qemu_clock_run_all_timers();
 
     return ret;

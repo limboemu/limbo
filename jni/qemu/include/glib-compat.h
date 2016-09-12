@@ -20,20 +20,7 @@
 
 /* GLIB version compatibility flags */
 #if !GLIB_CHECK_VERSION(2, 26, 0)
-#if __LIMBO__
-#ifdef G_TIME_SPAN_SECOND
-#undef G_TIME_SPAN_SECOND
-#endif
-#endif
 #define G_TIME_SPAN_SECOND              (G_GINT64_CONSTANT(1000000))
-#endif
-
-#if !GLIB_CHECK_VERSION(2, 14, 0)
-static inline guint g_timeout_add_seconds(guint interval, GSourceFunc function,
-                                          gpointer data)
-{
-    return g_timeout_add(interval * 1000, function, data);
-}
 #endif
 
 #if !GLIB_CHECK_VERSION(2, 28, 0)
@@ -52,23 +39,6 @@ static inline gint64 qemu_g_get_monotonic_time(void)
 #define g_get_monotonic_time() qemu_g_get_monotonic_time()
 #endif
 
-#if !GLIB_CHECK_VERSION(2, 16, 0)
-static inline int g_strcmp0(const char *str1, const char *str2)
-{
-    int result;
-
-    if (!str1) {
-        result = -(str1 != str2);
-    } else if (!str2) {
-        result = (str1 != str2);
-    } else {
-        result = strcmp(str1, str2);
-    }
-
-    return result;
-}
-#endif
-
 #ifdef _WIN32
 /*
  * g_poll has a problem on Windows when using
@@ -76,17 +46,27 @@ static inline int g_strcmp0(const char *str1, const char *str2)
  */
 #define g_poll(fds, nfds, timeout) g_poll_fixed(fds, nfds, timeout)
 gint g_poll_fixed(GPollFD *fds, guint nfds, gint timeout);
-#elif !GLIB_CHECK_VERSION(2, 20, 0)
-/*
- * Glib before 2.20.0 doesn't implement g_poll, so wrap it to compile properly
- * on older systems.
- */
-static inline gint g_poll(GPollFD *fds, guint nfds, gint timeout)
-{
-    GMainContext *ctx = g_main_context_default();
-    return g_main_context_get_poll_func(ctx)(fds, nfds, timeout);
-}
 #endif
+
+#if !GLIB_CHECK_VERSION(2, 30, 0)
+/* Not a 100% compatible implementation, but good enough for most
+ * cases. Placeholders are only supported at the end of the
+ * template. */
+static inline gchar *qemu_g_dir_make_tmp(gchar const *tmpl, GError **error)
+{
+    gchar *path = g_build_filename(g_get_tmp_dir(), tmpl ?: ".XXXXXX", NULL);
+
+    if (mkdtemp(path) != NULL) {
+        return path;
+    }
+    /* Error occurred, clean up. */
+    g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
+                "mkdtemp() failed");
+    g_free(path);
+    return NULL;
+}
+#define g_dir_make_tmp(tmpl, error) qemu_g_dir_make_tmp(tmpl, error)
+#endif /* glib 2.30 */
 
 #if !GLIB_CHECK_VERSION(2, 31, 0)
 /* before glib-2.31, GMutex and GCond was dynamic-only (there was a separate
@@ -120,7 +100,7 @@ static inline void g_mutex_init(CompatGMutex *mutex)
 
 static inline void g_mutex_clear(CompatGMutex *mutex)
 {
-    assert(mutex->once.status != G_ONCE_STATUS_PROGRESS);
+    g_assert(mutex->once.status != G_ONCE_STATUS_PROGRESS);
     if (mutex->once.retval) {
         g_mutex_free((GMutex *) mutex->once.retval);
     }
@@ -160,7 +140,7 @@ static inline void g_cond_init(CompatGCond *cond)
 
 static inline void g_cond_clear(CompatGCond *cond)
 {
-    assert(cond->once.status != G_ONCE_STATUS_PROGRESS);
+    g_assert(cond->once.status != G_ONCE_STATUS_PROGRESS);
     if (cond->once.retval) {
         g_cond_free((GCond *) cond->once.retval);
     }
@@ -169,7 +149,7 @@ static inline void g_cond_clear(CompatGCond *cond)
 
 static inline void (g_cond_wait)(CompatGCond *cond, CompatGMutex *mutex)
 {
-    assert(mutex->once.status != G_ONCE_STATUS_PROGRESS);
+    g_assert(mutex->once.status != G_ONCE_STATUS_PROGRESS);
     g_once(&cond->once, do_g_cond_new, NULL);
     g_cond_wait((GCond *) cond->once.retval, (GMutex *) mutex->once.retval);
 }
@@ -189,6 +169,32 @@ static inline void (g_cond_signal)(CompatGCond *cond)
 }
 #undef g_cond_signal
 
+static inline gboolean (g_cond_timed_wait)(CompatGCond *cond,
+                                           CompatGMutex *mutex,
+                                           GTimeVal *time)
+{
+    g_assert(mutex->once.status != G_ONCE_STATUS_PROGRESS);
+    g_once(&cond->once, do_g_cond_new, NULL);
+    return g_cond_timed_wait((GCond *) cond->once.retval,
+                             (GMutex *) mutex->once.retval, time);
+}
+#undef g_cond_timed_wait
+
+/* This is not a macro, because it didn't exist until 2.32.  */
+static inline gboolean g_cond_wait_until(CompatGCond *cond, CompatGMutex *mutex,
+                                         gint64 end_time)
+{
+    GTimeVal time;
+
+    /* Convert from monotonic to CLOCK_REALTIME.  */
+    end_time -= g_get_monotonic_time();
+    g_get_current_time(&time);
+    end_time += time.tv_sec * G_TIME_SPAN_SECOND + time.tv_usec;
+
+    time.tv_sec = end_time / G_TIME_SPAN_SECOND;
+    time.tv_usec = end_time % G_TIME_SPAN_SECOND;
+    return g_cond_timed_wait(cond, mutex, &time);
+}
 
 /* before 2.31 there was no g_thread_new() */
 static inline GThread *g_thread_new(const char *name,
@@ -204,5 +210,74 @@ static inline GThread *g_thread_new(const char *name,
 #define CompatGMutex GMutex
 #define CompatGCond GCond
 #endif /* glib 2.31 */
+
+#if !GLIB_CHECK_VERSION(2, 32, 0)
+/* Beware, function returns gboolean since 2.39.2, see GLib commit 9101915 */
+static inline void g_hash_table_add(GHashTable *hash_table, gpointer key)
+{
+    g_hash_table_replace(hash_table, key, key);
+}
+#endif
+
+#ifndef g_assert_true
+#define g_assert_true(expr)                                                    \
+    do {                                                                       \
+        if (G_LIKELY(expr)) {                                                  \
+        } else {                                                               \
+            g_assertion_message(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,   \
+                                "'" #expr "' should be TRUE");                 \
+        }                                                                      \
+    } while (0)
+#endif
+
+#ifndef g_assert_false
+#define g_assert_false(expr)                                                   \
+    do {                                                                       \
+        if (G_LIKELY(!(expr))) {                                               \
+        } else {                                                               \
+            g_assertion_message(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,   \
+                                "'" #expr "' should be FALSE");                \
+        }                                                                      \
+    } while (0)
+#endif
+
+#ifndef g_assert_null
+#define g_assert_null(expr)                                                    \
+    do {                                                                       \
+        if (G_LIKELY((expr) == NULL)) {                                        \
+        } else {                                                               \
+            g_assertion_message(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,   \
+                                "'" #expr "' should be NULL");                 \
+        }                                                                      \
+    } while (0)
+#endif
+
+#ifndef g_assert_nonnull
+#define g_assert_nonnull(expr)                                                 \
+    do {                                                                       \
+        if (G_LIKELY((expr) != NULL)) {                                        \
+        } else {                                                               \
+            g_assertion_message(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,   \
+                                "'" #expr "' should not be NULL");             \
+        }                                                                      \
+    } while (0)
+#endif
+
+#ifndef g_assert_cmpmem
+#define g_assert_cmpmem(m1, l1, m2, l2)                                        \
+    do {                                                                       \
+        gconstpointer __m1 = m1, __m2 = m2;                                    \
+        int __l1 = l1, __l2 = l2;                                              \
+        if (__l1 != __l2) {                                                    \
+            g_assertion_message_cmpnum(                                        \
+                G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,                   \
+                #l1 " (len(" #m1 ")) == " #l2 " (len(" #m2 "))", __l1, "==",   \
+                __l2, 'i');                                                    \
+        } else if (memcmp(__m1, __m2, __l1) != 0) {                            \
+            g_assertion_message(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,   \
+                                "assertion failed (" #m1 " == " #m2 ")");      \
+        }                                                                      \
+    } while (0)
+#endif
 
 #endif

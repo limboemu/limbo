@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <ipxe/interface.h>
@@ -306,4 +310,29 @@ void intf_restart ( struct interface *intf, int rc ) {
 	 * of the link call each other recursively.
 	 */
 	intf->desc = desc;
+}
+
+/**
+ * Poke an object interface
+ *
+ * @v intf		Object interface
+ * @v type		Operation type
+ *
+ * This is a helper function to implement methods which take no
+ * parameters and return nothing.
+ */
+void intf_poke ( struct interface *intf,
+		 void ( type ) ( struct interface *intf ) ) {
+	struct interface *dest;
+	intf_poke_TYPE ( void * ) *op =
+		intf_get_dest_op_untyped ( intf, type, &dest );
+	void *object = intf_object ( dest );
+
+	if ( op ) {
+		op ( object );
+	} else {
+		/* Default is to do nothing */
+	}
+
+	intf_put ( dest );
 }

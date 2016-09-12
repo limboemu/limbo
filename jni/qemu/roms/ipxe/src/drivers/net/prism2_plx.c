@@ -10,8 +10,18 @@ $Id$
 /*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2, or (at
- * your option) any later version.
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
  */
 
 FILE_LICENCE ( GPL2_OR_LATER );
@@ -44,10 +54,10 @@ static int prism2_find_plx ( hfa384x_t *hw, struct pci_device *p )
   
   /* Obtain all memory and IO base addresses */
   pci_read_config_dword( p, PLX_LOCAL_CONFIG_REGISTER_BASE, &plx_lcr);
-  plx_lcr &= PCI_BASE_ADDRESS_IO_MASK;
+  plx_lcr &= ~PCI_BASE_ADDRESS_IO_MASK;
   pci_read_config_dword( p, PRISM2_PLX_ATTR_MEM_BASE, &attr_mem);
   pci_read_config_dword( p, PRISM2_PLX_IO_BASE, &iobase);
-  iobase &= PCI_BASE_ADDRESS_IO_MASK;
+  iobase &= ~PCI_BASE_ADDRESS_IO_MASK;
 
   /* Fill out hw structure */
   hw->iobase = iobase;

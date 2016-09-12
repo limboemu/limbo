@@ -18,7 +18,12 @@ static unsigned long _rand = 1;
 int
 rand(void)
 {
-	_rand = _rand * 25364735 + 34563;
+	_rand = _rand * 1237732973 + 34563;
 
-	return ((unsigned int) (_rand << 16) & RAND_MAX);
+	return ((unsigned int) (_rand >> 16) & RAND_MAX);
+}
+
+void srand(unsigned int seed)
+{
+	_rand = seed;
 }

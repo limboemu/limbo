@@ -1,65 +1,103 @@
 # *-*- Mode: Python -*-*
 
+# This file is a stress test of supported qapi constructs that must
+# parse and compile correctly.
+
+{ 'struct': 'TestStruct',
+  'data': { 'integer': 'int', 'boolean': 'bool', 'string': 'str' } }
+
 # for testing enums
-{ 'enum': 'EnumOne',
-  'data': [ 'value1', 'value2', 'value3' ] }
-{ 'type': 'NestedEnumsOne',
-  'data': { 'enum1': 'EnumOne', '*enum2': 'EnumOne', 'enum3': 'EnumOne', '*enum4': 'EnumOne' } }
+{ 'struct': 'NestedEnumsOne',
+  'data': { 'enum1': 'EnumOne',   # Intentional forward reference
+            '*enum2': 'EnumOne', 'enum3': 'EnumOne', '*enum4': 'EnumOne' } }
+
+# An empty enum, although unusual, is currently acceptable
+{ 'enum': 'MyEnum', 'data': [ ] }
+
+# Likewise for an empty struct, including an empty base
+{ 'struct': 'Empty1', 'data': { } }
+{ 'struct': 'Empty2', 'base': 'Empty1', 'data': { } }
+
+{ 'command': 'user_def_cmd0', 'data': 'Empty2', 'returns': 'Empty2' }
+
+# for testing override of default naming heuristic
+{ 'enum': 'QEnumTwo',
+  'prefix': 'QENUM_TWO',
+  'data': [ 'value1', 'value2' ] }
 
 # for testing nested structs
-{ 'type': 'UserDefZero',
+{ 'struct': 'UserDefOne',
+  'base': 'UserDefZero',        # intentional forward reference
+  'data': { 'string': 'str',
+            '*enum1': 'EnumOne' } }   # intentional forward reference
+
+{ 'enum': 'EnumOne',
+  'data': [ 'value1', 'value2', 'value3' ] }
+
+{ 'struct': 'UserDefZero',
   'data': { 'integer': 'int' } }
 
-{ 'type': 'UserDefOne',
-  'base': 'UserDefZero',
-  'data': { 'string': 'str', '*enum1': 'EnumOne' } }
+{ 'struct': 'UserDefTwoDictDict',
+  'data': { 'userdef': 'UserDefOne', 'string': 'str' } }
 
-{ 'type': 'UserDefTwo',
-  'data': { 'string': 'str',
-            'dict': { 'string': 'str',
-                      'dict': { 'userdef': 'UserDefOne', 'string': 'str' },
-                      '*dict2': { 'userdef': 'UserDefOne', 'string': 'str' } } } }
+{ 'struct': 'UserDefTwoDict',
+  'data': { 'string1': 'str',
+            'dict2': 'UserDefTwoDictDict',
+            '*dict3': 'UserDefTwoDictDict' } }
 
-{ 'type': 'UserDefNested',
+{ 'struct': 'UserDefTwo',
   'data': { 'string0': 'str',
-            'dict1': { 'string1': 'str',
-                       'dict2': { 'userdef1': 'UserDefOne', 'string2': 'str' },
-                       '*dict3': { 'userdef2': 'UserDefOne', 'string3': 'str' } } } }
+            'dict1': 'UserDefTwoDict' } }
+
+# dummy struct to force generation of array types not otherwise mentioned
+{ 'struct': 'ForceArrays',
+  'data': { 'unused1':['UserDefOne'], 'unused2':['UserDefTwo'],
+            'unused3':['TestStruct'] } }
 
 # for testing unions
-{ 'type': 'UserDefA',
-  'data': { 'boolean': 'bool' } }
+# Among other things, test that a name collision between branches does
+# not cause any problems (since only one branch can be in use at a time),
+# by intentionally using two branches that both have a C member 'a_b'
+{ 'struct': 'UserDefA',
+  'data': { 'boolean': 'bool', '*a_b': 'int' } }
 
-{ 'type': 'UserDefB',
-  'data': { 'integer': 'int' } }
-
-{ 'type': 'UserDefC',
-  'data': { 'string1': 'str', 'string2': 'str' } }
-
-{ 'union': 'UserDefUnion',
-  'base': 'UserDefZero',
-  'data': { 'a' : 'UserDefA', 'b' : 'UserDefB' } }
-
-{ 'type': 'UserDefUnionBase',
-  'data': { 'string': 'str', 'enum1': 'EnumOne' } }
+{ 'struct': 'UserDefB',
+  'data': { 'intb': 'int', '*a-b': 'bool' } }
 
 { 'union': 'UserDefFlatUnion',
-  'base': 'UserDefUnionBase',
+  'base': 'UserDefUnionBase',   # intentional forward reference
   'discriminator': 'enum1',
-  'data': { 'value1' : 'UserDefA', 'value2' : 'UserDefB', 'value3' : 'UserDefB' } }
-# FIXME generated struct UserDefFlatUnion has members for direct base
-# UserDefOne, but lacks members for indirect base UserDefZero
+  'data': { 'value1' : 'UserDefA',
+            'value2' : 'UserDefB',
+            'value3' : 'UserDefB' } }
 
-# this variant of UserDefFlatUnion defaults to a union that uses fields with
+{ 'struct': 'UserDefUnionBase',
+  'base': 'UserDefZero',
+  'data': { 'string': 'str', 'enum1': 'EnumOne' } }
+
+# this variant of UserDefFlatUnion defaults to a union that uses members with
 # allocated types to test corner cases in the cleanup/dealloc visitor
 { 'union': 'UserDefFlatUnion2',
-  'base': 'UserDefUnionBase',
+  'base': { '*integer': 'int', 'string': 'str', 'enum1': 'QEnumTwo' },
   'discriminator': 'enum1',
-  'data': { 'value1' : 'UserDefC', 'value2' : 'UserDefB', 'value3' : 'UserDefA' } }
+  'data': { 'value1' : 'UserDefC', # intentional forward reference
+            'value2' : 'UserDefB' } }
 
-{ 'union': 'UserDefAnonUnion',
-  'discriminator': {},
-  'data': { 'uda': 'UserDefA', 's': 'str', 'i': 'int' } }
+{ 'struct': 'WrapAlternate',
+  'data': { 'alt': 'UserDefAlternate' } }
+{ 'alternate': 'UserDefAlternate',
+  'data': { 'udfu': 'UserDefFlatUnion', 's': 'str', 'i': 'int' } }
+
+{ 'struct': 'UserDefC',
+  'data': { 'string1': 'str', 'string2': 'str' } }
+
+# for testing use of 'number' within alternates
+{ 'alternate': 'AltStrBool', 'data': { 's': 'str', 'b': 'bool' } }
+{ 'alternate': 'AltStrNum', 'data': { 's': 'str', 'n': 'number' } }
+{ 'alternate': 'AltNumStr', 'data': { 'n': 'number', 's': 'str' } }
+{ 'alternate': 'AltStrInt', 'data': { 's': 'str', 'i': 'int' } }
+{ 'alternate': 'AltIntNum', 'data': { 'i': 'int', 'n': 'number' } }
+{ 'alternate': 'AltNumInt', 'data': { 'n': 'number', 'i': 'int' } }
 
 # for testing native lists
 { 'union': 'UserDefNativeListUnion',
@@ -74,7 +112,9 @@
             'u64': ['uint64'],
             'number': ['number'],
             'boolean': ['bool'],
-            'string': ['str'] } }
+            'string': ['str'],
+            'sizes': ['size'],
+            'any': ['any'] } }
 
 # testing commands
 { 'command': 'user_def_cmd', 'data': {} }
@@ -82,8 +122,13 @@
 { 'command': 'user_def_cmd2',
   'data': {'ud1a': 'UserDefOne', '*ud1b': 'UserDefOne'},
   'returns': 'UserDefTwo' }
-{ 'command': 'user_def_cmd3', 'data': {'a': 'int', '*b': 'int' },
+
+# Returning a non-dictionary requires a name from the whitelist
+{ 'command': 'guest-get-time', 'data': {'a': 'int', '*b': 'int' },
   'returns': 'int' }
+{ 'command': 'guest-sync', 'data': { 'arg': 'any' }, 'returns': 'any' }
+{ 'command': 'boxed-struct', 'boxed': true, 'data': 'UserDefZero' }
+{ 'command': 'boxed-union', 'data': 'UserDefNativeListUnion', 'boxed': true }
 
 # For testing integer range flattening in opts-visitor. The following schema
 # corresponds to the option format:
@@ -92,7 +137,7 @@
 #
 # For simplicity, this example doesn't use [type=]discriminator nor optargs
 # specific to discriminator values.
-{ 'type': 'UserDefOptions',
+{ 'struct': 'UserDefOptions',
   'data': {
     '*i64' : [ 'int'    ],
     '*u64' : [ 'uint64' ],
@@ -101,7 +146,7 @@
     '*u64x':   'uint64'  } }
 
 # testing event
-{ 'type': 'EventStructOne',
+{ 'struct': 'EventStructOne',
   'data': { 'struct1': 'UserDefOne', 'string': 'str', '*enum2': 'EnumOne' } }
 
 { 'event': 'EVENT_A' }
@@ -111,3 +156,26 @@
   'data': { '*a': 'int', '*b': 'UserDefOne', 'c': 'str' } }
 { 'event': 'EVENT_D',
   'data': { 'a' : 'EventStructOne', 'b' : 'str', '*c': 'str', '*enum3': 'EnumOne' } }
+{ 'event': 'EVENT_E', 'boxed': true, 'data': 'UserDefZero' }
+{ 'event': 'EVENT_F', 'boxed': true, 'data': 'UserDefAlternate' }
+
+# test that we correctly compile downstream extensions, as well as munge
+# ticklish names
+{ 'enum': '__org.qemu_x-Enum', 'data': [ '__org.qemu_x-value' ] }
+{ 'struct': '__org.qemu_x-Base',
+  'data': { '__org.qemu_x-member1': '__org.qemu_x-Enum' } }
+{ 'struct': '__org.qemu_x-Struct', 'base': '__org.qemu_x-Base',
+  'data': { '__org.qemu_x-member2': 'str', '*wchar-t': 'int' } }
+{ 'union': '__org.qemu_x-Union1', 'data': { '__org.qemu_x-branch': 'str' } }
+{ 'struct': '__org.qemu_x-Struct2',
+  'data': { 'array': ['__org.qemu_x-Union1'] } }
+{ 'union': '__org.qemu_x-Union2', 'base': '__org.qemu_x-Base',
+  'discriminator': '__org.qemu_x-member1',
+  'data': { '__org.qemu_x-value': '__org.qemu_x-Struct2' } }
+{ 'alternate': '__org.qemu_x-Alt',
+  'data': { '__org.qemu_x-branch': 'str', 'b': '__org.qemu_x-Base' } }
+{ 'event': '__ORG.QEMU_X-EVENT', 'data': '__org.qemu_x-Struct' }
+{ 'command': '__org.qemu_x-command',
+  'data': { 'a': ['__org.qemu_x-Enum'], 'b': ['__org.qemu_x-Struct'],
+            'c': '__org.qemu_x-Union2', 'd': '__org.qemu_x-Alt' },
+  'returns': '__org.qemu_x-Union1' }

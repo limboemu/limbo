@@ -18,13 +18,14 @@
  * Contributions after 2012-01-13 are licensed under the terms of the
  * GNU GPL, version 2 or (at your option) any later version.
  */
+#include "qemu/osdep.h"
 #include "sysemu/sysemu.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/acpi/acpi.h"
+#include "hw/nvram/fw_cfg.h"
 #include "qemu/config-file.h"
 #include "qapi/opts-visitor.h"
-#include "qapi/dealloc-visitor.h"
 #include "qapi-visit.h"
 #include "qapi-event.h"
 
@@ -66,7 +67,7 @@ static void acpi_register_config(void)
     qemu_add_opts(&qemu_acpi_opts);
 }
 
-machine_init(acpi_register_config);
+opts_init(acpi_register_config);
 
 static int acpi_checksum(const uint8_t *data, int len)
 {
@@ -238,11 +239,11 @@ void acpi_table_add(const QemuOpts *opts, Error **errp)
     char unsigned *blob = NULL;
 
     {
-        OptsVisitor *ov;
+        Visitor *v;
 
-        ov = opts_visitor_new(opts);
-        visit_type_AcpiTableOptions(opts_get_visitor(ov), &hdrs, NULL, &err);
-        opts_visitor_cleanup(ov);
+        v = opts_visitor_new(opts);
+        visit_type_AcpiTableOptions(v, NULL, &hdrs, &err);
+        visit_free(v);
     }
 
     if (err) {
@@ -295,15 +296,7 @@ void acpi_table_add(const QemuOpts *opts, Error **errp)
 out:
     g_free(blob);
     g_strfreev(pathnames);
-
-    if (hdrs != NULL) {
-        QapiDeallocVisitor *dv;
-
-        dv = qapi_dealloc_visitor_new();
-        visit_type_AcpiTableOptions(qapi_dealloc_get_visitor(dv), &hdrs, NULL,
-                                    NULL);
-        qapi_dealloc_visitor_cleanup(dv);
-    }
+    qapi_free_AcpiTableOptions(hdrs);
 
     error_propagate(errp, err);
 }
@@ -348,6 +341,22 @@ uint8_t *acpi_table_next(uint8_t *current)
     }
 }
 
+int acpi_get_slic_oem(AcpiSlicOem *oem)
+{
+    uint8_t *u;
+
+    for (u = acpi_table_first(); u; u = acpi_table_next(u)) {
+        struct acpi_table_header *hdr = (void *)(u - sizeof(hdr->_length));
+
+        if (memcmp(hdr->sig, "SLIC", 4) == 0) {
+            oem->id = hdr->oem_id;
+            oem->table_id = hdr->oem_table_id;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 static void acpi_notify_wakeup(Notifier *notifier, void *data)
 {
     ACPIREGS *ar = container_of(notifier, ACPIREGS, wakeup);
@@ -380,7 +389,7 @@ uint16_t acpi_pm1_evt_get_sts(ACPIREGS *ar)
        acpi_pm_tmr_update function uses ns for setting the timer. */
     int64_t d = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     if (d >= muldiv64(ar->tmr.overflow_time,
-                      get_ticks_per_sec(), PM_TIMER_FREQUENCY)) {
+                      NANOSECONDS_PER_SECOND, PM_TIMER_FREQUENCY)) {
         ar->pm1.evt.sts |= ACPI_BITMASK_TIMER_STATUS;
     }
     return ar->pm1.evt.sts;
@@ -474,12 +483,18 @@ void acpi_pm_tmr_update(ACPIREGS *ar, bool enable)
 
     /* schedule a timer interruption if needed */
     if (enable) {
-        expire_time = muldiv64(ar->tmr.overflow_time, get_ticks_per_sec(),
+        expire_time = muldiv64(ar->tmr.overflow_time, NANOSECONDS_PER_SECOND,
                                PM_TIMER_FREQUENCY);
         timer_mod(ar->tmr.timer, expire_time);
     } else {
         timer_del(ar->tmr.timer);
     }
+}
+
+static inline int64_t acpi_pm_tmr_get_clock(void)
+{
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), PM_TIMER_FREQUENCY,
+                    NANOSECONDS_PER_SECOND);
 }
 
 void acpi_pm_tmr_calc_overflow_time(ACPIREGS *ar)
@@ -592,14 +607,26 @@ static const MemoryRegionOps acpi_pm_cnt_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-void acpi_pm1_cnt_init(ACPIREGS *ar, MemoryRegion *parent, uint8_t s4_val)
+void acpi_pm1_cnt_init(ACPIREGS *ar, MemoryRegion *parent,
+                       bool disable_s3, bool disable_s4, uint8_t s4_val)
 {
+    FWCfgState *fw_cfg;
+
     ar->pm1.cnt.s4_val = s4_val;
     ar->wakeup.notify = acpi_notify_wakeup;
     qemu_register_wakeup_notifier(&ar->wakeup);
     memory_region_init_io(&ar->pm1.cnt.io, memory_region_owner(parent),
                           &acpi_pm_cnt_ops, ar, "acpi-cnt", 2);
     memory_region_add_subregion(parent, 4, &ar->pm1.cnt.io);
+
+    fw_cfg = fw_cfg_find();
+    if (fw_cfg) {
+        uint8_t suspend[6] = {128, 0, 0, 129, 128, 128};
+        suspend[3] = 1 | ((!disable_s3) << 7);
+        suspend[4] = s4_val | ((!disable_s4) << 7);
+
+        fw_cfg_add_file(fw_cfg, "etc/system-states", g_memdup(suspend, 6), 6);
+    }
 }
 
 void acpi_pm1_cnt_reset(ACPIREGS *ar)
@@ -611,8 +638,12 @@ void acpi_pm1_cnt_reset(ACPIREGS *ar)
 void acpi_gpe_init(ACPIREGS *ar, uint8_t len)
 {
     ar->gpe.len = len;
-    ar->gpe.sts = g_malloc0(len / 2);
-    ar->gpe.en = g_malloc0(len / 2);
+    /* Only first len / 2 bytes are ever used,
+     * but the caller in ich9.c migrates full len bytes.
+     * TODO: fix ich9.c and drop the extra allocation.
+     */
+    ar->gpe.sts = g_malloc0(len);
+    ar->gpe.en = g_malloc0(len);
 }
 
 void acpi_gpe_reset(ACPIREGS *ar)
@@ -664,6 +695,13 @@ uint32_t acpi_gpe_ioport_readb(ACPIREGS *ar, uint32_t addr)
     }
 
     return val;
+}
+
+void acpi_send_gpe_event(ACPIREGS *ar, qemu_irq irq,
+                         AcpiEventStatusBits status)
+{
+    ar->gpe.sts[0] |= status;
+    acpi_update_sci(ar, irq);
 }
 
 void acpi_update_sci(ACPIREGS *regs, qemu_irq irq)

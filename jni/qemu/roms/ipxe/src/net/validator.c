@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <stdio.h>
@@ -37,6 +41,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/crc32.h>
 #include <ipxe/ocsp.h>
 #include <ipxe/validator.h>
+#include <config/crypto.h>
 
 /** @file
  *
@@ -79,7 +84,7 @@ static void validator_free ( struct refcnt *refcnt ) {
 	DBGC2 ( validator, "VALIDATOR %p freed\n", validator );
 	x509_chain_put ( validator->chain );
 	ocsp_put ( validator->ocsp );
-	xferbuf_done ( &validator->buffer );
+	xferbuf_free ( &validator->buffer );
 	free ( validator );
 }
 
@@ -129,7 +134,7 @@ const struct setting crosscert_setting __setting ( SETTING_CRYPTO, crosscert )={
 };
 
 /** Default cross-signed certificate source */
-static const char crosscert_default[] = "http://ca.ipxe.org/auto";
+static const char crosscert_default[] = CROSSCERT;
 
 /**
  * Append cross-signing certificates to certificate chain
@@ -250,7 +255,8 @@ static int validator_start_download ( struct validator *validator,
 	/* Generate URI string */
 	len = snprintf ( uri_string, uri_string_len, "%s/%08x.der?subject=",
 			 crosscert, crc );
-	base64_encode ( issuer->data, issuer->len, ( uri_string + len ) );
+	base64_encode ( issuer->data, issuer->len, ( uri_string + len ),
+			( uri_string_len - len ) );
 	DBGC ( validator, "VALIDATOR %p downloading cross-signed certificate "
 	       "from %s\n", validator, uri_string );
 
@@ -387,7 +393,7 @@ static void validator_xfer_close ( struct validator *validator, int rc ) {
 		goto err_append;
 
 	/* Free downloaded data */
-	xferbuf_done ( &validator->buffer );
+	xferbuf_free ( &validator->buffer );
 
 	/* Resume validation process */
 	process_add ( &validator->process );
@@ -552,6 +558,7 @@ int create_validator ( struct interface *job, struct x509_chain *chain ) {
 	process_init ( &validator->process, &validator_process_desc,
 		       &validator->refcnt );
 	validator->chain = x509_chain_get ( chain );
+	xferbuf_malloc_init ( &validator->buffer );
 
 	/* Attach parent interface, mortalise self, and return */
 	intf_plug_plug ( &validator->job, job );

@@ -32,6 +32,7 @@ check=${check-true}
 
 diff="diff -u"
 verbose=false
+debug=false
 group=false
 xgroup=false
 imgopts=false
@@ -40,7 +41,6 @@ sortme=false
 expunge=true
 have_test_arg=false
 randomize=false
-valgrind=false
 cachemode=false
 rm -f $tmp.list $tmp.tmp $tmp.sed
 
@@ -51,6 +51,10 @@ export IMGOPTS=""
 export CACHEMODE="writeback"
 export QEMU_IO_OPTIONS=""
 export CACHEMODE_IS_DEFAULT=true
+export QEMU_OPTIONS="-nodefaults"
+export VALGRIND_QEMU=
+export IMGKEYSECRET=
+export IMGOPTSSYNTAX=false
 
 for r
 do
@@ -132,6 +136,7 @@ s/ .*//p
 
 common options
     -v                  verbose
+    -d                  debug
 
 check options
     -raw                test raw (default)
@@ -152,6 +157,7 @@ check options
     -ssh                test ssh
     -nfs                test nfs
     -archipelago        test archipelago
+    -luks               test luks
     -xdiff              graphical mode diff
     -nocache            use O_DIRECT on backing file
     -misalign           misalign memory allocations
@@ -200,6 +206,13 @@ testlist options
 
         -qcow2)
             IMGFMT=qcow2
+            xpand=false
+            ;;
+
+        -luks)
+            IMGOPTSSYNTAX=true
+            IMGFMT=luks
+            IMGKEYSECRET=123456
             xpand=false
             ;;
 
@@ -275,7 +288,7 @@ testlist options
             ;;
 
         -valgrind)
-            valgrind=true
+            VALGRIND_QEMU='y'
             xpand=false
             ;;
 
@@ -320,6 +333,10 @@ testlist options
 
         -v)
             verbose=true
+            xpand=false
+            ;;
+        -d)
+            debug=true
             xpand=false
             ;;
         -x)        # -x group ... exclude from group file
@@ -391,7 +408,11 @@ BEGIN        { for (t='$start'; t<='$end'; t++) printf "%03d\n",t }' \
 done
 
 # Set qemu-io cache mode with $CACHEMODE we have
-QEMU_IO_OPTIONS="$QEMU_IO_OPTIONS -f $IMGFMT --cache $CACHEMODE"
+if [ "$IMGOPTSSYNTAX" = "true" ]; then
+    QEMU_IO_OPTIONS="$QEMU_IO_OPTIONS --cache $CACHEMODE"
+else
+    QEMU_IO_OPTIONS="$QEMU_IO_OPTIONS -f $IMGFMT --cache $CACHEMODE"
+fi
 
 # Set default options for qemu-img create -o if they were not specified
 _set_default_imgopts
@@ -428,9 +449,4 @@ fi
 
 if [ "$IMGPROTO" = "nbd" ] ; then
     [ "$QEMU_NBD" = "" ] && _fatal "qemu-nbd not found"
-fi
-
-if $valgrind; then
-    export REAL_QEMU_IO="$QEMU_IO_PROG"
-    export QEMU_IO_PROG=valgrind_qemu_io
 fi

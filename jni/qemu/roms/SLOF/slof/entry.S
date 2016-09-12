@@ -207,4 +207,13 @@ call_client:
 	li 3, -1 # client app return
 	blr
 
+
+	# Call another function via pointer in r6
+	# (arguments can be provided in r3 to r5)
+	# Destination function should jump back to lr
+C_ENTRY(call_c)
+	mtctr	r6
+	bctr
+
+.global the_system_stack
 	.lcomm	the_system_stack, STACKSIZE, 16

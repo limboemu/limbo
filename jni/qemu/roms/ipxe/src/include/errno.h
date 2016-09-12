@@ -15,12 +15,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
 #ifndef ERRNO_H
 #define ERRNO_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -254,7 +258,7 @@ static inline void eplatform_discard ( int dummy __unused, ... ) {}
  * @ret error		Error
  */
 #define __einfo_error( einfo ) ( {					\
-	__asm__ ( ".section \".einfo\", \"\", @progbits\n\t"		\
+	__asm__ ( ".section \".einfo\", \"\", " PROGBITS_OPS "\n\t"	\
 		  ".align 8\n\t"					\
 		  "\n1:\n\t"						\
 		  ".long ( 4f - 1b )\n\t"				\

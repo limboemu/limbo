@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -36,27 +40,54 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/image.h>
 #include <ipxe/elf.h>
 
-typedef Elf32_Ehdr	Elf_Ehdr;
-typedef Elf32_Phdr	Elf_Phdr;
-typedef Elf32_Off	Elf_Off;
-#define ELFCLASS	ELFCLASS32
-
 /**
  * Load ELF segment into memory
  *
  * @v image		ELF file
  * @v phdr		ELF program header
+ * @v dest		Destination address
+ * @ret rc		Return status code
+ */
+static int elf_load_segment ( struct image *image, Elf_Phdr *phdr,
+			      physaddr_t dest ) {
+	userptr_t buffer = phys_to_user ( dest );
+	int rc;
+
+	DBGC ( image, "ELF %p loading segment [%x,%x) to [%lx,%lx,%lx)\n",
+	       image, phdr->p_offset, ( phdr->p_offset + phdr->p_filesz ),
+	       dest, ( dest + phdr->p_filesz ), ( dest + phdr->p_memsz ) );
+
+	/* Verify and prepare segment */
+	if ( ( rc = prep_segment ( buffer, phdr->p_filesz,
+				   phdr->p_memsz ) ) != 0 ) {
+		DBGC ( image, "ELF %p could not prepare segment: %s\n",
+		       image, strerror ( rc ) );
+		return rc;
+	}
+
+	/* Copy image to segment */
+	memcpy_user ( buffer, 0, image->data, phdr->p_offset, phdr->p_filesz );
+
+	return 0;
+}
+
+/**
+ * Process ELF segment
+ *
+ * @v image		ELF file
  * @v ehdr		ELF executable header
+ * @v phdr		ELF program header
+ * @v process		Segment processor
  * @ret entry		Entry point, if found
  * @ret max		Maximum used address
  * @ret rc		Return status code
  */
-static int elf_load_segment ( struct image *image, Elf_Phdr *phdr,
-			      Elf_Ehdr *ehdr, physaddr_t *entry,
-			      physaddr_t *max ) {
+static int elf_segment ( struct image *image, Elf_Ehdr *ehdr, Elf_Phdr *phdr,
+			 int ( * process ) ( struct image *image,
+					     Elf_Phdr *phdr, physaddr_t dest ),
+			 physaddr_t *entry, physaddr_t *max ) {
 	physaddr_t dest;
 	physaddr_t end;
-	userptr_t buffer;
 	unsigned long e_offset;
 	int rc;
 
@@ -82,28 +113,15 @@ static int elf_load_segment ( struct image *image, Elf_Phdr *phdr,
 		       image );
 		return -ENOEXEC;
 	}
-	buffer = phys_to_user ( dest );
 	end = ( dest + phdr->p_memsz );
-
-	DBGC ( image, "ELF %p loading segment [%x,%x) to [%x,%x,%x)\n", image,
-	       phdr->p_offset, ( phdr->p_offset + phdr->p_filesz ),
-	       phdr->p_paddr, ( phdr->p_paddr + phdr->p_filesz ),
-	       ( phdr->p_paddr + phdr->p_memsz ) );
-
-	/* Verify and prepare segment */
-	if ( ( rc = prep_segment ( buffer, phdr->p_filesz,
-				   phdr->p_memsz ) ) != 0 ) {
-		DBGC ( image, "ELF %p could not prepare segment: %s\n",
-		       image, strerror ( rc ) );
-		return rc;
-	}
 
 	/* Update maximum used address, if applicable */
 	if ( end > *max )
 		*max = end;
 
-	/* Copy image to segment */
-	memcpy_user ( buffer, 0, image->data, phdr->p_offset, phdr->p_filesz );
+	/* Process segment */
+	if ( ( rc = process ( image, phdr, dest ) ) != 0 )
+		return rc;
 
 	/* Set execution address, if it lies within this segment */
 	if ( ( e_offset = ( ehdr->e_entry - dest ) ) < phdr->p_filesz ) {
@@ -118,6 +136,55 @@ static int elf_load_segment ( struct image *image, Elf_Phdr *phdr,
 			       " (virt %lx)\n", image, *entry,
 			       ( ( unsigned long ) ehdr->e_entry ) );
 		}
+	}
+
+	return 0;
+}
+
+/**
+ * Process ELF segments
+ *
+ * @v image		ELF file
+ * @v ehdr		ELF executable header
+ * @v process		Segment processor
+ * @ret entry		Entry point, if found
+ * @ret max		Maximum used address
+ * @ret rc		Return status code
+ */
+int elf_segments ( struct image *image, Elf_Ehdr *ehdr,
+		   int ( * process ) ( struct image *image, Elf_Phdr *phdr,
+				       physaddr_t dest ),
+		   physaddr_t *entry, physaddr_t *max ) {
+	Elf_Phdr phdr;
+	Elf_Off phoff;
+	unsigned int phnum;
+	int rc;
+
+	/* Initialise maximum used address */
+	*max = 0;
+
+	/* Invalidate entry point */
+	*entry = 0;
+
+	/* Read and process ELF program headers */
+	for ( phoff = ehdr->e_phoff , phnum = ehdr->e_phnum ; phnum ;
+	      phoff += ehdr->e_phentsize, phnum-- ) {
+		if ( phoff > image->len ) {
+			DBGC ( image, "ELF %p program header %d outside "
+			       "image\n", image, phnum );
+			return -ENOEXEC;
+		}
+		copy_from_user ( &phdr, image->data, phoff, sizeof ( phdr ) );
+		if ( ( rc = elf_segment ( image, ehdr, &phdr, process,
+					  entry, max ) ) != 0 )
+			return rc;
+	}
+
+	/* Check for a valid execution address */
+	if ( ! *entry ) {
+		DBGC ( image, "ELF %p entry point %lx outside image\n",
+		       image, ( ( unsigned long ) ehdr->e_entry ) );
+		return -ENOEXEC;
 	}
 
 	return 0;
@@ -140,9 +207,6 @@ int elf_load ( struct image *image, physaddr_t *entry, physaddr_t *max ) {
 		[EI_CLASS]	= ELFCLASS,
 	};
 	Elf_Ehdr ehdr;
-	Elf_Phdr phdr;
-	Elf_Off phoff;
-	unsigned int phnum;
 	int rc;
 
 	/* Read ELF header */
@@ -153,33 +217,10 @@ int elf_load ( struct image *image, physaddr_t *entry, physaddr_t *max ) {
 		return -ENOEXEC;
 	}
 
-	/* Initialise maximum used address */
-	*max = 0;
-
-	/* Invalidate entry point */
-	*entry = 0;
-
-	/* Read ELF program headers */
-	for ( phoff = ehdr.e_phoff , phnum = ehdr.e_phnum ; phnum ;
-	      phoff += ehdr.e_phentsize, phnum-- ) {
-		if ( phoff > image->len ) {
-			DBGC ( image, "ELF %p program header %d outside "
-			       "image\n", image, phnum );
-			return -ENOEXEC;
-		}
-		copy_from_user ( &phdr, image->data, phoff, sizeof ( phdr ) );
-		if ( ( rc = elf_load_segment ( image, &phdr, &ehdr,
-					       entry, max ) ) != 0 ) {
-			return rc;
-		}
-	}
-
-	/* Check for a valid execution address */
-	if ( ! *entry ) {
-		DBGC ( image, "ELF %p entry point %lx outside image\n",
-		       image, ( ( unsigned long ) ehdr.e_entry ) );
-		return -ENOEXEC;
-	}
+	/* Load ELF segments into memory */
+	if ( ( rc = elf_segments ( image, &ehdr, elf_load_segment,
+				   entry, max ) ) != 0 )
+		return rc;
 
 	return 0;
 }

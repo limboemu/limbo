@@ -8,7 +8,7 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
 
 #include <sys/resource.h>
 
@@ -17,7 +17,6 @@
 #include "qemu/bitmap.h"
 
 #include <xen/hvm/params.h>
-#include <sys/mman.h>
 
 #include "sysemu/xen-mapcache.h"
 #include "trace.h"
@@ -169,19 +168,17 @@ static void xen_remap_bucket(MapCacheEntry *entry,
             exit(-1);
         }
     }
-    if (entry->valid_mapping != NULL) {
-        g_free(entry->valid_mapping);
-        entry->valid_mapping = NULL;
-    }
+    g_free(entry->valid_mapping);
+    entry->valid_mapping = NULL;
 
     for (i = 0; i < nb_pfn; i++) {
         pfns[i] = (address_index << (MCACHE_BUCKET_SHIFT-XC_PAGE_SHIFT)) + i;
     }
 
-    vaddr_base = xc_map_foreign_bulk(xen_xc, xen_domid, PROT_READ|PROT_WRITE,
-                                     pfns, err, nb_pfn);
+    vaddr_base = xenforeignmemory_map(xen_fmem, xen_domid, PROT_READ|PROT_WRITE,
+                                      nb_pfn, pfns, err);
     if (vaddr_base == NULL) {
-        perror("xc_map_foreign_bulk");
+        perror("xenforeignmemory_map");
         exit(-1);
     }
 

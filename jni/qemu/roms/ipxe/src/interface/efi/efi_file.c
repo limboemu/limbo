@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -42,12 +46,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/efi/Guid/FileSystemInfo.h>
 #include <ipxe/efi/efi_strings.h>
 #include <ipxe/efi/efi_file.h>
-
-/** EFI file information GUID */
-static EFI_GUID efi_file_info_id = EFI_FILE_INFO_ID;
-
-/** EFI file system information GUID */
-static EFI_GUID efi_file_system_info_id = EFI_FILE_SYSTEM_INFO_ID;
 
 /** EFI media ID */
 #define EFI_MEDIA_ID_MAGIC 0x69505845
@@ -609,6 +607,9 @@ int efi_file_install ( EFI_HANDLE handle ) {
 	} diskio;
 	EFI_STATUS efirc;
 	int rc;
+
+	/* Reset root directory state */
+	efi_file_root.pos = 0;
 
 	/* Install the simple file system protocol, block I/O
 	 * protocol, and disk I/O protocol.  We don't have a block

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <strings.h>
@@ -43,20 +47,45 @@ FILE_LICENCE ( GPL2_OR_LATER );
  */
 struct io_buffer * alloc_iob_raw ( size_t len, size_t align, size_t offset ) {
 	struct io_buffer *iobuf;
+	size_t padding;
+	size_t threshold;
+	unsigned int align_log2;
 	void *data;
 
-	/* Align buffer length to ensure that struct io_buffer is aligned */
-	len = ( len + __alignof__ ( *iobuf ) - 1 ) &
-		~( __alignof__ ( *iobuf ) - 1 );
-
-	/* Round up alignment to the nearest power of two */
-	align = ( 1 << fls ( align - 1 ) );
-
-	/* Allocate buffer plus descriptor as a single unit, unless
-	 * doing so will push the total size over the alignment
-	 * boundary.
+	/* Calculate padding required below alignment boundary to
+	 * ensure that a correctly aligned inline struct io_buffer
+	 * could fit (regardless of the requested offset).
 	 */
-	if ( ( len + sizeof ( *iobuf ) ) <= align ) {
+	padding = ( sizeof ( *iobuf ) + __alignof__ ( *iobuf ) - 1 );
+
+	/* Round up requested alignment to at least the size of the
+	 * padding, to simplify subsequent calculations.
+	 */
+	if ( align < padding )
+		align = padding;
+
+	/* Round up alignment to the nearest power of two, avoiding
+	 * a potentially undefined shift operation.
+	 */
+	align_log2 = fls ( align - 1 );
+	if ( align_log2 >= ( 8 * sizeof ( align ) ) )
+		return NULL;
+	align = ( 1UL << align_log2 );
+
+	/* Calculate length threshold */
+	assert ( align >= padding );
+	threshold = ( align - padding );
+
+	/* Allocate buffer plus an inline descriptor as a single unit,
+	 * unless doing so would push the total size over the
+	 * alignment boundary.
+	 */
+	if ( len <= threshold ) {
+
+		/* Round up buffer length to ensure that struct
+		 * io_buffer is aligned.
+		 */
+		len += ( ( - len - offset ) & ( __alignof__ ( *iobuf ) - 1 ) );
 
 		/* Allocate memory for buffer plus descriptor */
 		data = malloc_dma_offset ( len + sizeof ( *iobuf ), align,
@@ -199,4 +228,34 @@ struct io_buffer * iob_concatenate ( struct list_head *list ) {
 	}
 
 	return concatenated;
+}
+
+/**
+ * Split I/O buffer
+ *
+ * @v iobuf		I/O buffer
+ * @v len		Length to split into a new I/O buffer
+ * @ret split		New I/O buffer, or NULL on allocation failure
+ *
+ * Split the first @c len bytes of the existing I/O buffer into a
+ * separate I/O buffer.  The resulting buffers are likely to have no
+ * headroom or tailroom.
+ *
+ * If this call fails, then the original buffer will be unmodified.
+ */
+struct io_buffer * iob_split ( struct io_buffer *iobuf, size_t len ) {
+	struct io_buffer *split;
+
+	/* Sanity checks */
+	assert ( len <= iob_len ( iobuf ) );
+
+	/* Allocate new I/O buffer */
+	split = alloc_iob ( len );
+	if ( ! split )
+		return NULL;
+
+	/* Copy in data */
+	memcpy ( iob_put ( split, len ), iobuf->data, len );
+	iob_pull ( iobuf, len );
+	return split;
 }

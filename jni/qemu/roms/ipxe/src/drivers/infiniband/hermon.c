@@ -1111,6 +1111,8 @@ static int hermon_create_qp ( struct ib_device *ibdev,
 	struct hermon *hermon = ib_get_drvdata ( ibdev );
 	struct hermon_queue_pair *hermon_qp;
 	struct hermonprm_qp_ee_state_transitions qpctx;
+	struct hermonprm_wqe_segment_data_ptr *data;
+	unsigned int i;
 	int rc;
 
 	/* Calculate queue pair number */
@@ -1147,8 +1149,14 @@ static int hermon_create_qp ( struct ib_device *ibdev,
 				     sizeof ( hermon_qp->send.wqe[0] ) );
 	hermon_qp->recv.wqe_size = ( qp->recv.num_wqes *
 				     sizeof ( hermon_qp->recv.wqe[0] ) );
+	if ( ( qp->type == IB_QPT_SMI ) || ( qp->type == IB_QPT_GSI ) ||
+	     ( qp->type == IB_QPT_UD ) ) {
+		hermon_qp->recv.grh_size = ( qp->recv.num_wqes *
+					     sizeof ( hermon_qp->recv.grh[0] ));
+	}
 	hermon_qp->wqe_size = ( hermon_qp->send.wqe_size +
-				hermon_qp->recv.wqe_size );
+				hermon_qp->recv.wqe_size +
+				hermon_qp->recv.grh_size );
 	hermon_qp->wqe = malloc_dma ( hermon_qp->wqe_size,
 				      sizeof ( hermon_qp->send.wqe[0] ) );
 	if ( ! hermon_qp->wqe ) {
@@ -1156,9 +1164,21 @@ static int hermon_create_qp ( struct ib_device *ibdev,
 		goto err_alloc_wqe;
 	}
 	hermon_qp->send.wqe = hermon_qp->wqe;
-	memset ( hermon_qp->send.wqe, 0xff, hermon_qp->send.wqe_size );
 	hermon_qp->recv.wqe = ( hermon_qp->wqe + hermon_qp->send.wqe_size );
+	if ( hermon_qp->recv.grh_size ) {
+		hermon_qp->recv.grh = ( hermon_qp->wqe +
+					hermon_qp->send.wqe_size +
+					hermon_qp->recv.wqe_size );
+	}
+
+	/* Initialise work queue entries */
+	memset ( hermon_qp->send.wqe, 0xff, hermon_qp->send.wqe_size );
 	memset ( hermon_qp->recv.wqe, 0, hermon_qp->recv.wqe_size );
+	data = &hermon_qp->recv.wqe[0].recv.data[0];
+	for ( i = 0 ; i < ( hermon_qp->recv.wqe_size / sizeof ( *data ) ); i++){
+		MLX_FILL_1 ( data, 1, l_key, HERMON_INVALID_LKEY );
+		data++;
+	}
 
 	/* Allocate MTT entries */
 	if ( ( rc = hermon_alloc_mtt ( hermon, hermon_qp->wqe,
@@ -1633,6 +1653,8 @@ static int hermon_post_recv ( struct ib_device *ibdev,
 	struct ib_work_queue *wq = &qp->recv;
 	struct hermon_recv_work_queue *hermon_recv_wq = &hermon_qp->recv;
 	struct hermonprm_recv_wqe *wqe;
+	struct hermonprm_wqe_segment_data_ptr *data;
+	struct ib_global_route_header *grh;
 	unsigned int wqe_idx_mask;
 
 	/* Allocate work queue entry */
@@ -1646,12 +1668,19 @@ static int hermon_post_recv ( struct ib_device *ibdev,
 	wqe = &hermon_recv_wq->wqe[wq->next_idx & wqe_idx_mask].recv;
 
 	/* Construct work queue entry */
-	MLX_FILL_1 ( &wqe->data[0], 0, byte_count, iob_tailroom ( iobuf ) );
-	MLX_FILL_1 ( &wqe->data[0], 1, l_key, hermon->lkey );
-	MLX_FILL_H ( &wqe->data[0], 2,
-		     local_address_h, virt_to_bus ( iobuf->data ) );
-	MLX_FILL_1 ( &wqe->data[0], 3,
-		     local_address_l, virt_to_bus ( iobuf->data ) );
+	data = &wqe->data[0];
+	if ( hermon_qp->recv.grh ) {
+		grh = &hermon_qp->recv.grh[wq->next_idx & wqe_idx_mask];
+		MLX_FILL_1 ( data, 0, byte_count, sizeof ( *grh ) );
+		MLX_FILL_1 ( data, 1, l_key, hermon->lkey );
+		MLX_FILL_H ( data, 2, local_address_h, virt_to_bus ( grh ) );
+		MLX_FILL_1 ( data, 3, local_address_l, virt_to_bus ( grh ) );
+		data++;
+	}
+	MLX_FILL_1 ( data, 0, byte_count, iob_tailroom ( iobuf ) );
+	MLX_FILL_1 ( data, 1, l_key, hermon->lkey );
+	MLX_FILL_H ( data, 2, local_address_h, virt_to_bus ( iobuf->data ) );
+	MLX_FILL_1 ( data, 3, local_address_l, virt_to_bus ( iobuf->data ) );
 
 	/* Update work queue's index */
 	wq->next_idx++;
@@ -1676,6 +1705,7 @@ static int hermon_complete ( struct ib_device *ibdev,
 			     struct ib_completion_queue *cq,
 			     union hermonprm_completion_entry *cqe ) {
 	struct hermon *hermon = ib_get_drvdata ( ibdev );
+	struct hermon_queue_pair *hermon_qp;
 	struct ib_work_queue *wq;
 	struct ib_queue_pair *qp;
 	struct io_buffer *iobuf;
@@ -1713,6 +1743,7 @@ static int hermon_complete ( struct ib_device *ibdev,
 		return -EIO;
 	}
 	qp = wq->qp;
+	hermon_qp = ib_qp_get_drvdata ( qp );
 
 	/* Identify work queue entry */
 	wqe_idx = MLX_GET ( &cqe->normal, wqe_counter );
@@ -1738,8 +1769,6 @@ static int hermon_complete ( struct ib_device *ibdev,
 	} else {
 		/* Set received length */
 		len = MLX_GET ( &cqe->normal, byte_cnt );
-		assert ( len <= iob_tailroom ( iobuf ) );
-		iob_put ( iobuf, len );
 		memset ( &recv_dest, 0, sizeof ( recv_dest ) );
 		recv_dest.qpn = qpn;
 		memset ( &recv_source, 0, sizeof ( recv_source ) );
@@ -1747,9 +1776,10 @@ static int hermon_complete ( struct ib_device *ibdev,
 		case IB_QPT_SMI:
 		case IB_QPT_GSI:
 		case IB_QPT_UD:
-			assert ( iob_len ( iobuf ) >= sizeof ( *grh ) );
-			grh = iobuf->data;
-			iob_pull ( iobuf, sizeof ( *grh ) );
+			/* Locate corresponding GRH */
+			assert ( hermon_qp->recv.grh != NULL );
+			grh = &hermon_qp->recv.grh[ wqe_idx & wqe_idx_mask ];
+			len -= sizeof ( *grh );
 			/* Construct address vector */
 			source = &recv_source;
 			source->qpn = MLX_GET ( &cqe->normal, srq_rqpn );
@@ -1775,6 +1805,8 @@ static int hermon_complete ( struct ib_device *ibdev,
 			assert ( 0 );
 			return -EINVAL;
 		}
+		assert ( len <= iob_tailroom ( iobuf ) );
+		iob_put ( iobuf, len );
 		/* Hand off to completion handler */
 		ib_complete_recv ( ibdev, qp, &recv_dest, source, iobuf, rc );
 	}
@@ -3242,7 +3274,7 @@ static int hermon_eth_open ( struct net_device *netdev ) {
 	port->eth_qp = ib_create_qp ( ibdev, IB_QPT_ETH,
 				      HERMON_ETH_NUM_SEND_WQES, port->eth_cq,
 				      HERMON_ETH_NUM_RECV_WQES, port->eth_cq,
-				      &hermon_eth_qp_op );
+				      &hermon_eth_qp_op, netdev->name );
 	if ( ! port->eth_qp ) {
 		DBGC ( hermon, "Hermon %p port %d could not create queue "
 		       "pair\n", hermon, ibdev->port );
@@ -3748,24 +3780,6 @@ static void hermon_free ( struct hermon *hermon ) {
 }
 
 /**
- * Initialise Hermon PCI parameters
- *
- * @v hermon		Hermon device
- */
-static void hermon_pci_init ( struct hermon *hermon ) {
-	struct pci_device *pci = hermon->pci;
-
-	/* Fix up PCI device */
-	adjust_pci_device ( pci );
-
-	/* Get PCI BARs */
-	hermon->config = ioremap ( pci_bar_start ( pci, HERMON_PCI_CONFIG_BAR),
-				   HERMON_PCI_CONFIG_BAR_SIZE );
-	hermon->uar = ioremap ( pci_bar_start ( pci, HERMON_PCI_UAR_BAR ),
-				HERMON_UAR_NON_EQ_PAGE * HERMON_PAGE_SIZE );
-}
-
-/**
  * Probe PCI device
  *
  * @v pci		PCI device
@@ -3789,8 +3803,14 @@ static int hermon_probe ( struct pci_device *pci ) {
 	pci_set_drvdata ( pci, hermon );
 	hermon->pci = pci;
 
-	/* Initialise PCI parameters */
-	hermon_pci_init ( hermon );
+	/* Fix up PCI device */
+	adjust_pci_device ( pci );
+
+	/* Map PCI BARs */
+	hermon->config = ioremap ( pci_bar_start ( pci, HERMON_PCI_CONFIG_BAR ),
+				   HERMON_PCI_CONFIG_BAR_SIZE );
+	hermon->uar = ioremap ( pci_bar_start ( pci, HERMON_PCI_UAR_BAR ),
+				HERMON_UAR_NON_EQ_PAGE * HERMON_PAGE_SIZE );
 
 	/* Reset device */
 	hermon_reset ( hermon );
@@ -3885,6 +3905,8 @@ static int hermon_probe ( struct pci_device *pci ) {
  err_get_cap:
 	hermon_stop_firmware ( hermon );
  err_start_firmware:
+	iounmap ( hermon->uar );
+	iounmap ( hermon->config );
 	hermon_free ( hermon );
  err_alloc:
 	return rc;
@@ -3910,6 +3932,8 @@ static void hermon_remove ( struct pci_device *pci ) {
 	}
 	for ( i = ( hermon->cap.num_ports - 1 ) ; i >= 0 ; i-- )
 		ibdev_put ( hermon->port[i].ibdev );
+	iounmap ( hermon->uar );
+	iounmap ( hermon->config );
 	hermon_free ( hermon );
 }
 
@@ -3933,8 +3957,12 @@ static int hermon_bofm_probe ( struct pci_device *pci ) {
 	pci_set_drvdata ( pci, hermon );
 	hermon->pci = pci;
 
-	/* Initialise PCI parameters */
-	hermon_pci_init ( hermon );
+	/* Fix up PCI device */
+	adjust_pci_device ( pci );
+
+	/* Map PCI BAR */
+	hermon->config = ioremap ( pci_bar_start ( pci, HERMON_PCI_CONFIG_BAR ),
+				   HERMON_PCI_CONFIG_BAR_SIZE );
 
 	/* Initialise BOFM device */
 	bofm_init ( &hermon->bofm, pci, &hermon_bofm_operations );
@@ -3949,6 +3977,7 @@ static int hermon_bofm_probe ( struct pci_device *pci ) {
 	return 0;
 
  err_bofm_register:
+	iounmap ( hermon->config );
 	hermon_free ( hermon );
  err_alloc:
 	return rc;
@@ -3963,6 +3992,7 @@ static void hermon_bofm_remove ( struct pci_device *pci ) {
 	struct hermon *hermon = pci_get_drvdata ( pci );
 
 	bofm_unregister ( &hermon->bofm );
+	iounmap ( hermon->config );
 	hermon_free ( hermon );
 }
 

@@ -53,32 +53,46 @@ fi
 # make sure we have a standard umask
 umask 022
 
-if [ "$IMGPROTO" = "file" ]; then
-    TEST_IMG=$TEST_DIR/t.$IMGFMT
-elif [ "$IMGPROTO" = "nbd" ]; then
-    TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
-    TEST_IMG="nbd:127.0.0.1:10810"
-elif [ "$IMGPROTO" = "ssh" ]; then
-    TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
-    TEST_IMG="ssh://127.0.0.1$TEST_IMG_FILE"
-elif [ "$IMGPROTO" = "nfs" ]; then
-    TEST_DIR="nfs://127.0.0.1/$TEST_DIR"
-    TEST_IMG=$TEST_DIR/t.$IMGFMT
-elif [ "$IMGPROTO" = "archipelago" ]; then
-    TEST_IMG="archipelago:at.$IMGFMT"
-else
-    TEST_IMG=$IMGPROTO:$TEST_DIR/t.$IMGFMT
-fi
-
-function valgrind_qemu_io()
-{
-    valgrind --log-file=/tmp/$$.valgrind --error-exitcode=99 $REAL_QEMU_IO "$@"
-    if [ $? != 0 ]; then
-        cat /tmp/$$.valgrind
+if [ "$IMGOPTSSYNTAX" = "true" ]; then
+    DRIVER="driver=$IMGFMT"
+    if [ "$IMGFMT" = "luks" ]; then
+        DRIVER="$DRIVER,key-secret=keysec0"
     fi
-    rm -f /tmp/$$.valgrind
-}
-
+    if [ "$IMGPROTO" = "file" ]; then
+        TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
+        TEST_IMG="$DRIVER,file.filename=$TEST_DIR/t.$IMGFMT"
+    elif [ "$IMGPROTO" = "nbd" ]; then
+        TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
+        TEST_IMG="$DRIVER,file.driver=nbd,file.host=127.0.0.1,file.port=10810"
+    elif [ "$IMGPROTO" = "ssh" ]; then
+        TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
+        TEST_IMG="$DRIVER,file.driver=ssh,file.host=127.0.0.1,file.path=$TEST_IMG_FILE"
+    elif [ "$IMGPROTO" = "nfs" ]; then
+        TEST_DIR="$DRIVER,file.driver=nfs,file.filename=nfs://127.0.0.1/$TEST_DIR"
+        TEST_IMG=$TEST_DIR_OPTS/t.$IMGFMT
+    elif [ "$IMGPROTO" = "archipelago" ]; then
+        TEST_IMG="$DRIVER,file.driver=archipelago,file.volume=:at.$IMGFMT"
+    else
+        TEST_IMG="$DRIVER,file.driver=$IMGPROTO,file.filename=$TEST_DIR/t.$IMGFMT"
+    fi
+else
+    if [ "$IMGPROTO" = "file" ]; then
+        TEST_IMG=$TEST_DIR/t.$IMGFMT
+    elif [ "$IMGPROTO" = "nbd" ]; then
+        TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
+        TEST_IMG="nbd:127.0.0.1:10810"
+    elif [ "$IMGPROTO" = "ssh" ]; then
+        TEST_IMG_FILE=$TEST_DIR/t.$IMGFMT
+        TEST_IMG="ssh://127.0.0.1$TEST_IMG_FILE"
+    elif [ "$IMGPROTO" = "nfs" ]; then
+        TEST_DIR="nfs://127.0.0.1/$TEST_DIR"
+        TEST_IMG=$TEST_DIR/t.$IMGFMT
+    elif [ "$IMGPROTO" = "archipelago" ]; then
+        TEST_IMG="archipelago:at.$IMGFMT"
+    else
+        TEST_IMG=$IMGPROTO:$TEST_DIR/t.$IMGFMT
+    fi
+fi
 
 _optstr_add()
 {
@@ -118,6 +132,7 @@ _make_test_img()
     local img_name=""
     local use_backing=0
     local backing_file=""
+    local object_options=""
 
     if [ -n "$TEST_IMG_FILE" ]; then
         img_name=$TEST_IMG_FILE
@@ -127,6 +142,10 @@ _make_test_img()
 
     if [ -n "$IMGOPTS" ]; then
         optstr=$(_optstr_add "$optstr" "$IMGOPTS")
+    fi
+    if [ -n "$IMGKEYSECRET" ]; then
+        object_options="--object secret,id=keysec0,data=$IMGKEYSECRET"
+        optstr=$(_optstr_add "$optstr" "key-secret=keysec0")
     fi
 
     if [ "$1" = "-b" ]; then
@@ -145,16 +164,15 @@ _make_test_img()
     # XXX(hch): have global image options?
     (
      if [ $use_backing = 1 ]; then
-        $QEMU_IMG create -f $IMGFMT $extra_img_options -b "$backing_file" "$img_name" $image_size 2>&1
+        $QEMU_IMG create $object_options -f $IMGFMT $extra_img_options -b "$backing_file" "$img_name" $image_size 2>&1
      else
-        $QEMU_IMG create -f $IMGFMT $extra_img_options "$img_name" $image_size 2>&1
+        $QEMU_IMG create $object_options -f $IMGFMT $extra_img_options "$img_name" $image_size 2>&1
      fi
     ) | _filter_img_create
 
     # Start an NBD server on the image file, which is what we'll be talking to
     if [ $IMGPROTO = "nbd" ]; then
         eval "$QEMU_NBD -v -t -b 127.0.0.1 -p 10810 -f $IMGFMT  $TEST_IMG_FILE &"
-        QEMU_NBD_PID=$!
         sleep 1 # FIXME: qemu-nbd needs to be listening before we continue
     fi
 }
@@ -175,8 +193,11 @@ _cleanup_test_img()
     case "$IMGPROTO" in
 
         nbd)
-            if [ -n "$QEMU_NBD_PID" ]; then
-                kill $QEMU_NBD_PID
+            if [ -f "${TEST_DIR}/qemu-nbd.pid" ]; then
+                local QEMU_NBD_PID
+                read QEMU_NBD_PID < "${TEST_DIR}/qemu-nbd.pid"
+                kill ${QEMU_NBD_PID}
+                rm -f "${TEST_DIR}/qemu-nbd.pid"
             fi
             rm -f "$TEST_IMG_FILE"
             ;;
@@ -207,7 +228,13 @@ _cleanup_test_img()
 
 _check_test_img()
 {
-    $QEMU_IMG check "$@" -f $IMGFMT "$TEST_IMG" 2>&1 | _filter_testdir | \
+    (
+        if [ "$IMGOPTSSYNTAX" = "true" ]; then
+            $QEMU_IMG check $QEMU_IMG_EXTRA_ARGS "$@" "$TEST_IMG" 2>&1
+        else
+            $QEMU_IMG check "$@" -f $IMGFMT "$TEST_IMG" 2>&1
+        fi
+    ) | _filter_testdir | \
         sed -e '/allocated.*fragmented.*compressed clusters/d' \
             -e 's/qemu-img: This image format does not support checks/No errors were found on the image./' \
             -e '/Image end offset: [0-9]\+/d'
@@ -293,52 +320,6 @@ _need_to_be_root()
         echo "Arrgh ... you need to be root (not uid=$id) to run this test"
         exit 1
     fi
-}
-
-
-# Do a command, log it to $seq.full, optionally test return status
-# and die if command fails. If called with one argument _do executes the
-# command, logs it, and returns its exit status. With two arguments _do
-# first prints the message passed in the first argument, and then "done"
-# or "fail" depending on the return status of the command passed in the
-# second argument. If the command fails and the variable _do_die_on_error
-# is set to "always" or the two argument form is used and _do_die_on_error
-# is set to "message_only" _do will print an error message to
-# $seq.out and exit.
-
-_do()
-{
-    if [ $# -eq 1 ]; then
-        _cmd=$1
-    elif [ $# -eq 2 ]; then
-        _note=$1
-        _cmd=$2
-        echo -n "$_note... "
-    else
-        echo "Usage: _do [note] cmd" 1>&2
-        status=1; exit
-    fi
-
-    (eval "echo '---' \"$_cmd\"") >>"$OUTPUT_DIR/$seq.full"
-    (eval "$_cmd") >$tmp._out 2>&1; ret=$?
-    cat $tmp._out >>"$OUTPUT_DIR/$seq.full"
-    if [ $# -eq 2 ]; then
-        if [ $ret -eq 0 ]; then
-            echo "done"
-        else
-            echo "fail"
-        fi
-    fi
-    if [ $ret -ne 0  ] \
-        && [ "$_do_die_on_error" = "always" \
-            -o \( $# -eq 2 -a "$_do_die_on_error" = "message_only" \) ]
-    then
-        [ $# -ne 2 ] && echo
-        eval "echo \"$_cmd\" failed \(returned $ret\): see $seq.full"
-        status=1; exit
-    fi
-
-    return $ret
 }
 
 # bail out, setting up .notrun file
@@ -439,7 +420,17 @@ _unsupported_imgopts()
 #
 _require_command()
 {
-    eval c=\$$1
+    if [ "$1" = "QEMU" ]; then
+        c=$QEMU_PROG
+    elif [ "$1" = "QEMU_IMG" ]; then
+        c=$QEMU_IMG_PROG
+    elif [ "$1" = "QEMU_IO" ]; then
+        c=$QEMU_IO_PROG
+    elif [ "$1" = "QEMU_NBD" ]; then
+        c=$QEMU_NBD_PROG
+    else
+        eval c=\$$1
+    fi
     [ -x "$c" ] || _notrun "$1 utility required, skipped this test"
 }
 

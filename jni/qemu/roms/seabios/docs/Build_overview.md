@@ -52,6 +52,34 @@ CSM_ENABLE'. The SeaBIOS binary will be included as a discrete file
 within the 'Flash Volume' which is created, and there are tools which
 will extract it and allow it to be replaced.
 
+Distribution builds
+===================
+
+If one is building a binary version of SeaBIOS as part of a package
+(such as an rpm) or for wide distribution, please provide the
+EXTRAVERSION field during the build. For example:
+
+`make EXTRAVERSION="-${RPM_PACKAGE_RELEASE}"`
+
+The EXTRAVERSION field should provide the package version (if
+applicable) and the name of the distribution (if that's not already
+obvious from the package version). This string will be appended to the
+main SeaBIOS version. The above information helps SeaBIOS developers
+correlate defect reports to the source code and build environment.
+
+If one is building a binary in a build environment that does not have
+access to the git tool or does not have the full SeaBIOS git repo
+available, then please use an official SeaBIOS release tar file as
+source. If building from a snapshot (where there is no official
+SeaBIOS tar) then one should generate a snapshot tar file on a machine
+that does support git using the scripts/tarball.sh tool. For example:
+
+`scripts/tarball.sh`
+
+The tarball.sh script encodes version information in the resulting tar
+file which the build can extract and include in the final binary. The
+above EXTRAVERSION field should still be set when building from a tar.
+
 Overview of files in the repository
 ===================================
 
@@ -61,11 +89,7 @@ drivers. The **src/fw/** directory contains source code for platform
 firmware initialization. The **src/std/** directory contains header
 files describing standard bios, firmware, and hardware interfaces.
 
-The **vgasrc/** directory contains code for VGA BIOS implementations.
-This code is separate from the main BIOS code in the src/ directory.
-When the build is configured to produce a VGA BIOS the resulting
-binary is found in out/vgabios.bin. The VGA BIOS code is always
-compiled in 16bit mode.
+The **vgasrc/** directory contains code for [SeaVGABIOS](SeaVGABIOS).
 
 The **scripts/** directory contains helper utilities for manipulating
 and building the final roms.

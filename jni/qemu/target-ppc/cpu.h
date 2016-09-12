@@ -16,10 +16,10 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#if !defined (__CPU_PPC_H__)
-#define __CPU_PPC_H__
 
-#include "config.h"
+#ifndef PPC_CPU_H
+#define PPC_CPU_H
+
 #include "qemu-common.h"
 
 //#define PPC_EMULATE_32BITS_HYPV
@@ -28,8 +28,6 @@
 /* PowerPC 64 definitions */
 #define TARGET_LONG_BITS 64
 #define TARGET_PAGE_BITS 12
-
-#define TARGET_IS_BIENDIAN 1
 
 /* Note that the official physical address space bits is 62-M where M
    is implementation dependent.  I've not looked up M for the set of
@@ -77,93 +75,14 @@
 #define CPUArchState struct CPUPPCState
 
 #include "exec/cpu-defs.h"
-
+#include "cpu-qom.h"
 #include "fpu/softfloat.h"
 
 #if defined (TARGET_PPC64)
-#define ELF_MACHINE     EM_PPC64
+#define PPC_ELF_MACHINE     EM_PPC64
 #else
-#define ELF_MACHINE     EM_PPC
+#define PPC_ELF_MACHINE     EM_PPC
 #endif
-
-/*****************************************************************************/
-/* MMU model                                                                 */
-typedef enum powerpc_mmu_t powerpc_mmu_t;
-enum powerpc_mmu_t {
-    POWERPC_MMU_UNKNOWN    = 0x00000000,
-    /* Standard 32 bits PowerPC MMU                            */
-    POWERPC_MMU_32B        = 0x00000001,
-    /* PowerPC 6xx MMU with software TLB                       */
-    POWERPC_MMU_SOFT_6xx   = 0x00000002,
-    /* PowerPC 74xx MMU with software TLB                      */
-    POWERPC_MMU_SOFT_74xx  = 0x00000003,
-    /* PowerPC 4xx MMU with software TLB                       */
-    POWERPC_MMU_SOFT_4xx   = 0x00000004,
-    /* PowerPC 4xx MMU with software TLB and zones protections */
-    POWERPC_MMU_SOFT_4xx_Z = 0x00000005,
-    /* PowerPC MMU in real mode only                           */
-    POWERPC_MMU_REAL       = 0x00000006,
-    /* Freescale MPC8xx MMU model                              */
-    POWERPC_MMU_MPC8xx     = 0x00000007,
-    /* BookE MMU model                                         */
-    POWERPC_MMU_BOOKE      = 0x00000008,
-    /* BookE 2.06 MMU model                                    */
-    POWERPC_MMU_BOOKE206   = 0x00000009,
-    /* PowerPC 601 MMU model (specific BATs format)            */
-    POWERPC_MMU_601        = 0x0000000A,
-#if defined(TARGET_PPC64)
-#define POWERPC_MMU_64       0x00010000
-#define POWERPC_MMU_1TSEG    0x00020000
-#define POWERPC_MMU_AMR      0x00040000
-    /* 64 bits PowerPC MMU                                     */
-    POWERPC_MMU_64B        = POWERPC_MMU_64 | 0x00000001,
-    /* Architecture 2.06 variant                               */
-    POWERPC_MMU_2_06       = POWERPC_MMU_64 | POWERPC_MMU_1TSEG
-                             | POWERPC_MMU_AMR | 0x00000003,
-    /* Architecture 2.06 "degraded" (no 1T segments)           */
-    POWERPC_MMU_2_06a      = POWERPC_MMU_64 | POWERPC_MMU_AMR
-                             | 0x00000003,
-    /* Architecture 2.06 "degraded" (no 1T segments or AMR)    */
-    POWERPC_MMU_2_06d      = POWERPC_MMU_64 | 0x00000003,
-#endif /* defined(TARGET_PPC64) */
-};
-
-/*****************************************************************************/
-/* Exception model                                                           */
-typedef enum powerpc_excp_t powerpc_excp_t;
-enum powerpc_excp_t {
-    POWERPC_EXCP_UNKNOWN   = 0,
-    /* Standard PowerPC exception model */
-    POWERPC_EXCP_STD,
-    /* PowerPC 40x exception model      */
-    POWERPC_EXCP_40x,
-    /* PowerPC 601 exception model      */
-    POWERPC_EXCP_601,
-    /* PowerPC 602 exception model      */
-    POWERPC_EXCP_602,
-    /* PowerPC 603 exception model      */
-    POWERPC_EXCP_603,
-    /* PowerPC 603e exception model     */
-    POWERPC_EXCP_603E,
-    /* PowerPC G2 exception model       */
-    POWERPC_EXCP_G2,
-    /* PowerPC 604 exception model      */
-    POWERPC_EXCP_604,
-    /* PowerPC 7x0 exception model      */
-    POWERPC_EXCP_7x0,
-    /* PowerPC 7x5 exception model      */
-    POWERPC_EXCP_7x5,
-    /* PowerPC 74xx exception model     */
-    POWERPC_EXCP_74xx,
-    /* BookE exception model            */
-    POWERPC_EXCP_BOOKE,
-#if defined(TARGET_PPC64)
-    /* PowerPC 970 exception model      */
-    POWERPC_EXCP_970,
-    /* POWER7 exception model           */
-    POWERPC_EXCP_POWER7,
-#endif /* defined(TARGET_PPC64) */
-};
 
 /*****************************************************************************/
 /* Exception vectors definitions                                             */
@@ -198,6 +117,9 @@ enum {
     POWERPC_EXCP_HYPPRIV  = 41, /* Embedded hypervisor priv instruction      */
     /* Vectors 42 to 63 are reserved                                         */
     /* Exceptions defined in the PowerPC server specification                */
+    /* Server doorbell variants */
+#define POWERPC_EXCP_SDOOR      POWERPC_EXCP_GDOORI
+#define POWERPC_EXCP_SDOOR_HV   POWERPC_EXCP_DOORI
     POWERPC_EXCP_RESET    = 64, /* System reset exception                    */
     POWERPC_EXCP_DSEG     = 65, /* Data segment exception                    */
     POWERPC_EXCP_ISEG     = 66, /* Instruction segment exception             */
@@ -240,8 +162,12 @@ enum {
     /* VSX Unavailable (Power ISA 2.06 and later)                            */
     POWERPC_EXCP_VSXU     = 94, /* VSX Unavailable                           */
     POWERPC_EXCP_FU       = 95, /* Facility Unavailable                      */
+    /* Additional ISA 2.06 and later server exceptions                       */
+    POWERPC_EXCP_HV_EMU   = 96, /* HV emulation assistance                   */
+    POWERPC_EXCP_HV_MAINT = 97, /* HMI                                       */
+    POWERPC_EXCP_HV_FU    = 98, /* Hypervisor Facility unavailable           */
     /* EOL                                                                   */
-    POWERPC_EXCP_NB       = 96,
+    POWERPC_EXCP_NB       = 99,
     /* QEMU exceptions: used internally during code translation              */
     POWERPC_EXCP_STOP         = 0x200, /* stop translation                   */
     POWERPC_EXCP_BRANCH       = 0x201, /* branch instruction                 */
@@ -290,27 +216,6 @@ enum {
     POWERPC_EXCP_TRAP          = 0x40,
 };
 
-/*****************************************************************************/
-/* Input pins model                                                          */
-typedef enum powerpc_input_t powerpc_input_t;
-enum powerpc_input_t {
-    PPC_FLAGS_INPUT_UNKNOWN = 0,
-    /* PowerPC 6xx bus                  */
-    PPC_FLAGS_INPUT_6xx,
-    /* BookE bus                        */
-    PPC_FLAGS_INPUT_BookE,
-    /* PowerPC 405 bus                  */
-    PPC_FLAGS_INPUT_405,
-    /* PowerPC 970 bus                  */
-    PPC_FLAGS_INPUT_970,
-    /* PowerPC POWER7 bus               */
-    PPC_FLAGS_INPUT_POWER7,
-    /* PowerPC 401 bus                  */
-    PPC_FLAGS_INPUT_401,
-    /* Freescale RCPU bus               */
-    PPC_FLAGS_INPUT_RCPU,
-};
-
 #define PPC_INPUT(env) (env->bus_model)
 
 /*****************************************************************************/
@@ -318,11 +223,8 @@ typedef struct opc_handler_t opc_handler_t;
 
 /*****************************************************************************/
 /* Types used to describe some PowerPC registers */
-typedef struct CPUPPCState CPUPPCState;
 typedef struct DisasContext DisasContext;
-typedef struct ppc_tb_t ppc_tb_t;
 typedef struct ppc_spr_t ppc_spr_t;
-typedef struct ppc_dcr_t ppc_dcr_t;
 typedef union ppc_avr_t ppc_avr_t;
 typedef union ppc_tlb_t ppc_tlb_t;
 
@@ -413,6 +315,7 @@ typedef struct ppc_slb_t ppc_slb_t;
 struct ppc_slb_t {
     uint64_t esid;
     uint64_t vsid;
+    const struct ppc_one_seg_page_size *sps;
 };
 
 #define MAX_SLB_ENTRIES         64
@@ -462,15 +365,43 @@ struct ppc_slb_t {
 #define MSR_EP   6  /* Exception prefix on 601                               */
 #define MSR_IR   5  /* Instruction relocate                                  */
 #define MSR_DR   4  /* Data relocate                                         */
+#define MSR_IS   5  /* Instruction address space (BookE)                     */
+#define MSR_DS   4  /* Data address space (BookE)                            */
 #define MSR_PE   3  /* Protection enable on 403                              */
 #define MSR_PX   2  /* Protection exclusive on 403                  x        */
 #define MSR_PMM  2  /* Performance monitor mark on POWER            x        */
 #define MSR_RI   1  /* Recoverable interrupt                        1        */
 #define MSR_LE   0  /* Little-endian mode                           1 hflags */
 
-#define LPCR_ILE (1 << (63-38))
-#define LPCR_AIL_SHIFT (63-40)      /* Alternate interrupt location */
-#define LPCR_AIL (3 << LPCR_AIL_SHIFT)
+/* LPCR bits */
+#define LPCR_VPM0         (1ull << (63 - 0))
+#define LPCR_VPM1         (1ull << (63 - 1))
+#define LPCR_ISL          (1ull << (63 - 2))
+#define LPCR_KBV          (1ull << (63 - 3))
+#define LPCR_DPFD_SHIFT   (63 - 11)
+#define LPCR_DPFD         (0x3ull << LPCR_DPFD_SHIFT)
+#define LPCR_VRMASD_SHIFT (63 - 16)
+#define LPCR_VRMASD       (0x1full << LPCR_VRMASD_SHIFT)
+#define LPCR_RMLS_SHIFT   (63 - 37)
+#define LPCR_RMLS         (0xfull << LPCR_RMLS_SHIFT)
+#define LPCR_ILE          (1ull << (63 - 38))
+#define LPCR_AIL_SHIFT    (63 - 40)      /* Alternate interrupt location */
+#define LPCR_AIL          (3ull << LPCR_AIL_SHIFT)
+#define LPCR_ONL          (1ull << (63 - 45))
+#define LPCR_P7_PECE0     (1ull << (63 - 49))
+#define LPCR_P7_PECE1     (1ull << (63 - 50))
+#define LPCR_P7_PECE2     (1ull << (63 - 51))
+#define LPCR_P8_PECE0     (1ull << (63 - 47))
+#define LPCR_P8_PECE1     (1ull << (63 - 48))
+#define LPCR_P8_PECE2     (1ull << (63 - 49))
+#define LPCR_P8_PECE3     (1ull << (63 - 50))
+#define LPCR_P8_PECE4     (1ull << (63 - 51))
+#define LPCR_MER          (1ull << (63 - 52))
+#define LPCR_TC           (1ull << (63 - 54))
+#define LPCR_LPES0        (1ull << (63 - 60))
+#define LPCR_LPES1        (1ull << (63 - 61))
+#define LPCR_RMI          (1ull << (63 - 62))
+#define LPCR_HDICE        (1ull << (63 - 63))
 
 #define msr_sf   ((env->msr >> MSR_SF)   & 1)
 #define msr_isf  ((env->msr >> MSR_ISF)  & 1)
@@ -505,6 +436,8 @@ struct ppc_slb_t {
 #define msr_ep   ((env->msr >> MSR_EP)   & 1)
 #define msr_ir   ((env->msr >> MSR_IR)   & 1)
 #define msr_dr   ((env->msr >> MSR_DR)   & 1)
+#define msr_is   ((env->msr >> MSR_IS)   & 1)
+#define msr_ds   ((env->msr >> MSR_DS)   & 1)
 #define msr_pe   ((env->msr >> MSR_PE)   & 1)
 #define msr_px   ((env->msr >> MSR_PX)   & 1)
 #define msr_pmm  ((env->msr >> MSR_PMM)  & 1)
@@ -677,6 +610,46 @@ enum {
 /* enabled exception summary */
 #define fpscr_eex (((env->fpscr) >> FPSCR_XX) & ((env->fpscr) >> FPSCR_XE) &  \
                    0x1F)
+
+#define FP_FX		(1ull << FPSCR_FX)
+#define FP_FEX		(1ull << FPSCR_FEX)
+#define FP_VX		(1ull << FPSCR_VX)
+#define FP_OX		(1ull << FPSCR_OX)
+#define FP_UX		(1ull << FPSCR_UX)
+#define FP_ZX		(1ull << FPSCR_ZX)
+#define FP_XX		(1ull << FPSCR_XX)
+#define FP_VXSNAN	(1ull << FPSCR_VXSNAN)
+#define FP_VXISI	(1ull << FPSCR_VXISI)
+#define FP_VXIDI	(1ull << FPSCR_VXIDI)
+#define FP_VXZDZ	(1ull << FPSCR_VXZDZ)
+#define FP_VXIMZ	(1ull << FPSCR_VXIMZ)
+#define FP_VXVC		(1ull << FPSCR_VXVC)
+#define FP_FR		(1ull << FSPCR_FR)
+#define FP_FI		(1ull << FPSCR_FI)
+#define FP_C		(1ull << FPSCR_C)
+#define FP_FL		(1ull << FPSCR_FL)
+#define FP_FG		(1ull << FPSCR_FG)
+#define FP_FE		(1ull << FPSCR_FE)
+#define FP_FU		(1ull << FPSCR_FU)
+#define FP_FPCC		(FP_FL | FP_FG | FP_FE | FP_FU)
+#define FP_FPRF		(FP_C  | FP_FL | FP_FG | FP_FE | FP_FU)
+#define FP_VXSOFT	(1ull << FPSCR_VXSOFT)
+#define FP_VXSQRT	(1ull << FPSCR_VXSQRT)
+#define FP_VXCVI	(1ull << FPSCR_VXCVI)
+#define FP_VE		(1ull << FPSCR_VE)
+#define FP_OE		(1ull << FPSCR_OE)
+#define FP_UE		(1ull << FPSCR_UE)
+#define FP_ZE		(1ull << FPSCR_ZE)
+#define FP_XE		(1ull << FPSCR_XE)
+#define FP_NI		(1ull << FPSCR_NI)
+#define FP_RN1		(1ull << FPSCR_RN1)
+#define FP_RN		(1ull << FPSCR_RN)
+
+/* the exception bits which can be cleared by mcrfs - includes FX */
+#define FP_EX_CLEAR_BITS (FP_FX     | FP_OX     | FP_UX     | FP_ZX     | \
+                          FP_XX     | FP_VXSNAN | FP_VXISI  | FP_VXIDI  | \
+                          FP_VXZDZ  | FP_VXIMZ  | FP_VXVC   | FP_VXSOFT | \
+                          FP_VXSQRT | FP_VXCVI)
 
 /*****************************************************************************/
 /* Vector status and control register */
@@ -944,7 +917,7 @@ struct ppc_segment_page_sizes {
 
 /*****************************************************************************/
 /* The whole PowerPC CPU context */
-#define NB_MMU_MODES 3
+#define NB_MMU_MODES    8
 
 #define PPC_CPU_OPCODES_LEN          0x40
 #define PPC_CPU_INDIRECT_OPCODES_LEN 0x20
@@ -1009,6 +982,7 @@ struct CPUPPCState {
     /* PowerPC 64 SLB area */
     ppc_slb_t slb[MAX_SLB_ENTRIES];
     int32_t slb_nr;
+    /* tcg TLB needs flush (deferred slb inval instruction typically) */
 #endif
     /* segment registers */
     hwaddr htab_base;
@@ -1034,6 +1008,7 @@ struct CPUPPCState {
     target_ulong pb[4];
     bool tlb_dirty;   /* Set to non-zero when modifying TLB                  */
     bool kvm_sw_tlb;  /* non-zero if KVM SW TLB API is active                */
+    uint32_t tlb_need_flush; /* Delayed flush needed */
 #endif
 
     /* Other registers */
@@ -1073,6 +1048,9 @@ struct CPUPPCState {
     uint64_t insns_flags2;
 #if defined(TARGET_PPC64)
     struct ppc_segment_page_sizes sps;
+    ppc_slb_t vrma_slb;
+    target_ulong rmls;
+    bool ci_large_pages;
 #endif
 
 #if defined(TARGET_PPC64) && !defined(CONFIG_USER_ONLY)
@@ -1098,6 +1076,15 @@ struct CPUPPCState {
     hwaddr mpic_iack;
     /* true when the external proxy facility mode is enabled */
     bool mpic_proxy;
+    /* set when the processor has an HV mode, thus HV priv
+     * instructions and SPRs are diallowed if MSR:HV is 0
+     */
+    bool has_hv_mode;
+    /* On P7/P8, set when in PM state, we need to handle resume
+     * in a special way (such as routing some resume causes to
+     * 0x100), so flag this here.
+     */
+    bool in_pm_state;
 #endif
 
     /* Those resources are used only during code translation */
@@ -1107,7 +1094,8 @@ struct CPUPPCState {
     /* Those resources are used only in QEMU core */
     target_ulong hflags;      /* hflags is a MSR & HFLAGS_MASK         */
     target_ulong hflags_nmsr; /* specific hflags, not coming from MSR */
-    int mmu_idx;         /* precomputed MMU index to speed up mem accesses */
+    int immu_idx;         /* precomputed MMU index to speed up insn access */
+    int dmmu_idx;         /* precomputed MMU index to speed up data accesses */
 
     /* Power management */
     int (*check_pow)(CPUPPCState *env);
@@ -1158,13 +1146,63 @@ do {                                            \
     env->wdt_period[3] = (d_);                  \
  } while (0)
 
-#include "cpu-qom.h"
+/**
+ * PowerPCCPU:
+ * @env: #CPUPPCState
+ * @cpu_dt_id: CPU index used in the device tree. KVM uses this index too
+ * @max_compat: Maximal supported logical PVR from the command line
+ * @cpu_version: Current logical PVR, zero if in "raw" mode
+ *
+ * A PowerPC CPU.
+ */
+struct PowerPCCPU {
+    /*< private >*/
+    CPUState parent_obj;
+    /*< public >*/
+
+    CPUPPCState env;
+    int cpu_dt_id;
+    uint32_t max_compat;
+    uint32_t cpu_version;
+};
+
+static inline PowerPCCPU *ppc_env_get_cpu(CPUPPCState *env)
+{
+    return container_of(env, PowerPCCPU, env);
+}
+
+#define ENV_GET_CPU(e) CPU(ppc_env_get_cpu(e))
+
+#define ENV_OFFSET offsetof(PowerPCCPU, env)
+
+PowerPCCPUClass *ppc_cpu_class_by_pvr(uint32_t pvr);
+PowerPCCPUClass *ppc_cpu_class_by_pvr_mask(uint32_t pvr);
+
+void ppc_cpu_do_interrupt(CPUState *cpu);
+bool ppc_cpu_exec_interrupt(CPUState *cpu, int int_req);
+void ppc_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
+                        int flags);
+void ppc_cpu_dump_statistics(CPUState *cpu, FILE *f,
+                             fprintf_function cpu_fprintf, int flags);
+int ppc_cpu_get_monitor_def(CPUState *cs, const char *name,
+                            uint64_t *pval);
+hwaddr ppc_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int ppc_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
+int ppc_cpu_gdb_read_register_apple(CPUState *cpu, uint8_t *buf, int reg);
+int ppc_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
+int ppc_cpu_gdb_write_register_apple(CPUState *cpu, uint8_t *buf, int reg);
+int ppc64_cpu_write_elf64_note(WriteCoreDumpFunction f, CPUState *cs,
+                               int cpuid, void *opaque);
+#ifndef CONFIG_USER_ONLY
+void ppc_cpu_do_system_reset(CPUState *cs);
+extern const struct VMStateDescription vmstate_ppc_cpu;
+#endif
 
 /*****************************************************************************/
 PowerPCCPU *cpu_ppc_init(const char *cpu_model);
 void ppc_translate_init(void);
+const char *ppc_cpu_lookup_alias(const char *alias);
 void gen_update_current_nip(void *opaque);
-int cpu_ppc_exec (CPUPPCState *s);
 /* you can call this signal handler from your SIGBUS and SIGSEGV
    signal handlers to inform the virtual CPU of exceptions. non zero
    is returned if the signal was handled by the virtual CPU.  */
@@ -1182,7 +1220,9 @@ void ppc_store_msr (CPUPPCState *env, target_ulong value);
 
 void ppc_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 int ppc_get_compat_smt_threads(PowerPCCPU *cpu);
-int ppc_set_compat(PowerPCCPU *cpu, uint32_t cpu_version);
+#if defined(TARGET_PPC64)
+void ppc_set_compat(PowerPCCPU *cpu, uint32_t cpu_version, Error **errp);
+#endif
 
 /* Time-base and decrementer management */
 #ifndef NO_CPU_IO_DEFS
@@ -1213,6 +1253,7 @@ void store_booke_tcr (CPUPPCState *env, target_ulong val);
 void store_booke_tsr (CPUPPCState *env, target_ulong val);
 void ppc_tlb_invalidate_all (CPUPPCState *env);
 void ppc_tlb_invalidate_one (CPUPPCState *env, target_ulong addr);
+void cpu_ppc_set_papr(PowerPCCPU *cpu);
 #endif
 #endif
 
@@ -1240,19 +1281,14 @@ int ppc_dcr_write (ppc_dcr_t *dcr_env, int dcrn, uint32_t val);
 
 #define cpu_init(cpu_model) CPU(cpu_ppc_init(cpu_model))
 
-#define cpu_exec cpu_ppc_exec
-#define cpu_gen_code cpu_ppc_gen_code
 #define cpu_signal_handler cpu_ppc_signal_handler
 #define cpu_list ppc_cpu_list
 
 /* MMU modes definitions */
-#define MMU_MODE0_SUFFIX _user
-#define MMU_MODE1_SUFFIX _kernel
-#define MMU_MODE2_SUFFIX _hypv
 #define MMU_USER_IDX 0
-static inline int cpu_mmu_index (CPUPPCState *env)
+static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
 {
-    return env->mmu_idx;
+    return ifetch ? env->immu_idx : env->dmmu_idx;
 }
 
 #include "exec/cpu-all.h"
@@ -1300,11 +1336,14 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_SRR1              (0x01B)
 #define SPR_CFAR              (0x01C)
 #define SPR_AMR               (0x01D)
+#define SPR_ACOP              (0x01F)
 #define SPR_BOOKE_PID         (0x030)
+#define SPR_BOOKS_PID         (0x030)
 #define SPR_BOOKE_DECAR       (0x036)
 #define SPR_BOOKE_CSRR0       (0x03A)
 #define SPR_BOOKE_CSRR1       (0x03B)
 #define SPR_BOOKE_DEAR        (0x03D)
+#define SPR_IAMR              (0x03D)
 #define SPR_BOOKE_ESR         (0x03E)
 #define SPR_BOOKE_IVPR        (0x03F)
 #define SPR_MPC_EIE           (0x050)
@@ -1334,6 +1373,12 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_UAMOR             (0x09D)
 #define SPR_MPC_ICTRL         (0x09E)
 #define SPR_MPC_BAR           (0x09F)
+#define SPR_PSPB              (0x09F)
+#define SPR_DAWR              (0x0B4)
+#define SPR_RPR               (0x0BA)
+#define SPR_CIABR             (0x0BB)
+#define SPR_DAWRX             (0x0BC)
+#define SPR_HFSCR             (0x0BE)
 #define SPR_VRSAVE            (0x100)
 #define SPR_USPRG0            (0x100)
 #define SPR_USPRG1            (0x101)
@@ -1388,19 +1433,25 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_HSRR1             (0x13B)
 #define SPR_BOOKE_IAC4        (0x13B)
 #define SPR_BOOKE_DAC1        (0x13C)
-#define SPR_LPIDR             (0x13D)
+#define SPR_MMCRH             (0x13C)
 #define SPR_DABR2             (0x13D)
 #define SPR_BOOKE_DAC2        (0x13D)
+#define SPR_TFMR              (0x13D)
 #define SPR_BOOKE_DVC1        (0x13E)
 #define SPR_LPCR              (0x13E)
 #define SPR_BOOKE_DVC2        (0x13F)
+#define SPR_LPIDR             (0x13F)
 #define SPR_BOOKE_TSR         (0x150)
+#define SPR_HMER              (0x150)
+#define SPR_HMEER             (0x151)
 #define SPR_PCR               (0x152)
+#define SPR_BOOKE_LPIDR       (0x152)
 #define SPR_BOOKE_TCR         (0x154)
 #define SPR_BOOKE_TLB0PS      (0x158)
 #define SPR_BOOKE_TLB1PS      (0x159)
 #define SPR_BOOKE_TLB2PS      (0x15A)
 #define SPR_BOOKE_TLB3PS      (0x15B)
+#define SPR_AMOR              (0x15D)
 #define SPR_BOOKE_MAS7_MAS3   (0x174)
 #define SPR_BOOKE_IVOR0       (0x190)
 #define SPR_BOOKE_IVOR1       (0x191)
@@ -1517,6 +1568,7 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_PERF0             (0x300)
 #define SPR_RCPU_MI_RBA0      (0x300)
 #define SPR_MPC_MI_CTR        (0x300)
+#define SPR_POWER_USIER       (0x300)
 #define SPR_PERF1             (0x301)
 #define SPR_RCPU_MI_RBA1      (0x301)
 #define SPR_POWER_UMMCR2      (0x301)
@@ -1566,6 +1618,7 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_PERFF             (0x30F)
 #define SPR_MPC_MD_TW         (0x30F)
 #define SPR_UPERF0            (0x310)
+#define SPR_POWER_SIER        (0x310)
 #define SPR_UPERF1            (0x311)
 #define SPR_POWER_MMCR2       (0x311)
 #define SPR_UPERF2            (0x312)
@@ -1617,7 +1670,9 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_MPC_MD_DBRAM1     (0x32A)
 #define SPR_RCPU_L2U_RA3      (0x32B)
 #define SPR_TAR               (0x32F)
+#define SPR_IC                (0x350)
 #define SPR_VTB               (0x351)
+#define SPR_MMCRC             (0x353)
 #define SPR_440_INV0          (0x370)
 #define SPR_440_INV1          (0x371)
 #define SPR_440_INV2          (0x372)
@@ -1627,8 +1682,14 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_440_ITV2          (0x376)
 #define SPR_440_ITV3          (0x377)
 #define SPR_440_CCR1          (0x378)
+#define SPR_TACR              (0x378)
+#define SPR_TCSCR             (0x379)
+#define SPR_CSIGR             (0x37a)
 #define SPR_DCRIPR            (0x37B)
+#define SPR_POWER_SPMC1       (0x37C)
+#define SPR_POWER_SPMC2       (0x37D)
 #define SPR_POWER_MMCRS       (0x37E)
+#define SPR_WORT              (0x37F)
 #define SPR_PPR               (0x380)
 #define SPR_750_GQR0          (0x390)
 #define SPR_440_DNV0          (0x390)
@@ -1651,6 +1712,7 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define SPR_440_DVLIM         (0x398)
 #define SPR_750_WPAR          (0x399)
 #define SPR_440_IVLIM         (0x399)
+#define SPR_TSCR              (0x399)
 #define SPR_750_DMAU          (0x39A)
 #define SPR_750_DMAL          (0x39B)
 #define SPR_440_RSTCFG        (0x39B)
@@ -1825,9 +1887,10 @@ static inline int cpu_mmu_index (CPUPPCState *env)
 #define   L1CSR1_ICE		0x00000001	/* Instruction Cache Enable */
 
 /* HID0 bits */
-#define HID0_DEEPNAP        (1 << 24)
-#define HID0_DOZE           (1 << 23)
-#define HID0_NAP            (1 << 22)
+#define HID0_DEEPNAP        (1 << 24)           /* pre-2.06 */
+#define HID0_DOZE           (1 << 23)           /* pre-2.06 */
+#define HID0_NAP            (1 << 22)           /* pre-2.06 */
+#define HID0_HILE           (1ull << (63 - 19)) /* POWER8 */
 
 /*****************************************************************************/
 /* PowerPC Instructions types definitions                                    */
@@ -1874,6 +1937,8 @@ enum {
     PPC_POPCNTB        = 0x0000000000001000ULL,
     /*   string load / store                                                 */
     PPC_STRING         = 0x0000000000002000ULL,
+    /*   real mode cache inhibited load / store                              */
+    PPC_CILDST         = 0x0000000000004000ULL,
 
     /* Floating-point unit extensions                                        */
     /*   Optional floating point instructions                                */
@@ -1988,7 +2053,7 @@ enum {
                         | PPC_MFAPIDI | PPC_TLBIVA | PPC_TLBIVAX \
                         | PPC_4xx_COMMON | PPC_40x_ICBT | PPC_RFMCI \
                         | PPC_RFDI | PPC_DCR | PPC_DCRX | PPC_DCRUX \
-                        | PPC_POPCNTWD)
+                        | PPC_POPCNTWD | PPC_CILDST)
 
     /* extended type values */
 
@@ -2028,6 +2093,8 @@ enum {
     PPC2_FP_CVT_S64    = 0x0000000000010000ULL,
     /* Transactional Memory (ISA 2.07, Book II)                              */
     PPC2_TM            = 0x0000000000020000ULL,
+    /* Server PM instructgions (ISA 2.06, Book III)                          */
+    PPC2_PM_ISA206     = 0x0000000000040000ULL,
 
 #define PPC_TCG_INSNS2 (PPC2_BOOKE206 | PPC2_VSX | PPC2_PRCNTL | PPC2_DBRX | \
                         PPC2_ISA205 | PPC2_VSX207 | PPC2_PERM_ISA206 | \
@@ -2035,7 +2102,7 @@ enum {
                         PPC2_FP_CVT_ISA206 | PPC2_FP_TST_ISA206 | \
                         PPC2_BCTAR_ISA207 | PPC2_LSQ_ISA207 | \
                         PPC2_ALTIVEC_207 | PPC2_ISA207S | PPC2_DFP | \
-                        PPC2_FP_CVT_S64 | PPC2_TM)
+                        PPC2_FP_CVT_S64 | PPC2_TM | PPC2_PM_ISA206)
 };
 
 /*****************************************************************************/
@@ -2165,15 +2232,45 @@ enum {
     PPC_INTERRUPT_CDOORBELL,      /* Critical doorbell interrupt          */
     PPC_INTERRUPT_DOORBELL,       /* Doorbell interrupt                   */
     PPC_INTERRUPT_PERFM,          /* Performance monitor interrupt        */
+    PPC_INTERRUPT_HMI,            /* Hypervisor Maintainance interrupt    */
+    PPC_INTERRUPT_HDOORBELL,      /* Hypervisor Doorbell interrupt        */
 };
 
 /* Processor Compatibility mask (PCR) */
 enum {
     PCR_COMPAT_2_05     = 1ull << (63-62),
     PCR_COMPAT_2_06     = 1ull << (63-61),
+    PCR_COMPAT_2_07     = 1ull << (63-60),
     PCR_VEC_DIS         = 1ull << (63-0), /* Vec. disable (bit NA since POWER8) */
     PCR_VSX_DIS         = 1ull << (63-1), /* VSX disable (bit NA since POWER8) */
     PCR_TM_DIS          = 1ull << (63-2), /* Trans. memory disable (POWER8) */
+};
+
+/* HMER/HMEER */
+enum {
+    HMER_MALFUNCTION_ALERT      = 1ull << (63 - 0),
+    HMER_PROC_RECV_DONE         = 1ull << (63 - 2),
+    HMER_PROC_RECV_ERROR_MASKED = 1ull << (63 - 3),
+    HMER_TFAC_ERROR             = 1ull << (63 - 4),
+    HMER_TFMR_PARITY_ERROR      = 1ull << (63 - 5),
+    HMER_XSCOM_FAIL             = 1ull << (63 - 8),
+    HMER_XSCOM_DONE             = 1ull << (63 - 9),
+    HMER_PROC_RECV_AGAIN        = 1ull << (63 - 11),
+    HMER_WARN_RISE              = 1ull << (63 - 14),
+    HMER_WARN_FALL              = 1ull << (63 - 15),
+    HMER_SCOM_FIR_HMI           = 1ull << (63 - 16),
+    HMER_TRIG_FIR_HMI           = 1ull << (63 - 17),
+    HMER_HYP_RESOURCE_ERR       = 1ull << (63 - 20),
+    HMER_XSCOM_STATUS_MASK      = 7ull << (63 - 23),
+    HMER_XSCOM_STATUS_LSH       = (63 - 23),
+};
+
+/* Alternate Interrupt Location (AIL) */
+enum {
+    AIL_NONE                = 0,
+    AIL_RESERVED            = 1,
+    AIL_0001_8000           = 2,
+    AIL_C000_0000_0000_4000 = 3,
 };
 
 /*****************************************************************************/
@@ -2192,7 +2289,7 @@ static inline void cpu_write_xer(CPUPPCState *env, target_ulong xer)
 }
 
 static inline void cpu_get_tb_cpu_state(CPUPPCState *env, target_ulong *pc,
-                                        target_ulong *cs_base, int *flags)
+                                        target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->nip;
     *cs_base = 0;
@@ -2251,8 +2348,8 @@ static inline ppcmas_tlb_t *booke206_get_tlbm(CPUPPCState *env, const int tlbn,
 {
     int r;
     uint32_t ways = booke206_tlb_ways(env, tlbn);
-    int ways_bits = ffs(ways) - 1;
-    int tlb_bits = ffs(booke206_tlb_size(env, tlbn)) - 1;
+    int ways_bits = ctz32(ways);
+    int tlb_bits = ctz32(booke206_tlb_size(env, tlbn));
     int i;
 
     way &= ways - 1;
@@ -2304,9 +2401,17 @@ static inline bool msr_is_64bit(CPUPPCState *env, target_ulong msr)
     return msr & (1ULL << MSR_SF);
 }
 
-extern void (*cpu_ppc_hypercall)(PowerPCCPU *);
+/**
+ * Check whether register rx is in the range between start and
+ * start + nregs (as needed by the LSWX and LSWI instructions)
+ */
+static inline bool lsw_reg_in_range(int start, int nregs, int rx)
+{
+    return (start + nregs <= 32 && rx >= start && rx < start + nregs) ||
+           (start + nregs > 32 && (rx >= start || rx < start + nregs - 32));
+}
 
-#include "exec/exec-all.h"
+extern void (*cpu_ppc_hypercall)(PowerPCCPU *);
 
 void dump_mmu(FILE *f, fprintf_function cpu_fprintf, CPUPPCState *env);
 
@@ -2328,4 +2433,5 @@ int ppc_get_vcpu_dt_id(PowerPCCPU *cpu);
  */
 PowerPCCPU *ppc_get_vcpu_by_dt_id(int cpu_dt_id);
 
-#endif /* !defined (__CPU_PPC_H__) */
+void ppc_maybe_bswap_register(CPUPPCState *env, uint8_t *mem_buf, int len);
+#endif /* PPC_CPU_H */

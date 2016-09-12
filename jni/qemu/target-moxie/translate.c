@@ -21,12 +21,7 @@
  *    http://moxielogic.org/wiki
  */
 
-#include <stdarg.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <assert.h>
+#include "qemu/osdep.h"
 
 #include "cpu.h"
 #include "exec/exec-all.h"
@@ -36,6 +31,7 @@
 
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
+#include "exec/log.h"
 
 /* This is the state at translation time.  */
 typedef struct DisasContext {
@@ -60,7 +56,7 @@ enum {
 
 static TCGv cpu_pc;
 static TCGv cpu_gregs[16];
-static TCGv_ptr cpu_env;
+static TCGv_env cpu_env;
 static TCGv cc_a, cc_b;
 
 #include "exec/gen-icount.h"
@@ -110,32 +106,42 @@ void moxie_translate_init(void)
         return;
     }
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
-    cpu_pc = tcg_global_mem_new_i32(TCG_AREG0,
+    tcg_ctx.tcg_env = cpu_env;
+    cpu_pc = tcg_global_mem_new_i32(cpu_env,
                                     offsetof(CPUMoxieState, pc), "$pc");
     for (i = 0; i < 16; i++)
-        cpu_gregs[i] = tcg_global_mem_new_i32(TCG_AREG0,
+        cpu_gregs[i] = tcg_global_mem_new_i32(cpu_env,
                                               offsetof(CPUMoxieState, gregs[i]),
                                               gregnames[i]);
 
-    cc_a = tcg_global_mem_new_i32(TCG_AREG0,
+    cc_a = tcg_global_mem_new_i32(cpu_env,
                                   offsetof(CPUMoxieState, cc_a), "cc_a");
-    cc_b = tcg_global_mem_new_i32(TCG_AREG0,
+    cc_b = tcg_global_mem_new_i32(cpu_env,
                                   offsetof(CPUMoxieState, cc_b), "cc_b");
 
     done_init = 1;
 }
 
+static inline bool use_goto_tb(DisasContext *ctx, target_ulong dest)
+{
+    if (unlikely(ctx->singlestep_enabled)) {
+        return false;
+    }
+
+#ifndef CONFIG_USER_ONLY
+    return (ctx->tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK);
+#else
+    return true;
+#endif
+}
+
 static inline void gen_goto_tb(CPUMoxieState *env, DisasContext *ctx,
                                int n, target_ulong dest)
 {
-    TranslationBlock *tb;
-    tb = ctx->tb;
-
-    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) &&
-        !ctx->singlestep_enabled) {
+    if (use_goto_tb(ctx, dest)) {
         tcg_gen_goto_tb(n);
         tcg_gen_movi_i32(cpu_pc, dest);
-        tcg_gen_exit_tb((uintptr_t)tb + n);
+        tcg_gen_exit_tb((uintptr_t)ctx->tb + n);
     } else {
         tcg_gen_movi_i32(cpu_pc, dest);
         if (ctx->singlestep_enabled) {
@@ -153,10 +159,6 @@ static int decode_opc(MoxieCPU *cpu, DisasContext *ctx)
     int opcode;
     /* Set the default instruction length.  */
     int length = 2;
-
-    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
-        tcg_gen_debug_insn_start(ctx->pc);
-    }
 
     /* Examine the 16-bit opcode.  */
     opcode = ctx->opcode;
@@ -820,17 +822,13 @@ static int decode_opc(MoxieCPU *cpu, DisasContext *ctx)
 }
 
 /* generate intermediate code for basic block 'tb'.  */
-static inline void
-gen_intermediate_code_internal(MoxieCPU *cpu, TranslationBlock *tb,
-                               bool search_pc)
+void gen_intermediate_code(CPUMoxieState *env, struct TranslationBlock *tb)
 {
+    MoxieCPU *cpu = moxie_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
     DisasContext ctx;
     target_ulong pc_start;
-    CPUBreakpoint *bp;
-    int j, lj = -1;
-    CPUMoxieState *env = &cpu->env;
-    int num_insns;
+    int num_insns, max_insns;
 
     pc_start = tb->pc;
     ctx.pc = pc_start;
@@ -840,40 +838,40 @@ gen_intermediate_code_internal(MoxieCPU *cpu, TranslationBlock *tb,
     ctx.singlestep_enabled = 0;
     ctx.bstate = BS_NONE;
     num_insns = 0;
+    max_insns = tb->cflags & CF_COUNT_MASK;
+    if (max_insns == 0) {
+        max_insns = CF_COUNT_MASK;
+    }
+    if (max_insns > TCG_MAX_INSNS) {
+        max_insns = TCG_MAX_INSNS;
+    }
 
     gen_tb_start(tb);
     do {
-        if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
-            QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
-                if (ctx.pc == bp->pc) {
-                    tcg_gen_movi_i32(cpu_pc, ctx.pc);
-                    gen_helper_debug(cpu_env);
-                    ctx.bstate = BS_EXCP;
-                    goto done_generating;
-                }
-            }
-        }
-
-        if (search_pc) {
-            j = tcg_op_buf_count();
-            if (lj < j) {
-                lj++;
-                while (lj < j) {
-                    tcg_ctx.gen_opc_instr_start[lj++] = 0;
-                }
-            }
-            tcg_ctx.gen_opc_pc[lj] = ctx.pc;
-            tcg_ctx.gen_opc_instr_start[lj] = 1;
-            tcg_ctx.gen_opc_icount[lj] = num_insns;
-        }
-        ctx.opcode = cpu_lduw_code(env, ctx.pc);
-        ctx.pc += decode_opc(cpu, &ctx);
+        tcg_gen_insn_start(ctx.pc);
         num_insns++;
 
+        if (unlikely(cpu_breakpoint_test(cs, ctx.pc, BP_ANY))) {
+            tcg_gen_movi_i32(cpu_pc, ctx.pc);
+            gen_helper_debug(cpu_env);
+            ctx.bstate = BS_EXCP;
+            /* The address covered by the breakpoint must be included in
+               [tb->pc, tb->pc + tb->size) in order to for it to be
+               properly cleared -- thus we increment the PC here so that
+               the logic setting tb->size below does the right thing.  */
+            ctx.pc += 2;
+            goto done_generating;
+        }
+
+        ctx.opcode = cpu_lduw_code(env, ctx.pc);
+        ctx.pc += decode_opc(cpu, &ctx);
+
+        if (num_insns >= max_insns) {
+            break;
+        }
         if (cs->singlestep_enabled) {
             break;
         }
-
         if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0) {
             break;
         }
@@ -899,29 +897,12 @@ gen_intermediate_code_internal(MoxieCPU *cpu, TranslationBlock *tb,
  done_generating:
     gen_tb_end(tb, num_insns);
 
-    if (search_pc) {
-        j = tcg_op_buf_count();
-        lj++;
-        while (lj <= j) {
-            tcg_ctx.gen_opc_instr_start[lj++] = 0;
-        }
-    } else {
-        tb->size = ctx.pc - pc_start;
-        tb->icount = num_insns;
-    }
+    tb->size = ctx.pc - pc_start;
+    tb->icount = num_insns;
 }
 
-void gen_intermediate_code(CPUMoxieState *env, struct TranslationBlock *tb)
+void restore_state_to_opc(CPUMoxieState *env, TranslationBlock *tb,
+                          target_ulong *data)
 {
-    gen_intermediate_code_internal(moxie_env_get_cpu(env), tb, false);
-}
-
-void gen_intermediate_code_pc(CPUMoxieState *env, struct TranslationBlock *tb)
-{
-    gen_intermediate_code_internal(moxie_env_get_cpu(env), tb, true);
-}
-
-void restore_state_to_opc(CPUMoxieState *env, TranslationBlock *tb, int pc_pos)
-{
-    env->pc = tcg_ctx.gen_opc_pc[pc_pos];
+    env->pc = data[0];
 }

@@ -369,31 +369,6 @@ sbus_probe_slot_ss600mp(unsigned int slot, uint64_t base)
     }
 }
 
-static void
-ob_sbus_open(void)
-{
-	int ret=1;
-	RET ( -ret );
-}
-
-static void
-ob_sbus_close(void)
-{
-	selfword("close-deblocker");
-}
-
-static void
-ob_sbus_initialize(void)
-{
-}
-
-
-NODE_METHODS(ob_sbus_node) = {
-	{ NULL,			ob_sbus_initialize	},
-	{ "open",		ob_sbus_open		},
-	{ "close",		ob_sbus_close		},
-};
-
 struct sbus_offset {
     int slot, type;
     uint64_t base;

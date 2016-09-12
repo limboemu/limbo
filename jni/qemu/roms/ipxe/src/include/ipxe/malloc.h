@@ -9,7 +9,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /*
  * Prototypes for the standard functions (malloc() et al) are in
@@ -77,8 +77,8 @@ static inline void * __malloc malloc_dma ( size_t size, size_t phys_align ) {
  * If @c ptr is NULL, no action is taken.
  */
 static inline void free_dma ( void *ptr, size_t size ) {
-	free_memblock ( ptr, size );
 	VALGRIND_FREELIKE_BLOCK ( ptr, 0 );
+	free_memblock ( ptr, size );
 }
 
 /** A cache discarder */

@@ -49,7 +49,8 @@ SECTIONS {
 	__bss_end = .;
 	__bss_size = (__bss_end - __bss_start);
 
-	__toc_start = .;
+	. = ALIGN(256);
+	__toc_start = DEFINED (.TOC.) ? .TOC. : ADDR (.got) + 0x8000;
 	.got :
 	{
 		 *(.toc .got)

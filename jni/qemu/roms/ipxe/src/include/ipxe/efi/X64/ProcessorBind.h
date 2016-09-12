@@ -1,7 +1,7 @@
 /** @file
   Processor or Compiler specific defines and types x64 (Intel 64, AMD64).
 
-  Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -95,6 +95,26 @@ FILE_LICENCE ( BSD3 );
 // This warning is caused by empty (after preprocessing) source file. For precompiled header only.
 //
 #pragma warning ( disable : 4206 )
+
+#if _MSC_VER == 1800 || _MSC_VER == 1900
+
+//
+// Disable these warnings for VS2013.
+//
+
+//
+// This warning is for potentially uninitialized local variable, and it may cause false
+// positive issues in VS2013 and VS2015 build
+//
+#pragma warning ( disable : 4701 )
+
+//
+// This warning is for potentially uninitialized local pointer variable, and it may cause
+// false positive issues in VS2013 and VS2015 build
+//
+#pragma warning ( disable : 4703 )
+
+#endif
 
 #endif
 
@@ -251,12 +271,12 @@ typedef INT64   INTN;
   ///
 #elif defined(_MSC_EXTENSIONS)
   ///
-  /// Microsoft* compiler specific method for EFIAPI calling convension
+  /// Microsoft* compiler specific method for EFIAPI calling convention.
   ///
   #define EFIAPI __cdecl
 #elif defined(__GNUC__)
   ///
-  /// Define the standard calling convention reguardless of optimization level.
+  /// Define the standard calling convention regardless of optimization level.
   /// The GCC support assumes a GCC compiler that supports the EFI ABI. The EFI
   /// ABI is much closer to the x64 Microsoft* ABI than standard x64 (x86-64)
   /// GCC ABI. Thus a standard x64 (x86-64) GCC compiler can not be used for

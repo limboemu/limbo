@@ -1,5 +1,5 @@
 /*
- * Virtio 9p
+ * 9p
  *
  * Copyright IBM, Corp. 2010
  *
@@ -10,8 +10,7 @@
  * the COPYING file in the top-level directory.
  *
  */
-#include <stdio.h>
-#include <string.h>
+#include "qemu/osdep.h"
 #include "qemu-fsdev.h"
 #include "qemu/config-file.h"
 #include "qemu/module.h"

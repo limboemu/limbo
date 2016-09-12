@@ -22,6 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
 #include "net/net.h"
 #include "hw/block/flash.h"
@@ -33,6 +37,7 @@
 #include "sysemu/block-backend.h"
 #include "exec/address-spaces.h"
 #include "sysemu/qtest.h"
+#include "sysemu/sysemu.h"
 
 #define D(x)
 #define DNAND(x)
@@ -138,7 +143,7 @@ static void tempsensor_clkedge(struct tempsensor_t *s,
                     s->count = 16;
 
                     if ((s->regs[0] & 0xff) == 0) {
-                        /* 25 degrees celcius.  */
+                        /* 25 degrees celsius.  */
                         s->shiftreg = 0x0b9f;
                     } else if ((s->regs[0] & 0xff) == 0xff) {
                         /* Sensor ID, 0x8100 LM70.  */
@@ -277,7 +282,7 @@ void axisdev88_init(MachineState *machine)
     /* The ETRAX-FS has 128Kb on chip ram, the docs refer to it as the 
        internal memory.  */
     memory_region_init_ram(phys_intmem, NULL, "axisdev88.chipram", INTMEM_SIZE,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(phys_intmem);
     memory_region_add_subregion(address_space_mem, 0x38000000, phys_intmem);
 
@@ -337,8 +342,7 @@ void axisdev88_init(MachineState *machine)
     sysbus_create_varargs("etraxfs,timer", 0x3005e000, irq[0x1b], nmi[1], NULL);
 
     for (i = 0; i < 4; i++) {
-        sysbus_create_simple("etraxfs,serial", 0x30026000 + i * 0x2000,
-                             irq[0x14 + i]);
+        etraxfs_ser_create(0x30026000 + i * 0x2000, irq[0x14 + i], serial_hds[i]);
     }
 
     if (kernel_filename) {
@@ -351,16 +355,11 @@ void axisdev88_init(MachineState *machine)
     }
 }
 
-static QEMUMachine axisdev88_machine = {
-    .name = "axis-dev88",
-    .desc = "AXIS devboard 88",
-    .init = axisdev88_init,
-    .is_default = 1,
-};
-
-static void axisdev88_machine_init(void)
+static void axisdev88_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&axisdev88_machine);
+    mc->desc = "AXIS devboard 88";
+    mc->init = axisdev88_init;
+    mc->is_default = 1;
 }
 
-machine_init(axisdev88_machine_init);
+DEFINE_MACHINE("axis-dev88", axisdev88_machine_init)

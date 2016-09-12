@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -32,6 +36,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/timer.h>
 #include <ipxe/console.h>
 #include <ipxe/ansicol.h>
+#include <ipxe/jumpscroll.h>
 #include <ipxe/menu.h>
 
 /* Screen layout */
@@ -46,12 +51,8 @@ FILE_LICENCE ( GPL2_OR_LATER );
 struct menu_ui {
 	/** Menu */
 	struct menu *menu;
-	/** Number of menu items */
-	unsigned int count;
-	/** Currently selected item */
-	int selected;
-	/** First visible item */
-	int first_visible;
+	/** Jump scroller */
+	struct jump_scroller scroll;
 	/** Timeout (0=indefinite) */
 	unsigned long timeout;
 };
@@ -80,7 +81,7 @@ static struct menu_item * menu_item ( struct menu *menu, unsigned int index ) {
  * @v ui		Menu user interface
  * @v index		Index
  */
-static void draw_menu_item ( struct menu_ui *ui, int index ) {
+static void draw_menu_item ( struct menu_ui *ui, unsigned int index ) {
 	struct menu_item *item;
 	unsigned int row_offset;
 	char buf[ MENU_COLS + 1 /* NUL */ ];
@@ -90,7 +91,7 @@ static void draw_menu_item ( struct menu_ui *ui, int index ) {
 	size_t len;
 
 	/* Move to start of row */
-	row_offset = ( index - ui->first_visible );
+	row_offset = ( index - ui->scroll.first );
 	move ( ( MENU_ROW + row_offset ), MENU_COL );
 
 	/* Get menu item */
@@ -102,7 +103,7 @@ static void draw_menu_item ( struct menu_ui *ui, int index ) {
 			color_set ( CPAIR_SEPARATOR, NULL );
 
 		/* Highlight if this is the selected item */
-		if ( index == ui->selected ) {
+		if ( index == ui->scroll.current ) {
 			color_set ( CPAIR_SELECT, NULL );
 			attron ( A_BOLD );
 		}
@@ -121,7 +122,7 @@ static void draw_menu_item ( struct menu_ui *ui, int index ) {
 			snprintf ( timeout_buf, sizeof ( timeout_buf ), "(%ld)",
 				   ( ( ui->timeout + TICKS_PER_SEC - 1 ) /
 				     TICKS_PER_SEC ) );
-		if ( ( index == ui->selected ) && ( ui->timeout != 0 ) ) {
+		if ( ( index == ui->scroll.current ) && ( ui->timeout != 0 ) ) {
 			memcpy ( ( buf + MENU_COLS - MENU_PAD - timeout_len ),
 				 timeout_buf, timeout_len );
 		}
@@ -150,24 +151,17 @@ static void draw_menu_item ( struct menu_ui *ui, int index ) {
 static void draw_menu_items ( struct menu_ui *ui ) {
 	unsigned int i;
 
-	/* Jump scroll to correct point in list */
-	while ( ui->first_visible < ui->selected )
-		ui->first_visible += MENU_ROWS;
-	while ( ui->first_visible > ui->selected )
-		ui->first_visible -= MENU_ROWS;
-
 	/* Draw ellipses before and/or after the list as necessary */
 	color_set ( CPAIR_SEPARATOR, NULL );
 	mvaddstr ( ( MENU_ROW - 1 ), ( MENU_COL + MENU_PAD ),
-		   ( ( ui->first_visible > 0 ) ? "..." : "   " ) );
+		   ( jump_scroll_is_first ( &ui->scroll ) ? "   " : "..." ) );
 	mvaddstr ( ( MENU_ROW + MENU_ROWS ), ( MENU_COL + MENU_PAD ),
-		   ( ( ( ui->first_visible + MENU_ROWS ) < ui->count ) ?
-		     "..." : "   " ) );
+		   ( jump_scroll_is_last ( &ui->scroll ) ? "   " : "..." ) );
 	color_set ( CPAIR_NORMAL, NULL );
 
 	/* Draw visible items */
 	for ( i = 0 ; i < MENU_ROWS ; i++ )
-		draw_menu_item ( ui, ( ui->first_visible + i ) );
+		draw_menu_item ( ui, ( ui->scroll.first + i ) );
 }
 
 /**
@@ -180,8 +174,7 @@ static void draw_menu_items ( struct menu_ui *ui ) {
 static int menu_loop ( struct menu_ui *ui, struct menu_item **selected ) {
 	struct menu_item *item;
 	unsigned long timeout;
-	unsigned int delta;
-	int current;
+	unsigned int previous;
 	int key;
 	int i;
 	int move;
@@ -190,7 +183,7 @@ static int menu_loop ( struct menu_ui *ui, struct menu_item **selected ) {
 
 	do {
 		/* Record current selection */
-		current = ui->selected;
+		previous = ui->scroll.current;
 
 		/* Calculate timeout as remainder of current second */
 		timeout = ( ui->timeout % TICKS_PER_SEC );
@@ -209,27 +202,11 @@ static int menu_loop ( struct menu_ui *ui, struct menu_item **selected ) {
 			/* Cancel any timeout */
 			ui->timeout = 0;
 
-			/* Handle key */
+			/* Handle scroll keys */
+			move = jump_scroll_key ( &ui->scroll, key );
+
+			/* Handle other keys */
 			switch ( key ) {
-			case KEY_UP:
-				move = -1;
-				break;
-			case KEY_DOWN:
-				move = +1;
-				break;
-			case KEY_PPAGE:
-				move = ( ui->first_visible - ui->selected - 1 );
-				break;
-			case KEY_NPAGE:
-				move = ( ui->first_visible - ui->selected
-					 + MENU_ROWS );
-				break;
-			case KEY_HOME:
-				move = -ui->count;
-				break;
-			case KEY_END:
-				move = +ui->count;
-				break;
 			case ESC:
 			case CTRL_C:
 				rc = -ECANCELED;
@@ -247,7 +224,7 @@ static int menu_loop ( struct menu_ui *ui, struct menu_item **selected ) {
 						i++;
 						continue;
 					}
-					ui->selected = i;
+					ui->scroll.current = i;
 					if ( item->label ) {
 						chosen = 1;
 					} else {
@@ -260,31 +237,22 @@ static int menu_loop ( struct menu_ui *ui, struct menu_item **selected ) {
 
 		/* Move selection, if applicable */
 		while ( move ) {
-			ui->selected += move;
-			if ( ui->selected < 0 ) {
-				ui->selected = 0;
-				move = +1;
-			} else if ( ui->selected >= ( int ) ui->count ) {
-				ui->selected = ( ui->count - 1 );
-				move = -1;
-			}
-			item = menu_item ( ui->menu, ui->selected );
+			move = jump_scroll_move ( &ui->scroll, move );
+			item = menu_item ( ui->menu, ui->scroll.current );
 			if ( item->label )
 				break;
-			move = ( ( move > 0 ) ? +1 : -1 );
 		}
 
 		/* Redraw selection if necessary */
-		if ( ( ui->selected != current ) || ( timeout != 0 ) ) {
-			draw_menu_item ( ui, current );
-			delta = ( ui->selected - ui->first_visible );
-			if ( delta >= MENU_ROWS )
+		if ( ( ui->scroll.current != previous ) || ( timeout != 0 ) ) {
+			draw_menu_item ( ui, previous );
+			if ( jump_scroll ( &ui->scroll ) )
 				draw_menu_items ( ui );
-			draw_menu_item ( ui, ui->selected );
+			draw_menu_item ( ui, ui->scroll.current );
 		}
 
 		/* Record selection */
-		item = menu_item ( ui->menu, ui->selected );
+		item = menu_item ( ui->menu, ui->scroll.current );
 		assert ( item != NULL );
 		assert ( item->label != NULL );
 		*selected = item;
@@ -313,21 +281,22 @@ int show_menu ( struct menu *menu, unsigned long timeout,
 	/* Initialise UI */
 	memset ( &ui, 0, sizeof ( ui ) );
 	ui.menu = menu;
+	ui.scroll.rows = MENU_ROWS;
 	ui.timeout = timeout;
 	list_for_each_entry ( item, &menu->items, list ) {
 		if ( item->label ) {
 			if ( ! labelled_count )
-				ui.selected = ui.count;
+				ui.scroll.current = ui.scroll.count;
 			labelled_count++;
 			if ( select ) {
 				if ( strcmp ( select, item->label ) == 0 )
-					ui.selected = ui.count;
+					ui.scroll.current = ui.scroll.count;
 			} else {
 				if ( item->is_default )
-					ui.selected = ui.count;
+					ui.scroll.current = ui.scroll.count;
 			}
 		}
-		ui.count++;
+		ui.scroll.count++;
 	}
 	if ( ! labelled_count ) {
 		/* Menus with no labelled items cannot be selected
@@ -349,8 +318,9 @@ int show_menu ( struct menu *menu, unsigned long timeout,
 	snprintf ( buf, sizeof ( buf ), "%s", ui.menu->title );
 	mvprintw ( TITLE_ROW, ( ( COLS - strlen ( buf ) ) / 2 ), "%s", buf );
 	attroff ( A_BOLD );
+	jump_scroll ( &ui.scroll );
 	draw_menu_items ( &ui );
-	draw_menu_item ( &ui, ui.selected );
+	draw_menu_item ( &ui, ui.scroll.current );
 
 	/* Enter main loop */
 	rc = menu_loop ( &ui, selected );

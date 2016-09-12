@@ -18,6 +18,11 @@
 
 /******** core virtio ********/
 
+// : virtio-setup-vd  ( -- dev )
+PRIM(virtio_X2d_setup_X2d_vd)
+	PUSH; TOS.a = virtio_setup_vd();
+MIRP
+
 // : virtio-vring-size  ( queuesize -- ringsize )
 PRIM(virtio_X2d_vring_X2d_size)
 	TOS.u = virtio_vring_size(TOS.u);
@@ -122,20 +127,18 @@ MIRP
 
 /******** virtio-net ********/
 
-// : virtio-net-open ( mac-addr-str len dev -- false | [ driver true ] )
+// : virtio-net-open ( dev -- false | [ driver true ] )
 PRIM(virtio_X2d_net_X2d_open)
 {
-	void *dev = TOS.a; POP;
-	int len = TOS.u; POP;
-        char *mac_addr = TOS.a;
+	void *dev = TOS.a;
 
-        net_driver_t *net_driver = virtionet_open(mac_addr, len, dev);
+	net_driver_t *net_driver = virtionet_open(dev);
 
-        if (net_driver) {
-                TOS.u = (unsigned long)net_driver; PUSH;
-                TOS.n = -1;
-        } else
-                TOS.n = 0;
+	if (net_driver) {
+		TOS.u = (unsigned long)net_driver; PUSH;
+		TOS.n = -1;
+	} else
+		TOS.n = 0;
 }
 MIRP
 

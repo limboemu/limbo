@@ -21,7 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "qemu/host-utils.h"
 #include "audio.h"
 #include "qemu/timer.h"
 
@@ -48,8 +50,8 @@ static int no_run_out (HWVoiceOut *hw, int live)
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     ticks = now - no->old_ticks;
-    bytes = muldiv64 (ticks, hw->info.bytes_per_second, get_ticks_per_sec ());
-    bytes = audio_MIN (bytes, INT_MAX);
+    bytes = muldiv64(ticks, hw->info.bytes_per_second, NANOSECONDS_PER_SECOND);
+    bytes = audio_MIN(bytes, INT_MAX);
     samples = bytes >> hw->info.shift;
 
     no->old_ticks = now;
@@ -60,10 +62,10 @@ static int no_run_out (HWVoiceOut *hw, int live)
 
 static int no_write (SWVoiceOut *sw, void *buf, int len)
 {
-    return audio_pcm_sw_write (sw, buf, len);
+    return audio_pcm_sw_write(sw, buf, len);
 }
 
-static int no_init_out (HWVoiceOut *hw, struct audsettings *as)
+static int no_init_out(HWVoiceOut *hw, struct audsettings *as, void *drv_opaque)
 {
     audio_pcm_init_info (&hw->info, as);
     hw->samples = 1024;
@@ -82,7 +84,7 @@ static int no_ctl_out (HWVoiceOut *hw, int cmd, ...)
     return 0;
 }
 
-static int no_init_in (HWVoiceIn *hw, struct audsettings *as)
+static int no_init_in(HWVoiceIn *hw, struct audsettings *as, void *drv_opaque)
 {
     audio_pcm_init_info (&hw->info, as);
     hw->samples = 1024;
@@ -105,7 +107,7 @@ static int no_run_in (HWVoiceIn *hw)
         int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         int64_t ticks = now - no->old_ticks;
         int64_t bytes =
-            muldiv64 (ticks, hw->info.bytes_per_second, get_ticks_per_sec ());
+            muldiv64(ticks, hw->info.bytes_per_second, NANOSECONDS_PER_SECOND);
 
         no->old_ticks = now;
         bytes = audio_MIN (bytes, INT_MAX);

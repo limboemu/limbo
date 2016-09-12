@@ -33,3 +33,16 @@
   swap -
 ;
 
+: invert-region-cs ( addr len cellsize -- )
+   >r over swap r@ rshift r> swap 1 hv-logical-memop drop
+;
+
+: invert-region ( addr len -- )
+   2dup or 7 and CASE
+      0 OF 3 invert-region-cs ENDOF
+      4 OF 2 invert-region-cs ENDOF
+      3 and
+      2 OF 1 invert-region-cs ENDOF
+      dup OF 0 invert-region-cs ENDOF
+   ENDCASE
+;

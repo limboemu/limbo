@@ -76,6 +76,22 @@ increasing address order, similar to memcpy().
 
 Selector Register IOport: 0x510
 Data Register IOport:     0x511
+DMA Address IOport:       0x514
+
+=== ARM Register Locations ===
+
+Selector Register address: Base + 8 (2 bytes)
+Data Register address:     Base + 0 (8 bytes)
+DMA Address address:       Base + 16 (8 bytes)
+
+== ACPI Interface ==
+
+The fw_cfg device is defined with ACPI ID "QEMU0002". Since we expect
+ACPI tables to be passed into the guest through the fw_cfg device itself,
+the guest-side firmware can not use ACPI to find fw_cfg. However, once the
+firmware is finished setting up ACPI tables and hands control over to the
+guest kernel, the latter can use the fw_cfg ACPI node for a more accurate
+inventory of in-use IOport or MMIO regions.
 
 == Firmware Configuration Items ==
 
@@ -86,11 +102,15 @@ by selecting the "signature" item using key 0x0000 (FW_CFG_SIGNATURE),
 and reading four bytes from the data register. If the fw_cfg device is
 present, the four bytes read will contain the characters "QEMU".
 
-=== Revision (Key 0x0001, FW_CFG_ID) ===
+If the DMA interface is available, then reading the DMA Address
+Register returns 0x51454d5520434647 ("QEMU CFG" in big-endian format).
 
-A 32-bit little-endian unsigned int, this item is used as an interface
-revision number, and is currently set to 1 by QEMU when fw_cfg is
-initialized.
+=== Revision / feature bitmap (Key 0x0001, FW_CFG_ID) ===
+
+A 32-bit little-endian unsigned int, this item is used to check for enabled
+features.
+ - Bit 0: traditional interface. Always set.
+ - Bit 1: DMA interface.
 
 === File Directory (Key 0x0019, FW_CFG_FILE_DIR) ===
 
@@ -132,74 +152,85 @@ Selector Reg.    Range Usage
 In practice, the number of allowed firmware configuration items is given
 by the value of FW_CFG_MAX_ENTRY (see fw_cfg.h).
 
-= Host-side API =
+= Guest-side DMA Interface =
 
-The following functions are available to the QEMU programmer for adding
-data to a fw_cfg device during guest initialization (see fw_cfg.h for
-each function's complete prototype):
+If bit 1 of the feature bitmap is set, the DMA interface is present. This does
+not replace the existing fw_cfg interface, it is an add-on. This interface
+can be used through the 64-bit wide address register.
 
-== fw_cfg_add_bytes() ==
+The address register is in big-endian format. The value for the register is 0
+at startup and after an operation. A write to the least significant half (at
+offset 4) triggers an operation. This means that operations with 32-bit
+addresses can be triggered with just one write, whereas operations with
+64-bit addresses can be triggered with one 64-bit write or two 32-bit writes,
+starting with the most significant half (at offset 0).
 
-Given a selector key value, starting pointer, and size, create an item
-as a raw "blob" of the given size, available by selecting the given key.
-The data referenced by the starting pointer is only linked, NOT copied,
-into the data structure of the fw_cfg device.
+In this register, the physical address of a FWCfgDmaAccess structure in RAM
+should be written. This is the format of the FWCfgDmaAccess structure:
 
-== fw_cfg_add_string() ==
+typedef struct FWCfgDmaAccess {
+    uint32_t control;
+    uint32_t length;
+    uint64_t address;
+} FWCfgDmaAccess;
 
-Instead of a starting pointer and size, this function accepts a pointer
-to a NUL-terminated ascii string, and inserts a newly allocated copy of
-the string (including the NUL terminator) into the fw_cfg device data
-structure.
+The fields of the structure are in big endian mode, and the field at the lowest
+address is the "control" field.
 
-== fw_cfg_add_iXX() ==
+The "control" field has the following bits:
+ - Bit 0: Error
+ - Bit 1: Read
+ - Bit 2: Skip
+ - Bit 3: Select. The upper 16 bits are the selected index.
 
-Insert an XX-bit item, where XX may be 16, 32, or 64. These functions
-will convert a 16-, 32-, or 64-bit integer to little-endian, then add
-a dynamically allocated copy of the appropriately sized item to fw_cfg
-under the given selector key value.
+When an operation is triggered, if the "control" field has bit 3 set, the
+upper 16 bits are interpreted as an index of a firmware configuration item.
+This has the same effect as writing the selector register.
 
-== fw_cfg_add_file() ==
+If the "control" field has bit 1 set, a read operation will be performed.
+"length" bytes for the current selector and offset will be copied into the
+physical RAM address specified by the "address" field.
 
-Given a filename (i.e., fw_cfg item name), starting pointer, and size,
-create an item as a raw "blob" of the given size. Unlike fw_cfg_add_bytes()
-above, the next available selector key (above 0x0020, FW_CFG_FILE_FIRST)
-will be used, and a new entry will be added to the file directory structure
-(at key 0x0019), containing the item name, blob size, and automatically
-assigned selector key value. The data referenced by the starting pointer
-is only linked, NOT copied, into the fw_cfg data structure.
+If the "control" field has bit 2 set (and not bit 1), a skip operation will be
+performed. The offset for the current selector will be advanced "length" bytes.
 
-== fw_cfg_add_file_callback() ==
+To check the result, read the "control" field:
+   error bit set        ->  something went wrong.
+   all bits cleared     ->  transfer finished successfully.
+   otherwise            ->  transfer still in progress (doesn't happen
+                            today due to implementation not being async,
+                            but may in the future).
 
-Like fw_cfg_add_file(), but additionally sets pointers to a callback
-function (and opaque argument), which will be executed host-side by
-QEMU each time a byte is read by the guest from this particular item.
+= Externally Provided Items =
 
-NOTE: The callback function is given the opaque argument set by
-fw_cfg_add_file_callback(), but also the current data offset,
-allowing it the option of only acting upon specific offset values
-(e.g., 0, before the first data byte of the selected item is
-returned to the guest).
+As of v2.4, "file" fw_cfg items (i.e., items with selector keys above
+FW_CFG_FILE_FIRST, and with a corresponding entry in the fw_cfg file
+directory structure) may be inserted via the QEMU command line, using
+the following syntax:
 
-== fw_cfg_modify_file() ==
+    -fw_cfg [name=]<item_name>,file=<path>
 
-Given a filename (i.e., fw_cfg item name), starting pointer, and size,
-completely replace the configuration item referenced by the given item
-name with the new given blob. If an existing blob is found, its
-callback information is removed, and a pointer to the old data is
-returned to allow the caller to free it, helping avoid memory leaks.
-If a configuration item does not already exist under the given item
-name, a new item will be created as with fw_cfg_add_file(), and NULL
-is returned to the caller. In any case, the data referenced by the
-starting pointer is only linked, NOT copied, into the fw_cfg data
-structure.
+Or
 
-== fw_cfg_add_callback() ==
+    -fw_cfg [name=]<item_name>,string=<string>
 
-Like fw_cfg_add_bytes(), but additionally sets pointers to a callback
-function (and opaque argument), which will be executed host-side by
-QEMU each time a guest-side write operation to this particular item
-completes fully overwriting the item's data.
+See QEMU man page for more documentation.
 
-NOTE: This function is deprecated, and will be completely removed
-starting with QEMU v2.4.
+Using item_name with plain ASCII characters only is recommended.
+
+Item names beginning with "opt/" are reserved for users.  QEMU will
+never create entries with such names unless explicitly ordered by the
+user.
+
+To avoid clashes among different users, it is strongly recommended
+that you use names beginning with opt/RFQDN/, where RFQDN is a reverse
+fully qualified domain name you control.  For instance, if SeaBIOS
+wanted to define additional names, the prefix "opt/org.seabios/" would
+be appropriate.
+
+For historical reasons, "opt/ovmf/" is reserved for OVMF firmware.
+
+Prefix "opt/org.qemu/" is reserved for QEMU itself.
+
+Use of names not beginning with "opt/" is potentially dangerous and
+entirely unsupported.  QEMU will warn if you try.

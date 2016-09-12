@@ -11,6 +11,7 @@ struct ata_channel_s {
     u16 iomaster;
     u8  irq;
     u8  chanid;
+    u8  ataid;
     int pci_bdf;
     struct pci_device *pci_tmp;
 };
@@ -24,10 +25,9 @@ struct atadrive_s {
 // ata.c
 char *ata_extract_model(char *model, u32 size, u16 *buffer);
 int ata_extract_version(u16 *buffer);
-int cdrom_read(struct disk_op_s *op);
-int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int ata_process_op(struct disk_op_s *op);
+int ata_atapi_process_op(struct disk_op_s *op);
 void ata_setup(void);
-int process_ata_op(struct disk_op_s *op);
 
 #define PORT_ATA2_CMD_BASE     0x0170
 #define PORT_ATA1_CMD_BASE     0x01f0

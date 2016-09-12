@@ -6,8 +6,9 @@
  * RSA public-key cryptography
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
+#include <stdarg.h>
 #include <ipxe/crypto.h>
 #include <ipxe/bigint.h>
 #include <ipxe/asn1.h>

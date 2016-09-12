@@ -4,20 +4,21 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h"
+#include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
+#include "e820map.h" // e820_add
 #include "farptr.h" // MAKE_FLATPTR
-#include "hw/pci.h"
-#include "hw/pic.h"
-#include "malloc.h" // csm_malloc_preinit
-#include "memmap.h"
+#include "hw/pci.h" // pci_probe_devices
+#include "hw/pic.h" // pic_irqmask_read
+#include "malloc.h" // malloc_csm_preinit
+#include "memmap.h" // SYMBOL
 #include "output.h" // dprintf
+#include "paravirt.h" // qemu_preinit
 #include "stacks.h" // wait_threads
 #include "std/acpi.h" // RSDP_SIGNATURE
 #include "std/bda.h" // struct bios_data_area_s
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
-#include "paravirt.h" // qemu_preinit
 
 #define UINT8 u8
 #define UINT16 u16
@@ -47,12 +48,11 @@ static void
 csm_return(struct bregs *regs)
 {
     u32 rommax = rom_get_max();
-    extern u8 final_readonly_start[];
 
     dprintf(3, "handle_csm returning AX=%04x\n", regs->ax);
 
     csm_compat_table.UmaAddress = rommax;
-    csm_compat_table.UmaSize = (u32)final_readonly_start - rommax;
+    csm_compat_table.UmaSize = SYMBOL(final_readonly_start) - rommax;
 
     PICMask = pic_irqmask_read();
     __csm_return(regs);
@@ -95,7 +95,7 @@ handle_csm_0000(struct bregs *regs)
     dprintf(3, "LoPmmMemory     %08x\n", csm_init_table->LowPmmMemory);
     dprintf(3, "LoPmmMemorySize %08x\n", csm_init_table->LowPmmMemorySizeInBytes);
 
-    csm_malloc_preinit(csm_init_table->LowPmmMemory,
+    malloc_csm_preinit(csm_init_table->LowPmmMemory,
                        csm_init_table->LowPmmMemorySizeInBytes,
                        csm_init_table->HiPmmMemory,
                        csm_init_table->HiPmmMemorySizeInBytes);
@@ -147,11 +147,11 @@ handle_csm_0002(struct bregs *regs)
     struct e820entry *p = (void *)csm_compat_table.E820Pointer;
     int i;
     for (i=0; i < csm_compat_table.E820Length / sizeof(struct e820entry); i++)
-        add_e820(p[i].start, p[i].size, p[i].type);
+        e820_add(p[i].start, p[i].size, p[i].type);
 
     if (csm_init_table->HiPmmMemorySizeInBytes > BUILD_MAX_HIGHTABLE) {
         u32 hi_pmm_end = csm_init_table->HiPmmMemory + csm_init_table->HiPmmMemorySizeInBytes;
-        add_e820(hi_pmm_end - BUILD_MAX_HIGHTABLE, BUILD_MAX_HIGHTABLE, E820_RESERVED);
+        e820_add(hi_pmm_end - BUILD_MAX_HIGHTABLE, BUILD_MAX_HIGHTABLE, E820_RESERVED);
     }
 
     // For PCIBIOS 1ab10e
@@ -183,6 +183,7 @@ handle_csm_0002(struct bregs *regs)
     struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
     bda->hdcount = 0;
 
+    thread_setup();
     mathcp_setup();
     timer_setup();
     clock_setup();

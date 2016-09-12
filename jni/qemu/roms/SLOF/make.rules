@@ -19,8 +19,12 @@
 ARCH := $(shell uname -p)
 
 # Auto-detect ppc64
-ifeq ($(ARCH), ppc64)
-CROSS          = ""
+ifeq (ppc64,$(findstring ppc64,$(ARCH)))
+  ifeq ($(ARCH), ppc64le)
+    EXTRA_CC	= -mbig -mabi=elfv1
+    EXTRA_LD	= -mbig
+  endif
+CROSS		?=
 else
 CROSS		?= powerpc64-linux-
 endif
@@ -31,8 +35,8 @@ HOSTCC		?= gcc
 HOSTCFLAGS	= -g -Wall -W -O2 -I. -I../include
 DD		= dd
 
-ONLY_CC 	= $(CROSS)gcc -m$(CELLSIZE)
-ONLY_AS 	= $(CROSS)as -m$(CELLSIZE)
+ONLY_CC 	= $(CROSS)gcc -m$(CELLSIZE) $(EXTRA_CC)
+ONLY_AS 	= $(CROSS)as -m$(CELLSIZE) $(EXTRA_LD)
 ONLY_LD 	= $(CROSS)ld -melf$(CELLSIZE)ppc
 
 # Verbose level:

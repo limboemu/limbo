@@ -10,6 +10,7 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "hw/pcmcia.h"
@@ -163,7 +164,7 @@ static void pxa2xx_pcmcia_initfn(Object *obj)
     sysbus_init_mmio(sbd, &s->container_mem);
 
     /* Socket I/O Memory Space */
-    memory_region_init_io(&s->iomem, NULL, &pxa2xx_pcmcia_io_ops, s,
+    memory_region_init_io(&s->iomem, obj, &pxa2xx_pcmcia_io_ops, s,
                           "pxa2xx-pcmcia-io", 0x04000000);
     memory_region_add_subregion(&s->container_mem, 0x00000000,
                                 &s->iomem);
@@ -171,13 +172,13 @@ static void pxa2xx_pcmcia_initfn(Object *obj)
     /* Then next 64 MB is reserved */
 
     /* Socket Attribute Memory Space */
-    memory_region_init_io(&s->attr_iomem, NULL, &pxa2xx_pcmcia_attr_ops, s,
+    memory_region_init_io(&s->attr_iomem, obj, &pxa2xx_pcmcia_attr_ops, s,
                           "pxa2xx-pcmcia-attribute", 0x04000000);
     memory_region_add_subregion(&s->container_mem, 0x08000000,
                                 &s->attr_iomem);
 
     /* Socket Common Memory Space */
-    memory_region_init_io(&s->common_iomem, NULL, &pxa2xx_pcmcia_common_ops, s,
+    memory_region_init_io(&s->common_iomem, obj, &pxa2xx_pcmcia_common_ops, s,
                           "pxa2xx-pcmcia-common", 0x04000000);
     memory_region_add_subregion(&s->container_mem, 0x0c000000,
                                 &s->common_iomem);

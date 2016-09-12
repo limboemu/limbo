@@ -26,6 +26,8 @@
  * Reference: Finn Thogersons' VGADOC4b
  *   available at http://home.worldonline.dk/~finth/
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/pci/pci.h"
 #include "ui/console.h"
@@ -235,6 +237,10 @@ typedef struct PCICirrusVGAState {
     CirrusVGAState cirrus_vga;
 } PCICirrusVGAState;
 
+#define TYPE_PCI_CIRRUS_VGA "cirrus-vga"
+#define PCI_CIRRUS_VGA(obj) \
+    OBJECT_CHECK(PCICirrusVGAState, (obj), TYPE_PCI_CIRRUS_VGA)
+
 #define TYPE_ISA_CIRRUS_VGA "isa-cirrus-vga"
 #define ISA_CIRRUS_VGA(obj) \
     OBJECT_CHECK(ISACirrusVGAState, (obj), TYPE_ISA_CIRRUS_VGA)
@@ -271,14 +277,14 @@ static bool blit_region_is_unsafe(struct CirrusVGAState *s,
             + ((int64_t)s->cirrus_blt_height-1) * pitch;
         int32_t max = addr
             + s->cirrus_blt_width;
-        if (min < 0 || max >= s->vga.vram_size) {
+        if (min < 0 || max > s->vga.vram_size) {
             return true;
         }
     } else {
         int64_t max = addr
             + ((int64_t)s->cirrus_blt_height-1) * pitch
             + s->cirrus_blt_width;
-        if (max >= s->vga.vram_size) {
+        if (max > s->vga.vram_size) {
             return true;
         }
     }
@@ -3008,7 +3014,7 @@ static const TypeInfo isa_cirrus_vga_info = {
 
 static void pci_cirrus_vga_realize(PCIDevice *dev, Error **errp)
 {
-     PCICirrusVGAState *d = DO_UPCAST(PCICirrusVGAState, dev, dev);
+     PCICirrusVGAState *d = PCI_CIRRUS_VGA(dev);
      CirrusVGAState *s = &d->cirrus_vga;
      PCIDeviceClass *pc = PCI_DEVICE_GET_CLASS(dev);
      int16_t device_id = pc->device_id;
@@ -3070,7 +3076,7 @@ static void cirrus_vga_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo cirrus_vga_info = {
-    .name          = "cirrus-vga",
+    .name          = TYPE_PCI_CIRRUS_VGA,
     .parent        = TYPE_PCI_DEVICE,
     .instance_size = sizeof(PCICirrusVGAState),
     .class_init    = cirrus_vga_class_init,

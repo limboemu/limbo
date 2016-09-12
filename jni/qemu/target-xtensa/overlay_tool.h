@@ -27,7 +27,12 @@
 
 #define XTREG(idx, ofs, bi, sz, al, no, flags, cp, typ, grp, name, \
         a1, a2, a3, a4, a5, a6) \
-    { .targno = (no), .type = (typ), .group = (grp) },
+    { .targno = (no), .type = (typ), .group = (grp), .size = (sz) },
+#define XTREG_END { .targno = -1 },
+
+#ifndef XCHAL_HAVE_DEPBITS
+#define XCHAL_HAVE_DEPBITS 0
+#endif
 
 #ifndef XCHAL_HAVE_DIV32
 #define XCHAL_HAVE_DIV32 0
@@ -68,6 +73,7 @@
     XCHAL_OPTION(XCHAL_HAVE_S32C1I, XTENSA_OPTION_CONDITIONAL_STORE) | \
     XCHAL_OPTION(XCHAL_HAVE_S32C1I && XCHAL_HW_MIN_VERSION >= 230000, \
         XTENSA_OPTION_ATOMCTL) | \
+    XCHAL_OPTION(XCHAL_HAVE_DEPBITS, XTENSA_OPTION_DEPBITS) | \
     /* Interrupts and exceptions */ \
     XCHAL_OPTION(XCHAL_HAVE_EXCEPTIONS, XTENSA_OPTION_EXCEPTION) | \
     XCHAL_OPTION(XCHAL_HAVE_VECBASE, XTENSA_OPTION_RELOCATABLE_VECTOR) | \
@@ -316,6 +322,7 @@
         static XtensaConfigList node = { \
             .config = &core, \
         }; \
+        xtensa_finalize_config(&core); \
         xtensa_register_core(&node); \
     }
 #else

@@ -79,7 +79,9 @@ static int ehci_hub_check_ports(struct ehci_hcd *ehcd)
 			dprintf("usb-ehci: allocated device %p\n", dev);
 			dev->hcidev = ehcd->hcidev;
 			dev->speed = USB_HIGH_SPEED; /* TODO: Check for Low/Full speed device */
-			if (!setup_new_device(dev, i))
+			if (usb_setup_new_device(dev, i))
+				usb_slof_populate_new_device(dev);
+			else
 				printf("usb-ehci: unable to setup device on port %d\n", i);
 		}
 	}

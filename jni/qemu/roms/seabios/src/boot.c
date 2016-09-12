@@ -19,6 +19,7 @@
 #include "std/disk.h" // struct mbr_s
 #include "string.h" // memset
 #include "util.h" // irqtimer_calc
+#include "tcgbios.h" // tpm_*
 
 
 /****************************************************************
@@ -111,9 +112,9 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
     if (pci->parent) {
         p = build_pci_path(p, max, "pci-bridge", pci->parent);
     } else {
-        if (pci->rootbus)
-            p += snprintf(p, max, "/pci-root@%x", pci->rootbus);
         p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
+        if (pci->rootbus)
+            p += snprintf(p, buf+max-p, ",%x", pci->rootbus);
     }
 
     int dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
@@ -459,8 +460,8 @@ interactive_bootmenu(void)
         ;
 
     char *bootmsg = romfile_loadfile("etc/boot-menu-message", NULL);
-    int menukey = romfile_loadint("etc/boot-menu-key", 0x86);
-    printf("%s", bootmsg ?: "\nPress F12 for boot menu.\n\n");
+    int menukey = romfile_loadint("etc/boot-menu-key", 1);
+    printf("%s", bootmsg ?: "\nPress ESC for boot menu.\n\n");
     free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
@@ -486,9 +487,15 @@ interactive_bootmenu(void)
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
 
-    // Get key press
+    // Get key press.  If the menu key is ESC, do not restart boot unless
+    // 1.5 seconds have passed.  Otherwise users (trained by years of
+    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+    // multiple times and immediately booting the primary boot device.
+    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
     for (;;) {
         scan_code = get_keystroke(1000);
+        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+            continue;
         if (scan_code >= 1 && scan_code <= maxmenu+1)
             break;
     }
@@ -622,6 +629,8 @@ boot_disk(u8 bootdrv, int checksig)
         }
     }
 
+    tpm_add_bcv(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;
@@ -645,6 +654,9 @@ boot_cdrom(struct drive_s *drive_g)
 
     u8 bootdrv = CDEmu.emulated_drive;
     u16 bootseg = CDEmu.load_segment;
+
+    tpm_add_cdrom(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;

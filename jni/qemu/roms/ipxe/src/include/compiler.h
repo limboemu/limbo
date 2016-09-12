@@ -52,106 +52,116 @@
 /** Stringify expanded argument */
 #define _S2( x ) _S1 ( x )
 
+/* Assembler section types */
+#ifdef ASSEMBLY
+#define PROGBITS _C2 ( ASM_TCHAR, progbits )
+#define NOBITS _C2 ( ASM_TCHAR, nobits )
+#else
+#define PROGBITS_OPS _S2 ( ASM_TCHAR_OPS ) "progbits"
+#define PROGBITS _S2 ( ASM_TCHAR ) "progbits"
+#define NOBITS_OPS _S2 ( ASM_TCHAR_OPS ) "nobits"
+#define NOBITS _S2 ( ASM_TCHAR ) "nobits"
+#endif
+
 /**
  * @defgroup symmacros Macros to provide or require explicit symbols
  * @{
  */
 
-/** Provide a symbol within this object file */
-#ifdef ASSEMBLY
-#define PROVIDE_SYMBOL( _sym )				\
-	.section ".provided", "a", @nobits ;		\
-	.hidden _sym ;					\
-	.globl	_sym ;					\
-	_sym: ;						\
-	.previous
-#else /* ASSEMBLY */
-#define PROVIDE_SYMBOL( _sym )				\
-	char _sym[0]					\
-	  __attribute__ (( section ( ".provided" ) ))
-#endif /* ASSEMBLY */
-
-/** Require a symbol within this object file
+/**
+ * Provide a symbol within this object file
  *
- * The symbol is referenced by a relocation in a discarded section, so
- * if it is not available at link time the link will fail.
+ * @v symbol		Symbol name
  */
 #ifdef ASSEMBLY
-#define REQUIRE_SYMBOL( _sym )				\
-	.section ".discard", "a", @progbits ;		\
-	.extern	_sym ;					\
-	.long	_sym ;					\
+#define PROVIDE_SYMBOL( symbol )				\
+	.section ".provided", "a", NOBITS ;			\
+	.hidden symbol ;					\
+	.globl	symbol ;					\
+	symbol: ;						\
 	.previous
-#else /* ASSEMBLY */
-#define REQUIRE_SYMBOL( _sym )				\
-	extern char _sym;				\
-	static char * _C2 ( _C2 ( __require_, _sym ), _C2 ( _, __LINE__ ) ) \
-		__attribute__ (( section ( ".discard" ), used )) \
-		= &_sym
+#else
+#define PROVIDE_SYMBOL( symbol )				\
+	char symbol[0]						\
+	  __attribute__ (( section ( ".provided" ) ))
 #endif
 
-/** Request that a symbol be available at runtime
+/**
+ * Request a symbol
  *
- * The requested symbol is entered as undefined into the symbol table
- * for this object, so the linker will pull in other object files as
- * necessary to satisfy the reference. However, the undefined symbol
- * is not referenced in any relocations, so the link can still succeed
- * if no file contains it.
+ * @v symbol		Symbol name
  *
- * A symbol passed to this macro may not be referenced anywhere
- * else in the file. If you want to do that, see IMPORT_SYMBOL().
+ * Request a symbol to be included within the link.  If the symbol
+ * cannot be found, the link will succeed anyway.
  */
 #ifdef ASSEMBLY
-#define REQUEST_SYMBOL( _sym )				\
-	.equ	__need_ ## _sym, _sym
-#else /* ASSEMBLY */
-#define REQUEST_SYMBOL( _sym )				\
-	__asm__ ( ".equ\t__need_" #_sym ", " #_sym )
-#endif /* ASSEMBLY */
+#define REQUEST_SYMBOL( symbol )				\
+	.equ __request_ ## symbol, symbol
+#else
+#define REQUEST_SYMBOL( symbol )				\
+	__asm__ ( ".equ __request_" #symbol ", " #symbol )
+#endif
 
-/** Set up a symbol to be usable in another file by IMPORT_SYMBOL()
+/**
+ * Require a symbol
  *
- * The symbol must already be marked as global.
- */
-#define EXPORT_SYMBOL( _sym )	PROVIDE_SYMBOL ( __export_ ## _sym )
-
-/** Make a symbol usable to this file if available at link time
+ * @v symbol		Symbol name
  *
- * If no file passed to the linker contains the symbol, it will have
- * @c NULL value to future uses. Keep in mind that the symbol value is
- * really the @e address of a variable or function; see the code
- * snippet below.
+ * Require a symbol to be included within the link.  If the symbol
+ * cannot be found, the link will fail.
  *
- * In C using IMPORT_SYMBOL, you must specify the declaration as the
- * second argument, for instance
- *
- * @code
- *   IMPORT_SYMBOL ( my_func, int my_func ( int arg ) );
- *   IMPORT_SYMBOL ( my_var, int my_var );
- *
- *   void use_imports ( void ) {
- * 	if ( my_func && &my_var )
- * 	   my_var = my_func ( my_var );
- *   }
- * @endcode
- *
- * GCC considers a weak declaration to override a strong one no matter
- * which comes first, so it is safe to include a header file declaring
- * the imported symbol normally, but providing the declaration to
- * IMPORT_SYMBOL is still required.
- *
- * If no EXPORT_SYMBOL declaration exists for the imported symbol in
- * another file, the behavior will be most likely be identical to that
- * for an unavailable symbol.
+ * To use this macro within a file, you must also specify the file's
+ * "requiring symbol" using the REQUIRING_SYMBOL() or
+ * PROVIDE_REQUIRING_SYMBOL() macros.
  */
 #ifdef ASSEMBLY
-#define IMPORT_SYMBOL( _sym )				\
-	REQUEST_SYMBOL ( __export_ ## _sym ) ;		\
-	.weak	_sym
-#else /* ASSEMBLY */
-#define IMPORT_SYMBOL( _sym, _decl )			\
-	REQUEST_SYMBOL ( __export_ ## _sym ) ;		\
-	extern _decl __attribute__ (( weak ))
+#define REQUIRE_SYMBOL( symbol )				\
+	.reloc __requiring_symbol__, RELOC_TYPE_NONE, symbol
+#else
+#define REQUIRE_SYMBOL( symbol )				\
+	__asm__ ( ".reloc __requiring_symbol__, "		\
+		  _S2 ( RELOC_TYPE_NONE ) ", " #symbol )
+#endif
+
+/**
+ * Specify the file's requiring symbol
+ *
+ * @v symbol		Symbol name
+ *
+ * REQUIRE_SYMBOL() works by defining a dummy relocation record
+ * against a nominated "requiring symbol".  The presence of the
+ * nominated requiring symbol will drag in all of the symbols
+ * specified using REQUIRE_SYMBOL().
+ */
+#ifdef ASSEMBLY
+#define REQUIRING_SYMBOL( symbol )				\
+	.equ __requiring_symbol__, symbol
+#else
+#define REQUIRING_SYMBOL( symbol )				\
+	__asm__ ( ".equ __requiring_symbol__, " #symbol )
+#endif
+
+/**
+ * Provide a file's requiring symbol
+ *
+ * If the file contains no symbols that can be used as the requiring
+ * symbol, you can provide a dummy one-byte-long symbol using
+ * PROVIDE_REQUIRING_SYMBOL().
+ */
+#ifdef ASSEMBLY
+#define PROVIDE_REQUIRING_SYMBOL()				\
+	.section ".tbl.requiring_symbols", "a", PROGBITS ;	\
+	__requiring_symbol__:	.byte 0 ;			\
+	.size __requiring_symbol__, . - __requiring_symbol__ ;	\
+	.previous
+#else
+#define PROVIDE_REQUIRING_SYMBOL()				\
+	__asm__ ( ".section \".tbl.requiring_symbols\", "	\
+		  "         \"a\", " PROGBITS "\n"		\
+		  "__requiring_symbol__:\t.byte 0\n"		\
+		  ".size __requiring_symbol__, "		\
+		  "      . - __requiring_symbol__\n"		\
+		  ".previous" )
 #endif
 
 /** @} */
@@ -163,20 +173,33 @@
 
 #define PREFIX_OBJECT( _prefix ) _C2 ( _prefix, OBJECT )
 #define OBJECT_SYMBOL PREFIX_OBJECT ( obj_ )
-#define REQUEST_EXPANDED( _sym ) REQUEST_SYMBOL ( _sym )
-#define CONFIG_SYMBOL PREFIX_OBJECT ( obj_config_ )
 
 /** Always provide the symbol for the current object (defined by -DOBJECT) */
 PROVIDE_SYMBOL ( OBJECT_SYMBOL );
 
-/** Pull in an object-specific configuration file if available */
-REQUEST_EXPANDED ( CONFIG_SYMBOL );
+/**
+ * Request an object
+ *
+ * @v object		Object name
+ *
+ * Request an object to be included within the link.  If the object
+ * cannot be found, the link will succeed anyway.
+ */
+#define REQUEST_OBJECT( object ) REQUEST_SYMBOL ( obj_ ## object )
 
-/** Explicitly require another object */
-#define REQUIRE_OBJECT( _obj ) REQUIRE_SYMBOL ( obj_ ## _obj )
-
-/** Pull in another object if it exists */
-#define REQUEST_OBJECT( _obj ) REQUEST_SYMBOL ( obj_ ## _obj )
+/**
+ * Require an object
+ *
+ * @v object		Object name
+ *
+ * Require an object to be included within the link.  If the object
+ * cannot be found, the link will fail.
+ *
+ * To use this macro within a file, you must also specify the file's
+ * "requiring symbol" using the REQUIRING_SYMBOL() or
+ * PROVIDE_REQUIRING_SYMBOL() macros.
+ */
+#define REQUIRE_OBJECT( object ) REQUIRE_SYMBOL ( obj_ ## object )
 
 /** @} */
 
@@ -194,14 +217,6 @@ REQUEST_EXPANDED ( CONFIG_SYMBOL );
  * inlining.
  */
 #define __weak		__attribute__ (( weak, noinline ))
-
-/** Prevent a function from being optimized away without inlining
- *
- * Calls to functions with void return type that contain no code in their body
- * may be removed by gcc's optimizer even when inlining is inhibited. Placing
- * this macro in the body of the function prevents that from occurring.
- */
-#define __keepme	asm("");
 
 #endif
 
@@ -730,13 +745,24 @@ int __debug_disable;
 #define FILE_LICENCE_MIT \
 	PROVIDE_SYMBOL ( PREFIX_OBJECT ( __licence__mit__ ) )
 
+/** Declare a file as being under GPLv2+ or UBDL
+ *
+ * This licence declaration is applicable when a file states itself to
+ * be licensed under the GNU GPL; "either version 2 of the License, or
+ * (at your option) any later version" and also states that it may be
+ * distributed under the terms of the Unmodified Binary Distribution
+ * Licence (as given in the file COPYING.UBDL).
+ */
+#define FILE_LICENCE_GPL2_OR_LATER_OR_UBDL \
+	PROVIDE_SYMBOL ( PREFIX_OBJECT ( __licence__gpl2_or_later_or_ubdl__ ) )
+
 /** Declare a particular licence as applying to a file */
 #define FILE_LICENCE( _licence ) FILE_LICENCE_ ## _licence
 
 /** @} */
 
-/* This file itself is under GPLv2-or-later */
-FILE_LICENCE ( GPL2_OR_LATER );
+/* This file itself is under GPLv2+/UBDL */
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <bits/compiler.h>
 

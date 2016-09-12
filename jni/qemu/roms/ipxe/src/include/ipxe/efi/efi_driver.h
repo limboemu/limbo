@@ -6,7 +6,7 @@
  * EFI driver interface
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/device.h>
 #include <ipxe/tables.h>
@@ -19,6 +19,8 @@ struct efi_device {
 	struct device dev;
 	/** EFI device handle */
 	EFI_HANDLE device;
+	/** EFI device path copy */
+	EFI_DEVICE_PATH_PROTOCOL *path;
 	/** Driver for this device */
 	struct efi_driver *driver;
 	/** Driver-private data */

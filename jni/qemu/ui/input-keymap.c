@@ -1,3 +1,4 @@
+#include "qemu/osdep.h"
 #include "sysemu/sysemu.h"
 #include "ui/keymaps.h"
 #include "ui/input.h"
@@ -128,18 +129,22 @@ static const int qcode_to_number[] = {
 
     [Q_KEY_CODE_INSERT] = 0xd2,
     [Q_KEY_CODE_DELETE] = 0xd3,
-    [Q_KEY_CODE_MAX] = 0,
+
+    [Q_KEY_CODE_RO] = 0x73,
+    [Q_KEY_CODE_KP_COMMA] = 0x7e,
+
+    [Q_KEY_CODE__MAX] = 0,
 };
 
 static int number_to_qcode[0x100];
 
 int qemu_input_key_value_to_number(const KeyValue *value)
 {
-    if (value->kind == KEY_VALUE_KIND_QCODE) {
-        return qcode_to_number[value->qcode];
+    if (value->type == KEY_VALUE_KIND_QCODE) {
+        return qcode_to_number[value->u.qcode.data];
     } else {
-        assert(value->kind == KEY_VALUE_KIND_NUMBER);
-        return value->number;
+        assert(value->type == KEY_VALUE_KIND_NUMBER);
+        return value->u.number.data;
     }
 }
 
@@ -150,7 +155,7 @@ int qemu_input_key_number_to_qcode(uint8_t nr)
     if (first) {
         int qcode, number;
         first = false;
-        for (qcode = 0; qcode < Q_KEY_CODE_MAX; qcode++) {
+        for (qcode = 0; qcode < Q_KEY_CODE__MAX; qcode++) {
             number = qcode_to_number[qcode];
             assert(number < ARRAY_SIZE(number_to_qcode));
             number_to_qcode[number] = qcode;
@@ -162,11 +167,11 @@ int qemu_input_key_number_to_qcode(uint8_t nr)
 
 int qemu_input_key_value_to_qcode(const KeyValue *value)
 {
-    if (value->kind == KEY_VALUE_KIND_QCODE) {
-        return value->qcode;
+    if (value->type == KEY_VALUE_KIND_QCODE) {
+        return value->u.qcode.data;
     } else {
-        assert(value->kind == KEY_VALUE_KIND_NUMBER);
-        return qemu_input_key_number_to_qcode(value->number);
+        assert(value->type == KEY_VALUE_KIND_NUMBER);
+        return qemu_input_key_number_to_qcode(value->u.number.data);
     }
 }
 
@@ -176,8 +181,8 @@ int qemu_input_key_value_to_scancode(const KeyValue *value, bool down,
     int keycode = qemu_input_key_value_to_number(value);
     int count = 0;
 
-    if (value->kind == KEY_VALUE_KIND_QCODE &&
-        value->qcode == Q_KEY_CODE_PAUSE) {
+    if (value->type == KEY_VALUE_KIND_QCODE &&
+        value->u.qcode.data == Q_KEY_CODE_PAUSE) {
         /* specific case */
         int v = down ? 0 : 0x80;
         codes[count++] = 0xe1;

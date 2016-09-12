@@ -7,8 +7,10 @@
  * This code is licensed under the GPL.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/input/ps2.h"
+#include "qemu/log.h"
 
 #define TYPE_PL050 "pl050"
 #define PL050(obj) OBJECT_CHECK(PL050State, (obj), TYPE_PL050)

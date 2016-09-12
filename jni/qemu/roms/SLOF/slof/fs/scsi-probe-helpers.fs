@@ -27,7 +27,7 @@
 	    dup 8 + dup alloc-mem         ( devarray devcur ndev lunarray size size+ mem )
 	    dup rot 0 fill                ( devarray devcur ndev lunarray size mem )
 	    dup >r swap move r>           ( devarray devcur ndev mem )
-	    dup sector l@ 3 >> 0 DO       ( devarray devcur ndev mem memcur )
+	    dup sector l@ 3 >> 0 ?DO      ( devarray devcur ndev mem memcur )
 		dup dup scsi-read-lun IF
 		    j swap dev-generate-srplun  swap x! 8 +
 		ELSE

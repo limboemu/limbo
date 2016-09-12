@@ -9,7 +9,7 @@
  * This work is licensed under the terms of the GNU GPL, version 2 or later.
  * See the COPYING file in the top-level directory.
  */
-#include <glib.h>
+#include "qemu/osdep.h"
 #include "qga/guest-agent-core.h"
 
 struct GACommandState {
@@ -27,7 +27,7 @@ void ga_command_state_add(GACommandState *cs,
                           void (*init)(void),
                           void (*cleanup)(void))
 {
-    GACommandGroup *cg = g_malloc0(sizeof(GACommandGroup));
+    GACommandGroup *cg = g_new0(GACommandGroup, 1);
     cg->init = init;
     cg->cleanup = cleanup;
     cs->groups = g_slist_append(cs->groups, cg);
@@ -67,7 +67,7 @@ void ga_command_state_cleanup_all(GACommandState *cs)
 
 GACommandState *ga_command_state_new(void)
 {
-    GACommandState *cs = g_malloc0(sizeof(GACommandState));
+    GACommandState *cs = g_new0(GACommandState, 1);
     cs->groups = NULL;
     return cs;
 }

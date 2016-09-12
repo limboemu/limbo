@@ -18,8 +18,14 @@
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
 
-#define SMM_REV_I32 0x00020000
-#define SMM_REV_I64 0x00020064
+/*
+ * Check SMM state save area format (bits 0-15) and require support
+ * for SMBASE relocation.
+ */
+#define SMM_REV_MASK 0x0002ffff
+
+#define SMM_REV_I32  0x00020000
+#define SMM_REV_I64  0x00020064
 
 struct smm_state {
     union {
@@ -58,13 +64,14 @@ handle_smi(u16 cs)
         return;
     u8 cmd = inb(PORT_SMI_CMD);
     struct smm_layout *smm = MAKE_FLATPTR(cs, 0);
+    u32 rev = smm->cpu.i32.smm_rev & SMM_REV_MASK;
     dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x smbase=%p\n", cmd, smm);
 
     if (smm == (void*)BUILD_SMM_INIT_ADDR) {
         // relocate SMBASE to 0xa0000
-        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+        if (rev == SMM_REV_I32) {
             smm->cpu.i32.smm_base = BUILD_SMM_ADDR;
-        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+        } else if (rev == SMM_REV_I64) {
             smm->cpu.i64.smm_base = BUILD_SMM_ADDR;
         } else {
             warn_internalerror();
@@ -85,7 +92,7 @@ handle_smi(u16 cs)
     }
 
     if (CONFIG_CALL32_SMM && cmd == CALL32SMM_CMDID) {
-        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+        if (rev == SMM_REV_I32) {
             u32 regs[8];
             memcpy(regs, &smm->cpu.i32.eax, sizeof(regs));
             if (smm->cpu.i32.ecx == CALL32SMM_ENTERID) {
@@ -100,7 +107,7 @@ handle_smi(u16 cs)
                 memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
                 smm->cpu.i32.eip = regs[3];
             }
-        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+        } else if (rev == SMM_REV_I64) {
             u64 regs[8];
             memcpy(regs, &smm->cpu.i64.rdi, sizeof(regs));
             if ((u32)smm->cpu.i64.rcx == CALL32SMM_ENTERID) {
@@ -177,7 +184,7 @@ static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
 
     /* enable SMI generation */
     value = inl(acpi_pm_base + PIIX_PMIO_GLBCTL);
-    outl(acpi_pm_base + PIIX_PMIO_GLBCTL, value | PIIX_PMIO_GLBCTL_SMI_EN);
+    outl(value | PIIX_PMIO_GLBCTL_SMI_EN, acpi_pm_base + PIIX_PMIO_GLBCTL);
 
     smm_relocate_and_restore();
 

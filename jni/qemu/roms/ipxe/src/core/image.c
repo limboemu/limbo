@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stddef.h>
 #include <string.h>
@@ -84,7 +88,6 @@ static void free_image ( struct refcnt *refcnt ) {
  * @ret image		Executable image
  */
 struct image * alloc_image ( struct uri *uri ) {
-	const char *name;
 	struct image *image;
 	int rc;
 
@@ -95,21 +98,40 @@ struct image * alloc_image ( struct uri *uri ) {
 
 	/* Initialise image */
 	ref_init ( &image->refcnt, free_image );
-	if ( uri ) {
-		image->uri = uri_get ( uri );
-		if ( uri->path ) {
-			name = basename ( ( char * ) uri->path );
-			if ( ( rc = image_set_name ( image, name ) ) != 0 )
-				goto err_set_name;
-		}
-	}
+	if ( uri && ( ( rc = image_set_uri ( image, uri ) ) != 0 ) )
+		goto err_set_uri;
 
 	return image;
 
- err_set_name:
+ err_set_uri:
 	image_put ( image );
  err_alloc:
 	return NULL;
+}
+
+/**
+ * Set image URI
+ *
+ * @v image		Image
+ * @v uri		New image URI
+ * @ret rc		Return status code
+ */
+int image_set_uri ( struct image *image, struct uri *uri ) {
+	const char *name;
+	int rc;
+
+	/* Set name, if image does not already have one */
+	if ( uri->path && ( ! ( image->name && image->name[0] ) ) ) {
+		name = basename ( ( char * ) uri->path );
+		if ( ( rc = image_set_name ( image, name ) ) != 0 )
+			return rc;
+	}
+
+	/* Update image URI */
+	uri_put ( image->uri );
+	image->uri = uri_get ( uri );
+
+	return 0;
 }
 
 /**
@@ -154,6 +176,32 @@ int image_set_cmdline ( struct image *image, const char *cmdline ) {
 }
 
 /**
+ * Determine image type
+ *
+ * @v image		Executable image
+ * @ret rc		Return status code
+ */
+static int image_probe ( struct image *image ) {
+	struct image_type *type;
+	int rc;
+
+	/* Try each type in turn */
+	for_each_table_entry ( type, IMAGE_TYPES ) {
+		if ( ( rc = type->probe ( image ) ) == 0 ) {
+			image->type = type;
+			DBGC ( image, "IMAGE %s is %s\n",
+			       image->name, type->name );
+			return 0;
+		}
+		DBGC ( image, "IMAGE %s is not %s: %s\n", image->name,
+		       type->name, strerror ( rc ) );
+	}
+
+	DBGC ( image, "IMAGE %s format not recognised\n", image->name );
+	return -ENOTSUP;
+}
+
+/**
  * Register executable image
  *
  * @v image		Executable image
@@ -184,6 +232,14 @@ int register_image ( struct image *image ) {
 	DBGC ( image, "IMAGE %s at [%lx,%lx) registered\n",
 	       image->name, user_to_phys ( image->data, 0 ),
 	       user_to_phys ( image->data, image->len ) );
+
+	/* Try to detect image type, if applicable.  Ignore failures,
+	 * since we expect to handle some unrecognised images
+	 * (e.g. kernel initrds, multiboot modules, random files
+	 * provided via our EFI virtual filesystem, etc).
+	 */
+	if ( ! image->type )
+		image_probe ( image );
 
 	return 0;
 }
@@ -223,36 +279,6 @@ struct image * find_image ( const char *name ) {
 }
 
 /**
- * Determine image type
- *
- * @v image		Executable image
- * @ret rc		Return status code
- */
-int image_probe ( struct image *image ) {
-	struct image_type *type;
-	int rc;
-
-	/* Succeed if we already have a type */
-	if ( image->type )
-		return 0;
-
-	/* Try each type in turn */
-	for_each_table_entry ( type, IMAGE_TYPES ) {
-		if ( ( rc = type->probe ( image ) ) == 0 ) {
-			image->type = type;
-			DBGC ( image, "IMAGE %s is %s\n",
-			       image->name, type->name );
-			return 0;
-		}
-		DBGC ( image, "IMAGE %s is not %s: %s\n", image->name,
-		       type->name, strerror ( rc ) );
-	}
-
-	DBGC ( image, "IMAGE %s format not recognised\n", image->name );
-	return -ENOEXEC;
-}
-
-/**
  * Execute image
  *
  * @v image		Executable image
@@ -284,9 +310,11 @@ int image_exec ( struct image *image ) {
 	 */
 	current_image = image_get ( image );
 
-	/* Check that this image can be selected for execution */
-	if ( ( rc = image_select ( image ) ) != 0 )
+	/* Check that this image can be executed */
+	if ( ! ( image->type && image->type->exec ) ) {
+		rc = -ENOEXEC;
 		goto err;
+	}
 
 	/* Check that image is trusted (if applicable) */
 	if ( require_trusted_images && ! ( image->flags & IMAGE_TRUSTED ) ) {
@@ -378,8 +406,8 @@ int image_replace ( struct image *replacement ) {
 	}
 
 	/* Check that the replacement image can be executed */
-	if ( ( rc = image_probe ( replacement ) ) != 0 )
-		return rc;
+	if ( ! ( replacement->type && replacement->type->exec ) )
+		return -ENOEXEC;
 
 	/* Clear any existing replacement */
 	image_put ( image->replacement );
@@ -400,16 +428,13 @@ int image_replace ( struct image *replacement ) {
  */
 int image_select ( struct image *image ) {
 	struct image *tmp;
-	int rc;
 
 	/* Unselect all other images */
 	for_each_image ( tmp )
 		tmp->flags &= ~IMAGE_SELECTED;
 
 	/* Check that this image can be executed */
-	if ( ( rc = image_probe ( image ) ) != 0 )
-		return rc;
-	if ( ! image->type->exec )
+	if ( ! ( image->type && image->type->exec ) )
 		return -ENOEXEC;
 
 	/* Mark image as selected */
@@ -468,9 +493,7 @@ int image_pixbuf ( struct image *image, struct pixel_buffer **pixbuf ) {
 	int rc;
 
 	/* Check that this image can be used to create a pixel buffer */
-	if ( ( rc = image_probe ( image ) ) != 0 )
-		return rc;
-	if ( ! image->type->pixbuf )
+	if ( ! ( image->type && image->type->pixbuf ) )
 		return -ENOTSUP;
 
 	/* Try creating pixel buffer */

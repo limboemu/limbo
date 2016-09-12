@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -76,30 +80,42 @@ BASE64 ( random_test,
  * Report a base64 encoding test result
  *
  * @v test		Base64 test
+ * @v file		Test code file
+ * @v line		Test code line
  */
-#define base64_encode_ok( test ) do {					\
-	size_t len = base64_encoded_len ( (test)->len );		\
-	char buf[ len + 1 /* NUL */ ];					\
-	ok ( len == strlen ( (test)->encoded ) );			\
-	base64_encode ( (test)->data, (test)->len, buf );		\
-	ok ( strcmp ( (test)->encoded, buf ) == 0 );			\
-	} while ( 0 )
+static void base64_encode_okx ( struct base64_test *test, const char *file,
+				unsigned int line ) {
+	size_t len = base64_encoded_len ( test->len );
+	char buf[ len + 1 /* NUL */ ];
+	size_t check_len;
+
+	okx ( len == strlen ( test->encoded ), file, line );
+	check_len = base64_encode ( test->data, test->len, buf, sizeof ( buf ));
+	okx ( check_len == len, file, line );
+	okx ( strcmp ( test->encoded, buf ) == 0, file, line );
+}
+#define base64_encode_ok( test ) base64_encode_okx ( test, __FILE__, __LINE__ )
 
 /**
  * Report a base64 decoding test result
  *
  * @v test		Base64 test
+ * @v file		Test code file
+ * @v line		Test code line
  */
-#define base64_decode_ok( test ) do {					\
-	size_t max_len = base64_decoded_max_len ( (test)->encoded );	\
-	uint8_t buf[max_len];						\
-	int len;							\
-	len = base64_decode ( (test)->encoded, buf );			\
-	ok ( len >= 0 );						\
-	ok ( ( size_t ) len <= max_len );				\
-	ok ( ( size_t ) len == (test)->len );				\
-	ok ( memcmp ( (test)->data, buf, len ) == 0 );			\
-	} while ( 0 )
+static void base64_decode_okx ( struct base64_test *test, const char *file,
+				unsigned int line ) {
+	size_t max_len = base64_decoded_max_len ( test->encoded );
+	uint8_t buf[max_len];
+	int len;
+
+	len = base64_decode ( test->encoded, buf, sizeof ( buf ) );
+	okx ( len >= 0, file, line );
+	okx ( ( size_t ) len <= max_len, file, line );
+	okx ( ( size_t ) len == test->len, file, line );
+	okx ( memcmp ( test->data, buf, len ) == 0, file, line );
+}
+#define base64_decode_ok( test ) base64_decode_okx ( test, __FILE__, __LINE__ )
 
 /**
  * Perform Base64 self-tests

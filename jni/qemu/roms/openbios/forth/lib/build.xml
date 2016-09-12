@@ -8,6 +8,7 @@
   -->
  
  <dictionary name="openbios" target="forth">
+  <object source="rstack.fs"/>
   <object source="vocabulary.fs"/>
   <object source="string.fs"/>
   <object source="preprocessor.fs"/>

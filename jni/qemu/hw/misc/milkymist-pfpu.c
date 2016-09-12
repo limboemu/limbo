@@ -18,10 +18,11 @@
  *
  *
  * Specification available at:
- *   http://www.milkymist.org/socdoc/pfpu.pdf
+ *   http://milkymist.walle.cc/socdoc/pfpu.pdf
  *
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "trace.h"

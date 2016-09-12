@@ -14,8 +14,8 @@
 #ifndef HW_S390_SCLP_H
 #define HW_S390_SCLP_H
 
-#include <hw/sysbus.h>
-#include <hw/qdev.h>
+#include "hw/sysbus.h"
+#include "hw/qdev.h"
 
 #define SCLP_CMD_CODE_MASK                      0xffff00ff
 
@@ -58,6 +58,7 @@
 #define SCLP_RC_CONTAINED_EQUIPMENT_CHECK       0x0340
 #define SCLP_RC_INSUFFICIENT_SCCB_LENGTH        0x0300
 #define SCLP_RC_STANDBY_READ_COMPLETION         0x0410
+#define SCLP_RC_ADAPTER_IN_RESERVED_STATE       0x05f0
 #define SCLP_RC_ADAPTER_ID_NOT_RECOGNIZED       0x09f0
 #define SCLP_RC_INVALID_FUNCTION                0x40f0
 #define SCLP_RC_NO_EVENT_BUFFERS_STORED         0x60f0
@@ -162,6 +163,39 @@ typedef struct SCCB {
     SCCBHeader h;
     char data[SCCB_DATA_LEN];
  } QEMU_PACKED SCCB;
+
+#define TYPE_SCLP "sclp"
+#define SCLP(obj) OBJECT_CHECK(SCLPDevice, (obj), TYPE_SCLP)
+#define SCLP_CLASS(oc) OBJECT_CLASS_CHECK(SCLPDeviceClass, (oc), TYPE_SCLP)
+#define SCLP_GET_CLASS(obj) OBJECT_GET_CLASS(SCLPDeviceClass, (obj), TYPE_SCLP)
+
+typedef struct SCLPEventFacility SCLPEventFacility;
+
+typedef struct SCLPDevice {
+    /* private */
+    DeviceState parent_obj;
+    SCLPEventFacility *event_facility;
+    int increment_size;
+
+    /* public */
+} SCLPDevice;
+
+typedef struct SCLPDeviceClass {
+    /* private */
+    DeviceClass parent_class;
+    void (*read_SCP_info)(SCLPDevice *sclp, SCCB *sccb);
+    void (*read_storage_element0_info)(SCLPDevice *sclp, SCCB *sccb);
+    void (*read_storage_element1_info)(SCLPDevice *sclp, SCCB *sccb);
+    void (*attach_storage_element)(SCLPDevice *sclp, SCCB *sccb,
+                                   uint16_t element);
+    void (*assign_storage)(SCLPDevice *sclp, SCCB *sccb);
+    void (*unassign_storage)(SCLPDevice *sclp, SCCB *sccb);
+    void (*read_cpu_info)(SCLPDevice *sclp, SCCB *sccb);
+
+    /* public */
+    void (*execute)(SCLPDevice *sclp, SCCB *sccb, uint32_t code);
+    void (*service_interrupt)(SCLPDevice *sclp, uint32_t sccb);
+} SCLPDeviceClass;
 
 typedef struct sclpMemoryHotplugDev sclpMemoryHotplugDev;
 

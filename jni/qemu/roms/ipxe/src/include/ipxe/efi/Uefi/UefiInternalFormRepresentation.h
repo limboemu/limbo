@@ -3,7 +3,7 @@
   IFR is primarily consumed by the EFI presentation engine, and produced by EFI
   internal application and drivers as well as all add-in card option-ROM drivers
 
-Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under
 the terms and conditions of the BSD License that accompanies this distribution.
 The full text of the license may be found at
@@ -782,6 +782,7 @@ typedef union {
 #define EFI_IFR_MODAL_TAG_OP           0x61
 #define EFI_IFR_REFRESH_ID_OP          0x62
 #define EFI_IFR_WARNING_IF_OP          0x63
+#define EFI_IFR_MATCH2_OP              0x64
 
 //
 // Definitions of IFR Standard Headers
@@ -813,10 +814,11 @@ typedef struct _EFI_IFR_QUESTION_HEADER {
 //
 // Flag values of EFI_IFR_QUESTION_HEADER
 //
-#define EFI_IFR_FLAG_READ_ONLY         0x01
-#define EFI_IFR_FLAG_CALLBACK          0x04
-#define EFI_IFR_FLAG_RESET_REQUIRED    0x10
-#define EFI_IFR_FLAG_OPTIONS_ONLY      0x80
+#define EFI_IFR_FLAG_READ_ONLY          0x01
+#define EFI_IFR_FLAG_CALLBACK           0x04
+#define EFI_IFR_FLAG_RESET_REQUIRED     0x10
+#define EFI_IFR_FLAG_RECONNECT_REQUIRED 0x40
+#define EFI_IFR_FLAG_OPTIONS_ONLY       0x80
 
 //
 // Definition for Opcode Reference
@@ -1400,6 +1402,11 @@ typedef struct _EFI_IFR_LESS_THAN {
 typedef struct _EFI_IFR_MATCH {
   EFI_IFR_OP_HEADER        Header;
 } EFI_IFR_MATCH;
+
+typedef struct _EFI_IFR_MATCH2 {
+  EFI_IFR_OP_HEADER        Header;
+  EFI_GUID                 SyntaxType;
+} EFI_IFR_MATCH2;
 
 typedef struct _EFI_IFR_MULTIPLY {
   EFI_IFR_OP_HEADER        Header;

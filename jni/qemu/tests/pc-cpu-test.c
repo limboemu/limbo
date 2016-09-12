@@ -7,12 +7,10 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <string.h>
+#include "qemu/osdep.h"
 
 #include "qemu-common.h"
 #include "libqtest.h"
-#include "qemu/osdep.h"
 #include "qapi/qmp/types.h"
 
 struct PCTestData {
@@ -75,7 +73,6 @@ static void test_pc_without_cpu_add(gconstpointer data)
 
 static void add_pc_test_cases(void)
 {
-    const char *arch = qtest_get_arch();
     QDict *response, *minfo;
     QList *list;
     const QListEntry *p;
@@ -119,15 +116,15 @@ static void add_pc_test_cases(void)
             (strcmp(mname, "pc-0.12") == 0) ||
             (strcmp(mname, "pc-0.11") == 0) ||
             (strcmp(mname, "pc-0.10") == 0)) {
-            path = g_strdup_printf("/%s/cpu/%s/init/%ux%ux%u&maxcpus=%u",
-                                   arch, mname, data->sockets, data->cores,
+            path = g_strdup_printf("cpu/%s/init/%ux%ux%u&maxcpus=%u",
+                                   mname, data->sockets, data->cores,
                                    data->threads, data->maxcpus);
-            g_test_add_data_func(path, data, test_pc_without_cpu_add);
+            qtest_add_data_func(path, data, test_pc_without_cpu_add);
         } else {
-            path = g_strdup_printf("/%s/cpu/%s/add/%ux%ux%u&maxcpus=%u",
-                                   arch, mname, data->sockets, data->cores,
+            path = g_strdup_printf("cpu/%s/add/%ux%ux%u&maxcpus=%u",
+                                   mname, data->sockets, data->cores,
                                    data->threads, data->maxcpus);
-            g_test_add_data_func(path, data, test_pc_with_cpu_add);
+            qtest_add_data_func(path, data, test_pc_with_cpu_add);
         }
     }
     qtest_end();

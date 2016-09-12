@@ -10,16 +10,14 @@
  *     IBM Corporation - initial implementation
  *****************************************************************************/
 
-/*>>>>>>>>>>>>>>>>>>>>>>> DEFINITIONS & DECLARATIONS <<<<<<<<<<<<<<<<<<<<*/
+/************************ DEFINITIONS & DECLARATIONS *********************/
 
 #include <tcp.h>
 #include <sys/socket.h>
 
+/****************************** LOCAL VARIABLES **************************/
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> LOCAL VARIABLES <<<<<<<<<<<<<<<<<<<<<<<<<*/
-
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> IMPLEMENTATION <<<<<<<<<<<<<<<<<<<<<<<<<<*/
-
+/****************************** IMPLEMENTATION ***************************/
 
 /**
  * TCP: Handles TCP-packets according to Receive-handle diagram.
@@ -29,12 +27,10 @@
  * @return            ZERO - packet handled successfully;
  *                    NON ZERO - packet was not handled (e.g. bad format)
  */
-int8_t
-handle_tcp(uint8_t * tcp_packet, int32_t packetsize)
+int8_t handle_tcp(uint8_t * tcp_packet, int32_t packetsize)
 {
 	return -1;
 }
-
 
 /**
  * NET: This function handles situation when "Destination unreachable"
@@ -45,6 +41,6 @@ handle_tcp(uint8_t * tcp_packet, int32_t packetsize)
  * @param  packetsize length of the packet
  * @see               handle_icmp
  */
-void
-handle_tcp_dun(uint8_t * tcp_packet, uint32_t packetsize, uint8_t err_code) {
+void handle_tcp_dun(uint8_t * tcp_packet, uint32_t packetsize, uint8_t err_code)
+{
 }

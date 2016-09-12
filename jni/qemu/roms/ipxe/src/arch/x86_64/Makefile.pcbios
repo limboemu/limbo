@@ -1,0 +1,15 @@
+# -*- makefile -*- : Force emacs to use Makefile mode
+
+# Place .textdata in negative 2GB of address space
+#
+CFLAGS		+= -mcmodel=kernel
+LDFLAGS		+= --section-start=.textdata=0xffffffffeb000000
+
+# Assembly code does not respect a red zone.
+#
+CFLAGS		+= -mno-red-zone
+
+# Include generic BIOS Makefile
+#
+MAKEDEPS	+= arch/x86/Makefile.pcbios
+include arch/x86/Makefile.pcbios

@@ -143,7 +143,7 @@ int p9_transaction(p9_connection_t *connection)
 {
 	int rc;
 	int tx_size = GET_SIZE;
-	int rx_size = connection->message_size;
+	uint32_t rx_size = connection->message_size;
 
 	if (transact == NULL) {
 		return P9_NO_TRANSPORT;

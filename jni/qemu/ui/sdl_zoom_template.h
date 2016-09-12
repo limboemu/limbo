@@ -71,20 +71,8 @@ static void glue(sdl_zoom_rgb, BPP)(SDL_Surface *src, SDL_Surface *dst, int smoo
         sy = (int) (65536.0 * (float) src->h / (float) dst->h);
     }
 
-#ifdef __LIMBO__
-    //Attempt to use old malloc in order to fix issues with crashing
-    // evidently this has no effect
-   if ((sax = (int *) malloc((dst->w + 1) * sizeof(Uint32))) == NULL) {
-        return (-1);
-    }
-    if ((say = (int *) malloc((dst->h + 1) * sizeof(Uint32))) == NULL) {
-        free(sax);
-        return (-1);
-    }
-#else
     sax = g_new(int, dst->w + 1);
     say = g_new(int, dst->h + 1);
-#endif // __LIMBO__
 
     sp = csp = (SDL_TYPE *) src->pixels;
     dp = (SDL_TYPE *) (dst->pixels + dst_rect->y * dst->pitch +
@@ -222,13 +210,9 @@ static void glue(sdl_zoom_rgb, BPP)(SDL_Surface *src, SDL_Surface *dst, int smoo
             dp = (SDL_TYPE *) ((Uint8 *) dp + d_gap);
         }
     }
-#ifdef __LIMBO__
-    free(sax);
-    free(say);
-#else
+
     g_free(sax);
     g_free(say);
-#endif //__LIMBO__
 }
 
 #undef SDL_TYPE

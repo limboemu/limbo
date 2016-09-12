@@ -17,15 +17,18 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include "config.h"
+#include "qemu/osdep.h"
 #include "qemu-common.h"
+#include "cpu.h"
 #include "exec/gdbstub.h"
+#include "qemu/log.h"
 
 int xtensa_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
     XtensaCPU *cpu = XTENSA_CPU(cs);
     CPUXtensaState *env = &cpu->env;
     const XtensaGdbReg *reg = env->config->gdb_regmap.reg + n;
+    unsigned i;
 
     if (n < 0 || n >= env->config->gdb_regmap.num_regs) {
         return 0;
@@ -47,15 +50,23 @@ int xtensa_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
         return gdb_get_reg32(mem_buf, env->uregs[reg->targno & 0xff]);
 
     case 4: /*f*/
-        return gdb_get_reg32(mem_buf, float32_val(env->fregs[reg->targno
-                                                             & 0x0f]));
+        i = reg->targno & 0x0f;
+        switch (reg->size) {
+        case 4:
+            return gdb_get_reg32(mem_buf,
+                                 float32_val(env->fregs[i].f32[FP_F32_LOW]));
+        case 8:
+            return gdb_get_reg64(mem_buf, float64_val(env->fregs[i].f64));
+        default:
+            return 0;
+        }
 
     case 8: /*a*/
         return gdb_get_reg32(mem_buf, env->regs[reg->targno & 0x0f]);
 
     default:
-        qemu_log("%s from reg %d of unsupported type %d\n",
-                 __func__, n, reg->type);
+        qemu_log_mask(LOG_UNIMP, "%s from reg %d of unsupported type %d\n",
+                      __func__, n, reg->type);
         return 0;
     }
 }
@@ -92,16 +103,24 @@ int xtensa_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         break;
 
     case 4: /*f*/
-        env->fregs[reg->targno & 0x0f] = make_float32(tmp);
-        break;
+        switch (reg->size) {
+        case 4:
+            env->fregs[reg->targno & 0x0f].f32[FP_F32_LOW] = make_float32(tmp);
+            return 4;
+        case 8:
+            env->fregs[reg->targno & 0x0f].f64 = make_float64(tmp);
+            return 8;
+        default:
+            return 0;
+        }
 
     case 8: /*a*/
         env->regs[reg->targno & 0x0f] = tmp;
         break;
 
     default:
-        qemu_log("%s to reg %d of unsupported type %d\n",
-                 __func__, n, reg->type);
+        qemu_log_mask(LOG_UNIMP, "%s to reg %d of unsupported type %d\n",
+                      __func__, n, reg->type);
         return 0;
     }
 

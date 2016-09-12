@@ -10,17 +10,20 @@
  * directory.
  */
 
-#ifndef __HW_S390_FLIC_H
-#define __HW_S390_FLIC_H
+#ifndef HW_S390_FLIC_H
+#define HW_S390_FLIC_H
 
 #include "hw/sysbus.h"
 #include "hw/s390x/adapter.h"
 #include "hw/virtio/virtio.h"
 
+#define ADAPTER_ROUTES_MAX_GSI 64
+#define VIRTIO_CCW_QUEUE_MAX ADAPTER_ROUTES_MAX_GSI
+
 typedef struct AdapterRoutes {
     AdapterInfo adapter;
     int num_routes;
-    int gsi[VIRTIO_PCI_QUEUE_MAX];
+    int gsi[ADAPTER_ROUTES_MAX_GSI];
 } AdapterRoutes;
 
 #define TYPE_S390_FLIC_COMMON "s390-flic"
@@ -46,6 +49,8 @@ typedef struct S390FLICStateClass {
                           bool do_map);
     int (*add_adapter_routes)(S390FLICState *fs, AdapterRoutes *routes);
     void (*release_adapter_routes)(S390FLICState *fs, AdapterRoutes *routes);
+    int (*clear_io_irq)(S390FLICState *fs, uint16_t subchannel_id,
+                        uint16_t subchannel_nr);
 } S390FLICStateClass;
 
 #define TYPE_KVM_S390_FLIC "s390-flic-kvm"
@@ -73,4 +78,4 @@ static inline DeviceState *s390_flic_kvm_create(void)
 }
 #endif
 
-#endif /* __HW_S390_FLIC_H */
+#endif /* HW_S390_FLIC_H */

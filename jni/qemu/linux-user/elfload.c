@@ -1,20 +1,12 @@
 /* This is the Linux kernel elf-loading code, ported into user space */
-#include <sys/time.h>
+#include "qemu/osdep.h"
 #include <sys/param.h>
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/mman.h>
 #include <sys/resource.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #include "qemu.h"
 #include "disas/disas.h"
+#include "qemu/path.h"
 
 #ifdef _ARCH_PPC64
 #undef ARCH_DLINFO
@@ -145,7 +137,6 @@ static uint32_t get_elf_hwcap(void)
 
 #ifdef TARGET_X86_64
 #define ELF_START_MMAP 0x2aaaaab000ULL
-#define elf_check_arch(x) ( ((x) == ELF_ARCH) )
 
 #define ELF_CLASS      ELFCLASS64
 #define ELF_ARCH       EM_X86_64
@@ -273,9 +264,7 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUX86State *en
 
 #define ELF_START_MMAP 0x80000000
 
-#define elf_check_arch(x) ((x) == ELF_MACHINE)
-
-#define ELF_ARCH        ELF_MACHINE
+#define ELF_ARCH        EM_ARM
 #define ELF_CLASS       ELFCLASS32
 
 static inline void init_thread(struct target_pt_regs *regs,
@@ -284,19 +273,20 @@ static inline void init_thread(struct target_pt_regs *regs,
     abi_long stack = infop->start_stack;
     memset(regs, 0, sizeof(*regs));
 
-    regs->ARM_cpsr = 0x10;
-    if (infop->entry & 1)
-        regs->ARM_cpsr |= CPSR_T;
-    regs->ARM_pc = infop->entry & 0xfffffffe;
-    regs->ARM_sp = infop->start_stack;
+    regs->uregs[16] = ARM_CPU_MODE_USR;
+    if (infop->entry & 1) {
+        regs->uregs[16] |= CPSR_T;
+    }
+    regs->uregs[15] = infop->entry & 0xfffffffe;
+    regs->uregs[13] = infop->start_stack;
     /* FIXME - what to for failure of get_user()? */
-    get_user_ual(regs->ARM_r2, stack + 8); /* envp */
-    get_user_ual(regs->ARM_r1, stack + 4); /* envp */
+    get_user_ual(regs->uregs[2], stack + 8); /* envp */
+    get_user_ual(regs->uregs[1], stack + 4); /* envp */
     /* XXX: it seems that r0 is zeroed after ! */
-    regs->ARM_r0 = 0;
+    regs->uregs[0] = 0;
     /* For uClinux PIC binaries.  */
     /* XXX: Linux does this only on ARM with no MMU (do we care ?) */
-    regs->ARM_r10 = infop->start_data;
+    regs->uregs[10] = infop->start_data;
 }
 
 #define ELF_NREG    18
@@ -481,9 +471,7 @@ static uint32_t get_elf_hwcap2(void)
 /* 64 bit ARM definitions */
 #define ELF_START_MMAP 0x80000000
 
-#define elf_check_arch(x) ((x) == ELF_MACHINE)
-
-#define ELF_ARCH        ELF_MACHINE
+#define ELF_ARCH        EM_AARCH64
 #define ELF_CLASS       ELFCLASS64
 #define ELF_PLATFORM    "aarch64"
 
@@ -555,8 +543,6 @@ static uint32_t get_elf_hwcap(void)
 #ifdef TARGET_UNICORE32
 
 #define ELF_START_MMAP          0x80000000
-
-#define elf_check_arch(x)       ((x) == EM_UNICORE32)
 
 #define ELF_CLASS               ELFCLASS32
 #define ELF_DATA                ELFDATA2LSB
@@ -666,7 +652,6 @@ static inline void init_thread(struct target_pt_regs *regs,
 #define ELF_START_MMAP 0x80000000
 #define ELF_HWCAP  (HWCAP_SPARC_FLUSH | HWCAP_SPARC_STBAR | HWCAP_SPARC_SWAP \
                     | HWCAP_SPARC_MULDIV)
-#define elf_check_arch(x) ( (x) == EM_SPARC )
 
 #define ELF_CLASS   ELFCLASS32
 #define ELF_ARCH    EM_SPARC
@@ -686,6 +671,7 @@ static inline void init_thread(struct target_pt_regs *regs,
 
 #ifdef TARGET_PPC
 
+#define ELF_MACHINE    PPC_ELF_MACHINE
 #define ELF_START_MMAP 0x80000000
 
 #if defined(TARGET_PPC64) && !defined(TARGET_ABI32)
@@ -695,8 +681,6 @@ static inline void init_thread(struct target_pt_regs *regs,
 #define ELF_CLASS       ELFCLASS64
 
 #else
-
-#define elf_check_arch(x) ( (x) == EM_PPC )
 
 #define ELF_CLASS       ELFCLASS32
 
@@ -875,8 +859,6 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUPPCState *en
 
 #define ELF_START_MMAP 0x80000000
 
-#define elf_check_arch(x) ( (x) == EM_MIPS )
-
 #ifdef TARGET_MIPS64
 #define ELF_CLASS   ELFCLASS64
 #else
@@ -985,8 +967,6 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUMBState *env
 
 #define ELF_START_MMAP 0x08000000
 
-#define elf_check_arch(x) ((x) == EM_OPENRISC)
-
 #define ELF_ARCH EM_OPENRISC
 #define ELF_CLASS ELFCLASS32
 #define ELF_DATA  ELFDATA2MSB
@@ -1025,8 +1005,6 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs,
 #ifdef TARGET_SH4
 
 #define ELF_START_MMAP 0x80000000
-
-#define elf_check_arch(x) ( (x) == EM_SH )
 
 #define ELF_CLASS ELFCLASS32
 #define ELF_ARCH  EM_SH
@@ -1075,13 +1053,40 @@ static inline void elf_core_copy_regs(target_elf_gregset_t *regs,
 #define USE_ELF_CORE_DUMP
 #define ELF_EXEC_PAGESIZE        4096
 
+enum {
+    SH_CPU_HAS_FPU            = 0x0001, /* Hardware FPU support */
+    SH_CPU_HAS_P2_FLUSH_BUG   = 0x0002, /* Need to flush the cache in P2 area */
+    SH_CPU_HAS_MMU_PAGE_ASSOC = 0x0004, /* SH3: TLB way selection bit support */
+    SH_CPU_HAS_DSP            = 0x0008, /* SH-DSP: DSP support */
+    SH_CPU_HAS_PERF_COUNTER   = 0x0010, /* Hardware performance counters */
+    SH_CPU_HAS_PTEA           = 0x0020, /* PTEA register */
+    SH_CPU_HAS_LLSC           = 0x0040, /* movli.l/movco.l */
+    SH_CPU_HAS_L2_CACHE       = 0x0080, /* Secondary cache / URAM */
+    SH_CPU_HAS_OP32           = 0x0100, /* 32-bit instruction support */
+    SH_CPU_HAS_PTEAEX         = 0x0200, /* PTE ASID Extension support */
+};
+
+#define ELF_HWCAP get_elf_hwcap()
+
+static uint32_t get_elf_hwcap(void)
+{
+    SuperHCPU *cpu = SUPERH_CPU(thread_cpu);
+    uint32_t hwcap = 0;
+
+    hwcap |= SH_CPU_HAS_FPU;
+
+    if (cpu->env.features & SH_FEATURE_SH4A) {
+        hwcap |= SH_CPU_HAS_LLSC;
+    }
+
+    return hwcap;
+}
+
 #endif
 
 #ifdef TARGET_CRIS
 
 #define ELF_START_MMAP 0x80000000
-
-#define elf_check_arch(x) ( (x) == EM_CRIS )
 
 #define ELF_CLASS ELFCLASS32
 #define ELF_ARCH  EM_CRIS
@@ -1099,8 +1104,6 @@ static inline void init_thread(struct target_pt_regs *regs,
 #ifdef TARGET_M68K
 
 #define ELF_START_MMAP 0x80000000
-
-#define elf_check_arch(x) ( (x) == EM_68K )
 
 #define ELF_CLASS       ELFCLASS32
 #define ELF_ARCH        EM_68K
@@ -1153,8 +1156,6 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUM68KState *e
 
 #define ELF_START_MMAP (0x30000000000ULL)
 
-#define elf_check_arch(x) ( (x) == ELF_ARCH )
-
 #define ELF_CLASS      ELFCLASS64
 #define ELF_ARCH       EM_ALPHA
 
@@ -1174,8 +1175,6 @@ static inline void init_thread(struct target_pt_regs *regs,
 
 #define ELF_START_MMAP (0x20000000000ULL)
 
-#define elf_check_arch(x) ( (x) == ELF_ARCH )
-
 #define ELF_CLASS	ELFCLASS64
 #define ELF_DATA	ELFDATA2MSB
 #define ELF_ARCH	EM_S390
@@ -1189,8 +1188,39 @@ static inline void init_thread(struct target_pt_regs *regs, struct image_info *i
 
 #endif /* TARGET_S390X */
 
+#ifdef TARGET_TILEGX
+
+/* 42 bits real used address, a half for user mode */
+#define ELF_START_MMAP (0x00000020000000000ULL)
+
+#define elf_check_arch(x) ((x) == EM_TILEGX)
+
+#define ELF_CLASS   ELFCLASS64
+#define ELF_DATA    ELFDATA2LSB
+#define ELF_ARCH    EM_TILEGX
+
+static inline void init_thread(struct target_pt_regs *regs,
+                               struct image_info *infop)
+{
+    regs->pc = infop->entry;
+    regs->sp = infop->start_stack;
+
+}
+
+#define ELF_EXEC_PAGESIZE        65536 /* TILE-Gx page size is 64KB */
+
+#endif /* TARGET_TILEGX */
+
 #ifndef ELF_PLATFORM
 #define ELF_PLATFORM (NULL)
+#endif
+
+#ifndef ELF_MACHINE
+#define ELF_MACHINE ELF_ARCH
+#endif
+
+#ifndef elf_check_arch
+#define elf_check_arch(x) ((x) == ELF_ARCH)
 #endif
 
 #ifndef ELF_HWCAP
@@ -1227,7 +1257,8 @@ struct exec
 
 /* Necessary parameters */
 #define TARGET_ELF_EXEC_PAGESIZE TARGET_PAGE_SIZE
-#define TARGET_ELF_PAGESTART(_v) ((_v) & ~(unsigned long)(TARGET_ELF_EXEC_PAGESIZE-1))
+#define TARGET_ELF_PAGESTART(_v) ((_v) & \
+                                 ~(abi_ulong)(TARGET_ELF_EXEC_PAGESIZE-1))
 #define TARGET_ELF_PAGEOFFSET(_v) ((_v) & (TARGET_ELF_EXEC_PAGESIZE-1))
 
 #define DLINFO_ITEMS 14
@@ -1335,66 +1366,69 @@ static bool elf_check_ehdr(struct elfhdr *ehdr)
  * to be put directly into the top of new user memory.
  *
  */
-static abi_ulong copy_elf_strings(int argc,char ** argv, void **page,
-                                  abi_ulong p)
+static abi_ulong copy_elf_strings(int argc, char **argv, char *scratch,
+                                  abi_ulong p, abi_ulong stack_limit)
 {
-    char *tmp, *tmp1, *pag = NULL;
-    int len, offset = 0;
+    char *tmp;
+    int len, offset;
+    abi_ulong top = p;
 
     if (!p) {
         return 0;       /* bullet-proofing */
     }
+
+    offset = ((p - 1) % TARGET_PAGE_SIZE) + 1;
+
     while (argc-- > 0) {
         tmp = argv[argc];
         if (!tmp) {
             fprintf(stderr, "VFS: argc is wrong");
             exit(-1);
         }
-        tmp1 = tmp;
-        while (*tmp++);
-        len = tmp - tmp1;
-        if (p < len) {  /* this shouldn't happen - 128kB */
+        len = strlen(tmp) + 1;
+        tmp += len;
+
+        if (len > (p - stack_limit)) {
             return 0;
         }
         while (len) {
-            --p; --tmp; --len;
-            if (--offset < 0) {
-                offset = p % TARGET_PAGE_SIZE;
-                pag = (char *)page[p/TARGET_PAGE_SIZE];
-                if (!pag) {
-                    pag = g_try_malloc0(TARGET_PAGE_SIZE);
-                    page[p/TARGET_PAGE_SIZE] = pag;
-                    if (!pag)
-                        return 0;
-                }
-            }
-            if (len == 0 || offset == 0) {
-                *(pag + offset) = *tmp;
-            }
-            else {
-                int bytes_to_copy = (len > offset) ? offset : len;
-                tmp -= bytes_to_copy;
-                p -= bytes_to_copy;
-                offset -= bytes_to_copy;
-                len -= bytes_to_copy;
-                memcpy_fromfs(pag + offset, tmp, bytes_to_copy + 1);
+            int bytes_to_copy = (len > offset) ? offset : len;
+            tmp -= bytes_to_copy;
+            p -= bytes_to_copy;
+            offset -= bytes_to_copy;
+            len -= bytes_to_copy;
+
+            memcpy_fromfs(scratch + offset, tmp, bytes_to_copy);
+
+            if (offset == 0) {
+                memcpy_to_target(p, scratch, top - p);
+                top = p;
+                offset = TARGET_PAGE_SIZE;
             }
         }
     }
+    if (offset) {
+        memcpy_to_target(p, scratch + offset, top - p);
+    }
+
     return p;
 }
 
-static abi_ulong setup_arg_pages(abi_ulong p, struct linux_binprm *bprm,
+/* Older linux kernels provide up to MAX_ARG_PAGES (default: 32) of
+ * argument/environment space. Newer kernels (>2.6.33) allow more,
+ * dependent on stack size, but guarantee at least 32 pages for
+ * backwards compatibility.
+ */
+#define STACK_LOWER_LIMIT (32 * TARGET_PAGE_SIZE)
+
+static abi_ulong setup_arg_pages(struct linux_binprm *bprm,
                                  struct image_info *info)
 {
-    abi_ulong stack_base, size, error, guard;
-    int i;
+    abi_ulong size, error, guard;
 
-    /* Create enough stack to hold everything.  If we don't use
-       it for args, we'll use it for something else.  */
     size = guest_stack_size;
-    if (size < MAX_ARG_PAGES*TARGET_PAGE_SIZE) {
-        size = MAX_ARG_PAGES*TARGET_PAGE_SIZE;
+    if (size < STACK_LOWER_LIMIT) {
+        size = STACK_LOWER_LIMIT;
     }
     guard = TARGET_PAGE_SIZE;
     if (guard < qemu_real_host_page_size) {
@@ -1412,19 +1446,8 @@ static abi_ulong setup_arg_pages(abi_ulong p, struct linux_binprm *bprm,
     target_mprotect(error, guard, PROT_NONE);
 
     info->stack_limit = error + guard;
-    stack_base = info->stack_limit + size - MAX_ARG_PAGES*TARGET_PAGE_SIZE;
-    p += stack_base;
 
-    for (i = 0 ; i < MAX_ARG_PAGES ; i++) {
-        if (bprm->page[i]) {
-            info->rss++;
-            /* FIXME - check return value of memcpy_to_target() for failure */
-            memcpy_to_target(stack_base, bprm->page[i], TARGET_PAGE_SIZE);
-            g_free(bprm->page[i]);
-        }
-        stack_base += TARGET_PAGE_SIZE;
-    }
-    return p;
+    return info->stack_limit + size - sizeof(void *);
 }
 
 /* Map and zero the bss.  We need to explicitly zero any fractional pages
@@ -1448,8 +1471,7 @@ static void zero_bss(abi_ulong elf_bss, abi_ulong last_bss, int prot)
 
     host_start = (uintptr_t) g2h(elf_bss);
     host_end = (uintptr_t) g2h(last_bss);
-    host_map_start = (host_start + qemu_real_host_page_size - 1);
-    host_map_start &= -qemu_real_host_page_size;
+    host_map_start = REAL_HOST_PAGE_ALIGN(host_start);
 
     if (host_map_start < host_end) {
         void *p = mmap((void *)host_map_start, host_end - host_map_start,
@@ -1714,7 +1736,7 @@ unsigned long init_guest_space(unsigned long host_start,
         }
     }
 
-    qemu_log("Reserved 0x%lx bytes of guest address space\n", host_size);
+    qemu_log_mask(CPU_LOG_PAGE, "Reserved 0x%lx bytes of guest address space\n", host_size);
 
     return real_start;
 }
@@ -1726,7 +1748,6 @@ static void probe_guest_base(const char *image_name,
      * it explicitly, and set guest_base appropriately.
      * In case of error we will print a suitable message and exit.
      */
-#if defined(CONFIG_USE_GUEST_BASE)
     const char *errmsg;
     if (!have_guest_base && !reserved_va) {
         unsigned long host_start, real_start, host_size;
@@ -1756,16 +1777,15 @@ static void probe_guest_base(const char *image_name,
         }
         guest_base = real_start - loaddr;
 
-        qemu_log("Relocating guest address space from 0x"
-                 TARGET_ABI_FMT_lx " to 0x%lx\n",
-                 loaddr, real_start);
+        qemu_log_mask(CPU_LOG_PAGE, "Relocating guest address space from 0x"
+                      TARGET_ABI_FMT_lx " to 0x%lx\n",
+                      loaddr, real_start);
     }
     return;
 
 exit_errmsg:
     fprintf(stderr, "%s: %s\n", image_name, errmsg);
     exit(-1);
-#endif
 }
 
 
@@ -2168,10 +2188,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
     struct image_info interp_info;
     struct elfhdr elf_ex;
     char *elf_interpreter = NULL;
+    char *scratch;
 
     info->start_mmap = (abi_ulong)ELF_START_MMAP;
-    info->mmap = 0;
-    info->rss = 0;
 
     load_elf_image(bprm->filename, bprm->fd, info,
                    &elf_interpreter, bprm->buf);
@@ -2181,17 +2200,23 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
        when we load the interpreter.  */
     elf_ex = *(struct elfhdr *)bprm->buf;
 
-    bprm->p = copy_elf_strings(1, &bprm->filename, bprm->page, bprm->p);
-    bprm->p = copy_elf_strings(bprm->envc,bprm->envp,bprm->page,bprm->p);
-    bprm->p = copy_elf_strings(bprm->argc,bprm->argv,bprm->page,bprm->p);
+    /* Do this so that we can load the interpreter, if need be.  We will
+       change some of these later */
+    bprm->p = setup_arg_pages(bprm, info);
+
+    scratch = g_new0(char, TARGET_PAGE_SIZE);
+    bprm->p = copy_elf_strings(1, &bprm->filename, scratch,
+                               bprm->p, info->stack_limit);
+    bprm->p = copy_elf_strings(bprm->envc, bprm->envp, scratch,
+                               bprm->p, info->stack_limit);
+    bprm->p = copy_elf_strings(bprm->argc, bprm->argv, scratch,
+                               bprm->p, info->stack_limit);
+    g_free(scratch);
+
     if (!bprm->p) {
         fprintf(stderr, "%s: %s\n", bprm->filename, strerror(E2BIG));
         exit(-1);
     }
-
-    /* Do this so that we can load the interpreter, if need be.  We will
-       change some of these later */
-    bprm->p = setup_arg_pages(bprm->p, bprm, info);
 
     if (elf_interpreter) {
         load_elf_interp(elf_interpreter, &interp_info, bprm->buf);
@@ -2820,7 +2845,7 @@ static int fill_note_info(struct elf_note_info *info,
     TaskState *ts = (TaskState *)cpu->opaque;
     int i;
 
-    info->notes = g_malloc0(NUMNOTES * sizeof (struct memelfnote));
+    info->notes = g_new0(struct memelfnote, NUMNOTES);
     if (info->notes == NULL)
         return (-ENOMEM);
     info->prstatus = g_malloc0(sizeof (*info->prstatus));
@@ -2887,8 +2912,7 @@ static int write_note_info(struct elf_note_info *info, int fd)
             return (error);
 
     /* write prstatus for each thread */
-    for (ets = info->thread_list.tqh_first; ets != NULL;
-         ets = ets->ets_link.tqe_next) {
+    QTAILQ_FOREACH(ets, &info->thread_list, ets_link) {
         if ((error = write_note(&ets->notes[0], fd)) != 0)
             return (error);
     }
@@ -2987,7 +3011,7 @@ static int elf_core_dump(int signr, const CPUArchState *env)
     if (dump_write(fd, &elf, sizeof (elf)) != 0)
         goto out;
 
-    /* fill in in-memory version of notes */
+    /* fill in the in-memory version of notes */
     if (fill_note_info(&info, signr, env) < 0)
         goto out;
 

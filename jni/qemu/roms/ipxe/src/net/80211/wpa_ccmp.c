@@ -480,7 +480,7 @@ static void ccmp_kie_mic ( const void *kck, const void *msg, size_t len,
 {
 	u8 sha1_ctx[SHA1_CTX_SIZE];
 	u8 kckb[16];
-	u8 hash[SHA1_SIZE];
+	u8 hash[SHA1_DIGEST_SIZE];
 	size_t kck_len = 16;
 
 	memcpy ( kckb, kck, kck_len );

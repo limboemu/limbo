@@ -1,6 +1,7 @@
 /*
  * Unit-tests for visitor-based serialization
  *
+ * Copyright (C) 2014-2015 Red Hat, Inc.
  * Copyright IBM, Corp. 2012
  *
  * Authors:
@@ -10,15 +11,15 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include "qemu/osdep.h"
 #include <float.h>
 
 #include "qemu-common.h"
 #include "test-qapi-types.h"
 #include "test-qapi-visit.h"
+#include "qapi/error.h"
 #include "qapi/qmp/types.h"
+#include "qapi/qmp/qjson.h"
 #include "qapi/qmp-input-visitor.h"
 #include "qapi/qmp-output-visitor.h"
 #include "qapi/string-input-visitor.h"
@@ -88,11 +89,11 @@ typedef void (*VisitorFunc)(Visitor *v, void **native, Error **errp);
 
 static void dealloc_helper(void *native_in, VisitorFunc visit, Error **errp)
 {
-    QapiDeallocVisitor *qdv = qapi_dealloc_visitor_new();
+    Visitor *v = qapi_dealloc_visitor_new();
 
-    visit(qapi_dealloc_get_visitor(qdv), &native_in, errp);
+    visit(v, &native_in, errp);
 
-    qapi_dealloc_visitor_cleanup(qdv);
+    visit_free(v);
 }
 
 static void visit_primitive_type(Visitor *v, void **native, Error **errp)
@@ -100,40 +101,40 @@ static void visit_primitive_type(Visitor *v, void **native, Error **errp)
     PrimitiveType *pt = *native;
     switch(pt->type) {
     case PTYPE_STRING:
-        visit_type_str(v, (char **)&pt->value.string, NULL, errp);
+        visit_type_str(v, NULL, (char **)&pt->value.string, errp);
         break;
     case PTYPE_BOOLEAN:
-        visit_type_bool(v, &pt->value.boolean, NULL, errp);
+        visit_type_bool(v, NULL, &pt->value.boolean, errp);
         break;
     case PTYPE_NUMBER:
-        visit_type_number(v, &pt->value.number, NULL, errp);
+        visit_type_number(v, NULL, &pt->value.number, errp);
         break;
     case PTYPE_INTEGER:
-        visit_type_int(v, &pt->value.integer, NULL, errp);
+        visit_type_int(v, NULL, &pt->value.integer, errp);
         break;
     case PTYPE_U8:
-        visit_type_uint8(v, &pt->value.u8, NULL, errp);
+        visit_type_uint8(v, NULL, &pt->value.u8, errp);
         break;
     case PTYPE_U16:
-        visit_type_uint16(v, &pt->value.u16, NULL, errp);
+        visit_type_uint16(v, NULL, &pt->value.u16, errp);
         break;
     case PTYPE_U32:
-        visit_type_uint32(v, &pt->value.u32, NULL, errp);
+        visit_type_uint32(v, NULL, &pt->value.u32, errp);
         break;
     case PTYPE_U64:
-        visit_type_uint64(v, &pt->value.u64, NULL, errp);
+        visit_type_uint64(v, NULL, &pt->value.u64, errp);
         break;
     case PTYPE_S8:
-        visit_type_int8(v, &pt->value.s8, NULL, errp);
+        visit_type_int8(v, NULL, &pt->value.s8, errp);
         break;
     case PTYPE_S16:
-        visit_type_int16(v, &pt->value.s16, NULL, errp);
+        visit_type_int16(v, NULL, &pt->value.s16, errp);
         break;
     case PTYPE_S32:
-        visit_type_int32(v, &pt->value.s32, NULL, errp);
+        visit_type_int32(v, NULL, &pt->value.s32, errp);
         break;
     case PTYPE_S64:
-        visit_type_int64(v, &pt->value.s64, NULL, errp);
+        visit_type_int64(v, NULL, &pt->value.s64, errp);
         break;
     case PTYPE_EOL:
         g_assert_not_reached();
@@ -145,80 +146,46 @@ static void visit_primitive_list(Visitor *v, void **native, Error **errp)
     PrimitiveList *pl = *native;
     switch (pl->type) {
     case PTYPE_STRING:
-        visit_type_strList(v, &pl->value.strings, NULL, errp);
+        visit_type_strList(v, NULL, &pl->value.strings, errp);
         break;
     case PTYPE_BOOLEAN:
-        visit_type_boolList(v, &pl->value.booleans, NULL, errp);
+        visit_type_boolList(v, NULL, &pl->value.booleans, errp);
         break;
     case PTYPE_NUMBER:
-        visit_type_numberList(v, &pl->value.numbers, NULL, errp);
+        visit_type_numberList(v, NULL, &pl->value.numbers, errp);
         break;
     case PTYPE_INTEGER:
-        visit_type_intList(v, &pl->value.integers, NULL, errp);
+        visit_type_intList(v, NULL, &pl->value.integers, errp);
         break;
     case PTYPE_S8:
-        visit_type_int8List(v, &pl->value.s8_integers, NULL, errp);
+        visit_type_int8List(v, NULL, &pl->value.s8_integers, errp);
         break;
     case PTYPE_S16:
-        visit_type_int16List(v, &pl->value.s16_integers, NULL, errp);
+        visit_type_int16List(v, NULL, &pl->value.s16_integers, errp);
         break;
     case PTYPE_S32:
-        visit_type_int32List(v, &pl->value.s32_integers, NULL, errp);
+        visit_type_int32List(v, NULL, &pl->value.s32_integers, errp);
         break;
     case PTYPE_S64:
-        visit_type_int64List(v, &pl->value.s64_integers, NULL, errp);
+        visit_type_int64List(v, NULL, &pl->value.s64_integers, errp);
         break;
     case PTYPE_U8:
-        visit_type_uint8List(v, &pl->value.u8_integers, NULL, errp);
+        visit_type_uint8List(v, NULL, &pl->value.u8_integers, errp);
         break;
     case PTYPE_U16:
-        visit_type_uint16List(v, &pl->value.u16_integers, NULL, errp);
+        visit_type_uint16List(v, NULL, &pl->value.u16_integers, errp);
         break;
     case PTYPE_U32:
-        visit_type_uint32List(v, &pl->value.u32_integers, NULL, errp);
+        visit_type_uint32List(v, NULL, &pl->value.u32_integers, errp);
         break;
     case PTYPE_U64:
-        visit_type_uint64List(v, &pl->value.u64_integers, NULL, errp);
+        visit_type_uint64List(v, NULL, &pl->value.u64_integers, errp);
         break;
     default:
         g_assert_not_reached();
     }
 }
 
-typedef struct TestStruct
-{
-    int64_t integer;
-    bool boolean;
-    char *string;
-} TestStruct;
-
-static void visit_type_TestStruct(Visitor *v, TestStruct **obj,
-                                  const char *name, Error **errp)
-{
-    Error *err = NULL;
-
-    visit_start_struct(v, (void **)obj, NULL, name, sizeof(TestStruct), &err);
-    if (err) {
-        goto out;
-    }
-
-    visit_type_int(v, &(*obj)->integer, "integer", &err);
-    if (err) {
-        goto out_end;
-    }
-    visit_type_bool(v, &(*obj)->boolean, "boolean", &err);
-    if (err) {
-        goto out_end;
-    }
-    visit_type_str(v, &(*obj)->string, "string", &err);
-
-out_end:
-    error_propagate(errp, err);
-    err = NULL;
-    visit_end_struct(v, &err);
-out:
-    error_propagate(errp, err);
-}
 
 static TestStruct *struct_create(void)
 {
@@ -246,60 +213,63 @@ static void struct_cleanup(TestStruct *ts)
 
 static void visit_struct(Visitor *v, void **native, Error **errp)
 {
-    visit_type_TestStruct(v, (TestStruct **)native, NULL, errp);
+    visit_type_TestStruct(v, NULL, (TestStruct **)native, errp);
 }
 
-static UserDefNested *nested_struct_create(void)
+static UserDefTwo *nested_struct_create(void)
 {
-    UserDefNested *udnp = g_malloc0(sizeof(*udnp));
+    UserDefTwo *udnp = g_malloc0(sizeof(*udnp));
     udnp->string0 = strdup("test_string0");
-    udnp->dict1.string1 = strdup("test_string1");
-    udnp->dict1.dict2.userdef1 = g_malloc0(sizeof(UserDefOne));
-    udnp->dict1.dict2.userdef1->base = g_new0(UserDefZero, 1);
-    udnp->dict1.dict2.userdef1->base->integer = 42;
-    udnp->dict1.dict2.userdef1->string = strdup("test_string");
-    udnp->dict1.dict2.string2 = strdup("test_string2");
-    udnp->dict1.has_dict3 = true;
-    udnp->dict1.dict3.userdef2 = g_malloc0(sizeof(UserDefOne));
-    udnp->dict1.dict3.userdef2->base = g_new0(UserDefZero, 1);
-    udnp->dict1.dict3.userdef2->base->integer = 43;
-    udnp->dict1.dict3.userdef2->string = strdup("test_string");
-    udnp->dict1.dict3.string3 = strdup("test_string3");
+    udnp->dict1 = g_malloc0(sizeof(*udnp->dict1));
+    udnp->dict1->string1 = strdup("test_string1");
+    udnp->dict1->dict2 = g_malloc0(sizeof(*udnp->dict1->dict2));
+    udnp->dict1->dict2->userdef = g_new0(UserDefOne, 1);
+    udnp->dict1->dict2->userdef->integer = 42;
+    udnp->dict1->dict2->userdef->string = strdup("test_string");
+    udnp->dict1->dict2->string = strdup("test_string2");
+    udnp->dict1->dict3 = g_malloc0(sizeof(*udnp->dict1->dict3));
+    udnp->dict1->has_dict3 = true;
+    udnp->dict1->dict3->userdef = g_new0(UserDefOne, 1);
+    udnp->dict1->dict3->userdef->integer = 43;
+    udnp->dict1->dict3->userdef->string = strdup("test_string");
+    udnp->dict1->dict3->string = strdup("test_string3");
     return udnp;
 }
 
-static void nested_struct_compare(UserDefNested *udnp1, UserDefNested *udnp2)
+static void nested_struct_compare(UserDefTwo *udnp1, UserDefTwo *udnp2)
 {
     g_assert(udnp1);
     g_assert(udnp2);
     g_assert_cmpstr(udnp1->string0, ==, udnp2->string0);
-    g_assert_cmpstr(udnp1->dict1.string1, ==, udnp2->dict1.string1);
-    g_assert_cmpint(udnp1->dict1.dict2.userdef1->base->integer, ==,
-                    udnp2->dict1.dict2.userdef1->base->integer);
-    g_assert_cmpstr(udnp1->dict1.dict2.userdef1->string, ==,
-                    udnp2->dict1.dict2.userdef1->string);
-    g_assert_cmpstr(udnp1->dict1.dict2.string2, ==, udnp2->dict1.dict2.string2);
-    g_assert(udnp1->dict1.has_dict3 == udnp2->dict1.has_dict3);
-    g_assert_cmpint(udnp1->dict1.dict3.userdef2->base->integer, ==,
-                    udnp2->dict1.dict3.userdef2->base->integer);
-    g_assert_cmpstr(udnp1->dict1.dict3.userdef2->string, ==,
-                    udnp2->dict1.dict3.userdef2->string);
-    g_assert_cmpstr(udnp1->dict1.dict3.string3, ==, udnp2->dict1.dict3.string3);
+    g_assert_cmpstr(udnp1->dict1->string1, ==, udnp2->dict1->string1);
+    g_assert_cmpint(udnp1->dict1->dict2->userdef->integer, ==,
+                    udnp2->dict1->dict2->userdef->integer);
+    g_assert_cmpstr(udnp1->dict1->dict2->userdef->string, ==,
+                    udnp2->dict1->dict2->userdef->string);
+    g_assert_cmpstr(udnp1->dict1->dict2->string, ==,
+                    udnp2->dict1->dict2->string);
+    g_assert(udnp1->dict1->has_dict3 == udnp2->dict1->has_dict3);
+    g_assert_cmpint(udnp1->dict1->dict3->userdef->integer, ==,
+                    udnp2->dict1->dict3->userdef->integer);
+    g_assert_cmpstr(udnp1->dict1->dict3->userdef->string, ==,
+                    udnp2->dict1->dict3->userdef->string);
+    g_assert_cmpstr(udnp1->dict1->dict3->string, ==,
+                    udnp2->dict1->dict3->string);
 }
 
-static void nested_struct_cleanup(UserDefNested *udnp)
+static void nested_struct_cleanup(UserDefTwo *udnp)
 {
-    qapi_free_UserDefNested(udnp);
+    qapi_free_UserDefTwo(udnp);
 }
 
 static void visit_nested_struct(Visitor *v, void **native, Error **errp)
 {
-    visit_type_UserDefNested(v, (UserDefNested **)native, NULL, errp);
+    visit_type_UserDefTwo(v, NULL, (UserDefTwo **)native, errp);
 }
 
 static void visit_nested_struct_list(Visitor *v, void **native, Error **errp)
 {
-    visit_type_UserDefNestedList(v, (UserDefNestedList **)native, NULL, errp);
+    visit_type_UserDefTwoList(v, NULL, (UserDefTwoList **)native, errp);
 }
 
 /* test cases */
@@ -332,14 +302,13 @@ static void test_primitives(gconstpointer opaque)
     const SerializeOps *ops = args->ops;
     PrimitiveType *pt = args->test_data;
     PrimitiveType *pt_copy = g_malloc0(sizeof(*pt_copy));
-    Error *err = NULL;
     void *serialize_data;
 
     pt_copy->type = pt->type;
-    ops->serialize(pt, &serialize_data, visit_primitive_type, &err);
-    ops->deserialize((void **)&pt_copy, serialize_data, visit_primitive_type, &err);
+    ops->serialize(pt, &serialize_data, visit_primitive_type, &error_abort);
+    ops->deserialize((void **)&pt_copy, serialize_data, visit_primitive_type,
+                     &error_abort);
 
-    g_assert(err == NULL);
     g_assert(pt_copy != NULL);
     if (pt->type == PTYPE_STRING) {
         g_assert_cmpstr(pt->value.string, ==, pt_copy->value.string);
@@ -375,7 +344,6 @@ static void test_primitive_lists(gconstpointer opaque)
     PrimitiveList pl = { .value = { NULL } };
     PrimitiveList pl_copy = { .value = { NULL } };
     PrimitiveList *pl_copy_ptr = &pl_copy;
-    Error *err = NULL;
     void *serialize_data;
     void *cur_head = NULL;
     int i;
@@ -522,10 +490,11 @@ static void test_primitive_lists(gconstpointer opaque)
         }
     }
 
-    ops->serialize((void **)&pl, &serialize_data, visit_primitive_list, &err);
-    ops->deserialize((void **)&pl_copy_ptr, serialize_data, visit_primitive_list, &err);
+    ops->serialize((void **)&pl, &serialize_data, visit_primitive_list,
+                   &error_abort);
+    ops->deserialize((void **)&pl_copy_ptr, serialize_data,
+                     visit_primitive_list, &error_abort);
 
-    g_assert(err == NULL);
     i = 0;
 
     /* compare our deserialized list of primitives to the original */
@@ -682,10 +651,8 @@ static void test_primitive_lists(gconstpointer opaque)
     g_assert_cmpint(i, ==, 33);
 
     ops->cleanup(serialize_data);
-    dealloc_helper(&pl, visit_primitive_list, &err);
-    g_assert(!err);
-    dealloc_helper(&pl_copy, visit_primitive_list, &err);
-    g_assert(!err);
+    dealloc_helper(&pl, visit_primitive_list, &error_abort);
+    dealloc_helper(&pl_copy, visit_primitive_list, &error_abort);
     g_free(args);
 }
 
@@ -695,13 +662,12 @@ static void test_struct(gconstpointer opaque)
     const SerializeOps *ops = args->ops;
     TestStruct *ts = struct_create();
     TestStruct *ts_copy = NULL;
-    Error *err = NULL;
     void *serialize_data;
 
-    ops->serialize(ts, &serialize_data, visit_struct, &err);
-    ops->deserialize((void **)&ts_copy, serialize_data, visit_struct, &err); 
+    ops->serialize(ts, &serialize_data, visit_struct, &error_abort);
+    ops->deserialize((void **)&ts_copy, serialize_data, visit_struct,
+                     &error_abort);
 
-    g_assert(err == NULL);
     struct_compare(ts, ts_copy);
 
     struct_cleanup(ts);
@@ -715,15 +681,14 @@ static void test_nested_struct(gconstpointer opaque)
 {
     TestArgs *args = (TestArgs *) opaque;
     const SerializeOps *ops = args->ops;
-    UserDefNested *udnp = nested_struct_create();
-    UserDefNested *udnp_copy = NULL;
-    Error *err = NULL;
+    UserDefTwo *udnp = nested_struct_create();
+    UserDefTwo *udnp_copy = NULL;
     void *serialize_data;
-    
-    ops->serialize(udnp, &serialize_data, visit_nested_struct, &err);
-    ops->deserialize((void **)&udnp_copy, serialize_data, visit_nested_struct, &err); 
 
-    g_assert(err == NULL);
+    ops->serialize(udnp, &serialize_data, visit_nested_struct, &error_abort);
+    ops->deserialize((void **)&udnp_copy, serialize_data, visit_nested_struct,
+                     &error_abort);
+
     nested_struct_compare(udnp, udnp_copy);
 
     nested_struct_cleanup(udnp);
@@ -737,23 +702,21 @@ static void test_nested_struct_list(gconstpointer opaque)
 {
     TestArgs *args = (TestArgs *) opaque;
     const SerializeOps *ops = args->ops;
-    UserDefNestedList *listp = NULL, *tmp, *tmp_copy, *listp_copy = NULL;
-    Error *err = NULL;
+    UserDefTwoList *listp = NULL, *tmp, *tmp_copy, *listp_copy = NULL;
     void *serialize_data;
     int i = 0;
 
     for (i = 0; i < 8; i++) {
-        tmp = g_malloc0(sizeof(UserDefNestedList));
+        tmp = g_new0(UserDefTwoList, 1);
         tmp->value = nested_struct_create();
         tmp->next = listp;
         listp = tmp;
     }
-    
-    ops->serialize(listp, &serialize_data, visit_nested_struct_list, &err);
-    ops->deserialize((void **)&listp_copy, serialize_data,
-                     visit_nested_struct_list, &err); 
 
-    g_assert(err == NULL);
+    ops->serialize(listp, &serialize_data, visit_nested_struct_list,
+                   &error_abort);
+    ops->deserialize((void **)&listp_copy, serialize_data,
+                     visit_nested_struct_list, &error_abort);
 
     tmp = listp;
     tmp_copy = listp_copy;
@@ -764,8 +727,8 @@ static void test_nested_struct_list(gconstpointer opaque)
         listp_copy = listp_copy->next;
     }
 
-    qapi_free_UserDefNestedList(tmp);
-    qapi_free_UserDefNestedList(tmp_copy);
+    qapi_free_UserDefTwoList(tmp);
+    qapi_free_UserDefTwoList(tmp_copy);
 
     ops->cleanup(serialize_data);
     g_free(args);
@@ -1049,8 +1012,9 @@ static PrimitiveType pt_values[] = {
 /* visitor-specific op implementations */
 
 typedef struct QmpSerializeData {
-    QmpOutputVisitor *qov;
-    QmpInputVisitor *qiv;
+    Visitor *qov;
+    QObject *obj;
+    Visitor *qiv;
 } QmpSerializeData;
 
 static void qmp_serialize(void *native_in, void **datap,
@@ -1058,8 +1022,8 @@ static void qmp_serialize(void *native_in, void **datap,
 {
     QmpSerializeData *d = g_malloc0(sizeof(*d));
 
-    d->qov = qmp_output_visitor_new();
-    visit(qmp_output_get_visitor(d->qov), &native_in, errp);
+    d->qov = qmp_output_visitor_new(&d->obj);
+    visit(d->qov, &native_in, errp);
     *datap = d;
 }
 
@@ -1070,30 +1034,31 @@ static void qmp_deserialize(void **native_out, void *datap,
     QString *output_json;
     QObject *obj_orig, *obj;
 
-    obj_orig = qmp_output_get_qobject(d->qov);
+    visit_complete(d->qov, &d->obj);
+    obj_orig = d->obj;
     output_json = qobject_to_json(obj_orig);
     obj = qobject_from_json(qstring_get_str(output_json));
 
     QDECREF(output_json);
-    d->qiv = qmp_input_visitor_new(obj);
+    d->qiv = qmp_input_visitor_new(obj, true);
     qobject_decref(obj_orig);
     qobject_decref(obj);
-    visit(qmp_input_get_visitor(d->qiv), native_out, errp);
+    visit(d->qiv, native_out, errp);
 }
 
 static void qmp_cleanup(void *datap)
 {
     QmpSerializeData *d = datap;
-    qmp_output_visitor_cleanup(d->qov);
-    qmp_input_visitor_cleanup(d->qiv);
+    visit_free(d->qov);
+    visit_free(d->qiv);
 
     g_free(d);
 }
 
 typedef struct StringSerializeData {
     char *string;
-    StringOutputVisitor *sov;
-    StringInputVisitor *siv;
+    Visitor *sov;
+    Visitor *siv;
 } StringSerializeData;
 
 static void string_serialize(void *native_in, void **datap,
@@ -1101,8 +1066,8 @@ static void string_serialize(void *native_in, void **datap,
 {
     StringSerializeData *d = g_malloc0(sizeof(*d));
 
-    d->sov = string_output_visitor_new(false);
-    visit(string_output_get_visitor(d->sov), &native_in, errp);
+    d->sov = string_output_visitor_new(false, &d->string);
+    visit(d->sov, &native_in, errp);
     *datap = d;
 }
 
@@ -1111,17 +1076,17 @@ static void string_deserialize(void **native_out, void *datap,
 {
     StringSerializeData *d = datap;
 
-    d->string = string_output_get_string(d->sov);
+    visit_complete(d->sov, &d->string);
     d->siv = string_input_visitor_new(d->string);
-    visit(string_input_get_visitor(d->siv), native_out, errp);
+    visit(d->siv, native_out, errp);
 }
 
 static void string_cleanup(void *datap)
 {
     StringSerializeData *d = datap;
 
-    string_output_visitor_cleanup(d->sov);
-    string_input_visitor_cleanup(d->siv);
+    visit_free(d->sov);
+    visit_free(d->siv);
     g_free(d->string);
     g_free(d);
 }

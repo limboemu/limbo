@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include <glib.h>
+#include "qemu/osdep.h"
 
 #include "hw/i386/topology.h"
 

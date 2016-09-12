@@ -179,6 +179,9 @@
 #define TARGET_NR_readahead          205 /* Linux Specific                              */
 #define TARGET_NR_socketcall         206 /* Linux Specific                              */
 #define TARGET_NR_syslog             207 /* Linux Specific                              */
+#define TARGET_NR_lookup_dcookie     208 /* Linux Specific                              */
+#define TARGET_NR_fadvise64          209 /* Linux Specific                              */
+#define TARGET_NR_fadvise64_64       210 /* Linux Specific                              */
 #define TARGET_NR_tgkill             211 /* Linux Specific                              */
 #define TARGET_NR_waitpid            212 /* Linux Specific                              */
 #define TARGET_NR_swapoff            213 /* Linux Specific                              */
@@ -278,7 +281,7 @@
 #define TARGET_NR_epoll_pwait	309
 #define TARGET_NR_utimensat		310
 #define TARGET_NR_signalfd		311
-#define TARGET_NR_timerfd		312
+#define TARGET_NR_timerfd_create	312
 #define TARGET_NR_eventfd		313
 #define TARGET_NR_fallocate		314
 #define TARGET_NR_timerfd_settime	315
@@ -309,3 +312,17 @@
 #define TARGET_NR_kern_features         340
 #define TARGET_NR_kcmp                  341
 #define TARGET_NR_finit_module          342
+#define TARGET_NR_sched_setattr         343
+#define TARGET_NR_sched_getattr         344
+#define TARGET_NR_renameat2             345
+#define TARGET_NR_seccomp               346
+#define TARGET_NR_getrandom             347
+#define TARGET_NR_memfd_create          348
+#define TARGET_NR_bpf                   349
+#define TARGET_NR_execveat              350
+#define TARGET_NR_membarrier            351
+#define TARGET_NR_userfaultfd           352
+#define TARGET_NR_bind                  353
+#define TARGET_NR_listen                354
+#define TARGET_NR_setsockopt            355
+#define TARGET_NR_mlock2                356

@@ -1,37 +1,38 @@
 #######################################################################
 # Common libraries for tools and emulators
-stub-obj-y = stubs/
-util-obj-y = util/ qobject/ qapi/ qapi-types.o qapi-visit.o qapi-event.o
+stub-obj-y = stubs/ crypto/
+util-obj-y = util/ qobject/ qapi/
+util-obj-y += qmp-introspect.o qapi-types.o qapi-visit.o qapi-event.o
 
 #######################################################################
 # block-obj-y is code used by both qemu system emulation and qemu-img
 
 block-obj-y = async.o thread-pool.o
-block-obj-y += nbd.o block.o blockjob.o
+block-obj-y += nbd/
+block-obj-y += block.o blockjob.o
 block-obj-y += main-loop.o iohandler.o qemu-timer.o
 block-obj-$(CONFIG_POSIX) += aio-posix.o
 block-obj-$(CONFIG_WIN32) += aio-win32.o
 block-obj-y += block/
 block-obj-y += qemu-io-cmds.o
 
-block-obj-y += qemu-coroutine.o qemu-coroutine-lock.o qemu-coroutine-io.o
-block-obj-y += qemu-coroutine-sleep.o
-block-obj-y += coroutine-$(CONFIG_COROUTINE_BACKEND).o
-
 block-obj-m = block/
 
+#######################################################################
+# crypto-obj-y is code used by both qemu system emulation and qemu-img
 
-######################################################################
-# smartcard
+crypto-obj-y = crypto/
+crypto-aes-obj-y = crypto/
 
-libcacard-y += libcacard/cac.o libcacard/event.o
-libcacard-y += libcacard/vcard.o libcacard/vreader.o
-libcacard-y += libcacard/vcard_emul_nss.o
-libcacard-y += libcacard/vcard_emul_type.o
-libcacard-y += libcacard/card_7816.o
-libcacard-y += libcacard/vcardt.o
-libcacard/vcard_emul_nss.o-cflags := $(NSS_CFLAGS)
-libcacard/vcard_emul_nss.o-libs := $(NSS_LIBS)
+#######################################################################
+# qom-obj-y is code used by both qemu system emulation and qemu-img
+
+qom-obj-y = qom/
+
+#######################################################################
+# io-obj-y is code used by both qemu system emulation and qemu-img
+
+io-obj-y = io/
 
 ######################################################################
 # Target independent part of system emulation. The long term path is to
@@ -51,13 +52,14 @@ common-obj-$(CONFIG_LINUX) += fsdev/
 common-obj-y += migration/
 common-obj-y += qemu-char.o #aio.o
 common-obj-y += page_cache.o
-common-obj-y += qjson.o
 
 common-obj-$(CONFIG_SPICE) += spice-qemu-char.o
 
 common-obj-y += audio/
 common-obj-y += hw/
 common-obj-y += accel.o
+
+common-obj-y += replay/
 
 common-obj-y += ui/
 common-obj-y += bt-host.o bt-vhci.o
@@ -74,18 +76,18 @@ common-obj-y += backends/
 
 common-obj-$(CONFIG_SECCOMP) += qemu-seccomp.o
 
-common-obj-$(CONFIG_SMARTCARD_NSS) += $(libcacard-y)
+common-obj-$(CONFIG_FDT) += device_tree.o
 
 ######################################################################
 # qapi
 
 common-obj-y += qmp-marshal.o
+common-obj-y += qmp-introspect.o
 common-obj-y += qmp.o hmp.o
 endif
 
 #######################################################################
 # Target-independent parts used in system and user emulation
-common-obj-y += qemu-log.o
 common-obj-y += tcg-runtime.o
 common-obj-y += hw/
 common-obj-y += qom/
@@ -108,3 +110,52 @@ target-obj-y += trace/
 # by libqemuutil.a.  These should be moved to a separate .json schema.
 qga-obj-y = qga/
 qga-vss-dll-obj-y = qga/
+
+######################################################################
+# contrib
+ivshmem-client-obj-y = contrib/ivshmem-client/
+ivshmem-server-obj-y = contrib/ivshmem-server/
+
+
+######################################################################
+trace-events-y = trace-events
+trace-events-y += util/trace-events
+trace-events-y += crypto/trace-events
+trace-events-y += io/trace-events
+trace-events-y += migration/trace-events
+trace-events-y += block/trace-events
+trace-events-y += hw/block/trace-events
+trace-events-y += hw/char/trace-events
+trace-events-y += hw/intc/trace-events
+trace-events-y += hw/net/trace-events
+trace-events-y += hw/virtio/trace-events
+trace-events-y += hw/audio/trace-events
+trace-events-y += hw/misc/trace-events
+trace-events-y += hw/usb/trace-events
+trace-events-y += hw/scsi/trace-events
+trace-events-y += hw/nvram/trace-events
+trace-events-y += hw/display/trace-events
+trace-events-y += hw/input/trace-events
+trace-events-y += hw/timer/trace-events
+trace-events-y += hw/dma/trace-events
+trace-events-y += hw/sparc/trace-events
+trace-events-y += hw/sd/trace-events
+trace-events-y += hw/isa/trace-events
+trace-events-y += hw/i386/trace-events
+trace-events-y += hw/9pfs/trace-events
+trace-events-y += hw/ppc/trace-events
+trace-events-y += hw/pci/trace-events
+trace-events-y += hw/s390x/trace-events
+trace-events-y += hw/vfio/trace-events
+trace-events-y += hw/acpi/trace-events
+trace-events-y += hw/arm/trace-events
+trace-events-y += hw/alpha/trace-events
+trace-events-y += ui/trace-events
+trace-events-y += audio/trace-events
+trace-events-y += net/trace-events
+trace-events-y += target-i386/trace-events
+trace-events-y += target-sparc/trace-events
+trace-events-y += target-s390x/trace-events
+trace-events-y += target-ppc/trace-events
+trace-events-y += qom/trace-events
+trace-events-y += linux-user/trace-events

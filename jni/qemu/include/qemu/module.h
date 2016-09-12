@@ -14,7 +14,6 @@
 #ifndef QEMU_MODULE_H
 #define QEMU_MODULE_H
 
-#include "qemu/osdep.h"
 
 #define DSO_STAMP_FUN         glue(qemu_stamp, CONFIG_STAMP)
 #define DSO_STAMP_FUN_STR     stringify(DSO_STAMP_FUN)
@@ -42,14 +41,14 @@ static void __attribute__((constructor)) do_qemu_init_ ## function(void)    \
 
 typedef enum {
     MODULE_INIT_BLOCK,
-    MODULE_INIT_MACHINE,
+    MODULE_INIT_OPTS,
     MODULE_INIT_QAPI,
     MODULE_INIT_QOM,
     MODULE_INIT_MAX
 } module_init_type;
 
 #define block_init(function) module_init(function, MODULE_INIT_BLOCK)
-#define machine_init(function) module_init(function, MODULE_INIT_MACHINE)
+#define opts_init(function) module_init(function, MODULE_INIT_OPTS)
 #define qapi_init(function) module_init(function, MODULE_INIT_QAPI)
 #define type_init(function) module_init(function, MODULE_INIT_QOM)
 

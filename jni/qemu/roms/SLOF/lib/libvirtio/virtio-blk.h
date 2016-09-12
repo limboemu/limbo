@@ -55,6 +55,6 @@ struct virtio_blk_req {
 
 extern int virtioblk_init(struct virtio_device *dev);
 extern void virtioblk_shutdown(struct virtio_device *dev);
-extern int virtioblk_read(struct virtio_device *dev, char *buf, long blocknum, long cnt);
+extern int virtioblk_read(struct virtio_device *dev, char *buf, uint64_t blocknum, long cnt);
 
 #endif  /* _VIRTIO_BLK_H */

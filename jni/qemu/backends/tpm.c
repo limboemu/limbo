@@ -12,7 +12,9 @@
  * Based on backends/rng.c by Anthony Liguori
  */
 
+#include "qemu/osdep.h"
 #include "sysemu/tpm_backend.h"
+#include "qapi/error.h"
 #include "qapi/qmp/qerror.h"
 #include "sysemu/tpm.h"
 #include "qemu/thread.h"
@@ -96,6 +98,20 @@ bool tpm_backend_get_tpm_established_flag(TPMBackend *s)
     return k->ops->get_tpm_established_flag(s);
 }
 
+int tpm_backend_reset_tpm_established_flag(TPMBackend *s, uint8_t locty)
+{
+    TPMBackendClass *k = TPM_BACKEND_GET_CLASS(s);
+
+    return k->ops->reset_tpm_established_flag(s, locty);
+}
+
+TPMVersion tpm_backend_get_tpm_version(TPMBackend *s)
+{
+    TPMBackendClass *k = TPM_BACKEND_GET_CLASS(s);
+
+    return k->ops->get_tpm_version(s);
+}
+
 static bool tpm_backend_prop_get_opened(Object *obj, Error **errp)
 {
     TPMBackend *s = TPM_BACKEND(obj);
@@ -119,7 +135,7 @@ static void tpm_backend_prop_set_opened(Object *obj, bool value, Error **errp)
     }
 
     if (!value && s->opened) {
-        error_set(errp, QERR_PERMISSION_DENIED);
+        error_setg(errp, QERR_PERMISSION_DENIED);
         return;
     }
 
@@ -162,17 +178,6 @@ void tpm_backend_thread_end(TPMBackendThread *tbt)
         g_thread_pool_push(tbt->pool, (gpointer)TPM_BACKEND_CMD_END, NULL);
         g_thread_pool_free(tbt->pool, FALSE, TRUE);
         tbt->pool = NULL;
-    }
-}
-
-void tpm_backend_thread_tpm_reset(TPMBackendThread *tbt,
-                                  GFunc func, gpointer user_data)
-{
-    if (!tbt->pool) {
-        tpm_backend_thread_create(tbt, func, user_data);
-    } else {
-        g_thread_pool_push(tbt->pool, (gpointer)TPM_BACKEND_CMD_TPM_RESET,
-                           NULL);
     }
 }
 

@@ -14,6 +14,7 @@
  * (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/ppc/e500-ccsr.h"
 #include "hw/pci/pci.h"
@@ -140,7 +141,7 @@ static uint64_t pci_reg_read4(void *opaque, hwaddr addr,
     case PPCE500_PCI_OW3:
     case PPCE500_PCI_OW4:
         idx = (addr >> 5) & 0x7;
-        switch (addr & 0xC) {
+        switch (addr & 0x1F) {
         case PCI_POTAR:
             value = pci->pob[idx].potar;
             break;
@@ -162,7 +163,7 @@ static uint64_t pci_reg_read4(void *opaque, hwaddr addr,
     case PPCE500_PCI_IW2:
     case PPCE500_PCI_IW1:
         idx = ((addr >> 5) & 0x3) - 1;
-        switch (addr & 0xC) {
+        switch (addr & 0x1F) {
         case PCI_PITAR:
             value = pci->pib[idx].pitar;
             break;

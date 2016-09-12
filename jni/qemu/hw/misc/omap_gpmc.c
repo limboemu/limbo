@@ -18,6 +18,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/block/flash.h"
 #include "hw/arm/omap.h"
@@ -826,8 +827,7 @@ struct omap_gpmc_s *omap_gpmc_init(struct omap_mpu_state_s *mpu,
                                    qemu_irq irq, qemu_irq drq)
 {
     int cs;
-    struct omap_gpmc_s *s = (struct omap_gpmc_s *)
-            g_malloc0(sizeof(struct omap_gpmc_s));
+    struct omap_gpmc_s *s = g_new0(struct omap_gpmc_s, 1);
 
     memory_region_init_io(&s->iomem, NULL, &omap_gpmc_ops, s, "omap-gpmc", 0x1000);
     memory_region_add_subregion(get_system_memory(), base, &s->iomem);

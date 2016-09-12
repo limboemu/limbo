@@ -15,9 +15,7 @@
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // cdrom_prepboot
-
-// Locks for removable devices
-u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
+#include "tcgbios.h" // tpm_*
 
 
 /****************************************************************
@@ -88,7 +86,7 @@ cdemu_read(struct disk_op_s *op)
 }
 
 int
-process_cdemu_op(struct disk_op_s *op)
+cdemu_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_CDROM_EMU)
         return 0;
@@ -99,13 +97,8 @@ process_cdemu_op(struct disk_op_s *op)
     case CMD_WRITE:
     case CMD_FORMAT:
         return DISK_RET_EWRITEPROTECT;
-    case CMD_VERIFY:
-    case CMD_RESET:
-    case CMD_SEEK:
-    case CMD_ISREADY:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 
@@ -122,7 +115,6 @@ cdrom_prepboot(void)
     struct drive_s *drive = malloc_fseg(sizeof(*drive));
     if (!drive) {
         warn_noalloc();
-        free(drive);
         return;
     }
     cdemu_drive_gf = drive;
@@ -158,7 +150,7 @@ cdrom_boot(struct drive_s *drive)
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = buffer;
-    ret = scsi_process_op(&dop);
+    ret = process_op(&dop);
     if (ret)
         return 3;
 
@@ -174,7 +166,7 @@ cdrom_boot(struct drive_s *drive)
     // And we read the Boot Catalog
     dop.lba = lba;
     dop.count = 1;
-    ret = scsi_process_op(&dop);
+    ret = process_op(&dop);
     if (ret)
         return 7;
 
@@ -191,6 +183,9 @@ cdrom_boot(struct drive_s *drive)
     // Initial/Default Entry
     if (buffer[0x20] != 0x88)
         return 11; // Bootable
+
+    /* measure 2048 bytes (one sector) */
+    tpm_add_cdrom_catalog(MAKE_FLATPTR(GET_SEG(SS), buffer), sizeof(buffer));
 
     // Fill in el-torito cdrom emulation fields.
     emulated_drive_gf = drive;
@@ -220,7 +215,7 @@ cdrom_boot(struct drive_s *drive)
         if (count > 64*1024/CDROM_SECTOR_SIZE)
             count = 64*1024/CDROM_SECTOR_SIZE;
         dop.count = count;
-        ret = scsi_process_op(&dop);
+        ret = process_op(&dop);
         if (ret)
             return 12;
         nbsectors -= count;

@@ -210,7 +210,7 @@ static int ib_srp_open ( struct interface *block, struct ib_device *ibdev,
 
 	/* Open CMRC socket */
 	if ( ( rc = ib_cmrc_open ( &ib_srp->cmrc, ibdev, dgid,
-				   service_id ) ) != 0 ) {
+				   service_id, "SRP" ) ) != 0 ) {
 		DBGC ( ib_srp, "IBSRP %p could not open CMRC socket: %s\n",
 		       ib_srp, strerror ( rc ) );
 		goto err_cmrc_open;
@@ -291,7 +291,7 @@ static int ib_srp_parse_byte_string ( const char *rp_comp, uint8_t *bytes,
 		return -EINVAL_BYTE_STRING_LEN;
 
 	/* Parse byte string */
-	decoded_size = base16_decode ( rp_comp, bytes );
+	decoded_size = base16_decode ( rp_comp, bytes, size );
 	if ( decoded_size < 0 )
 		return decoded_size;
 

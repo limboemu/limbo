@@ -266,6 +266,7 @@ struct xhci_seg {
 #define XHCI_EVENT_TRBS_SIZE   4096
 #define XHCI_CONTROL_TRBS_SIZE 4096
 #define XHCI_DATA_TRBS_SIZE    4096
+#define XHCI_INTR_TRBS_SIZE    4096
 #define XHCI_ERST_NUM_SEGS     1
 
 #define XHCI_MAX_BULK_SIZE    0xF000
@@ -349,6 +350,7 @@ struct xhci_dev {
 	struct xhci_ctx in_ctx;
 	struct xhci_ctx out_ctx;
 	struct xhci_seg control;
+	struct xhci_seg intr;
 	struct xhci_seg bulk_in;
 	struct xhci_seg bulk_out;
 	uint32_t ctx_size;
@@ -381,6 +383,9 @@ struct xhci_hcd {
 struct xhci_pipe {
 	struct usb_pipe pipe;
 	struct xhci_seg *seg;
+	void *buf;
+	long buf_phys;
+	uint32_t buflen;
 };
 
 #endif	/* USB_XHCI_H */

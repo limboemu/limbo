@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdio.h>
@@ -168,6 +172,9 @@ struct command image_trust_commands[] __command = {
 		.exec = imgverify_exec,
 	},
 };
+
+/* Drag in objects via command list */
+REQUIRING_SYMBOL ( image_trust_commands );
 
 /* Drag in objects typically required for signature verification */
 REQUIRE_OBJECT ( rsa );

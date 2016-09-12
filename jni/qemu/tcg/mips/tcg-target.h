@@ -23,10 +23,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TCG_TARGET_MIPS 
-#define TCG_TARGET_MIPS 1
+
+#ifndef MIPS_TCG_TARGET_H
+#define MIPS_TCG_TARGET_H
 
 #define TCG_TARGET_INSN_UNIT_SIZE 4
+#define TCG_TARGET_TLB_DISPLACEMENT_BITS 16
 #define TCG_TARGET_NB_REGS 32
 
 typedef enum {
@@ -95,6 +97,13 @@ extern bool use_mips32_instructions;
 extern bool use_mips32r2_instructions;
 #endif
 
+/* MIPS32R6 instruction set detection */
+#if defined(__mips_isa_rev) && (__mips_isa_rev >= 6)
+#define use_mips32r6_instructions  1
+#else
+#define use_mips32r6_instructions  0
+#endif
+
 /* optional instructions */
 #define TCG_TARGET_HAS_div_i32          1
 #define TCG_TARGET_HAS_rem_i32          1
@@ -104,8 +113,8 @@ extern bool use_mips32r2_instructions;
 #define TCG_TARGET_HAS_orc_i32          0
 #define TCG_TARGET_HAS_eqv_i32          0
 #define TCG_TARGET_HAS_nand_i32         0
-#define TCG_TARGET_HAS_mulu2_i32        1
-#define TCG_TARGET_HAS_muls2_i32        1
+#define TCG_TARGET_HAS_mulu2_i32        (!use_mips32r6_instructions)
+#define TCG_TARGET_HAS_muls2_i32        (!use_mips32r6_instructions)
 #define TCG_TARGET_HAS_muluh_i32        1
 #define TCG_TARGET_HAS_mulsh_i32        1
 

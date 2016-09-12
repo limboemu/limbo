@@ -40,9 +40,8 @@ send_router_solicitation (int fd)
 			  sizeof(struct ip6hdr));
 
 	/* Destination is "All routers multicast address" (link-local) */
-	dest_addr.part.prefix       = all_routers_ll.addr.part.prefix;
-	dest_addr.part.interface_id = all_routers_ll.addr.part.interface_id;
-
+	dest_addr.part.prefix       = 0xff02000000000000ULL;
+	dest_addr.part.interface_id = 2;
 
 	/* Fill IPv6 header */
 	fill_ip6hdr (ether_packet + sizeof(struct ethhdr),
@@ -78,8 +77,8 @@ handle_prefixoption (uint8_t *option)
 	prefix_option = (struct option_prefix *) option;
 	memcpy( &(prefix.addr), &(prefix_option->prefix.addr), IPV6_ADDR_LENGTH);
 
-	/* Link-local adresses in RAs are nonsense                  */
-	if ( (IPV6_LL_PREFIX & (prefix_option->prefix.part.prefix)) == IPV6_LL_PREFIX )
+	/* Link-local adresses in RAs are nonsense */
+	if (ip6_is_linklocal(&prefix))
 		return;
 
 	if (prefix_option->preferred_lifetime > prefix_option->valid_lifetime)

@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _QEMU_VMXNET3_H
-#define _QEMU_VMXNET3_H
+#ifndef QEMU_VMXNET3_H
+#define QEMU_VMXNET3_H
 
 #define VMXNET3_DEVICE_MAX_TX_QUEUES 8
 #define VMXNET3_DEVICE_MAX_RX_QUEUES 8   /* Keep this value as a power of 2 */
@@ -198,8 +198,12 @@ enum {
     VMXNET3_CMD_GET_DID_LO,                               /* 0xF00D0005 */
     VMXNET3_CMD_GET_DID_HI,                               /* 0xF00D0006 */
     VMXNET3_CMD_GET_DEV_EXTRA_INFO,                       /* 0xF00D0007 */
-    VMXNET3_CMD_GET_CONF_INTR                             /* 0xF00D0008 */
+    VMXNET3_CMD_GET_CONF_INTR,                            /* 0xF00D0008 */
+    VMXNET3_CMD_GET_ADAPTIVE_RING_INFO                    /* 0xF00D0009 */
 };
+
+/* Adaptive Ring Info Flags */
+#define VMXNET3_DISABLE_ADAPTIVE_RING 1
 
 /*
  *    Little Endian layout of bitfields -

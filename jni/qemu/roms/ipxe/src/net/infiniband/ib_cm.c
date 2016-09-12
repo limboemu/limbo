@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -61,6 +65,7 @@ static struct ib_connection * ib_cm_find ( uint32_t local_id ) {
  *
  * @v ibdev		Infiniband device
  * @v mi		Management interface
+ * @v tid		Transaction identifier
  * @v av		Address vector
  * @v local_id		Local communication ID
  * @v remote_id		Remote communication ID
@@ -68,6 +73,7 @@ static struct ib_connection * ib_cm_find ( uint32_t local_id ) {
  */
 static int ib_cm_send_rtu ( struct ib_device *ibdev,
 			    struct ib_mad_interface *mi,
+			    struct ib_mad_tid *tid,
 			    struct ib_address_vector *av,
 			    uint32_t local_id, uint32_t remote_id ) {
 	union ib_mad mad;
@@ -79,11 +85,13 @@ static int ib_cm_send_rtu ( struct ib_device *ibdev,
 	mad.hdr.mgmt_class = IB_MGMT_CLASS_CM;
 	mad.hdr.class_version = IB_CM_CLASS_VERSION;
 	mad.hdr.method = IB_MGMT_METHOD_SEND;
+	memcpy ( &mad.hdr.tid, tid, sizeof ( mad.hdr.tid ) );
 	mad.hdr.attr_id = htons ( IB_CM_ATTR_READY_TO_USE );
 	rtu->local_id = htonl ( local_id );
 	rtu->remote_id = htonl ( remote_id );
-	if ( ( rc = ib_mi_send ( ibdev, mi, &mad, av ) ) != 0 ){
-		DBG ( "CM could not send RTU: %s\n", strerror ( rc ) );
+	if ( ( rc = ib_mi_send ( ibdev, mi, &mad, av ) ) != 0 ) {
+		DBGC ( local_id, "CM %08x could not send RTU: %s\n",
+		       local_id, strerror ( rc ) );
 		return rc;
 	}
 
@@ -116,12 +124,13 @@ static void ib_cm_recv_rep ( struct ib_device *ibdev,
 	conn = ib_cm_find ( local_id );
 	if ( conn ) {
 		/* Try to send "ready to use" reply */
-		if ( ( rc = ib_cm_send_rtu ( ibdev, mi, av, conn->local_id,
+		if ( ( rc = ib_cm_send_rtu ( ibdev, mi, &mad->hdr.tid, av,
+					     conn->local_id,
 					     conn->remote_id ) ) != 0 ) {
 			/* Ignore errors; the remote end will retry */
 		}
 	} else {
-		DBG ( "CM unidentified connection %08x\n", local_id );
+		DBGC ( local_id, "CM %08x unexpected REP\n", local_id );
 	}
 }
 
@@ -130,6 +139,7 @@ static void ib_cm_recv_rep ( struct ib_device *ibdev,
  *
  * @v ibdev		Infiniband device
  * @v mi		Management interface
+ * @v tid		Transaction identifier
  * @v av		Address vector
  * @v local_id		Local communication ID
  * @v remote_id		Remote communication ID
@@ -137,6 +147,7 @@ static void ib_cm_recv_rep ( struct ib_device *ibdev,
  */
 static int ib_cm_send_drep ( struct ib_device *ibdev,
 			     struct ib_mad_interface *mi,
+			     struct ib_mad_tid *tid,
 			     struct ib_address_vector *av,
 			     uint32_t local_id, uint32_t remote_id ) {
 	union ib_mad mad;
@@ -148,11 +159,13 @@ static int ib_cm_send_drep ( struct ib_device *ibdev,
 	mad.hdr.mgmt_class = IB_MGMT_CLASS_CM;
 	mad.hdr.class_version = IB_CM_CLASS_VERSION;
 	mad.hdr.method = IB_MGMT_METHOD_SEND;
+	memcpy ( &mad.hdr.tid, tid, sizeof ( mad.hdr.tid ) );
 	mad.hdr.attr_id = htons ( IB_CM_ATTR_DISCONNECT_REPLY );
 	drep->local_id = htonl ( local_id );
 	drep->remote_id = htonl ( remote_id );
-	if ( ( rc = ib_mi_send ( ibdev, mi, &mad, av ) ) != 0 ){
-		DBG ( "CM could not send DREP: %s\n", strerror ( rc ) );
+	if ( ( rc = ib_mi_send ( ibdev, mi, &mad, av ) ) != 0 ) {
+		DBGC ( local_id, "CM %08x could not send DREP: %s\n",
+		       local_id, strerror ( rc ) );
 		return rc;
 	}
 
@@ -187,11 +200,11 @@ static void ib_cm_recv_dreq ( struct ib_device *ibdev,
 				    &dreq->private_data,
 				    sizeof ( dreq->private_data ) );
 	} else {
-		DBG ( "CM unidentified connection %08x\n", local_id );
+		DBGC ( local_id, "CM %08x unexpected DREQ\n", local_id );
 	}
 
 	/* Send reply */
-	if ( ( rc = ib_cm_send_drep ( ibdev, mi, av, local_id,
+	if ( ( rc = ib_cm_send_drep ( ibdev, mi, &mad->hdr.tid, av, local_id,
 				      remote_id ) ) != 0 ) {
 		/* Ignore errors; the remote end will retry */
 	}
@@ -252,6 +265,7 @@ static void ib_cm_req_complete ( struct ib_device *ibdev,
 	struct ib_cm_common *common = &mad->cm.cm_data.common;
 	struct ib_cm_connect_reply *rep = &mad->cm.cm_data.connect_reply;
 	struct ib_cm_connect_reject *rej = &mad->cm.cm_data.connect_reject;
+	uint32_t local_id = conn->local_id;
 	void *private_data = NULL;
 	size_t private_data_len = 0;
 
@@ -259,8 +273,8 @@ static void ib_cm_req_complete ( struct ib_device *ibdev,
 	if ( ( rc == 0 ) && ( mad->hdr.status != htons ( IB_MGMT_STATUS_OK ) ))
 		rc = -EIO;
 	if ( rc != 0 ) {
-		DBGC ( conn, "CM %p connection request failed: %s\n",
-		       conn, strerror ( rc ) );
+		DBGC ( local_id, "CM %08x connection request failed: %s\n",
+		       local_id, strerror ( rc ) );
 		goto out;
 	}
 
@@ -276,18 +290,19 @@ static void ib_cm_req_complete ( struct ib_device *ibdev,
 		qp->send.psn = ( ntohl ( rep->starting_psn ) >> 8 );
 		private_data = &rep->private_data;
 		private_data_len = sizeof ( rep->private_data );
-		DBGC ( conn, "CM %p connected to QPN %lx PSN %x\n",
-		       conn, qp->av.qpn, qp->send.psn );
+		DBGC ( local_id, "CM %08x connected to QPN %#lx PSN %#x\n",
+		       local_id, qp->av.qpn, qp->send.psn );
 
 		/* Modify queue pair */
 		if ( ( rc = ib_modify_qp ( ibdev, qp ) ) != 0 ) {
-			DBGC ( conn, "CM %p could not modify queue pair: %s\n",
-			       conn, strerror ( rc ) );
+			DBGC ( local_id, "CM %08x could not modify queue "
+			       "pair: %s\n", local_id, strerror ( rc ) );
 			goto out;
 		}
 
 		/* Send "ready to use" reply */
-		if ( ( rc = ib_cm_send_rtu ( ibdev, mi, av, conn->local_id,
+		if ( ( rc = ib_cm_send_rtu ( ibdev, mi, &mad->hdr.tid, av,
+					     conn->local_id,
 					     conn->remote_id ) ) != 0 ) {
 			/* Treat as non-fatal */
 			rc = 0;
@@ -296,8 +311,8 @@ static void ib_cm_req_complete ( struct ib_device *ibdev,
 
 	case htons ( IB_CM_ATTR_CONNECT_REJECT ) :
 		/* Extract fields */
-		DBGC ( conn, "CM %p connection rejected (reason %d)\n",
-		       conn, ntohs ( rej->reason ) );
+		DBGC ( local_id, "CM %08x connection rejected (reason %d)\n",
+		       local_id, ntohs ( rej->reason ) );
 		/* Private data is valid only for a Consumer Reject */
 		if ( rej->reason == htons ( IB_CM_REJECT_CONSUMER ) ) {
 			private_data = &rej->private_data;
@@ -307,8 +322,8 @@ static void ib_cm_req_complete ( struct ib_device *ibdev,
 		break;
 
 	default:
-		DBGC ( conn, "CM %p unexpected response (attribute %04x)\n",
-		       conn, ntohs ( mad->hdr.attr_id ) );
+		DBGC ( local_id, "CM %08x unexpected response (attribute "
+		       "%04x)\n", local_id, ntohs ( mad->hdr.attr_id ) );
 		rc = -ENOTSUP;
 		break;
 	}
@@ -343,12 +358,13 @@ static void ib_cm_path_complete ( struct ib_device *ibdev,
 	struct ib_queue_pair *qp = conn->qp;
 	union ib_mad mad;
 	struct ib_cm_connect_request *req = &mad.cm.cm_data.connect_request;
+	uint32_t local_id = conn->local_id;
 	size_t private_data_len;
 
 	/* Report failures */
 	if ( rc != 0 ) {
-		DBGC ( conn, "CM %p path lookup failed: %s\n",
-		       conn, strerror ( rc ) );
+		DBGC ( local_id, "CM %08x path lookup failed: %s\n",
+		       local_id, strerror ( rc ) );
 		conn->op->changed ( ibdev, qp, conn, rc, NULL, 0 );
 		goto out;
 	}
@@ -401,8 +417,8 @@ static void ib_cm_path_complete ( struct ib_device *ibdev,
 	conn->madx = ib_create_madx ( ibdev, ibdev->gsi, &mad, av,
 				      &ib_cm_req_op );
 	if ( ! conn->madx ) {
-		DBGC ( conn, "CM %p could not create connection request\n",
-		       conn );
+		DBGC ( local_id, "CM %08x could not create connection "
+		       "request\n", local_id );
 		conn->op->changed ( ibdev, qp, conn, rc, NULL, 0 );
 		goto out;
 	}
@@ -437,6 +453,7 @@ ib_create_conn ( struct ib_device *ibdev, struct ib_queue_pair *qp,
 		 void *private_data, size_t private_data_len,
 		 struct ib_connection_operations *op ) {
 	struct ib_connection *conn;
+	uint32_t local_id;
 
 	/* Allocate and initialise request */
 	conn = zalloc ( sizeof ( *conn ) + private_data_len );
@@ -447,7 +464,7 @@ ib_create_conn ( struct ib_device *ibdev, struct ib_queue_pair *qp,
 	memset ( &qp->av, 0, sizeof ( qp->av ) );
 	qp->av.gid_present = 1;
 	memcpy ( &qp->av.gid, dgid, sizeof ( qp->av.gid ) );
-	conn->local_id = random();
+	conn->local_id = local_id = random();
 	memcpy ( &conn->service_id, service_id, sizeof ( conn->service_id ) );
 	conn->op = op;
 	conn->private_data_len = private_data_len;
@@ -462,10 +479,11 @@ ib_create_conn ( struct ib_device *ibdev, struct ib_queue_pair *qp,
 	/* Add to list of connections */
 	list_add ( &conn->list, &ib_cm_conns );
 
-	DBGC ( conn, "CM %p created for IBDEV %p QPN %lx\n",
-	       conn, ibdev, qp->qpn );
-	DBGC ( conn, "CM %p connecting to " IB_GID_FMT " " IB_GUID_FMT "\n",
-	       conn, IB_GID_ARGS ( dgid ), IB_GUID_ARGS ( service_id ) );
+	DBGC ( local_id, "CM %08x created for IBDEV %s QPN %#lx\n",
+	       local_id, ibdev->name, qp->qpn );
+	DBGC ( local_id, "CM %08x connecting to " IB_GID_FMT " "
+	       IB_GUID_FMT "\n", local_id, IB_GID_ARGS ( dgid ),
+	       IB_GUID_ARGS ( service_id ) );
 
 	return conn;
 

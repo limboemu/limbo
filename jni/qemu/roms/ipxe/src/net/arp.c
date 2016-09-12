@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -52,9 +56,9 @@ struct net_protocol arp_protocol __net_protocol;
  * @v net_source	Source network-layer address
  * @ret rc		Return status code
  */
-static int arp_tx_request ( struct net_device *netdev,
-			    struct net_protocol *net_protocol,
-			    const void *net_dest, const void *net_source ) {
+int arp_tx_request ( struct net_device *netdev,
+		     struct net_protocol *net_protocol,
+		     const void *net_dest, const void *net_source ) {
 	struct ll_protocol *ll_protocol = netdev->ll_protocol;
 	struct io_buffer *iobuf;
 	struct arphdr *arphdr;
@@ -135,7 +139,14 @@ static int arp_rx ( struct io_buffer *iobuf, struct net_device *netdev,
 	struct arp_net_protocol *arp_net_protocol;
 	struct net_protocol *net_protocol;
 	struct ll_protocol *ll_protocol;
+	size_t len = iob_len ( iobuf );
 	int rc;
+
+	/* Sanity check */
+	if ( ( len < sizeof ( *arphdr ) ) || ( len < arp_len ( arphdr ) ) ) {
+		rc = -EINVAL;
+		goto done;
+	}
 
 	/* Identify network-layer and link-layer protocols */
 	arp_net_protocol = arp_find_protocol ( arphdr->ar_pro );

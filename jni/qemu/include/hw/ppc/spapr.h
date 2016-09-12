@@ -1,23 +1,59 @@
-#if !defined(__HW_SPAPR_H__)
-#define __HW_SPAPR_H__
+#ifndef HW_SPAPR_H
+#define HW_SPAPR_H
 
 #include "sysemu/dma.h"
+#include "hw/boards.h"
 #include "hw/ppc/xics.h"
+#include "hw/ppc/spapr_drc.h"
+#include "hw/mem/pc-dimm.h"
 
 struct VIOsPAPRBus;
 struct sPAPRPHBState;
 struct sPAPRNVRAM;
+typedef struct sPAPRConfigureConnectorState sPAPRConfigureConnectorState;
+typedef struct sPAPREventLogEntry sPAPREventLogEntry;
 
 #define HPTE64_V_HPTE_DIRTY     0x0000000000000040ULL
+#define SPAPR_ENTRY_POINT       0x100
 
-typedef struct sPAPREnvironment {
+#define SPAPR_TIMEBASE_FREQ     512000000ULL
+
+typedef struct sPAPRMachineClass sPAPRMachineClass;
+typedef struct sPAPRMachineState sPAPRMachineState;
+
+#define TYPE_SPAPR_MACHINE      "spapr-machine"
+#define SPAPR_MACHINE(obj) \
+    OBJECT_CHECK(sPAPRMachineState, (obj), TYPE_SPAPR_MACHINE)
+#define SPAPR_MACHINE_GET_CLASS(obj) \
+    OBJECT_GET_CLASS(sPAPRMachineClass, obj, TYPE_SPAPR_MACHINE)
+#define SPAPR_MACHINE_CLASS(klass) \
+    OBJECT_CLASS_CHECK(sPAPRMachineClass, klass, TYPE_SPAPR_MACHINE)
+
+/**
+ * sPAPRMachineClass:
+ */
+struct sPAPRMachineClass {
+    /*< private >*/
+    MachineClass parent_class;
+
+    /*< public >*/
+    bool dr_lmb_enabled;       /* enable dynamic-reconfig/hotplug of LMBs */
+    bool use_ohci_by_default;  /* use USB-OHCI instead of XHCI */
+};
+
+/**
+ * sPAPRMachineState:
+ */
+struct sPAPRMachineState {
+    /*< private >*/
+    MachineState parent_obj;
+
     struct VIOsPAPRBus *vio_bus;
     QLIST_HEAD(, sPAPRPHBState) phbs;
     struct sPAPRNVRAM *nvram;
-    XICSState *icp;
+    XICSState *xics;
     DeviceState *rtc;
 
-    hwaddr ram_limit;
     void *htab;
     uint32_t htab_shift;
     hwaddr rma_size;
@@ -26,20 +62,27 @@ typedef struct sPAPREnvironment {
     ssize_t rtas_size;
     void *rtas_blob;
     void *fdt_skel;
-    target_ulong entry_point;
     uint64_t rtc_offset; /* Now used only during incoming migration */
     struct PPCTimebase tb;
     bool has_graphics;
 
-    uint32_t epow_irq;
+    uint32_t check_exception_irq;
     Notifier epow_notifier;
+    QTAILQ_HEAD(, sPAPREventLogEntry) pending_events;
 
     /* Migration state */
     int htab_save_index;
     bool htab_first_pass;
     int htab_fd;
-    bool htab_fd_stale;
-} sPAPREnvironment;
+
+    /* RTAS state */
+    QTAILQ_HEAD(, sPAPRConfigureConnectorState) ccs_list;
+
+    /*< public >*/
+    char *kvm_type;
+    MemoryHotplugState hotplug_memory;
+    Object **cores;
+};
 
 #define H_SUCCESS         0
 #define H_BUSY            1        /* Hardware busy -- retry later */
@@ -163,11 +206,6 @@ typedef struct sPAPREnvironment {
 /* Flags for H_SET_MODE_RESOURCE_LE */
 #define H_SET_MODE_ENDIAN_BIG    0
 #define H_SET_MODE_ENDIAN_LITTLE 1
-
-/* Flags for H_SET_MODE_RESOURCE_ADDR_TRANS_MODE */
-#define H_SET_MODE_ADDR_TRANS_NONE                  0
-#define H_SET_MODE_ADDR_TRANS_0001_8000             2
-#define H_SET_MODE_ADDR_TRANS_C000_0000_0000_4000   3
 
 /* VASI States */
 #define H_VASI_INVALID    0
@@ -294,6 +332,7 @@ typedef struct sPAPREnvironment {
 #define H_SET_MPP               0x2D0
 #define H_GET_MPP               0x2D4
 #define H_XIRR_X                0x2FC
+#define H_RANDOM                0x300
 #define H_SET_MODE              0x31C
 #define MAX_HCALL_OPCODE        H_SET_MODE
 
@@ -312,23 +351,16 @@ typedef struct sPAPREnvironment {
 #define KVMPPC_H_CAS            (KVMPPC_HCALL_BASE + 0x2)
 #define KVMPPC_HCALL_MAX        KVMPPC_H_CAS
 
-extern sPAPREnvironment *spapr;
-
 typedef struct sPAPRDeviceTreeUpdateHeader {
     uint32_t version_id;
 } sPAPRDeviceTreeUpdateHeader;
 
-/*#define DEBUG_SPAPR_HCALLS*/
-
-#ifdef DEBUG_SPAPR_HCALLS
 #define hcall_dprintf(fmt, ...) \
-    do { fprintf(stderr, "%s: " fmt, __func__, ## __VA_ARGS__); } while (0)
-#else
-#define hcall_dprintf(fmt, ...) \
-    do { } while (0)
-#endif
+    do { \
+        qemu_log_mask(LOG_GUEST_ERROR, "%s: " fmt, __func__, ## __VA_ARGS__); \
+    } while (0)
 
-typedef target_ulong (*spapr_hcall_fn)(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+typedef target_ulong (*spapr_hcall_fn)(PowerPCCPU *cpu, sPAPRMachineState *sm,
                                        target_ulong opcode,
                                        target_ulong *args);
 
@@ -373,13 +405,25 @@ int spapr_allocate_irq_block(int num, bool lsi, bool msi);
 #define RTAS_SLOT_PERM_ERR_LOG           2
 
 /* RTAS return codes */
-#define RTAS_OUT_SUCCESS            0
-#define RTAS_OUT_NO_ERRORS_FOUND    1
-#define RTAS_OUT_HW_ERROR           -1
-#define RTAS_OUT_BUSY               -2
-#define RTAS_OUT_PARAM_ERROR        -3
-#define RTAS_OUT_NOT_SUPPORTED      -3
-#define RTAS_OUT_NOT_AUTHORIZED     -9002
+#define RTAS_OUT_SUCCESS                        0
+#define RTAS_OUT_NO_ERRORS_FOUND                1
+#define RTAS_OUT_HW_ERROR                       -1
+#define RTAS_OUT_BUSY                           -2
+#define RTAS_OUT_PARAM_ERROR                    -3
+#define RTAS_OUT_NOT_SUPPORTED                  -3
+#define RTAS_OUT_NO_SUCH_INDICATOR              -3
+#define RTAS_OUT_NOT_AUTHORIZED                 -9002
+#define RTAS_OUT_SYSPARM_PARAM_ERROR            -9999
+
+/* DDW pagesize mask values from ibm,query-pe-dma-window */
+#define RTAS_DDW_PGSIZE_4K       0x01
+#define RTAS_DDW_PGSIZE_64K      0x02
+#define RTAS_DDW_PGSIZE_16M      0x04
+#define RTAS_DDW_PGSIZE_32M      0x08
+#define RTAS_DDW_PGSIZE_64M      0x10
+#define RTAS_DDW_PGSIZE_128M     0x20
+#define RTAS_DDW_PGSIZE_256M     0x40
+#define RTAS_DDW_PGSIZE_16G      0x80
 
 /* RTAS tokens */
 #define RTAS_TOKEN_BASE      0x2000
@@ -422,13 +466,28 @@ int spapr_allocate_irq_block(int num, bool lsi, bool msi);
 #define RTAS_IBM_SET_SLOT_RESET                 (RTAS_TOKEN_BASE + 0x23)
 #define RTAS_IBM_CONFIGURE_PE                   (RTAS_TOKEN_BASE + 0x24)
 #define RTAS_IBM_SLOT_ERROR_DETAIL              (RTAS_TOKEN_BASE + 0x25)
+#define RTAS_IBM_QUERY_PE_DMA_WINDOW            (RTAS_TOKEN_BASE + 0x26)
+#define RTAS_IBM_CREATE_PE_DMA_WINDOW           (RTAS_TOKEN_BASE + 0x27)
+#define RTAS_IBM_REMOVE_PE_DMA_WINDOW           (RTAS_TOKEN_BASE + 0x28)
+#define RTAS_IBM_RESET_PE_DMA_WINDOW            (RTAS_TOKEN_BASE + 0x29)
 
-#define RTAS_TOKEN_MAX                          (RTAS_TOKEN_BASE + 0x26)
+#define RTAS_TOKEN_MAX                          (RTAS_TOKEN_BASE + 0x2A)
 
 /* RTAS ibm,get-system-parameter token values */
 #define RTAS_SYSPARM_SPLPAR_CHARACTERISTICS      20
 #define RTAS_SYSPARM_DIAGNOSTICS_RUN_MODE        42
 #define RTAS_SYSPARM_UUID                        48
+
+/* RTAS indicator/sensor types
+ *
+ * as defined by PAPR+ 2.7 7.3.5.4, Table 41
+ *
+ * NOTE: currently only DR-related sensors are implemented here
+ */
+#define RTAS_SENSOR_TYPE_ISOLATION_STATE        9001
+#define RTAS_SENSOR_TYPE_DR                     9002
+#define RTAS_SENSOR_TYPE_ALLOCATION_STATE       9003
+#define RTAS_SENSOR_TYPE_ENTITY_SENSE RTAS_SENSOR_TYPE_ALLOCATION_STATE
 
 /* Possible values for the platform-processor-diagnostics-run-mode parameter
  * of the RTAS ibm,get-system-parameter call.
@@ -448,30 +507,22 @@ static inline uint32_t rtas_ld(target_ulong phys, int n)
     return ldl_be_phys(&address_space_memory, ppc64_phys_to_real(phys + 4*n));
 }
 
+static inline uint64_t rtas_ldq(target_ulong phys, int n)
+{
+    return (uint64_t)rtas_ld(phys, n) << 32 | rtas_ld(phys, n + 1);
+}
+
 static inline void rtas_st(target_ulong phys, int n, uint32_t val)
 {
     stl_be_phys(&address_space_memory, ppc64_phys_to_real(phys + 4*n), val);
 }
 
-
-static inline void rtas_st_buffer(target_ulong phys, target_ulong phys_len,
-                                  uint8_t *buffer, uint16_t buffer_len)
-{
-    if (phys_len < 2) {
-        return;
-    }
-    stw_be_phys(&address_space_memory,
-                ppc64_phys_to_real(phys), buffer_len);
-    cpu_physical_memory_write(ppc64_phys_to_real(phys + 2),
-                              buffer, MIN(buffer_len, phys_len - 2));
-}
-
-typedef void (*spapr_rtas_fn)(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+typedef void (*spapr_rtas_fn)(PowerPCCPU *cpu, sPAPRMachineState *sm,
                               uint32_t token,
                               uint32_t nargs, target_ulong args,
                               uint32_t nret, target_ulong rets);
 void spapr_rtas_register(int token, const char *name, spapr_rtas_fn fn);
-target_ulong spapr_rtas_call(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+target_ulong spapr_rtas_call(PowerPCCPU *cpu, sPAPRMachineState *sm,
                              uint32_t token, uint32_t nargs, target_ulong args,
                              uint32_t nret, target_ulong rets);
 int spapr_rtas_device_tree_setup(void *fdt, hwaddr rtas_addr,
@@ -482,9 +533,15 @@ int spapr_rtas_device_tree_setup(void *fdt, hwaddr rtas_addr,
 #define SPAPR_TCE_PAGE_MASK    (SPAPR_TCE_PAGE_SIZE - 1)
 
 #define SPAPR_VIO_BASE_LIOBN    0x00000000
-#define SPAPR_PCI_BASE_LIOBN    0x80000000
+#define SPAPR_VIO_LIOBN(reg)    (0x00000000 | (reg))
+#define SPAPR_PCI_LIOBN(phb_index, window_num) \
+    (0x80000000 | ((phb_index) << 8) | (window_num))
+#define SPAPR_IS_PCI_LIOBN(liobn)   (!!((liobn) & 0x80000000))
+#define SPAPR_PCI_DMA_WINDOW_NUM(liobn) ((liobn) & 0xff)
 
 #define RTAS_ERROR_LOG_MAX      2048
+
+#define RTAS_EVENT_SCAN_RATE    1
 
 typedef struct sPAPRTCETable sPAPRTCETable;
 
@@ -499,32 +556,95 @@ struct sPAPRTCETable {
     uint64_t bus_offset;
     uint32_t page_shift;
     uint64_t *table;
+    uint32_t mig_nb_table;
+    uint64_t *mig_table;
     bool bypass;
-    bool vfio_accel;
+    bool need_vfio;
     int fd;
-    MemoryRegion iommu;
+    MemoryRegion root, iommu;
     struct VIOsPAPRDevice *vdev; /* for @bypass migration compatibility only */
     QLIST_ENTRY(sPAPRTCETable) list;
 };
 
-void spapr_events_init(sPAPREnvironment *spapr);
+sPAPRTCETable *spapr_tce_find_by_liobn(target_ulong liobn);
+
+struct sPAPREventLogEntry {
+    int log_type;
+    bool exception;
+    void *data;
+    QTAILQ_ENTRY(sPAPREventLogEntry) next;
+};
+
+void spapr_events_init(sPAPRMachineState *sm);
 void spapr_events_fdt_skel(void *fdt, uint32_t epow_irq);
-int spapr_h_cas_compose_response(target_ulong addr, target_ulong size);
-sPAPRTCETable *spapr_tce_new_table(DeviceState *owner, uint32_t liobn,
-                                   uint64_t bus_offset,
-                                   uint32_t page_shift,
-                                   uint32_t nb_table,
-                                   bool vfio_accel);
+int spapr_h_cas_compose_response(sPAPRMachineState *sm,
+                                 target_ulong addr, target_ulong size,
+                                 bool cpu_update, bool memory_update);
+sPAPRTCETable *spapr_tce_new_table(DeviceState *owner, uint32_t liobn);
+void spapr_tce_table_enable(sPAPRTCETable *tcet,
+                            uint32_t page_shift, uint64_t bus_offset,
+                            uint32_t nb_table);
+void spapr_tce_table_disable(sPAPRTCETable *tcet);
+void spapr_tce_set_need_vfio(sPAPRTCETable *tcet, bool need_vfio);
+
 MemoryRegion *spapr_tce_get_iommu(sPAPRTCETable *tcet);
 int spapr_dma_dt(void *fdt, int node_off, const char *propname,
                  uint32_t liobn, uint64_t window, uint32_t size);
 int spapr_tcet_dma_dt(void *fdt, int node_off, const char *propname,
                       sPAPRTCETable *tcet);
 void spapr_pci_switch_vga(bool big_endian);
+void spapr_hotplug_req_add_by_index(sPAPRDRConnector *drc);
+void spapr_hotplug_req_remove_by_index(sPAPRDRConnector *drc);
+void spapr_hotplug_req_add_by_count(sPAPRDRConnectorType drc_type,
+                                       uint32_t count);
+void spapr_hotplug_req_remove_by_count(sPAPRDRConnectorType drc_type,
+                                          uint32_t count);
+void spapr_cpu_init(sPAPRMachineState *spapr, PowerPCCPU *cpu, Error **errp);
+void *spapr_populate_hotplug_cpu_dt(CPUState *cs, int *fdt_offset,
+                                    sPAPRMachineState *spapr);
+
+/* rtas-configure-connector state */
+struct sPAPRConfigureConnectorState {
+    uint32_t drc_index;
+    int fdt_offset;
+    int fdt_depth;
+    QTAILQ_ENTRY(sPAPRConfigureConnectorState) next;
+};
+
+void spapr_ccs_reset_hook(void *opaque);
 
 #define TYPE_SPAPR_RTC "spapr-rtc"
+#define TYPE_SPAPR_RNG "spapr-rng"
 
 void spapr_rtc_read(DeviceState *dev, struct tm *tm, uint32_t *ns);
 int spapr_rtc_import_offset(DeviceState *dev, int64_t legacy_offset);
 
-#endif /* !defined (__HW_SPAPR_H__) */
+int spapr_rng_populate_dt(void *fdt);
+
+#define SPAPR_MEMORY_BLOCK_SIZE (1 << 28) /* 256MB */
+
+/*
+ * This defines the maximum number of DIMM slots we can have for sPAPR
+ * guest. This is not defined by sPAPR but we are defining it to 32 slots
+ * based on default number of slots provided by PowerPC kernel.
+ */
+#define SPAPR_MAX_RAM_SLOTS     32
+
+/* 1GB alignment for hotplug memory region */
+#define SPAPR_HOTPLUG_MEM_ALIGN (1ULL << 30)
+
+/*
+ * Number of 32 bit words in each LMB list entry in ibm,dynamic-memory
+ * property under ibm,dynamic-reconfiguration-memory node.
+ */
+#define SPAPR_DR_LMB_LIST_ENTRY_SIZE 6
+
+/*
+ * Defines for flag value in ibm,dynamic-memory property under
+ * ibm,dynamic-reconfiguration-memory node.
+ */
+#define SPAPR_LMB_FLAGS_ASSIGNED 0x00000008
+#define SPAPR_LMB_FLAGS_DRC_INVALID 0x00000020
+#define SPAPR_LMB_FLAGS_RESERVED 0x00000080
+
+#endif /* HW_SPAPR_H */

@@ -18,6 +18,7 @@ INSTANCE VARIABLE sectors/cluster
 INSTANCE VARIABLE #reserved-sectors
 INSTANCE VARIABLE #fats
 INSTANCE VARIABLE #root-entries
+INSTANCE VARIABLE fat32-root-cluster
 INSTANCE VARIABLE total-#sectors
 INSTANCE VARIABLE media-descriptor
 INSTANCE VARIABLE sectors/fat
@@ -59,9 +60,18 @@ INSTANCE VARIABLE next-cluster
 : read-cluster ( cluster# -- )
   dup bytes/cluster @ * cluster-offset @ + bytes/cluster @ read-data
   read-fat dup #clusters @ >= IF drop 0 THEN next-cluster ! ;
+
 : read-dir ( cluster# -- )
-  ?dup 0= IF root-offset @ #root-entries @ 20 * read-data 0 next-cluster !
-  ELSE read-cluster THEN ;
+    ?dup 0= IF
+        #root-entries @ 0= IF
+            fat32-root-cluster @ read-cluster
+        ELSE
+            root-offset @ #root-entries @ 20 * read-data 0 next-cluster !
+        THEN
+    ELSE
+        read-cluster
+    THEN
+;
 
 : .time ( x -- )
   base @ >r decimal
@@ -137,6 +147,7 @@ CREATE dos-name b allot
 
   \ For FAT32:
   sectors/fat @ 0= IF data @ 24 + 4c@ bljoin sectors/fat ! THEN
+  #root-entries @ 0= IF data @ 2c + 4c@ bljoin ELSE 0 THEN fat32-root-cluster !
 
   \ XXX add other FAT32 stuff (offsets 28, 2c, 30)
 

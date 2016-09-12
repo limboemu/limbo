@@ -18,9 +18,12 @@
  * <http://www.gnu.org/licenses/lgpl-2.1.html>
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "cpu.h"
 #include "qemu-common.h"
 #include "migration/vmstate.h"
+#include "exec/exec-all.h"
 
 
 static void m68k_cpu_set_pc(CPUState *cs, vaddr value)
@@ -59,6 +62,11 @@ static void m68k_cpu_reset(CPUState *s)
     /* TODO: We should set PC from the interrupt vector.  */
     env->pc = 0;
     tlb_flush(s, 1);
+}
+
+static void m68k_cpu_disas_set_info(CPUState *cpu, disassemble_info *info)
+{
+    info->print_insn = print_insn_m68k;
 }
 
 /* CPU models */
@@ -168,7 +176,7 @@ static void m68k_cpu_initfn(Object *obj)
     static bool inited;
 
     cs->env_ptr = env;
-    cpu_exec_init(env);
+    cpu_exec_init(cs, &error_abort);
 
     if (tcg_enabled() && !inited) {
         inited = true;
@@ -208,10 +216,19 @@ static void m68k_cpu_class_init(ObjectClass *c, void *data)
 #endif
     cc->cpu_exec_enter = m68k_cpu_exec_enter;
     cc->cpu_exec_exit = m68k_cpu_exec_exit;
+    cc->disas_set_info = m68k_cpu_disas_set_info;
 
-    dc->vmsd = &vmstate_m68k_cpu;
     cc->gdb_num_core_regs = 18;
     cc->gdb_core_xml_file = "cf-core.xml";
+
+    dc->vmsd = &vmstate_m68k_cpu;
+
+    /*
+     * Reason: m68k_cpu_initfn() calls cpu_exec_init(), which saves
+     * the object in cpus -> dangling pointer after final
+     * object_unref().
+     */
+    dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
 static void register_cpu_type(const M68kCPUInfo *info)

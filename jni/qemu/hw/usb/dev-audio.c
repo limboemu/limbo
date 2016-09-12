@@ -29,6 +29,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "hw/usb.h"
 #include "hw/usb/desc.h"
@@ -361,6 +362,9 @@ typedef struct USBAudioState {
     uint32_t buffer;
 } USBAudioState;
 
+#define TYPE_USB_AUDIO "usb-audio"
+#define USB_AUDIO(obj) OBJECT_CHECK(USBAudioState, (obj), TYPE_USB_AUDIO)
+
 static void output_callback(void *opaque, int avail)
 {
     USBAudioState *s = opaque;
@@ -506,7 +510,7 @@ static void usb_audio_handle_control(USBDevice *dev, USBPacket *p,
                                     int request, int value, int index,
                                     int length, uint8_t *data)
 {
-    USBAudioState *s = DO_UPCAST(USBAudioState, dev, dev);
+    USBAudioState *s = USB_AUDIO(dev);
     int ret = 0;
 
     if (s->debug) {
@@ -565,7 +569,7 @@ fail:
 static void usb_audio_set_interface(USBDevice *dev, int iface,
                                     int old, int value)
 {
-    USBAudioState *s = DO_UPCAST(USBAudioState, dev, dev);
+    USBAudioState *s = USB_AUDIO(dev);
 
     if (iface == 1) {
         usb_audio_set_output_altset(s, value);
@@ -574,7 +578,7 @@ static void usb_audio_set_interface(USBDevice *dev, int iface,
 
 static void usb_audio_handle_reset(USBDevice *dev)
 {
-    USBAudioState *s = DO_UPCAST(USBAudioState, dev, dev);
+    USBAudioState *s = USB_AUDIO(dev);
 
     if (s->debug) {
         fprintf(stderr, "usb-audio: reset\n");
@@ -615,7 +619,7 @@ static void usb_audio_handle_data(USBDevice *dev, USBPacket *p)
 
 static void usb_audio_handle_destroy(USBDevice *dev)
 {
-    USBAudioState *s = DO_UPCAST(USBAudioState, dev, dev);
+    USBAudioState *s = USB_AUDIO(dev);
 
     if (s->debug) {
         fprintf(stderr, "usb-audio: destroy\n");
@@ -630,12 +634,12 @@ static void usb_audio_handle_destroy(USBDevice *dev)
 
 static void usb_audio_realize(USBDevice *dev, Error **errp)
 {
-    USBAudioState *s = DO_UPCAST(USBAudioState, dev, dev);
+    USBAudioState *s = USB_AUDIO(dev);
 
     usb_desc_create_serial(dev);
     usb_desc_init(dev);
     s->dev.opaque = s;
-    AUD_register_card("usb-audio", &s->card);
+    AUD_register_card(TYPE_USB_AUDIO, &s->card);
 
     s->out.altset        = ALTSET_OFF;
     s->out.mute          = false;
@@ -647,21 +651,21 @@ static void usb_audio_realize(USBDevice *dev, Error **errp)
     s->out.as.endianness = 0;
     streambuf_init(&s->out.buf, s->buffer);
 
-    s->out.voice = AUD_open_out(&s->card, s->out.voice, "usb-audio",
+    s->out.voice = AUD_open_out(&s->card, s->out.voice, TYPE_USB_AUDIO,
                                 s, output_callback, &s->out.as);
     AUD_set_volume_out(s->out.voice, s->out.mute, s->out.vol[0], s->out.vol[1]);
     AUD_set_active_out(s->out.voice, 0);
 }
 
 static const VMStateDescription vmstate_usb_audio = {
-    .name = "usb-audio",
+    .name = TYPE_USB_AUDIO,
     .unmigratable = 1,
 };
 
 static Property usb_audio_properties[] = {
     DEFINE_PROP_UINT32("debug", USBAudioState, debug, 0),
     DEFINE_PROP_UINT32("buffer", USBAudioState, buffer,
-                       8 * USBAUDIO_PACKET_SIZE),
+                       32 * USBAUDIO_PACKET_SIZE),
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -684,7 +688,7 @@ static void usb_audio_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo usb_audio_info = {
-    .name          = "usb-audio",
+    .name          = TYPE_USB_AUDIO,
     .parent        = TYPE_USB_DEVICE,
     .instance_size = sizeof(USBAudioState),
     .class_init    = usb_audio_class_init,
@@ -693,7 +697,7 @@ static const TypeInfo usb_audio_info = {
 static void usb_audio_register_types(void)
 {
     type_register_static(&usb_audio_info);
-    usb_legacy_register("usb-audio", "audio", NULL);
+    usb_legacy_register(TYPE_USB_AUDIO, "audio", NULL);
 }
 
 type_init(usb_audio_register_types)

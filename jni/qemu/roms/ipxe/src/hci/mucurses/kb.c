@@ -8,6 +8,8 @@
  * MuCurses keyboard input handling functions
  */
 
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
+
 #define INPUT_DELAY 		200 // half-blocking delay timer resolution (ms)
 #define INPUT_DELAY_TIMEOUT 	1000 // half-blocking delay timeout
 

@@ -5,8 +5,7 @@
    necessary */
 
 #ifndef SYSCALL_DEFS_H
-#define SYSCALL_DEFS_H 1
-
+#define SYSCALL_DEFS_H
 
 #include "syscall_nr.h"
 
@@ -28,6 +27,8 @@
 #define SOCKOP_sendmsg          16
 #define SOCKOP_recvmsg          17
 #define SOCKOP_accept4          18
+#define SOCKOP_recvmmsg         19
+#define SOCKOP_sendmmsg         20
 
 #define IPCOP_semop		1
 #define IPCOP_semget		2
@@ -53,7 +54,8 @@
 #define TARGET_IOC_NRBITS	8
 #define TARGET_IOC_TYPEBITS	8
 
-#if defined(TARGET_I386) || (defined(TARGET_ARM) && defined(TARGET_ABI32)) \
+#if (defined(TARGET_I386) && defined(TARGET_ABI32)) \
+    || (defined(TARGET_ARM) && defined(TARGET_ABI32)) \
     || defined(TARGET_SPARC) \
     || defined(TARGET_M68K) || defined(TARGET_SH4) || defined(TARGET_CRIS)
     /* 16 bit uid wrappers emulation */
@@ -64,8 +66,9 @@
 #endif
 
 #if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SH4) \
-    || defined(TARGET_M68K) || defined(TARGET_CRIS) || defined(TARGET_UNICORE32) \
-    || defined(TARGET_S390X) || defined(TARGET_OPENRISC)
+    || defined(TARGET_M68K) || defined(TARGET_CRIS) \
+    || defined(TARGET_UNICORE32) || defined(TARGET_S390X) \
+    || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
 
 #define TARGET_IOC_SIZEBITS	14
 #define TARGET_IOC_DIRBITS	2
@@ -131,6 +134,24 @@ struct target_sockaddr_ll {
     uint8_t  sll_addr[8];  /* Physical layer address */
 };
 
+struct target_sockaddr_un {
+    uint16_t su_family;
+    uint8_t sun_path[108];
+};
+
+struct target_in_addr {
+    uint32_t s_addr; /* big endian */
+};
+
+struct target_sockaddr_in {
+  uint16_t sin_family;
+  int16_t sin_port; /* big endian */
+  struct target_in_addr sin_addr;
+  uint8_t __pad[sizeof(struct target_sockaddr) -
+                sizeof(uint16_t) - sizeof(int16_t) -
+                sizeof(struct target_in_addr)];
+};
+
 struct target_sock_filter {
     abi_ushort code;
     uint8_t jt;
@@ -141,10 +162,6 @@ struct target_sock_filter {
 struct target_sock_fprog {
     abi_ushort len;
     abi_ulong filter;
-};
-
-struct target_in_addr {
-    uint32_t s_addr; /* big endian */
 };
 
 struct target_ip_mreq {
@@ -234,7 +251,8 @@ struct target_cmsghdr {
 };
 
 #define TARGET_CMSG_DATA(cmsg) ((unsigned char *) ((struct target_cmsghdr *) (cmsg) + 1))
-#define TARGET_CMSG_NXTHDR(mhdr, cmsg) __target_cmsg_nxthdr (mhdr, cmsg)
+#define TARGET_CMSG_NXTHDR(mhdr, cmsg, cmsg_start) \
+                               __target_cmsg_nxthdr(mhdr, cmsg, cmsg_start)
 #define TARGET_CMSG_ALIGN(len) (((len) + sizeof (abi_long) - 1) \
                                & (size_t) ~(sizeof (abi_long) - 1))
 #define TARGET_CMSG_SPACE(len) (TARGET_CMSG_ALIGN (len) \
@@ -242,17 +260,20 @@ struct target_cmsghdr {
 #define TARGET_CMSG_LEN(len)   (TARGET_CMSG_ALIGN (sizeof (struct target_cmsghdr)) + (len))
 
 static __inline__ struct target_cmsghdr *
-__target_cmsg_nxthdr (struct target_msghdr *__mhdr, struct target_cmsghdr *__cmsg)
+__target_cmsg_nxthdr(struct target_msghdr *__mhdr,
+                     struct target_cmsghdr *__cmsg,
+                     struct target_cmsghdr *__cmsg_start)
 {
   struct target_cmsghdr *__ptr;
 
   __ptr = (struct target_cmsghdr *)((unsigned char *) __cmsg
                                     + TARGET_CMSG_ALIGN (tswapal(__cmsg->cmsg_len)));
-  if ((unsigned long)((char *)(__ptr+1) - (char *)(size_t)tswapal(__mhdr->msg_control))
-      > tswapal(__mhdr->msg_controllen))
+  if ((unsigned long)((char *)(__ptr+1) - (char *)__cmsg_start)
+      > tswapal(__mhdr->msg_controllen)) {
     /* No more entries.  */
     return (struct target_cmsghdr *)0;
-  return __cmsg;
+  }
+  return __ptr;
 }
 
 struct target_mmsghdr {
@@ -365,7 +386,8 @@ int do_sigaction(int sig, const struct target_sigaction *act,
     || defined(TARGET_PPC) || defined(TARGET_MIPS) || defined(TARGET_SH4) \
     || defined(TARGET_M68K) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) \
     || defined(TARGET_MICROBLAZE) || defined(TARGET_UNICORE32) \
-    || defined(TARGET_S390X) || defined(TARGET_OPENRISC)
+    || defined(TARGET_S390X) || defined(TARGET_OPENRISC) \
+    || defined(TARGET_TILEGX)
 
 #if defined(TARGET_SPARC)
 #define TARGET_SA_NOCLDSTOP    8u
@@ -664,6 +686,21 @@ typedef struct {
 
 #define TARGET_SI_PAD_SIZE ((TARGET_SI_MAX_SIZE - TARGET_SI_PREAMBLE_SIZE) / sizeof(int))
 
+/* Within QEMU the top 16 bits of si_code indicate which of the parts of
+ * the union in target_siginfo is valid. This only applies between
+ * host_to_target_siginfo_noswap() and tswap_siginfo(); it does not
+ * appear either within host siginfo_t or in target_siginfo structures
+ * which we get from the guest userspace program. (The Linux kernel
+ * does a similar thing with using the top bits for its own internal
+ * purposes but not letting them be visible to userspace.)
+ */
+#define QEMU_SI_KILL 0
+#define QEMU_SI_TIMER 1
+#define QEMU_SI_POLL 2
+#define QEMU_SI_FAULT 3
+#define QEMU_SI_CHLD 4
+#define QEMU_SI_RT 5
+
 typedef struct target_siginfo {
 #ifdef TARGET_MIPS
 	int si_signo;
@@ -742,6 +779,10 @@ typedef struct target_siginfo {
 #define TARGET_ILL_PRVREG	(6)	/* privileged register */
 #define TARGET_ILL_COPROC	(7)	/* coprocessor error */
 #define TARGET_ILL_BADSTK	(8)	/* internal stack error */
+#ifdef TARGET_TILEGX
+#define TARGET_ILL_DBLFLT       (9)     /* double fault */
+#define TARGET_ILL_HARDWALL     (10)    /* user networks hardwall violation */
+#endif
 
 /*
  * SIGFPE si_codes
@@ -761,6 +802,7 @@ typedef struct target_siginfo {
  */
 #define TARGET_SEGV_MAPERR     (1)  /* address not mapped to object */
 #define TARGET_SEGV_ACCERR     (2)  /* invalid permissions for mapped object */
+#define TARGET_SEGV_BNDERR     (3)  /* failed address bound checks */
 
 /*
  * SIGBUS si_codes
@@ -768,12 +810,18 @@ typedef struct target_siginfo {
 #define TARGET_BUS_ADRALN       (1)	/* invalid address alignment */
 #define TARGET_BUS_ADRERR       (2)	/* non-existent physical address */
 #define TARGET_BUS_OBJERR       (3)	/* object specific hardware error */
+/* hardware memory error consumed on a machine check: action required */
+#define TARGET_BUS_MCEERR_AR    (4)
+/* hardware memory error detected in process but not consumed: action optional*/
+#define TARGET_BUS_MCEERR_AO    (5)
 
 /*
  * SIGTRAP si_codes
  */
 #define TARGET_TRAP_BRKPT	(1)	/* process breakpoint */
 #define TARGET_TRAP_TRACE	(2)	/* process trace trap */
+#define TARGET_TRAP_BRANCH      (3)     /* process taken branch trap */
+#define TARGET_TRAP_HWBKPT      (4)     /* hardware breakpoint/watchpoint */
 
 #endif /* defined(TARGET_I386) || defined(TARGET_ARM) */
 
@@ -937,6 +985,17 @@ struct target_pollfd {
 #define TARGET_BLKGETSIZE64 TARGET_IOR(0x12,114,abi_ulong)
                                              /* return device size in bytes
                                                 (u64 *arg) */
+
+#define TARGET_BLKDISCARD TARGET_IO(0x12, 119)
+#define TARGET_BLKIOMIN TARGET_IO(0x12, 120)
+#define TARGET_BLKIOOPT TARGET_IO(0x12, 121)
+#define TARGET_BLKALIGNOFF TARGET_IO(0x12, 122)
+#define TARGET_BLKPBSZGET TARGET_IO(0x12, 123)
+#define TARGET_BLKDISCARDZEROES TARGET_IO(0x12, 124)
+#define TARGET_BLKSECDISCARD TARGET_IO(0x12, 125)
+#define TARGET_BLKROTATIONAL TARGET_IO(0x12, 126)
+#define TARGET_BLKZEROOUT TARGET_IO(0x12, 127)
+
 #define TARGET_FIBMAP     TARGET_IO(0x00,1)  /* bmap access */
 #define TARGET_FIGETBSZ   TARGET_IO(0x00,2)  /* get the block size used for bmap */
 #define TARGET_FS_IOC_FIEMAP TARGET_IOWR('f',11,struct fiemap)
@@ -969,7 +1028,7 @@ struct target_pollfd {
                                            (struct cdrom_multisession) */
 #define TARGET_CDROM_GET_MCN		0x5311 /* Obtain the "Universal Product Code"
                                            if available (struct cdrom_mcn) */
-#define TARGET_CDROM_GET_UPC		TARGET_CDROM_GET_MCN  /* This one is depricated,
+#define TARGET_CDROM_GET_UPC		TARGET_CDROM_GET_MCN  /* This one is deprecated,
                                           but here anyway for compatibility */
 #define TARGET_CDROMRESET		0x5312 /* hard-reset the drive */
 #define TARGET_CDROMVOLREAD		0x5313 /* Get the drive's volume setting
@@ -1068,6 +1127,10 @@ struct target_pollfd {
 #define TARGET_LOOP_SET_STATUS64      0x4C04
 #define TARGET_LOOP_GET_STATUS64      0x4C05
 #define TARGET_LOOP_CHANGE_FD         0x4C06
+
+#define TARGET_LOOP_CTL_ADD           0x4C80
+#define TARGET_LOOP_CTL_REMOVE        0x4C81
+#define TARGET_LOOP_CTL_GET_FREE      0x4C82
 
 /* fb ioctls */
 #define TARGET_FBIOGET_VSCREENINFO    0x4600
@@ -1871,7 +1934,7 @@ struct target_stat {
     abi_ulong  target_st_ctime_nsec;
     unsigned int __unused[2];
 };
-#elif defined(TARGET_OPENRISC)
+#elif defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
 
 /* These are the asm-generic versions of the stat and stat64 structures */
 
@@ -2131,6 +2194,8 @@ struct target_statfs64 {
 #define TARGET_F_SETLEASE (TARGET_F_LINUX_SPECIFIC_BASE + 0)
 #define TARGET_F_GETLEASE (TARGET_F_LINUX_SPECIFIC_BASE + 1)
 #define TARGET_F_DUPFD_CLOEXEC (TARGET_F_LINUX_SPECIFIC_BASE + 6)
+#define TARGET_F_SETPIPE_SZ (TARGET_F_LINUX_SPECIFIC_BASE + 7)
+#define TARGET_F_GETPIPE_SZ (TARGET_F_LINUX_SPECIFIC_BASE + 8)
 #define TARGET_F_NOTIFY  (TARGET_F_LINUX_SPECIFIC_BASE+2)
 
 #if defined(TARGET_ALPHA)
@@ -2254,32 +2319,34 @@ struct target_statfs64 {
 #endif
 
 struct target_flock {
-	short l_type;
-	short l_whence;
-	abi_ulong l_start;
-	abi_ulong l_len;
-	int l_pid;
+    short l_type;
+    short l_whence;
+    abi_long l_start;
+    abi_long l_len;
+    int l_pid;
 };
 
 struct target_flock64 {
-	short  l_type;
-	short  l_whence;
-#if defined(TARGET_PPC) || defined(TARGET_X86_64) || defined(TARGET_MIPS) || defined(TARGET_SPARC) || defined(TARGET_HPPA) || defined (TARGET_MICROBLAZE)
-        int __pad;
+    short  l_type;
+    short  l_whence;
+#if defined(TARGET_PPC) || defined(TARGET_X86_64) || defined(TARGET_MIPS) \
+    || defined(TARGET_SPARC) || defined(TARGET_HPPA) \
+    || defined(TARGET_MICROBLAZE) || defined(TARGET_TILEGX)
+    int __pad;
 #endif
-	unsigned long long l_start;
-	unsigned long long l_len;
-	int  l_pid;
+    abi_llong l_start;
+    abi_llong l_len;
+    int  l_pid;
 } QEMU_PACKED;
 
 #ifdef TARGET_ARM
 struct target_eabi_flock64 {
-	short  l_type;
-	short  l_whence;
-        int __pad;
-	unsigned long long l_start;
-	unsigned long long l_len;
-	int  l_pid;
+    short  l_type;
+    short  l_whence;
+    int __pad;
+    abi_llong l_start;
+    abi_llong l_len;
+    int  l_pid;
 } QEMU_PACKED;
 #endif
 
@@ -2289,7 +2356,7 @@ struct target_f_owner_ex {
 };
 
 /* soundcard defines */
-/* XXX: convert them all to arch indepedent entries */
+/* XXX: convert them all to arch independent entries */
 #define TARGET_SNDCTL_COPR_HALT           TARGET_IOWR('C',  7, int);
 #define TARGET_SNDCTL_COPR_LOAD           0xcfb04301
 #define TARGET_SNDCTL_COPR_RCODE          0xc0144303
@@ -2495,20 +2562,23 @@ struct target_mq_attr {
 #define FUTEX_CMD_MASK          ~(FUTEX_PRIVATE_FLAG | FUTEX_CLOCK_REALTIME)
 
 #ifdef CONFIG_EPOLL
+#if defined(TARGET_X86_64)
+#define TARGET_EPOLL_PACKED QEMU_PACKED
+#else
+#define TARGET_EPOLL_PACKED
+#endif
+
 typedef union target_epoll_data {
     abi_ulong ptr;
-    abi_ulong fd;
-    uint32_t u32;
-    uint64_t u64;
+    abi_int fd;
+    abi_uint u32;
+    abi_ullong u64;
 } target_epoll_data_t;
 
 struct target_epoll_event {
-    uint32_t events;
-#if defined(TARGET_ARM) || defined(TARGET_MIPS) || defined(TARGET_MIPS64)
-    uint32_t __pad;
-#endif
+    abi_uint events;
     target_epoll_data_t data;
-} QEMU_PACKED;
+} TARGET_EPOLL_PACKED;
 #endif
 struct target_rlimit64 {
     uint64_t rlim_cur;
@@ -2520,8 +2590,6 @@ struct target_ucred {
     uint32_t uid;
     uint32_t gid;
 };
-
-#endif
 
 typedef int32_t target_timer_t;
 
@@ -2564,3 +2632,5 @@ struct target_user_cap_data {
     uint32_t permitted;
     uint32_t inheritable;
 };
+
+#endif

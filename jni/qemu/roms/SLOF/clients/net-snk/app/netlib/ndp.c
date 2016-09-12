@@ -17,6 +17,14 @@
 #include <netlib/icmpv6.h>
 #include <netlib/ndp.h>
 
+/* Neighbor cache */
+static struct neighbor *first_neighbor;
+static struct neighbor *last_neighbor;
+
+/* Router list */
+static struct router *first_router;
+static struct router *last_router;
+
 /*
  * NET: add new router to list
  * @param  struct router nghb  - new router
@@ -144,4 +152,15 @@ find_neighbor (ip6_addr_t *ip)
 	}
 
 	return NULL; /* neighbor is unknown */
+}
+
+void ndp_init(void)
+{
+	/* Router list */
+	first_router = NULL;
+	last_router = first_router;
+
+	/* Init Neighbour cache */
+	first_neighbor = NULL;
+	last_neighbor  = first_neighbor;
 }

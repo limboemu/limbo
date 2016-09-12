@@ -282,6 +282,18 @@ ALSO client-voc DEFINITIONS
 ;
 
 \
+\ Standard for Boot, defined in 6.3.2.5:
+\
+: boot  ( zstr -- )
+   zcount
+   debug-client-interface? IF
+      ." ci: boot " 2dup type cr
+   THEN
+   " boot " 2swap $cat " boot-command" $setenv (nvupdate)
+   reset-all
+;
+
+\
 \ User Interface, defined in 6.3.2.6
 \
 : interpret ( ... zstr -- result ... )

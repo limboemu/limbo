@@ -10,6 +10,7 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qemu/event_notifier.h"
 #include "qemu/main-loop.h"
@@ -32,6 +33,7 @@ HANDLE event_notifier_get_handle(EventNotifier *e)
 }
 
 int event_notifier_set_handler(EventNotifier *e,
+                               bool is_external,
                                EventNotifierHandler *handler)
 {
     if (handler) {

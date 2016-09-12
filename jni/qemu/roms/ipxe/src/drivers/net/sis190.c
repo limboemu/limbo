@@ -72,12 +72,6 @@ struct pci_driver sis190_isa_bridge_driver __pci_driver = {
 static const u32 sis190_intr_mask =
 	RxQEmpty | RxQInt | TxQ1Int | TxQ0Int | RxHalt | TxHalt | LinkChange;
 
-/*
- * Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
- * The chips use a 64 element hash table based on the Ethernet CRC.
- */
-static const int multicast_filter_limit = 32;
-
 static void __mdio_cmd(void *ioaddr, u32 ctl)
 {
 	unsigned int i;

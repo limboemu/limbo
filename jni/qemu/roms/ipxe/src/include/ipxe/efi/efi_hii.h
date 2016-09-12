@@ -6,7 +6,7 @@
  * EFI human interface infrastructure
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <ipxe/efi/Uefi/UefiInternalFormRepresentation.h>

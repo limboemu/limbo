@@ -9,6 +9,10 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "qemu-common.h"
 #include "ui/console.h"
 #include "elf.h"
@@ -17,6 +21,7 @@
 #include "hw/boards.h"
 #include "hw/loader.h"
 #include "hw/i386/pc.h"
+#include "qemu/error-report.h"
 #include "sysemu/qtest.h"
 
 #undef DEBUG_PUV3
@@ -40,15 +45,15 @@ static void puv3_intc_cpu_handler(void *opaque, int irq, int level)
 
 static void puv3_soc_init(CPUUniCore32State *env)
 {
-    qemu_irq *cpu_intc, irqs[PUV3_IRQS_NR];
+    qemu_irq cpu_intc, irqs[PUV3_IRQS_NR];
     DeviceState *dev;
     MemoryRegion *i8042 = g_new(MemoryRegion, 1);
     int i;
 
     /* Initialize interrupt controller */
-    cpu_intc = qemu_allocate_irqs(puv3_intc_cpu_handler,
-                                  uc32_env_get_cpu(env), 1);
-    dev = sysbus_create_simple("puv3_intc", PUV3_INTC_BASE, *cpu_intc);
+    cpu_intc = qemu_allocate_irq(puv3_intc_cpu_handler,
+                                 uc32_env_get_cpu(env), 0);
+    dev = sysbus_create_simple("puv3_intc", PUV3_INTC_BASE, cpu_intc);
     for (i = 0; i < PUV3_IRQS_NR; i++) {
         irqs[i] = qdev_get_gpio_in(dev, i);
     }
@@ -75,7 +80,7 @@ static void puv3_board_init(CPUUniCore32State *env, ram_addr_t ram_size)
 
     /* SDRAM at address zero.  */
     memory_region_init_ram(ram_memory, NULL, "puv3.ram", ram_size,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(ram_memory);
     memory_region_add_subregion(get_system_memory(), 0, ram_memory);
 }
@@ -95,7 +100,8 @@ static void puv3_load_kernel(const char *kernel_filename)
     size = load_image_targphys(kernel_filename, KERNEL_LOAD_ADDR,
             KERNEL_MAX_SIZE);
     if (size < 0) {
-        hw_error("Load kernel error: '%s'\n", kernel_filename);
+        error_report("Load kernel error: '%s'", kernel_filename);
+        exit(1);
     }
 
     /* cheat curses that we have a graphic console, only under ocd console */
@@ -112,7 +118,8 @@ static void puv3_init(MachineState *machine)
     UniCore32CPU *cpu;
 
     if (initrd_filename) {
-        hw_error("Please use kernel built-in initramdisk.\n");
+        error_report("Please use kernel built-in initramdisk");
+        exit(1);
     }
 
     if (!cpu_model) {
@@ -121,7 +128,8 @@ static void puv3_init(MachineState *machine)
 
     cpu = uc32_cpu_init(cpu_model);
     if (!cpu) {
-        hw_error("Unable to find CPU definition\n");
+        error_report("Unable to find CPU definition");
+        exit(1);
     }
     env = &cpu->env;
 
@@ -130,16 +138,11 @@ static void puv3_init(MachineState *machine)
     puv3_load_kernel(kernel_filename);
 }
 
-static QEMUMachine puv3_machine = {
-    .name = "puv3",
-    .desc = "PKUnity Version-3 based on UniCore32",
-    .init = puv3_init,
-    .is_default = 1,
-};
-
-static void puv3_machine_init(void)
+static void puv3_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&puv3_machine);
+    mc->desc = "PKUnity Version-3 based on UniCore32";
+    mc->init = puv3_init;
+    mc->is_default = 1;
 }
 
-machine_init(puv3_machine_init)
+DEFINE_MACHINE("puv3", puv3_machine_init)

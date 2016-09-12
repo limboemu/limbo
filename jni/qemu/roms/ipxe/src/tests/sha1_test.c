@@ -15,87 +15,63 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
  * SHA-1 tests
  *
+ * NIST test vectors are taken from
+ *
+ *  http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA1.pdf
+ *
  */
 
-#include <stdint.h>
+/* Forcibly enable assertions */
+#undef NDEBUG
+
 #include <ipxe/sha1.h>
 #include <ipxe/test.h>
 #include "digest_test.h"
 
-/** An SHA-1 test vector */
-struct sha1_test_vector {
-	/** Test data */
-	void *data;
-	/** Test data length */
-	size_t len;
-	/** Expected digest */
-	uint8_t digest[SHA1_DIGEST_SIZE];
-};
+/* Empty test vector (digest obtained from "sha1sum /dev/null") */
+DIGEST_TEST ( sha1_empty, &sha1_algorithm, DIGEST_EMPTY,
+	      DIGEST ( 0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d, 0x32,
+		       0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8,
+		       0x07, 0x09 ) );
 
-/** SHA-1 test vectors */
-static struct sha1_test_vector sha1_test_vectors[] = {
-	/* Empty test data
-	 *
-	 * Expected digest value obtained from "sha1sum /dev/null"
-	 */
-	{ NULL, 0,
-	  { 0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d, 0x32, 0x55,
-	    0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x07, 0x09 } },
-	/* Test data and expected digests taken from the NIST
-	 * Cryptographic Toolkit Algorithm Examples at
-	 * http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA1.pdf
-	 */
-	{ "abc", 3,
-	  { 0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba, 0x3e,
-	    0x25, 0x71, 0x78, 0x50, 0xc2, 0x6c, 0x9c, 0xd0, 0xd8, 0x9d } },
-	{ "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", 56,
-	  { 0x84, 0x98, 0x3e, 0x44, 0x1c, 0x3b, 0xd2, 0x6e, 0xba, 0xae,
-	    0x4a, 0xa1, 0xf9, 0x51, 0x29, 0xe5, 0xe5, 0x46, 0x70, 0xf1 } },
-};
+/* NIST test vector "abc" */
+DIGEST_TEST ( sha1_nist_abc, &sha1_algorithm, DIGEST_NIST_ABC,
+	      DIGEST ( 0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba,
+		       0x3e, 0x25, 0x71, 0x78, 0x50, 0xc2, 0x6c, 0x9c, 0xd0,
+		       0xd8, 0x9d ) );
 
-/** SHA-1 test fragment lists */
-static struct digest_test_fragments sha1_test_fragments[] = {
-	{ { 0, -1UL, } },
-	{ { 1, 1, 1, 1, 1, 1, 1, 1 } },
-	{ { 2, 0, 23, 4, 6, 1, 0 } },
-};
+/* NIST test vector "abc...opq" */
+DIGEST_TEST ( sha1_nist_abc_opq, &sha1_algorithm, DIGEST_NIST_ABC_OPQ,
+	      DIGEST ( 0x84, 0x98, 0x3e, 0x44, 0x1c, 0x3b, 0xd2, 0x6e, 0xba,
+		       0xae, 0x4a, 0xa1, 0xf9, 0x51, 0x29, 0xe5, 0xe5, 0x46,
+		       0x70, 0xf1 ) );
 
 /**
  * Perform SHA-1 self-test
  *
  */
 static void sha1_test_exec ( void ) {
-	struct digest_algorithm *digest = &sha1_algorithm;
-	struct sha1_test_vector *test;
-	unsigned long cost;
-	unsigned int i;
-	unsigned int j;
 
-	/* Correctness test */
-	for ( i = 0 ; i < ( sizeof ( sha1_test_vectors ) /
-			    sizeof ( sha1_test_vectors[0] ) ) ; i++ ) {
-		test = &sha1_test_vectors[i];
-		/* Test with a single pass */
-		digest_ok ( digest, NULL, test->data, test->len, test->digest );
-		/* Test with fragment lists */
-		for ( j = 0 ; j < ( sizeof ( sha1_test_fragments ) /
-				    sizeof ( sha1_test_fragments[0] ) ) ; j++ ){
-			digest_ok ( digest, &sha1_test_fragments[j],
-				    test->data, test->len, test->digest );
-		}
-	}
+	/* Correctness tests */
+	digest_ok ( &sha1_empty );
+	digest_ok ( &sha1_nist_abc );
+	digest_ok ( &sha1_nist_abc_opq );
 
-	/* Speed test */
-	cost = digest_cost ( digest );
-	DBG ( "SHA1 required %ld cycles per byte\n", cost );
+	/* Speed tests */
+	DBG ( "SHA1 required %ld cycles per byte\n",
+	      digest_cost ( &sha1_algorithm ) );
 }
 
 /** SHA-1 self-test */

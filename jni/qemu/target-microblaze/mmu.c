@@ -18,7 +18,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 
 #define D(x)
 
@@ -60,7 +62,7 @@ static void mmu_change_pid(CPUMBState *env, unsigned int newpid)
     uint32_t t;
 
     if (newpid & ~0xff)
-        qemu_log("Illegal rpid=%x\n", newpid);
+        qemu_log_mask(LOG_GUEST_ERROR, "Illegal rpid=%x\n", newpid);
 
     for (i = 0; i < ARRAY_SIZE(mmu->rams[RAM_TAG]); i++) {
         /* Lookup and decode.  */
@@ -121,7 +123,7 @@ unsigned int mmu_translate(struct microblaze_mmu *mmu,
             t0 &= 0x3;
 
             if (tlb_zsel > mmu->c_mmu_zones) {
-                qemu_log("tlb zone select out of range! %d\n", tlb_zsel);
+                qemu_log_mask(LOG_GUEST_ERROR, "tlb zone select out of range! %d\n", tlb_zsel);
                 t0 = 1; /* Ignore.  */
             }
 
@@ -183,7 +185,7 @@ uint32_t mmu_read(CPUMBState *env, uint32_t rn)
     uint32_t r;
 
     if (env->mmu.c_mmu < 2 || !env->mmu.c_mmu_tlb_access) {
-        qemu_log("MMU access on MMU-less system\n");
+        qemu_log_mask(LOG_GUEST_ERROR, "MMU access on MMU-less system\n");
         return 0;
     }
 
@@ -192,7 +194,7 @@ uint32_t mmu_read(CPUMBState *env, uint32_t rn)
         case MMU_R_TLBLO:
         case MMU_R_TLBHI:
             if (!(env->mmu.c_mmu_tlb_access & 1)) {
-                qemu_log("Invalid access to MMU reg %d\n", rn);
+                qemu_log_mask(LOG_GUEST_ERROR, "Invalid access to MMU reg %d\n", rn);
                 return 0;
             }
 
@@ -204,7 +206,7 @@ uint32_t mmu_read(CPUMBState *env, uint32_t rn)
         case MMU_R_PID:
         case MMU_R_ZPR:
             if (!(env->mmu.c_mmu_tlb_access & 1)) {
-                qemu_log("Invalid access to MMU reg %d\n", rn);
+                qemu_log_mask(LOG_GUEST_ERROR, "Invalid access to MMU reg %d\n", rn);
                 return 0;
             }
             r = env->mmu.regs[rn];
@@ -224,7 +226,7 @@ void mmu_write(CPUMBState *env, uint32_t rn, uint32_t v)
     D(qemu_log("%s rn=%d=%x old=%x\n", __func__, rn, v, env->mmu.regs[rn]));
 
     if (env->mmu.c_mmu < 2 || !env->mmu.c_mmu_tlb_access) {
-        qemu_log("MMU access on MMU-less system\n");
+        qemu_log_mask(LOG_GUEST_ERROR, "MMU access on MMU-less system\n");
         return;
     }
 
@@ -235,7 +237,7 @@ void mmu_write(CPUMBState *env, uint32_t rn, uint32_t v)
             i = env->mmu.regs[MMU_R_TLBX] & 0xff;
             if (rn == MMU_R_TLBHI) {
                 if (i < 3 && !(v & TLB_VALID) && qemu_loglevel_mask(~0))
-                    qemu_log("invalidating index %x at pc=%x\n",
+                    qemu_log_mask(LOG_GUEST_ERROR, "invalidating index %x at pc=%x\n",
                              i, env->sregs[SR_PC]);
                 env->mmu.tids[i] = env->mmu.regs[MMU_R_PID] & 0xff;
                 mmu_flush_idx(env, i);
@@ -246,7 +248,7 @@ void mmu_write(CPUMBState *env, uint32_t rn, uint32_t v)
             break;
         case MMU_R_ZPR:
             if (env->mmu.c_mmu_tlb_access <= 1) {
-                qemu_log("Invalid access to MMU reg %d\n", rn);
+                qemu_log_mask(LOG_GUEST_ERROR, "Invalid access to MMU reg %d\n", rn);
                 return;
             }
 
@@ -259,7 +261,7 @@ void mmu_write(CPUMBState *env, uint32_t rn, uint32_t v)
             break;
         case MMU_R_PID:
             if (env->mmu.c_mmu_tlb_access <= 1) {
-                qemu_log("Invalid access to MMU reg %d\n", rn);
+                qemu_log_mask(LOG_GUEST_ERROR, "Invalid access to MMU reg %d\n", rn);
                 return;
             }
 
@@ -274,12 +276,12 @@ void mmu_write(CPUMBState *env, uint32_t rn, uint32_t v)
             int hit;
 
             if (env->mmu.c_mmu_tlb_access <= 1) {
-                qemu_log("Invalid access to MMU reg %d\n", rn);
+                qemu_log_mask(LOG_GUEST_ERROR, "Invalid access to MMU reg %d\n", rn);
                 return;
             }
 
             hit = mmu_translate(&env->mmu, &lu,
-                                v & TLB_EPN_MASK, 0, cpu_mmu_index(env));
+                                v & TLB_EPN_MASK, 0, cpu_mmu_index(env, false));
             if (hit) {
                 env->mmu.regs[MMU_R_TLBX] = lu.idx;
             } else

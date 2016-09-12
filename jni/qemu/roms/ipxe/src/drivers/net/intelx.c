@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -392,8 +396,10 @@ static int intelx_probe ( struct pci_device *pci ) {
 	netdev->dev = &pci->dev;
 	memset ( intel, 0, sizeof ( *intel ) );
 	intel->port = PCI_FUNC ( pci->busdevfn );
-	intel_init_ring ( &intel->tx, INTEL_NUM_TX_DESC, INTELX_TD );
-	intel_init_ring ( &intel->rx, INTEL_NUM_RX_DESC, INTELX_RD );
+	intel_init_ring ( &intel->tx, INTEL_NUM_TX_DESC, INTELX_TD,
+			  intel_describe_tx );
+	intel_init_ring ( &intel->rx, INTEL_NUM_RX_DESC, INTELX_RD,
+			  intel_describe_rx );
 
 	/* Fix up PCI device */
 	adjust_pci_device ( pci );
@@ -458,10 +464,15 @@ static void intelx_remove ( struct pci_device *pci ) {
 
 /** PCI device IDs */
 static struct pci_device_id intelx_nics[] = {
-	PCI_ROM ( 0x8086, 0x10fb, "82599", "82599", 0 ),
-	PCI_ROM ( 0x8086, 0x1528, "x540at2", "X540-AT2", 0 ),
-	PCI_ROM ( 0x8086, 0x154d, "x520", "X520", 0 ),
-	PCI_ROM ( 0x8086, 0x1557, "82599", "82599", 0 ),
+	PCI_ROM ( 0x8086, 0x10f7, "82599-kx4", "82599 (KX/KX4)", 0 ),
+	PCI_ROM ( 0x8086, 0x10f8, "82599-combo-backplane", "82599 (combined backplane; KR/KX4/KX)", 0 ),
+	PCI_ROM ( 0x8086, 0x10f9, "82599-cx4", "82599 (CX4)", 0 ),
+	PCI_ROM ( 0x8086, 0x10fb, "82599-sfp", "82599 (SFI/SFP+)", 0 ),
+	PCI_ROM ( 0x8086, 0x10fc, "82599-xaui", "82599 (XAUI/BX4)", 0 ),
+	PCI_ROM ( 0x8086, 0x1528, "x540t", "X540-AT2/X540-BT2", 0 ),
+	PCI_ROM ( 0x8086, 0x154d, "82599-sfp-sf2", "82599 (SFI/SFP+)", 0 ),
+	PCI_ROM ( 0x8086, 0x1557, "82599en-sfp", "82599 (Single Port SFI Only)", 0 ),
+	PCI_ROM ( 0x8086, 0x1560, "x540t1", "X540-AT2/X540-BT2 (with single port NVM)", 0 ),
 };
 
 /** PCI driver */

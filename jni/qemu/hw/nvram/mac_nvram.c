@@ -22,10 +22,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/nvram/openbios_firmware_abi.h"
 #include "sysemu/sysemu.h"
 #include "hw/ppc/mac.h"
+#include "qemu/cutils.h"
 #include <zlib.h>
 
 /* debug NVR */
@@ -48,7 +50,8 @@ static void macio_nvram_writeb(void *opaque, hwaddr addr,
 
     addr = (addr >> s->it_shift) & (s->size - 1);
     s->data[addr] = value;
-    NVR_DPRINTF("writeb addr %04" PHYS_PRIx " val %" PRIx64 "\n", addr, value);
+    NVR_DPRINTF("writeb addr %04" HWADDR_PRIx " val %" PRIx64 "\n",
+                addr, value);
 }
 
 static uint64_t macio_nvram_readb(void *opaque, hwaddr addr,
@@ -59,7 +62,8 @@ static uint64_t macio_nvram_readb(void *opaque, hwaddr addr,
 
     addr = (addr >> s->it_shift) & (s->size - 1);
     value = s->data[addr];
-    NVR_DPRINTF("readb addr %04x val %x\n", (int)addr, value);
+    NVR_DPRINTF("readb addr %04" HWADDR_PRIx " val %" PRIx32 "\n",
+                addr, value);
 
     return value;
 }
@@ -123,6 +127,7 @@ static void macio_nvram_class_init(ObjectClass *oc, void *data)
     dc->reset = macio_nvram_reset;
     dc->vmsd = &vmstate_macio_nvram;
     dc->props = macio_nvram_properties;
+    set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }
 
 static const TypeInfo macio_nvram_type_info = {

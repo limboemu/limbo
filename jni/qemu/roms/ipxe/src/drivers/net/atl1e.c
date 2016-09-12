@@ -224,7 +224,7 @@ static int atl1e_sw_init(struct atl1e_adapter *adapter)
 	adapter->link_duplex = FULL_DUPLEX;
 
 	/* PCI config space info */
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &rev_id);
+	pci_read_config_byte(pdev, PCI_REVISION, &rev_id);
 
 	phy_status_data = AT_READ_REG(hw, REG_PHY_STATUS);
 	/* nic type */

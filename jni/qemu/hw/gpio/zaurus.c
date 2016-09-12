@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/arm/sharpsl.h"
 #include "hw/sysbus.h"
@@ -65,7 +66,7 @@ static inline void scoop_gpio_handler_update(ScoopInfo *s) {
     level = s->gpio_level & s->gpio_dir;
 
     for (diff = s->prev_level ^ level; diff; diff ^= 1 << bit) {
-        bit = ffs(diff) - 1;
+        bit = ctz32(diff);
         qemu_set_irq(s->handler[bit], (level >> bit) & 1);
     }
 
@@ -166,19 +167,18 @@ static void scoop_gpio_set(void *opaque, int line, int level)
         s->gpio_level &= ~(1 << line);
 }
 
-static int scoop_init(SysBusDevice *sbd)
+static void scoop_init(Object *obj)
 {
-    DeviceState *dev = DEVICE(sbd);
-    ScoopInfo *s = SCOOP(dev);
+    DeviceState *dev = DEVICE(obj);
+    ScoopInfo *s = SCOOP(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
 
     s->status = 0x02;
     qdev_init_gpio_out(dev, s->handler, 16);
     qdev_init_gpio_in(dev, scoop_gpio_set, 16);
-    memory_region_init_io(&s->iomem, OBJECT(s), &scoop_ops, s, "scoop", 0x1000);
+    memory_region_init_io(&s->iomem, obj, &scoop_ops, s, "scoop", 0x1000);
 
     sysbus_init_mmio(sbd, &s->iomem);
-
-    return 0;
 }
 
 static int scoop_post_load(void *opaque, int version_id)
@@ -235,25 +235,19 @@ static const VMStateDescription vmstate_scoop_regs = {
     },
 };
 
-static Property scoop_sysbus_properties[] = {
-    DEFINE_PROP_END_OF_LIST(),
-};
-
 static void scoop_sysbus_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = scoop_init;
     dc->desc = "Scoop2 Sharp custom ASIC";
     dc->vmsd = &vmstate_scoop_regs;
-    dc->props = scoop_sysbus_properties;
 }
 
 static const TypeInfo scoop_sysbus_info = {
     .name          = TYPE_SCOOP,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(ScoopInfo),
+    .instance_init = scoop_init,
     .class_init    = scoop_sysbus_class_init,
 };
 

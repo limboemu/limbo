@@ -26,6 +26,8 @@
 \ 2 encode-int s" #size-cells" property
 \ s" chrp" device-type
 
+#include "archsupport.fs"
+
 480 cp
 
 \ See 3.6.5, and the PowerPC OF binding document.

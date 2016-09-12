@@ -10,7 +10,8 @@
 /* The controller can support a variety of different displays, but we only
    implement one.  Most of the commends relating to brightness and geometry
    setup are ignored. */
-#include "hw/ssi.h"
+#include "qemu/osdep.h"
+#include "hw/ssi/ssi.h"
 #include "ui/console.h"
 
 //#define DEBUG_SSD0323 1
@@ -360,7 +361,7 @@ static const GraphicHwOps ssd0323_ops = {
     .gfx_update  = ssd0323_update_display,
 };
 
-static int ssd0323_init(SSISlave *d)
+static void ssd0323_realize(SSISlave *d, Error **errp)
 {
     DeviceState *dev = DEVICE(d);
     ssd0323_state *s = FROM_SSI_SLAVE(ssd0323_state, d);
@@ -374,14 +375,13 @@ static int ssd0323_init(SSISlave *d)
 
     register_savevm(dev, "ssd0323_oled", -1, 1,
                     ssd0323_save, ssd0323_load, s);
-    return 0;
 }
 
 static void ssd0323_class_init(ObjectClass *klass, void *data)
 {
     SSISlaveClass *k = SSI_SLAVE_CLASS(klass);
 
-    k->init = ssd0323_init;
+    k->realize = ssd0323_realize;
     k->transfer = ssd0323_transfer;
     k->cs_polarity = SSI_CS_HIGH;
 }

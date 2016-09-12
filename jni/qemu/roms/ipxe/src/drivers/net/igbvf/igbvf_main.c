@@ -461,7 +461,7 @@ static int __devinit igbvf_sw_init ( struct igbvf_adapter *adapter )
         hw->vendor_id = pdev->vendor;
         hw->device_id = pdev->device;
 
-        pci_read_config_byte ( pdev, PCI_REVISION_ID, &hw->revision_id );
+        pci_read_config_byte ( pdev, PCI_REVISION, &hw->revision_id );
 
         pci_read_config_word ( pdev, PCI_COMMAND, &hw->bus.pci_cmd_word );
 

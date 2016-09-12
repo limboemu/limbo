@@ -11,9 +11,12 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "qemu/timer.h"
 #include "sysemu/sysemu.h"
+#include "qemu/cutils.h"
+#include "qemu/log.h"
 
 //#define DEBUG_PL031
 
@@ -79,7 +82,7 @@ static void pl031_interrupt(void * opaque)
 static uint32_t pl031_get_count(PL031State *s)
 {
     int64_t now = qemu_clock_get_ns(rtc_clock);
-    return s->tick_offset + now / get_ticks_per_sec();
+    return s->tick_offset + now / NANOSECONDS_PER_SECOND;
 }
 
 static void pl031_set_alarm(PL031State *s)
@@ -95,7 +98,7 @@ static void pl031_set_alarm(PL031State *s)
         pl031_interrupt(s);
     } else {
         int64_t now = qemu_clock_get_ns(rtc_clock);
-        timer_mod(s->timer, now + (int64_t)ticks * get_ticks_per_sec());
+        timer_mod(s->timer, now + (int64_t)ticks * NANOSECONDS_PER_SECOND);
     }
 }
 
@@ -191,21 +194,21 @@ static const MemoryRegionOps pl031_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static int pl031_init(SysBusDevice *dev)
+static void pl031_init(Object *obj)
 {
-    PL031State *s = PL031(dev);
+    PL031State *s = PL031(obj);
+    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
     struct tm tm;
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &pl031_ops, s, "pl031", 0x1000);
+    memory_region_init_io(&s->iomem, obj, &pl031_ops, s, "pl031", 0x1000);
     sysbus_init_mmio(dev, &s->iomem);
 
     sysbus_init_irq(dev, &s->irq);
     qemu_get_timedate(&tm, 0);
     s->tick_offset = mktimegm(&tm) -
-        qemu_clock_get_ns(rtc_clock) / get_ticks_per_sec();
+        qemu_clock_get_ns(rtc_clock) / NANOSECONDS_PER_SECOND;
 
     s->timer = timer_new_ns(rtc_clock, pl031_interrupt, s);
-    return 0;
 }
 
 static void pl031_pre_save(void *opaque)
@@ -215,7 +218,7 @@ static void pl031_pre_save(void *opaque)
     /* tick_offset is base_time - rtc_clock base time.  Instead, we want to
      * store the base time relative to the QEMU_CLOCK_VIRTUAL for backwards-compatibility.  */
     int64_t delta = qemu_clock_get_ns(rtc_clock) - qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    s->tick_offset_vmstate = s->tick_offset + delta / get_ticks_per_sec();
+    s->tick_offset_vmstate = s->tick_offset + delta / NANOSECONDS_PER_SECOND;
 }
 
 static int pl031_post_load(void *opaque, int version_id)
@@ -223,7 +226,7 @@ static int pl031_post_load(void *opaque, int version_id)
     PL031State *s = opaque;
 
     int64_t delta = qemu_clock_get_ns(rtc_clock) - qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    s->tick_offset = s->tick_offset_vmstate - delta / get_ticks_per_sec();
+    s->tick_offset = s->tick_offset_vmstate - delta / NANOSECONDS_PER_SECOND;
     pl031_set_alarm(s);
     return 0;
 }
@@ -248,9 +251,7 @@ static const VMStateDescription vmstate_pl031 = {
 static void pl031_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
-    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = pl031_init;
     dc->vmsd = &vmstate_pl031;
 }
 
@@ -258,6 +259,7 @@ static const TypeInfo pl031_info = {
     .name          = TYPE_PL031,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(PL031State),
+    .instance_init = pl031_init,
     .class_init    = pl031_class_init,
 };
 

@@ -108,7 +108,7 @@ static void t509_enable ( struct nic *nic ) {
 	else if (connector == utp) {
 		GO_WINDOW(nic->ioaddr,4);
 		outw(ENABLE_UTP, nic->ioaddr + EP_W4_MEDIA_TYPE);
-		sleep(2);	/* Give time for media to negotiate */
+		mdelay(2000);	/* Give time for media to negotiate */
 		GO_WINDOW(nic->ioaddr,1);
 	}
 

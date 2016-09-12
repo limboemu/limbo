@@ -18,10 +18,12 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "mmu.h"
 #include "exec/helper-proto.h"
 #include "qemu/host-utils.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
 
 //#define CRIS_OP_HELPER_DEBUG
@@ -39,8 +41,8 @@
 /* Try to fill the TLB and return an exception if error. If retaddr is
    NULL, it means that the function was called in C code (i.e. not
    from generated code or from helper.c) */
-void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
-              uintptr_t retaddr)
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+              int mmu_idx, uintptr_t retaddr)
 {
     CRISCPU *cpu = CRIS_CPU(cs);
     CPUCRISState *env = &cpu->env;
@@ -48,7 +50,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
 
     D_LOG("%s pc=%x tpc=%x ra=%p\n", __func__,
           env->pc, env->pregs[PR_EDA], (void *)retaddr);
-    ret = cris_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
+    ret = cris_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
     if (unlikely(ret)) {
         if (retaddr) {
             /* now we have a real cpu fault */
@@ -89,11 +91,6 @@ void helper_spc_write(CPUCRISState *env, uint32_t new_spc)
     tlb_flush_page(cs, env->pregs[PR_SPC]);
     tlb_flush_page(cs, new_spc);
 #endif
-}
-
-void helper_dump(uint32_t a0, uint32_t a1, uint32_t a2)
-{
-	qemu_log("%s: a0=%x a1=%x\n", __func__, a0, a1);
 }
 
 /* Used by the tlb decoder.  */

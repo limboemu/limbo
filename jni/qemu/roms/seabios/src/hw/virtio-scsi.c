@@ -27,35 +27,42 @@ struct virtio_lun_s {
     struct drive_s drive;
     struct pci_device *pci;
     struct vring_virtqueue *vq;
-    u16 ioaddr;
+    struct vp_device *vp;
     u16 target;
     u16 lun;
 };
 
-static int
-virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
-                void *cdbcmd, u16 target, u16 lun, u16 blocksize)
+int
+virtio_scsi_process_op(struct disk_op_s *op)
 {
+    if (! CONFIG_VIRTIO_SCSI)
+        return 0;
+    struct virtio_lun_s *vlun =
+        container_of(op->drive_gf, struct virtio_lun_s, drive);
+    struct vp_device *vp = vlun->vp;
+    struct vring_virtqueue *vq = vlun->vq;
     struct virtio_scsi_req_cmd req;
     struct virtio_scsi_resp_cmd resp;
     struct vring_list sg[3];
 
     memset(&req, 0, sizeof(req));
+    int blocksize = scsi_fill_cmd(op, req.cdb, 16);
+    if (blocksize < 0)
+        return default_process_op(op);
     req.lun[0] = 1;
-    req.lun[1] = target;
-    req.lun[2] = (lun >> 8) | 0x40;
-    req.lun[3] = (lun & 0xff);
-    memcpy(req.cdb, cdbcmd, 16);
+    req.lun[1] = vlun->target;
+    req.lun[2] = (vlun->lun >> 8) | 0x40;
+    req.lun[3] = (vlun->lun & 0xff);
 
     u32 len = op->count * blocksize;
-    int datain = cdb_is_read(cdbcmd, blocksize);
+    int datain = scsi_is_read(op);
     int in_num = (datain ? 2 : 1);
     int out_num = (len ? 3 : 2) - in_num;
 
-    sg[0].addr   = MAKE_FLATPTR(GET_SEG(SS), &req);
+    sg[0].addr   = (void*)(&req);
     sg[0].length = sizeof(req);
 
-    sg[out_num].addr   = MAKE_FLATPTR(GET_SEG(SS), &resp);
+    sg[out_num].addr   = (void*)(&resp);
     sg[out_num].length = sizeof(resp);
 
     if (len) {
@@ -66,7 +73,7 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
 
     /* Add to virtqueue and kick host */
     vring_add_buf(vq, sg, out_num, in_num, 0, 0);
-    vring_kick(ioaddr, vq, 1);
+    vring_kick(vp, vq, 1);
 
     /* Wait for reply */
     while (!vring_more_used(vq))
@@ -78,7 +85,7 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
     /* Clear interrupt status register.  Avoid leaving interrupts stuck if
      * VRING_AVAIL_F_NO_INTERRUPT was ignored and interrupts were raised.
      */
-    vp_get_isr(ioaddr);
+    vp_get_isr(vp);
 
     if (resp.response == VIRTIO_SCSI_S_OK && resp.status == 0) {
         return DISK_RET_SUCCESS;
@@ -86,21 +93,8 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
     return DISK_RET_EBADTRACK;
 }
 
-int
-virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
-{
-    struct virtio_lun_s *vlun_gf =
-        container_of(op->drive_gf, struct virtio_lun_s, drive);
-
-    return virtio_scsi_cmd(GET_GLOBALFLAT(vlun_gf->ioaddr),
-                           GET_GLOBALFLAT(vlun_gf->vq), op, cdbcmd,
-                           GET_GLOBALFLAT(vlun_gf->target),
-                           GET_GLOBALFLAT(vlun_gf->lun),
-                           blocksize);
-}
-
 static int
-virtio_scsi_add_lun(struct pci_device *pci, u16 ioaddr,
+virtio_scsi_add_lun(struct pci_device *pci, struct vp_device *vp,
                     struct vring_virtqueue *vq, u16 target, u16 lun)
 {
     struct virtio_lun_s *vlun = malloc_fseg(sizeof(*vlun));
@@ -112,7 +106,7 @@ virtio_scsi_add_lun(struct pci_device *pci, u16 ioaddr,
     vlun->drive.type = DTYPE_VIRTIO_SCSI;
     vlun->drive.cntl_id = pci->bdf;
     vlun->pci = pci;
-    vlun->ioaddr = ioaddr;
+    vlun->vp = vp;
     vlun->vq = vq;
     vlun->target = target;
     vlun->lun = lun;
@@ -129,11 +123,11 @@ fail:
 }
 
 static int
-virtio_scsi_scan_target(struct pci_device *pci, u16 ioaddr,
+virtio_scsi_scan_target(struct pci_device *pci, struct vp_device *vp,
                         struct vring_virtqueue *vq, u16 target)
 {
     /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
-    int ret = virtio_scsi_add_lun(pci, ioaddr, vq, target, 0);
+    int ret = virtio_scsi_add_lun(pci, vp, vq, target, 0);
     return ret < 0 ? 0 : 1;
 }
 
@@ -144,19 +138,45 @@ init_virtio_scsi(struct pci_device *pci)
     dprintf(1, "found virtio-scsi at %x:%x\n", pci_bdf_to_bus(bdf),
             pci_bdf_to_dev(bdf));
     struct vring_virtqueue *vq = NULL;
-    u16 ioaddr = vp_init_simple(bdf);
-    if (vp_find_vq(ioaddr, 2, &vq) < 0 ) {
+    struct vp_device *vp = malloc_high(sizeof(*vp));
+    if (!vp) {
+        warn_noalloc();
+        return;
+    }
+    vp_init_simple(vp, pci);
+    u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
+
+    if (vp->use_modern) {
+        u64 features = vp_get_features(vp);
+        u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+        if (!(features & version1)) {
+            dprintf(1, "modern device without virtio_1 feature bit: %x:%x\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+            goto fail;
+        }
+
+        vp_set_features(vp, version1);
+        status |= VIRTIO_CONFIG_S_FEATURES_OK;
+        vp_set_status(vp, status);
+        if (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) {
+            dprintf(1, "device didn't accept features: %x:%x\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+            goto fail;
+        }
+    }
+
+    if (vp_find_vq(vp, 2, &vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-scsi %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
         goto fail;
     }
 
-    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
-                  VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
+    status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    vp_set_status(vp, status);
 
     int i, tot;
     for (tot = 0, i = 0; i < 256; i++)
-        tot += virtio_scsi_scan_target(pci, ioaddr, vq, i);
+        tot += virtio_scsi_scan_target(pci, vp, vq, i);
 
     if (!tot)
         goto fail;
@@ -164,7 +184,8 @@ init_virtio_scsi(struct pci_device *pci)
     return;
 
 fail:
-    vp_reset(ioaddr);
+    vp_reset(vp);
+    free(vp);
     free(vq);
 }
 
@@ -179,8 +200,9 @@ virtio_scsi_setup(void)
 
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET
-            || pci->device != PCI_DEVICE_ID_VIRTIO_SCSI)
+        if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET ||
+            (pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_09 &&
+             pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_10))
             continue;
         init_virtio_scsi(pci);
     }

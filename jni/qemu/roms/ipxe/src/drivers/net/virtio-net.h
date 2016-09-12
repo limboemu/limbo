@@ -14,6 +14,12 @@
 #define VIRTIO_NET_F_HOST_TSO6  12      /* Host can handle TSOv6 in. */
 #define VIRTIO_NET_F_HOST_ECN   13      /* Host can handle TSO[6] w/ ECN in. */
 #define VIRTIO_NET_F_HOST_UFO   14      /* Host can handle UFO in. */
+#define VIRTIO_NET_F_MRG_RXBUF  15      /* Driver can merge receive buffers. */
+#define VIRTIO_NET_F_STATUS     16      /* Configuration status field is available. */
+#define VIRTIO_NET_F_CTRL_VQ    17      /* Control channel is available. */
+#define VIRTIO_NET_F_CTRL_RX    18      /* Control channel RX mode support. */
+#define VIRTIO_NET_F_CTRL_VLAN  19      /* Control channel VLAN filtering. */
+#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Driver can send gratuitous packets. */
 
 struct virtio_net_config
 {
@@ -41,4 +47,14 @@ struct virtio_net_hdr
    uint16_t csum_start;
    uint16_t csum_offset;
 };
+
+/* Virtio 1.0 version of the first element of the scatter-gather list. */
+struct virtio_net_hdr_modern
+{
+   struct virtio_net_hdr legacy;
+
+   /* Used only if VIRTIO_NET_F_MRG_RXBUF: */
+   uint16_t num_buffers;
+};
+
 #endif /* _VIRTIO_NET_H_ */

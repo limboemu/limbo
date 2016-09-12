@@ -10,10 +10,10 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <stdio.h>
+#include "qemu/osdep.h"
 #include "monitor/monitor.h"
+#include "qemu/error-report.h"
 
-#ifndef __ANDROID__
 /*
  * Print to current monitor if we have one, else to stderr.
  * TODO should return int, so callers can calculate width, but that
@@ -41,7 +41,6 @@ void error_printf(const char *fmt, ...)
     va_end(ap);
 }
 
-
 void error_printf_unless_qmp(const char *fmt, ...)
 {
     va_list ap;
@@ -52,7 +51,6 @@ void error_printf_unless_qmp(const char *fmt, ...)
         va_end(ap);
     }
 }
-#endif //__ANDROID__
 
 static Location std_loc = {
     .kind = LOC_NONE
@@ -168,7 +166,6 @@ const char *error_get_progname(void)
 /*
  * Print current location to current monitor if we have one, else to stderr.
  */
-#ifndef __ANDROID__
 static void error_print_loc(void)
 {
     const char *sep = "";
@@ -199,24 +196,21 @@ static void error_print_loc(void)
         error_printf("%s", sep);
     }
 }
-#endif
 
 bool enable_timestamp_msg;
-
-#ifndef __ANDROID__
 /*
  * Print an error message to current monitor if we have one, else to stderr.
- * Format arguments like vsprintf().  The result should not contain
- * newlines.
+ * Format arguments like vsprintf().  The resulting message should be
+ * a single phrase, with no newline or trailing punctuation.
  * Prepend the current location and append a newline.
- * It's wrong to call this in a QMP monitor.  Use qerror_report() there.
+ * It's wrong to call this in a QMP monitor.  Use error_setg() there.
  */
 void error_vreport(const char *fmt, va_list ap)
 {
     GTimeVal tv;
     gchar *timestr;
 
-    if (enable_timestamp_msg) {
+    if (enable_timestamp_msg && !cur_mon) {
         g_get_current_time(&tv);
         timestr = g_time_val_to_iso8601(&tv);
         error_printf("%s ", timestr);
@@ -230,10 +224,10 @@ void error_vreport(const char *fmt, va_list ap)
 
 /*
  * Print an error message to current monitor if we have one, else to stderr.
- * Format arguments like sprintf().  The result should not contain
- * newlines.
+ * Format arguments like sprintf().  The resulting message should be a
+ * single phrase, with no newline or trailing punctuation.
  * Prepend the current location and append a newline.
- * It's wrong to call this in a QMP monitor.  Use qerror_report() there.
+ * It's wrong to call this in a QMP monitor.  Use error_setg() there.
  */
 void error_report(const char *fmt, ...)
 {
@@ -243,4 +237,3 @@ void error_report(const char *fmt, ...)
     error_vreport(fmt, ap);
     va_end(ap);
 }
-#endif //__ANDROID__

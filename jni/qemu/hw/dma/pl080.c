@@ -7,8 +7,10 @@
  * This code is licensed under the GPL.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "exec/address-spaces.h"
+#include "qemu/log.h"
 
 #define PL080_MAX_CHANNELS 8
 #define PL080_CONF_E    0x1
@@ -205,10 +207,22 @@ again:
             if (size == 0) {
                 /* Transfer complete.  */
                 if (ch->lli) {
-                    ch->src = ldl_le_phys(&address_space_memory, ch->lli);
-                    ch->dest = ldl_le_phys(&address_space_memory, ch->lli + 4);
-                    ch->ctrl = ldl_le_phys(&address_space_memory, ch->lli + 12);
-                    ch->lli = ldl_le_phys(&address_space_memory, ch->lli + 8);
+                    ch->src = address_space_ldl_le(&address_space_memory,
+                                                   ch->lli,
+                                                   MEMTXATTRS_UNSPECIFIED,
+                                                   NULL);
+                    ch->dest = address_space_ldl_le(&address_space_memory,
+                                                    ch->lli + 4,
+                                                    MEMTXATTRS_UNSPECIFIED,
+                                                    NULL);
+                    ch->ctrl = address_space_ldl_le(&address_space_memory,
+                                                    ch->lli + 12,
+                                                    MEMTXATTRS_UNSPECIFIED,
+                                                    NULL);
+                    ch->lli = address_space_ldl_le(&address_space_memory,
+                                                   ch->lli + 8,
+                                                   MEMTXATTRS_UNSPECIFIED,
+                                                   NULL);
                 } else {
                     ch->conf &= ~PL080_CCONF_E;
                 }

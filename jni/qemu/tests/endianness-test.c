@@ -11,11 +11,7 @@
  *
  */
 
-#include <glib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "qemu/osdep.h"
 
 #include "libqtest.h"
 #include "qemu/bswap.h"
@@ -31,8 +27,6 @@ struct TestCase {
 
 static const TestCase test_cases[] = {
     { "i386", "pc", -1 },
-    { "mips", "magnum", 0x90000000, .bswap = true },
-    { "mips", "pica61", 0x90000000, .bswap = true },
     { "mips", "mips", 0x14000000, .bswap = true },
     { "mips", "malta", 0x10000000, .bswap = true },
     { "mips64", "magnum", 0x90000000, .bswap = true },
@@ -288,7 +282,6 @@ static void test_endianness_combine(gconstpointer data)
 int main(int argc, char **argv)
 {
     const char *arch = qtest_get_arch();
-    int ret;
     int i;
 
     g_test_init(&argc, &argv, NULL);
@@ -298,20 +291,18 @@ int main(int argc, char **argv)
         if (strcmp(test_cases[i].arch, arch) != 0) {
             continue;
         }
-        path = g_strdup_printf("/%s/endianness/%s",
-                               arch, test_cases[i].machine);
-        g_test_add_data_func(path, &test_cases[i], test_endianness);
+        path = g_strdup_printf("endianness/%s",
+                               test_cases[i].machine);
+        qtest_add_data_func(path, &test_cases[i], test_endianness);
 
-        path = g_strdup_printf("/%s/endianness/split/%s",
-                               arch, test_cases[i].machine);
-        g_test_add_data_func(path, &test_cases[i], test_endianness_split);
+        path = g_strdup_printf("endianness/split/%s",
+                               test_cases[i].machine);
+        qtest_add_data_func(path, &test_cases[i], test_endianness_split);
 
-        path = g_strdup_printf("/%s/endianness/combine/%s",
-                               arch, test_cases[i].machine);
-        g_test_add_data_func(path, &test_cases[i], test_endianness_combine);
+        path = g_strdup_printf("endianness/combine/%s",
+                               test_cases[i].machine);
+        qtest_add_data_func(path, &test_cases[i], test_endianness_combine);
     }
 
-    ret = g_test_run();
-
-    return ret;
+    return g_test_run();
 }

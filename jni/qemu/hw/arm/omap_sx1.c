@@ -25,6 +25,8 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "ui/console.h"
 #include "hw/arm/omap.h"
@@ -103,7 +105,6 @@ static void sx1_init(MachineState *machine, const int version)
     struct omap_mpu_state_s *mpu;
     MemoryRegion *address_space = get_system_memory();
     MemoryRegion *flash = g_new(MemoryRegion, 1);
-    MemoryRegion *flash_1 = g_new(MemoryRegion, 1);
     MemoryRegion *cs = g_new(MemoryRegion, 4);
     static uint32_t cs0val = 0x00213090;
     static uint32_t cs1val = 0x00215070;
@@ -123,7 +124,7 @@ static void sx1_init(MachineState *machine, const int version)
 
     /* External Flash (EMIFS) */
     memory_region_init_ram(flash, NULL, "omap_sx1.flash0-0", flash_size,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(flash);
     memory_region_set_readonly(flash, true);
     memory_region_add_subregion(address_space, OMAP_CS0_BASE, flash);
@@ -165,8 +166,9 @@ static void sx1_init(MachineState *machine, const int version)
 
     if ((version == 1) &&
             (dinfo = drive_get(IF_PFLASH, 0, fl_idx)) != NULL) {
+        MemoryRegion *flash_1 = g_new(MemoryRegion, 1);
         memory_region_init_ram(flash_1, NULL, "omap_sx1.flash1-0", flash1_size,
-                               &error_abort);
+                               &error_fatal);
         vmstate_register_ram_global(flash_1);
         memory_region_set_readonly(flash_1, true);
         memory_region_add_subregion(address_space, OMAP_CS1_BASE, flash_1);
@@ -217,22 +219,38 @@ static void sx1_init_v2(MachineState *machine)
     sx1_init(machine, 2);
 }
 
-static QEMUMachine sx1_machine_v2 = {
-    .name = "sx1",
-    .desc = "Siemens SX1 (OMAP310) V2",
-    .init = sx1_init_v2,
+static void sx1_machine_v2_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Siemens SX1 (OMAP310) V2";
+    mc->init = sx1_init_v2;
+}
+
+static const TypeInfo sx1_machine_v2_type = {
+    .name = MACHINE_TYPE_NAME("sx1"),
+    .parent = TYPE_MACHINE,
+    .class_init = sx1_machine_v2_class_init,
 };
 
-static QEMUMachine sx1_machine_v1 = {
-    .name = "sx1-v1",
-    .desc = "Siemens SX1 (OMAP310) V1",
-    .init = sx1_init_v1,
+static void sx1_machine_v1_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Siemens SX1 (OMAP310) V1";
+    mc->init = sx1_init_v1;
+}
+
+static const TypeInfo sx1_machine_v1_type = {
+    .name = MACHINE_TYPE_NAME("sx1-v1"),
+    .parent = TYPE_MACHINE,
+    .class_init = sx1_machine_v1_class_init,
 };
 
 static void sx1_machine_init(void)
 {
-    qemu_register_machine(&sx1_machine_v2);
-    qemu_register_machine(&sx1_machine_v1);
+    type_register_static(&sx1_machine_v1_type);
+    type_register_static(&sx1_machine_v2_type);
 }
 
-machine_init(sx1_machine_init);
+type_init(sx1_machine_init)

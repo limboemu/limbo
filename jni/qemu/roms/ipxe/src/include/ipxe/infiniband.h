@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <ipxe/refcnt.h>
@@ -15,6 +15,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/tables.h>
 #include <ipxe/ib_packet.h>
 #include <ipxe/ib_mad.h>
+#include <ipxe/if_ether.h>
 
 /** Subnet management interface QPN */
 #define IB_QPN_SMI 0
@@ -158,6 +159,8 @@ struct ib_queue_pair {
 	struct ib_device *ibdev;
 	/** List of queue pairs on this Infiniband device */
 	struct list_head list;
+	/** Queue pair name */
+	const char *name;
 	/** Queue pair number */
 	unsigned long qpn;
 	/** Externally-visible queue pair number
@@ -388,6 +391,9 @@ struct ib_device_operations {
 				   union ib_mad *mad );
 };
 
+/** Maximum length of an Infiniband device name */
+#define IBDEV_NAME_LEN 8
+
 /** An Infiniband device */
 struct ib_device {
 	/** Reference counter */
@@ -396,6 +402,10 @@ struct ib_device {
 	struct list_head list;
 	/** List of open Infiniband devices */
 	struct list_head open_list;
+	/** Index of this Infiniband device */
+	unsigned int index;
+	/** Name of this Infiniband device */
+	char name[IBDEV_NAME_LEN];
 	/** Underlying device */
 	struct device *dev;
 	/** List of completion queues */
@@ -448,10 +458,11 @@ struct ib_device {
 	/** General services interface */
 	struct ib_mad_interface *gsi;
 
+	/** IPoIB LEMAC (if non-default) */
+	uint8_t lemac[ETH_ALEN];
+
 	/** Driver private data */
 	void *drv_priv;
-	/** Owner private data */
-	void *owner_priv;
 };
 
 /** An Infiniband upper-layer driver */
@@ -493,7 +504,7 @@ extern struct ib_queue_pair *
 ib_create_qp ( struct ib_device *ibdev, enum ib_queue_pair_type type,
 	       unsigned int num_send_wqes, struct ib_completion_queue *send_cq,
 	       unsigned int num_recv_wqes, struct ib_completion_queue *recv_cq,
-	       struct ib_queue_pair_operations *op );
+	       struct ib_queue_pair_operations *op, const char *name );
 extern int ib_modify_qp ( struct ib_device *ibdev, struct ib_queue_pair *qp );
 extern void ib_destroy_qp ( struct ib_device *ibdev,
 			    struct ib_queue_pair *qp );
@@ -693,28 +704,6 @@ ib_set_drvdata ( struct ib_device *ibdev, void *priv ) {
 static inline __always_inline void *
 ib_get_drvdata ( struct ib_device *ibdev ) {
 	return ibdev->drv_priv;
-}
-
-/**
- * Set Infiniband device owner-private data
- *
- * @v ibdev		Infiniband device
- * @v priv		Private data
- */
-static inline __always_inline void
-ib_set_ownerdata ( struct ib_device *ibdev, void *priv ) {
-	ibdev->owner_priv = priv;
-}
-
-/**
- * Get Infiniband device owner-private data
- *
- * @v ibdev		Infiniband device
- * @ret priv		Private data
- */
-static inline __always_inline void *
-ib_get_ownerdata ( struct ib_device *ibdev ) {
-	return ibdev->owner_priv;
 }
 
 #endif /* _IPXE_INFINIBAND_H */

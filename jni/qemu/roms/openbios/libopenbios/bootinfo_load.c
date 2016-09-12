@@ -161,6 +161,12 @@ bootinfo_init_program(void)
 	feval("load-size");
 	size = POP();
 
+	/* Some bootinfo scripts contain a binary payload after the
+	   NULL-terminated Forth string such as OS 9. Restrict our
+	   size to just the Forth section, otherwise we end up trying
+	   to allocate memory for the entire binary which might fail. */
+	size = strnlen(base, size);
+
 	bootscript = malloc(size);
 	if (bootscript == NULL) {
 		DPRINTF("Can't malloc %d bytes\n", size);

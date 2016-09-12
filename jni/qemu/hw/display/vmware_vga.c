@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/loader.h"
 #include "trace.h"
@@ -64,17 +66,11 @@ struct vmsvga_state_s {
     uint8_t *fifo_ptr;
     unsigned int fifo_size;
 
-    union {
-        uint32_t *fifo;
-        struct QEMU_PACKED {
-            uint32_t min;
-            uint32_t max;
-            uint32_t next_cmd;
-            uint32_t stop;
-            /* Add registers here when adding capabilities.  */
-            uint32_t fifo[0];
-        } *cmd;
-    };
+    uint32_t *fifo;
+    uint32_t fifo_min;
+    uint32_t fifo_max;
+    uint32_t fifo_next;
+    uint32_t fifo_stop;
 
 #define REDRAW_FIFO_LEN  512
     struct vmsvga_rect_s {
@@ -196,7 +192,7 @@ enum {
      */
     SVGA_FIFO_MIN = 0,
     SVGA_FIFO_MAX,      /* The distance from MIN to MAX must be at least 10K */
-    SVGA_FIFO_NEXT_CMD,
+    SVGA_FIFO_NEXT,
     SVGA_FIFO_STOP,
 
     /*
@@ -488,10 +484,10 @@ static inline int vmsvga_fill_rect(struct vmsvga_state_s *s,
 #endif
 
 struct vmsvga_cursor_definition_s {
-    int width;
-    int height;
+    uint32_t width;
+    uint32_t height;
     int id;
-    int bpp;
+    uint32_t bpp;
     int hot_x;
     int hot_y;
     uint32_t mask[1024];
@@ -544,8 +540,6 @@ static inline void vmsvga_cursor_define(struct vmsvga_state_s *s,
 }
 #endif
 
-#define CMD(f)  le32_to_cpu(s->cmd->f)
-
 static inline int vmsvga_fifo_length(struct vmsvga_state_s *s)
 {
     int num;
@@ -553,21 +547,45 @@ static inline int vmsvga_fifo_length(struct vmsvga_state_s *s)
     if (!s->config || !s->enable) {
         return 0;
     }
-    num = CMD(next_cmd) - CMD(stop);
+
+    s->fifo_min  = le32_to_cpu(s->fifo[SVGA_FIFO_MIN]);
+    s->fifo_max  = le32_to_cpu(s->fifo[SVGA_FIFO_MAX]);
+    s->fifo_next = le32_to_cpu(s->fifo[SVGA_FIFO_NEXT]);
+    s->fifo_stop = le32_to_cpu(s->fifo[SVGA_FIFO_STOP]);
+
+    /* Check range and alignment.  */
+    if ((s->fifo_min | s->fifo_max | s->fifo_next | s->fifo_stop) & 3) {
+        return 0;
+    }
+    if (s->fifo_min < sizeof(uint32_t) * 4) {
+        return 0;
+    }
+    if (s->fifo_max > SVGA_FIFO_SIZE ||
+        s->fifo_min >= SVGA_FIFO_SIZE ||
+        s->fifo_stop >= SVGA_FIFO_SIZE ||
+        s->fifo_next >= SVGA_FIFO_SIZE) {
+        return 0;
+    }
+    if (s->fifo_max < s->fifo_min + 10 * 1024) {
+        return 0;
+    }
+
+    num = s->fifo_next - s->fifo_stop;
     if (num < 0) {
-        num += CMD(max) - CMD(min);
+        num += s->fifo_max - s->fifo_min;
     }
     return num >> 2;
 }
 
 static inline uint32_t vmsvga_fifo_read_raw(struct vmsvga_state_s *s)
 {
-    uint32_t cmd = s->fifo[CMD(stop) >> 2];
+    uint32_t cmd = s->fifo[s->fifo_stop >> 2];
 
-    s->cmd->stop = cpu_to_le32(CMD(stop) + 4);
-    if (CMD(stop) >= CMD(max)) {
-        s->cmd->stop = s->cmd->min;
+    s->fifo_stop += 4;
+    if (s->fifo_stop >= s->fifo_max) {
+        s->fifo_stop = s->fifo_min;
     }
+    s->fifo[SVGA_FIFO_STOP] = cpu_to_le32(s->fifo_stop);
     return cmd;
 }
 
@@ -579,15 +597,15 @@ static inline uint32_t vmsvga_fifo_read(struct vmsvga_state_s *s)
 static void vmsvga_fifo_run(struct vmsvga_state_s *s)
 {
     uint32_t cmd, colour;
-    int args, len;
+    int args, len, maxloop = 1024;
     int x, y, dx, dy, width, height;
     struct vmsvga_cursor_definition_s cursor;
     uint32_t cmd_start;
 
     len = vmsvga_fifo_length(s);
-    while (len > 0) {
+    while (len > 0 && --maxloop > 0) {
         /* May need to go back to the start of the command if incomplete */
-        cmd_start = s->cmd->stop;
+        cmd_start = s->fifo_stop;
 
         switch (cmd = vmsvga_fifo_read(s)) {
         case SVGA_CMD_UPDATE:
@@ -658,7 +676,10 @@ static void vmsvga_fifo_run(struct vmsvga_state_s *s)
             cursor.bpp = vmsvga_fifo_read(s);
 
             args = SVGA_BITMAP_SIZE(x, y) + SVGA_PIXMAP_SIZE(x, y, cursor.bpp);
-            if (SVGA_BITMAP_SIZE(x, y) > sizeof cursor.mask ||
+            if (cursor.width > 256 ||
+                cursor.height > 256 ||
+                cursor.bpp > 32 ||
+                SVGA_BITMAP_SIZE(x, y) > sizeof cursor.mask ||
                 SVGA_PIXMAP_SIZE(x, y, cursor.bpp) > sizeof cursor.image) {
                     goto badcmd;
             }
@@ -743,7 +764,8 @@ static void vmsvga_fifo_run(struct vmsvga_state_s *s)
             break;
 
         rewind:
-            s->cmd->stop = cmd_start;
+            s->fifo_stop = cmd_start;
+            s->fifo[SVGA_FIFO_STOP] = cpu_to_le32(s->fifo_stop);
             break;
         }
     }
@@ -1000,19 +1022,6 @@ static void vmsvga_value_write(void *opaque, uint32_t address, uint32_t value)
     case SVGA_REG_CONFIG_DONE:
         if (value) {
             s->fifo = (uint32_t *) s->fifo_ptr;
-            /* Check range and alignment.  */
-            if ((CMD(min) | CMD(max) | CMD(next_cmd) | CMD(stop)) & 3) {
-                break;
-            }
-            if (CMD(min) < (uint8_t *) s->cmd->fifo - (uint8_t *) s->fifo) {
-                break;
-            }
-            if (CMD(max) > SVGA_FIFO_SIZE) {
-                break;
-            }
-            if (CMD(max) < CMD(min) + 10 * 1024) {
-                break;
-            }
             vga_dirty_log_stop(&s->vga);
         }
         s->config = !!value;
@@ -1124,7 +1133,7 @@ static void vmsvga_update_display(void *opaque)
      * Is it more efficient to look at vram VGA-dirty bits or wait
      * for the driver to issue SVGA_CMD_UPDATE?
      */
-    if (memory_region_is_logging(&s->vga.vram)) {
+    if (memory_region_is_logging(&s->vga.vram, DIRTY_MEMORY_VGA)) {
         vga_sync_dirty_bitmap(&s->vga);
         dirty = memory_region_get_dirty(&s->vga.vram, 0,
             surface_stride(surface) * surface_height(surface),
@@ -1244,7 +1253,7 @@ static void vmsvga_init(DeviceState *dev, struct vmsvga_state_s *s,
 
     s->fifo_size = SVGA_FIFO_SIZE;
     memory_region_init_ram(&s->fifo_ram, NULL, "vmsvga.fifo", s->fifo_size,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(&s->fifo_ram);
     s->fifo_ptr = memory_region_get_ram_ptr(&s->fifo_ram);
 

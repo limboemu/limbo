@@ -50,13 +50,13 @@ static unsigned short block = 0;
 static unsigned short blocksize;
 static char blocksize_str[6];    /* Blocksize string for read request */
 static int received_len = 0;
-static int retries = 0;
+static unsigned int retries = 0;
 static int huge_load;
 static int len;
 static int tftp_finished = 0;
 static int lost_packets = 0;
-static int tftp_errno = 0; 
-static int ip_version = 0; 
+static int tftp_errno = 0;
+static int ip_version = 0;
 static short port_number = -1;
 static tftp_err_t *tftp_err;
 static filename_ip_t  *fn_ip;
@@ -69,8 +69,7 @@ static filename_ip_t  *fn_ip;
  */
 #ifdef __DEBUG__
 
-static void
-dump_package(unsigned char *buffer, unsigned int len)
+static void dump_package(unsigned char *buffer, unsigned int len)
 {
 	int i;
 
@@ -89,8 +88,7 @@ dump_package(unsigned char *buffer, unsigned int len)
  *
  * @fd:          Socket Descriptor
  */
-static void
-send_rrq(int fd)
+static void send_rrq(int fd)
 {
 	int ip_len = 0;
 	int ip6_payload_len    = 0;
@@ -121,7 +119,7 @@ send_rrq(int fd)
 			+ strlen("blksize") + strlen(blocksize_str) + 2;
 		ip_len = sizeof(struct ip6hdr) + ip6_payload_len;
 		fill_ip6hdr ((uint8_t *) ip6, ip6_payload_len, IPTYPE_UDP, get_ipv6_address(),
-			     &(fn_ip->server_ip6)); 
+			     &(fn_ip->server_ip6));
 
 	}
 	udp_len = htons(sizeof(struct udphdr)
@@ -158,8 +156,7 @@ send_rrq(int fd)
  * @blckno: block number
  * @dport:  UDP destination port
  */
-static void
-send_ack(int fd, int blckno, unsigned short dport)
+static void send_ack(int fd, int blckno, unsigned short dport)
 {
 	int ip_len 	       = 0;
 	int ip6_payload_len    = 0;
@@ -182,8 +179,7 @@ send_ack(int fd, int blckno, unsigned short dport)
 		ip6 = (struct ip6hdr *) packet;
 		udph = (struct udphdr *) (ip6 + 1);
 		ip6_payload_len = sizeof(struct udphdr) + 4;
-		ip_len = sizeof(struct ethhdr) + sizeof(struct ip6hdr) +
-		    	 ip6_payload_len;
+		ip_len = sizeof(struct ip6hdr) + ip6_payload_len;
 		fill_ip6hdr ((uint8_t *) ip6, ip6_payload_len, IPTYPE_UDP, get_ipv6_address(),
 			     &(fn_ip->server_ip6));
 	}
@@ -210,8 +206,7 @@ send_ack(int fd, int blckno, unsigned short dport)
  * @error_code:  Used sub code for error packet
  * @dport:       UDP destination port
  */
-static void
-send_error(int fd, int error_code, unsigned short dport)
+static void send_error(int fd, int error_code, unsigned short dport)
 {
 	int ip_len 	       = 0;
 	int ip6_payload_len    = 0;
@@ -234,8 +229,7 @@ send_error(int fd, int error_code, unsigned short dport)
 		ip6 = (struct ip6hdr *) packet;
 		udph = (struct udphdr *) (ip6 + 1);
 		ip6_payload_len = sizeof(struct udphdr) + 5;
-		ip_len = sizeof(struct ethhdr) + sizeof(struct ip6hdr) +
-		         ip6_payload_len; 
+		ip_len = sizeof(struct ip6hdr) + ip6_payload_len;
 		fill_ip6hdr ((uint8_t *) ip6, ip6_payload_len, IPTYPE_UDP, get_ipv6_address(),
 			    &(fn_ip->server_ip6));
 	}
@@ -256,8 +250,7 @@ send_error(int fd, int error_code, unsigned short dport)
 	return;
 }
 
-static void
-print_progress(int urgent, int received_bytes)
+static void print_progress(int urgent, int received_bytes)
 {
 	static unsigned int i = 1;
 	static int first = -1;
@@ -265,7 +258,7 @@ print_progress(int urgent, int received_bytes)
 	char buffer[100];
 	char *ptr;
 
-	// 1MB steps or 0x400 times or urgent 
+	// 1MB steps or 0x400 times or urgent
 	if(((received_bytes - last_bytes) >> 20) > 0
 	|| (i & 0x3FF) == 0 || urgent) {
 		if(!first) {
@@ -295,8 +288,7 @@ print_progress(int urgent, int received_bytes)
  * @param len  the length of the network packet
  * @return  the blocksize the server supports or 0 for error
  */
-static int
-get_blksize(unsigned char *buffer, unsigned int len)
+static int get_blksize(unsigned char *buffer, unsigned int len)
 {
 	unsigned char *orig = buffer;
 	/* skip all headers until tftp has been reached */
@@ -325,7 +317,7 @@ get_blksize(unsigned char *buffer, unsigned int len)
 }
 
 /**
- * Handle incoming tftp packets after read request was sent 
+ * Handle incoming tftp packets after read request was sent
  *
  * this function also prints out some status characters
  * \|-/ for each packet received
@@ -334,13 +326,12 @@ get_blksize(unsigned char *buffer, unsigned int len)
  * #+* for different unexpected TFTP packets (not very good)
  *
  * @param fd     socket descriptor
- * @param packet points to the UDP header of the packet 
+ * @param packet points to the UDP header of the packet
  * @param len    the length of the network packet
  * @return       ZERO if packet was handled successfully
- *               ERRORCODE if error occurred 
+ *               ERRORCODE if error occurred
  */
-int32_t
-handle_tftp(int fd, uint8_t *pkt, int32_t packetsize) 
+int32_t handle_tftp(int fd, uint8_t *pkt, int32_t packetsize)
 {
 	struct udphdr *udph;
 	struct tftphdr *tftp;
@@ -397,7 +388,7 @@ handle_tftp(int fd, uint8_t *pkt, int32_t packetsize)
 		case ENOUSER:
 			tftp_errno = -7;	// ERROR: no such user
 			break;
-		default:	
+		default:
 			tftp_errno = -1;	// ERROR: unknown error
 		}
 		goto error;
@@ -489,8 +480,7 @@ error:
  *
  * @param  err_code   Error Code (e.g. "Host unreachable")
  */
-void
-handle_tftp_dun(uint8_t err_code)
+void handle_tftp_dun(uint8_t err_code)
 {
 	tftp_errno = - err_code - 10;
 	tftp_finished = 1;
@@ -510,10 +500,9 @@ handle_tftp_dun(uint8_t err_code)
  * @return               ZERO - error condition occurs
  *                       NON ZERO - size of received file
  */
-int
-tftp(filename_ip_t * _fn_ip, unsigned char *_buffer, int _len,
-     unsigned int _retries, tftp_err_t * _tftp_err,
-     int32_t _mode, int32_t _blocksize, int _ip_version)
+int tftp(filename_ip_t * _fn_ip, unsigned char *_buffer, int _len,
+	 unsigned int _retries, tftp_err_t * _tftp_err,
+	 int32_t _mode, int32_t _blocksize, int _ip_version)
 {
 	retries     = _retries;
 	fn_ip       = _fn_ip;
@@ -592,6 +581,6 @@ tftp(filename_ip_t * _fn_ip, unsigned char *_buffer, int _len,
 	printf("\n");
 	if (lost_packets)
 		printf("Lost ACK packets: %d\n", lost_packets);
-		
+
 	return received_len;
 }

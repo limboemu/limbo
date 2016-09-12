@@ -11,6 +11,8 @@ Index
 2.2 Overview of the source code
 2.4 Extending the Forth engine
 3.0 Limitations
+4.0 Submitting patches
+5.0 Coding style
 
 
 1.0 Introduction to Slimline Open Firmware
@@ -236,6 +238,34 @@ To add primitives:
  On a JS21 all memory configurations should work.
 
 
+4.0 Submitting patches
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Patches for SLOF should be made against https://github.com/aik/SLOF,
+the master branch and posted to slof@lists.ozlabs.org.
+The patches must be signed using "Signed-off-by" tag with a real name to
+confirm that you certify the Developer Certificate of Origin  Version 1.1,
+see [3] for details.
+
+
+5.0 Coding style
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+New C code submitted to SLOF should follow the coding style guidelines
+for the Linux kernel [4] with the following exceptions:
+
+- in the event that you require a specific width, use a standard type
+  like int32_t, uint32_t, uint64_t, etc. Don't use Linux kernel internal
+  types like u32, __u32 or __le32.
+
+New Forth code should use 4 space indentations and no tabs. Patches for
+the old code should keep the existing style which usually is
+3 space indentation.
+
+New assembly code submitted to SLOF should follow the coding style
+guidelines for the Linux kernel [4], i.e. indent with tabs, not with spaces.
+
+
 Documentation
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -244,3 +274,9 @@ Documentation
 
 [2] PAPR Standard, Power.org(TM) Standard for Power Architecture(R) Platform
     Requirements (Workstation, Server), Version 2.4, December 7, 2009
+
+[3] Developer Certificate of Origin Version 1.1
+    http://developercertificate.org/
+
+[4] Linux kernel coding style
+    https://github.com/torvalds/linux/blob/master/Documentation/CodingStyle

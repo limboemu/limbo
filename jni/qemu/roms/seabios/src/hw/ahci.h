@@ -83,8 +83,8 @@ struct ahci_port_s {
 };
 
 void ahci_setup(void);
-int process_ahci_op(struct disk_op_s *op);
-int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int ahci_process_op(struct disk_op_s *op);
+int ahci_atapi_process_op(struct disk_op_s *op);
 
 #define AHCI_IRQ_ON_SG            (1 << 31)
 #define AHCI_CMD_ATAPI            (1 << 5)

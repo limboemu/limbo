@@ -8,10 +8,12 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "hw/xen/xen_backend.h"
 #include "qmp-commands.h"
 #include "sysemu/char.h"
 #include "sysemu/accel.h"
+#include "migration/migration.h"
 
 //#define DEBUG_XEN
 
@@ -112,12 +114,22 @@ static void xen_change_state_handler(void *opaque, int running,
 
 static int xen_init(MachineState *ms)
 {
-    xen_xc = xen_xc_interface_open(0, 0, 0);
-    if (xen_xc == XC_HANDLER_INITIAL_VALUE) {
+    xen_xc = xc_interface_open(0, 0, 0);
+    if (xen_xc == NULL) {
         xen_be_printf(NULL, 0, "can't open xen interface\n");
         return -1;
     }
+    xen_fmem = xenforeignmemory_open(0, 0);
+    if (xen_fmem == NULL) {
+        xen_be_printf(NULL, 0, "can't open xen fmem interface\n");
+        xc_interface_close(xen_xc);
+        return -1;
+    }
     qemu_add_vm_change_state_handler(xen_change_state_handler, NULL);
+
+    global_state_set_optional();
+    savevm_skip_configuration();
+    savevm_skip_section_footers();
 
     return 0;
 }

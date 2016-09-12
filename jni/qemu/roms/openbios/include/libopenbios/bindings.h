@@ -56,6 +56,7 @@ extern ihandle_t	open_package( const char *argstr, phandle_t ph );
 extern ihandle_t	open_dev( const char *spec );
 extern void		close_package( ihandle_t ih );
 extern void		close_dev( ihandle_t ih );
+extern char		*get_path_from_ph( phandle_t ph );
 
 /* property access */
 extern void		set_property( phandle_t ph, const char *name,

@@ -40,7 +40,7 @@ typedef int32_t *(*handle_upper_udp_t)(uint8_t *, int32_t);
 typedef void    *(*handle_upper_udp_dun_t)(uint8_t);
 
 /* Handles UDP-packets that are detected by any network layer. */
-extern int8_t handle_udp(int fd, uint8_t * udp_packet, int32_t packetsize);
+extern int8_t handle_udp(int fd, uint8_t * udp_packet, uint32_t packetsize);
 
 /* Handles UDP related ICMP-Dest.Unreachable packets that are detected by
  * the network layers. */

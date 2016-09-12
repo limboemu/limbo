@@ -25,7 +25,9 @@
  *  o BIOS work to boot from USB storage
 */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "hw/usb.h"
 #include "hw/pci/pci.h"
@@ -439,15 +441,37 @@ static void ohci_stop_endpoints(OHCIState *ohci)
     }
 }
 
-/* Reset the controller */
-static void ohci_reset(void *opaque)
+static void ohci_roothub_reset(OHCIState *ohci)
 {
-    OHCIState *ohci = opaque;
     OHCIPort *port;
     int i;
 
     ohci_bus_stop(ohci);
-    ohci->ctl = 0;
+    ohci->rhdesc_a = OHCI_RHA_NPS | ohci->num_ports;
+    ohci->rhdesc_b = 0x0; /* Impl. specific */
+    ohci->rhstatus = 0;
+
+    for (i = 0; i < ohci->num_ports; i++) {
+        port = &ohci->rhport[i];
+        port->ctrl = 0;
+        if (port->port.dev && port->port.dev->attached) {
+            usb_port_reset(&port->port);
+        }
+    }
+    if (ohci->async_td) {
+        usb_cancel_packet(&ohci->usb_packet);
+        ohci->async_td = 0;
+    }
+    ohci_stop_endpoints(ohci);
+}
+
+/* Reset the controller */
+static void ohci_soft_reset(OHCIState *ohci)
+{
+    trace_usb_ohci_reset(ohci->name);
+
+    ohci_bus_stop(ohci);
+    ohci->ctl = (ohci->ctl & OHCI_CTL_IR) | OHCI_USB_SUSPEND;
     ohci->old_ctl = 0;
     ohci->status = 0;
     ohci->intr_status = 0;
@@ -470,25 +494,13 @@ static void ohci_reset(void *opaque)
     ohci->frame_number = 0;
     ohci->pstart = 0;
     ohci->lst = OHCI_LS_THRESH;
+}
 
-    ohci->rhdesc_a = OHCI_RHA_NPS | ohci->num_ports;
-    ohci->rhdesc_b = 0x0; /* Impl. specific */
-    ohci->rhstatus = 0;
-
-    for (i = 0; i < ohci->num_ports; i++)
-      {
-        port = &ohci->rhport[i];
-        port->ctrl = 0;
-        if (port->port.dev && port->port.dev->attached) {
-            usb_port_reset(&port->port);
-        }
-      }
-    if (ohci->async_td) {
-        usb_cancel_packet(&ohci->usb_packet);
-        ohci->async_td = 0;
-    }
-    ohci_stop_endpoints(ohci);
-    trace_usb_ohci_reset(ohci->name);
+static void ohci_hard_reset(OHCIState *ohci)
+{
+    ohci_soft_reset(ohci);
+    ohci->ctl = 0;
+    ohci_roothub_reset(ohci);
 }
 
 /* Get an array of dwords from main memory */
@@ -1231,11 +1243,16 @@ static int ohci_service_ed_list(OHCIState *ohci, uint32_t head, int completion)
     return active;
 }
 
-/* Generate a SOF event, and set a timer for EOF */
-static void ohci_sof(OHCIState *ohci)
+/* set a timer for EOF */
+static void ohci_eof_timer(OHCIState *ohci)
 {
     ohci->sof_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     timer_mod(ohci->eof_timer, ohci->sof_time + usb_frame_time);
+}
+/* Set a timer for EOF and generate a SOF event */
+static void ohci_sof(OHCIState *ohci)
+{
+    ohci_eof_timer(ohci);
     ohci_set_interrupt(ohci, OHCI_INTR_SF);
 }
 
@@ -1331,19 +1348,14 @@ static void ohci_frame_boundary(void *opaque)
  */
 static int ohci_bus_start(OHCIState *ohci)
 {
-    ohci->eof_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
-                    ohci_frame_boundary,
-                    ohci);
-
-    if (ohci->eof_timer == NULL) {
-        trace_usb_ohci_bus_eof_timer_failed(ohci->name);
-        ohci_die(ohci);
-        return 0;
-    }
-
     trace_usb_ohci_start(ohci->name);
 
-    ohci_sof(ohci);
+    /* Delay the first SOF event by one frame time as
+     * linux driver is not ready to receive it and
+     * can meet some race conditions
+     */
+
+    ohci_eof_timer(ohci);
 
     return 1;
 }
@@ -1352,11 +1364,7 @@ static int ohci_bus_start(OHCIState *ohci)
 static void ohci_bus_stop(OHCIState *ohci)
 {
     trace_usb_ohci_stop(ohci->name);
-    if (ohci->eof_timer) {
-        timer_del(ohci->eof_timer);
-        timer_free(ohci->eof_timer);
-    }
-    ohci->eof_timer = NULL;
+    timer_del(ohci->eof_timer);
 }
 
 /* Sets a flag in a port status register but only set it if the port is
@@ -1436,12 +1444,15 @@ static void ohci_set_ctl(OHCIState *ohci, uint32_t val)
         break;
     case OHCI_USB_SUSPEND:
         ohci_bus_stop(ohci);
+        /* clear pending SF otherwise linux driver loops in ohci_irq() */
+        ohci->intr_status &= ~OHCI_INTR_SF;
+        ohci_intr_update(ohci);
         break;
     case OHCI_USB_RESUME:
         trace_usb_ohci_resume(ohci->name);
         break;
     case OHCI_USB_RESET:
-        ohci_reset(ohci);
+        ohci_roothub_reset(ohci);
         break;
     }
 }
@@ -1463,7 +1474,7 @@ static uint32_t ohci_get_frame_remaining(OHCIState *ohci)
     if (tks >= usb_frame_time)
         return (ohci->frt << 31);
 
-    tks = muldiv64(1, tks, usb_bit_time);
+    tks = tks / usb_bit_time;
     fr = (uint16_t)(ohci->fi - tks);
 
     return (ohci->frt << 31) | fr;
@@ -1704,7 +1715,7 @@ static void ohci_mem_write(void *opaque,
         ohci->status |= val;
 
         if (ohci->status & OHCI_STATUS_HCR)
-            ohci_reset(ohci);
+            ohci_soft_reset(ohci);
         break;
 
     case 3: /* HcInterruptStatus */
@@ -1783,7 +1794,7 @@ static void ohci_mem_write(void *opaque,
     case 25: /* HcHReset */
         ohci->hreset = val & ~OHCI_HRESET_FSBIR;
         if (val & OHCI_HRESET_FSBIR)
-            ohci_reset(ohci);
+            ohci_hard_reset(ohci);
         break;
 
     case 26: /* HcHInterruptEnable */
@@ -1837,14 +1848,20 @@ static void usb_ohci_init(OHCIState *ohci, DeviceState *dev,
 
     ohci->as = as;
 
+    if (num_ports > OHCI_MAX_PORTS) {
+        error_setg(errp, "OHCI num-ports=%d is too big (limit is %d ports)",
+                   num_ports, OHCI_MAX_PORTS);
+        return;
+    }
+
     if (usb_frame_time == 0) {
 #ifdef OHCI_TIME_WARP
-        usb_frame_time = get_ticks_per_sec();
-        usb_bit_time = muldiv64(1, get_ticks_per_sec(), USB_HZ/1000);
+        usb_frame_time = NANOSECONDS_PER_SECOND;
+        usb_bit_time = NANOSECONDS_PER_SECOND / (USB_HZ / 1000);
 #else
-        usb_frame_time = muldiv64(1, get_ticks_per_sec(), 1000);
-        if (get_ticks_per_sec() >= USB_HZ) {
-            usb_bit_time = muldiv64(1, get_ticks_per_sec(), USB_HZ);
+        usb_frame_time = NANOSECONDS_PER_SECOND / 1000;
+        if (NANOSECONDS_PER_SECOND >= USB_HZ) {
+            usb_bit_time = NANOSECONDS_PER_SECOND / USB_HZ;
         } else {
             usb_bit_time = 1;
         }
@@ -1883,6 +1900,9 @@ static void usb_ohci_init(OHCIState *ohci, DeviceState *dev,
     usb_packet_init(&ohci->usb_packet);
 
     ohci->async_td = 0;
+
+    ohci->eof_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                   ohci_frame_boundary, ohci);
 }
 
 #define TYPE_PCI_OHCI "pci-ohci"
@@ -1952,6 +1972,9 @@ static void usb_ohci_exit(PCIDevice *dev)
     if (!ohci->masterbus) {
         usb_bus_release(&s->bus);
     }
+
+    timer_del(s->eof_timer);
+    timer_free(s->eof_timer);
 }
 
 static void usb_ohci_reset_pci(DeviceState *d)
@@ -1960,7 +1983,7 @@ static void usb_ohci_reset_pci(DeviceState *d)
     OHCIPCIState *ohci = PCI_OHCI(dev);
     OHCIState *s = &ohci->state;
 
-    ohci_reset(s);
+    ohci_hard_reset(s);
 }
 
 #define TYPE_SYSBUS_OHCI "sysbus-ohci"
@@ -1993,7 +2016,7 @@ static void usb_ohci_reset_sysbus(DeviceState *dev)
     OHCISysBusState *s = SYSBUS_OHCI(dev);
     OHCIState *ohci = &s->ohci;
 
-    ohci_reset(ohci);
+    ohci_hard_reset(ohci);
 }
 
 static Property ohci_pci_properties[] = {
@@ -2017,23 +2040,14 @@ static bool ohci_eof_timer_needed(void *opaque)
 {
     OHCIState *ohci = opaque;
 
-    return ohci->eof_timer != NULL;
-}
-
-static int ohci_eof_timer_pre_load(void *opaque)
-{
-    OHCIState *ohci = opaque;
-
-    ohci_bus_start(ohci);
-
-    return 0;
+    return timer_pending(ohci->eof_timer);
 }
 
 static const VMStateDescription vmstate_ohci_eof_timer = {
     .name = "ohci-core/eof-timer",
     .version_id = 1,
     .minimum_version_id = 1,
-    .pre_load = ohci_eof_timer_pre_load,
+    .needed = ohci_eof_timer_needed,
     .fields = (VMStateField[]) {
         VMSTATE_TIMER_PTR(eof_timer, OHCIState),
         VMSTATE_END_OF_LIST()
@@ -2081,13 +2095,9 @@ static const VMStateDescription vmstate_ohci_state = {
         VMSTATE_BOOL(async_complete, OHCIState),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection []) {
-        {
-            .vmsd = &vmstate_ohci_eof_timer,
-            .needed = ohci_eof_timer_needed,
-        } , {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_ohci_eof_timer,
+        NULL
     }
 };
 

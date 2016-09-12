@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -61,6 +65,10 @@ struct pixel_buffer * alloc_pixbuf ( unsigned int width, unsigned int height ) {
 	pixbuf->height = height;
 	pixbuf->len = ( width * height * sizeof ( uint32_t ) );
 
+	/* Check for multiplication overflow */
+	if ( ( ( pixbuf->len / sizeof ( uint32_t ) ) / width ) != height )
+		goto err_overflow;
+
 	/* Allocate pixel data buffer */
 	pixbuf->data = umalloc ( pixbuf->len );
 	if ( ! pixbuf->data )
@@ -69,6 +77,7 @@ struct pixel_buffer * alloc_pixbuf ( unsigned int width, unsigned int height ) {
 	return pixbuf;
 
  err_alloc_data:
+ err_overflow:
 	pixbuf_put ( pixbuf );
  err_alloc_pixbuf:
 	return NULL;

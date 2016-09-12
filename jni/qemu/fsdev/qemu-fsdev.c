@@ -1,5 +1,5 @@
 /*
- * Virtio 9p
+ * 9p
  *
  * Copyright IBM, Corp. 2010
  *
@@ -10,13 +10,12 @@
  * the COPYING file in the top-level directory.
  *
  */
-#include <stdio.h>
-#include <string.h>
+#include "qemu/osdep.h"
 #include "qemu-fsdev.h"
 #include "qemu/queue.h"
-#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qemu/config-file.h"
+#include "qemu/error-report.h"
 
 static QTAILQ_HEAD(FsDriverEntry_head, FsDriverListEntry) fsdriver_entries =
     QTAILQ_HEAD_INITIALIZER(fsdriver_entries);
@@ -40,7 +39,7 @@ int qemu_fsdev_add(QemuOpts *opts)
     bool ro = qemu_opt_get_bool(opts, "readonly", 0);
 
     if (!fsdev_id) {
-        fprintf(stderr, "fsdev: No id specified\n");
+        error_report("fsdev: No id specified");
         return -1;
     }
 
@@ -52,11 +51,11 @@ int qemu_fsdev_add(QemuOpts *opts)
         }
 
         if (i == ARRAY_SIZE(FsDrivers)) {
-            fprintf(stderr, "fsdev: fsdriver %s not found\n", fsdriver);
+            error_report("fsdev: fsdriver %s not found", fsdriver);
             return -1;
         }
     } else {
-        fprintf(stderr, "fsdev: No fsdriver specified\n");
+        error_report("fsdev: No fsdriver specified");
         return -1;
     }
 

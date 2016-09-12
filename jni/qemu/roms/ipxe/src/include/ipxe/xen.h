@@ -7,12 +7,13 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /* Define Xen interface version before including any Xen header files */
 #define __XEN_INTERFACE_VERSION__ 0x00040400
 
 #include <stdint.h>
+#include <ipxe/bitops.h>
 #include <ipxe/uaccess.h>
 #include <xen/xen.h>
 #include <xen/event_channel.h>
@@ -57,6 +58,19 @@ struct xen_hypervisor {
 	/** XenStore */
 	struct xen_store store;
 };
+
+/**
+ * Test and clear pending event
+ *
+ * @v xen		Xen hypervisor
+ * @v port		Event channel port
+ * @ret pending		Event was pending
+ */
+static inline __attribute__ (( always_inline )) int
+xenevent_pending ( struct xen_hypervisor *xen, evtchn_port_t port ) {
+
+	return test_and_clear_bit ( port, xen->shared->evtchn_pending );
+}
 
 #include <bits/xen.h>
 

@@ -69,8 +69,18 @@ int kvm_arm_init_cpreg_list(ARMCPU *cpu);
 bool kvm_arm_reg_syncs_via_cpreg_list(uint64_t regidx);
 
 /**
+ * kvm_arm_cpreg_level
+ * regidx: KVM register index
+ *
+ * Return the level of this coprocessor/system register.  Return value is
+ * either KVM_PUT_RUNTIME_STATE, KVM_PUT_RESET_STATE, or KVM_PUT_FULL_STATE.
+ */
+int kvm_arm_cpreg_level(uint64_t regidx);
+
+/**
  * write_list_to_kvmstate:
  * @cpu: ARMCPU
+ * @level: the state level to sync
  *
  * For each register listed in the ARMCPU cpreg_indexes list, write
  * its value from the cpreg_values list into the kernel (via ioctl).
@@ -83,7 +93,7 @@ bool kvm_arm_reg_syncs_via_cpreg_list(uint64_t regidx);
  * Note that we do not stop early on failure -- we will attempt
  * writing all registers in the list.
  */
-bool write_list_to_kvmstate(ARMCPU *cpu);
+bool write_list_to_kvmstate(ARMCPU *cpu, int level);
 
 /**
  * write_kvmstate_to_list:
@@ -114,9 +124,12 @@ void kvm_arm_reset_vcpu(ARMCPU *cpu);
  * kvm_arm_create_scratch_host_vcpu:
  * @cpus_to_try: array of QEMU_KVM_ARM_TARGET_* values (terminated with
  * QEMU_KVM_ARM_TARGET_NONE) to try as fallback if the kernel does not
- * know the PREFERRED_TARGET ioctl
+ * know the PREFERRED_TARGET ioctl. Passing NULL is the same as passing
+ * an empty array.
  * @fdarray: filled in with kvmfd, vmfd, cpufd file descriptors in that order
- * @init: filled in with the necessary values for creating a host vcpu
+ * @init: filled in with the necessary values for creating a host
+ * vcpu. If NULL is provided, will not init the vCPU (though the cpufd
+ * will still be set up).
  *
  * Create a scratch vcpu in its own VM of the type preferred by the host
  * kernel (as would be used for '-cpu host'), for purposes of probing it
@@ -179,6 +192,67 @@ int kvm_arm_sync_mpstate_to_kvm(ARMCPU *cpu);
  */
 int kvm_arm_sync_mpstate_to_qemu(ARMCPU *cpu);
 
+int kvm_arm_vgic_probe(void);
+
+int kvm_arm_pmu_create(CPUState *cs, int irq);
+
+#else
+
+static inline int kvm_arm_vgic_probe(void)
+{
+    return 0;
+}
+
+static inline int kvm_arm_pmu_create(CPUState *cs, int irq)
+{
+    return 0;
+}
+
 #endif
+
+static inline const char *gic_class_name(void)
+{
+    return kvm_irqchip_in_kernel() ? "kvm-arm-gic" : "arm_gic";
+}
+
+/**
+ * gicv3_class_name
+ *
+ * Return name of GICv3 class to use depending on whether KVM acceleration is
+ * in use. May throw an error if the chosen implementation is not available.
+ *
+ * Returns: class name to use
+ */
+const char *gicv3_class_name(void);
+
+/**
+ * kvm_arm_handle_debug:
+ * @cs: CPUState
+ * @debug_exit: debug part of the KVM exit structure
+ *
+ * Returns: TRUE if the debug exception was handled.
+ */
+bool kvm_arm_handle_debug(CPUState *cs, struct kvm_debug_exit_arch *debug_exit);
+
+/**
+ * kvm_arm_hw_debug_active:
+ * @cs: CPU State
+ *
+ * Return: TRUE if any hardware breakpoints in use.
+ */
+
+bool kvm_arm_hw_debug_active(CPUState *cs);
+
+/**
+ * kvm_arm_copy_hw_debug_data:
+ *
+ * @ptr: kvm_guest_debug_arch structure
+ *
+ * Copy the architecture specific debug registers into the
+ * kvm_guest_debug ioctl structure.
+ */
+struct kvm_guest_debug_arch;
+
+void kvm_arm_copy_hw_debug_data(struct kvm_guest_debug_arch *ptr);
 
 #endif

@@ -22,6 +22,8 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/audio/audio.h"
 #include "audio/audio.h"
@@ -56,11 +58,6 @@ void YMF262UpdateOneQEMU (int which, INT16 *dst, int length);
 #include "fmopl.h"
 #define SHIFT 1
 #endif
-
-#define IO_READ_PROTO(name) \
-    uint32_t name (void *opaque, uint32_t nport)
-#define IO_WRITE_PROTO(name) \
-    void name (void *opaque, uint32_t nport, uint32_t val)
 
 #define TYPE_ADLIB "adlib"
 #define ADLIB(obj) OBJECT_CHECK(AdlibState, (obj), TYPE_ADLIB)
@@ -124,7 +121,7 @@ static void adlib_kill_timers (AdlibState *s)
     }
 }
 
-static IO_WRITE_PROTO (adlib_write)
+static void adlib_write(void *opaque, uint32_t nport, uint32_t val)
 {
     AdlibState *s = opaque;
     int a = nport & 3;
@@ -141,7 +138,7 @@ static IO_WRITE_PROTO (adlib_write)
 #endif
 }
 
-static IO_READ_PROTO (adlib_read)
+static uint32_t adlib_read(void *opaque, uint32_t nport)
 {
     AdlibState *s = opaque;
     uint8_t data;
@@ -173,7 +170,7 @@ static void timer_handler (int c, double interval_Sec)
 
     s->ticking[n] = 1;
 #ifdef DEBUG
-    interval = get_ticks_per_sec () * interval_Sec;
+    interval = NANOSECONDS_PER_SECOND * interval_Sec;
     exp = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + interval;
     s->exp[n] = exp;
 #endif

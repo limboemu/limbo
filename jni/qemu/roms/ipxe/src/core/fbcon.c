@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -152,7 +156,7 @@ static void fbcon_store ( struct fbcon *fbcon, struct fbcon_text_cell *cell,
  */
 static void fbcon_draw ( struct fbcon *fbcon, struct fbcon_text_cell *cell,
 			 unsigned int xpos, unsigned int ypos ) {
-	struct fbcon_font_glyph glyph;
+	uint8_t glyph[fbcon->font->height];
 	size_t offset;
 	size_t pixel_len;
 	size_t skip_len;
@@ -163,9 +167,7 @@ static void fbcon_draw ( struct fbcon *fbcon, struct fbcon_text_cell *cell,
 	void *src;
 
 	/* Get font character */
-	copy_from_user ( &glyph, fbcon->font->start,
-			 ( cell->character * sizeof ( glyph ) ),
-			 sizeof ( glyph ) );
+	fbcon->font->glyph ( cell->character, glyph );
 
 	/* Calculate pixel geometry */
 	offset = ( fbcon->indent +
@@ -178,7 +180,7 @@ static void fbcon_draw ( struct fbcon *fbcon, struct fbcon_text_cell *cell,
 	transparent = ( cell->background == FBCON_TRANSPARENT );
 
 	/* Draw character rows */
-	for ( row = 0 ; row < FBCON_CHAR_HEIGHT ; row++ ) {
+	for ( row = 0 ; row < fbcon->font->height ; row++ ) {
 
 		/* Draw background picture, if applicable */
 		if ( transparent ) {
@@ -193,7 +195,7 @@ static void fbcon_draw ( struct fbcon *fbcon, struct fbcon_text_cell *cell,
 		}
 
 		/* Draw character row */
-		for ( column = FBCON_CHAR_WIDTH, bitmask = glyph.bitmask[row] ;
+		for ( column = FBCON_CHAR_WIDTH, bitmask = glyph[row] ;
 		      column ; column--, bitmask <<= 1, offset += pixel_len ) {
 			if ( bitmask & 0x80 ) {
 				src = &cell->foreground;
@@ -573,22 +575,24 @@ static int fbcon_picture_init ( struct fbcon *fbcon,
  * @v fbcon		Frame buffer console
  * @v start		Start address
  * @v pixel		Pixel geometry
- * @v margin		Minimum margin
  * @v map		Colour mapping
  * @v font		Font definition
- * @v pixbuf		Background picture (if any)
+ * @v config		Console configuration
  * @ret rc		Return status code
  */
 int fbcon_init ( struct fbcon *fbcon, userptr_t start,
 		 struct fbcon_geometry *pixel,
-		 struct fbcon_margin *margin,
 		 struct fbcon_colour_map *map,
 		 struct fbcon_font *font,
-		 struct pixel_buffer *pixbuf ) {
+		 struct console_configuration *config ) {
 	int width;
 	int height;
 	unsigned int xgap;
 	unsigned int ygap;
+	unsigned int left;
+	unsigned int right;
+	unsigned int top;
+	unsigned int bottom;
 	int rc;
 
 	/* Initialise data structure */
@@ -607,31 +611,51 @@ int fbcon_init ( struct fbcon *fbcon, userptr_t start,
 	       user_to_phys ( fbcon->start, 0 ),
 	       user_to_phys ( fbcon->start, fbcon->len ) );
 
+	/* Calculate margin.  If the actual screen size is larger than
+	 * the requested screen size, then update the margins so that
+	 * the margin remains relative to the requested screen size.
+	 * (As an exception, if a zero margin was specified then treat
+	 * this as meaning "expand to edge of actual screen".)
+	 */
+	xgap = ( pixel->width - config->width );
+	ygap = ( pixel->height - config->height );
+	left = ( xgap / 2 );
+	right = ( xgap - left );
+	top = ( ygap / 2 );
+	bottom = ( ygap - top );
+	fbcon->margin.left = ( config->left + ( config->left ? left : 0 ) );
+	fbcon->margin.right = ( config->right + ( config->right ? right : 0 ) );
+	fbcon->margin.top = ( config->top + ( config->top ? top : 0 ) );
+	fbcon->margin.bottom =
+		( config->bottom + ( config->bottom ? bottom : 0 ) );
+
 	/* Expand margin to accommodate whole characters */
-	width = ( pixel->width - margin->left - margin->right );
-	height = ( pixel->height - margin->top - margin->bottom );
-	if ( ( width < FBCON_CHAR_WIDTH ) || ( height < FBCON_CHAR_HEIGHT ) ) {
+	width = ( pixel->width - fbcon->margin.left - fbcon->margin.right );
+	height = ( pixel->height - fbcon->margin.top - fbcon->margin.bottom );
+	if ( ( width < FBCON_CHAR_WIDTH ) ||
+	     ( height < ( ( int ) font->height ) ) ) {
 		DBGC ( fbcon, "FBCON %p has unusable character area "
-		       "[%d-%d),[%d-%d)\n", fbcon,
-		       margin->left, ( pixel->width - margin->right ),
-		       margin->top, ( pixel->height - margin->bottom ) );
+		       "[%d-%d),[%d-%d)\n", fbcon, fbcon->margin.left,
+		       ( pixel->width - fbcon->margin.right ),
+		       fbcon->margin.top,
+		       ( pixel->height - fbcon->margin.bottom ) );
 		rc = -EINVAL;
 		goto err_margin;
 	}
 	xgap = ( width % FBCON_CHAR_WIDTH );
-	ygap = ( height % FBCON_CHAR_HEIGHT );
-	fbcon->margin.left = ( margin->left + ( xgap / 2 ) );
-	fbcon->margin.top = ( margin->top + ( ygap / 2 ) );
-	fbcon->margin.right = ( margin->right + ( xgap - ( xgap / 2 ) ) );
-	fbcon->margin.bottom = ( margin->bottom + ( ygap - ( ygap / 2 ) ) );
+	ygap = ( height % font->height );
+	fbcon->margin.left += ( xgap / 2 );
+	fbcon->margin.top += ( ygap / 2 );
+	fbcon->margin.right += ( xgap - ( xgap / 2 ) );
+	fbcon->margin.bottom += ( ygap - ( ygap / 2 ) );
 	fbcon->indent = ( ( fbcon->margin.top * pixel->stride ) +
 			  ( fbcon->margin.left * pixel->len ) );
 
 	/* Derive character geometry from pixel geometry */
 	fbcon->character.width = ( width / FBCON_CHAR_WIDTH );
-	fbcon->character.height = ( height / FBCON_CHAR_HEIGHT );
+	fbcon->character.height = ( height / font->height );
 	fbcon->character.len = ( pixel->len * FBCON_CHAR_WIDTH );
-	fbcon->character.stride = ( pixel->stride * FBCON_CHAR_HEIGHT );
+	fbcon->character.stride = ( pixel->stride * font->height );
 	DBGC ( fbcon, "FBCON %p is pixel %dx%d, char %dx%d at "
 	       "[%d-%d),[%d-%d)\n", fbcon, fbcon->pixel->width,
 	       fbcon->pixel->height, fbcon->character.width,
@@ -658,7 +682,8 @@ int fbcon_init ( struct fbcon *fbcon, userptr_t start,
 	memset_user ( fbcon->start, 0, 0, fbcon->len );
 
 	/* Generate pixel buffer from background image, if applicable */
-	if ( pixbuf && ( ( rc = fbcon_picture_init ( fbcon, pixbuf ) ) != 0 ) )
+	if ( config->pixbuf &&
+	     ( ( rc = fbcon_picture_init ( fbcon, config->pixbuf ) ) != 0 ) )
 		goto err_picture;
 
 	/* Draw background picture (including margins), if applicable */

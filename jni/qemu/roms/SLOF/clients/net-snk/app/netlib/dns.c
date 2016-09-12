@@ -133,7 +133,7 @@ dns_init(uint32_t _dns_server_ip, uint8_t _dns_server_ipv6[16], uint8_t ip_versi
  *                   FALSE - error condition occurs.
  */
 int8_t
-dns_get_ip(int fd, int8_t * url, uint8_t * domain_ip, uint8_t ip_version)
+dns_get_ip(int fd, char* url, uint8_t * domain_ip, uint8_t ip_version)
 {
 	/* this counter is used so that we abort after 30 DNS request */
 	int32_t i;
@@ -143,7 +143,7 @@ dns_get_ip(int fd, int8_t * url, uint8_t * domain_ip, uint8_t ip_version)
 	(* domain_ip) = 0;
 
 	// Retrieve host name from URL
-	if (!urltohost((char *) url, (char *) host_name)) {
+	if (!urltohost(url, (char *) host_name)) {
 		printf("\nERROR:\t\t\tBad URL!\n");
 		return 0;
 	}

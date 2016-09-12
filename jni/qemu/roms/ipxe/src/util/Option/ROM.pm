@@ -529,6 +529,26 @@ sub new {
   return $hash;  
 }
 
+sub device_list {
+  my $hash = shift;
+  my $self = tied(%$hash);
+
+  my $device_list = $hash->{device_list};
+  return undef unless $device_list;
+
+  my @ids;
+  my $offset = ( $self->{offset} + $device_list );
+  while ( 1 ) {
+    my $raw = substr ( ${$self->{data}}, $offset, 2 );
+    my $id = unpack ( "S", $raw );
+    last unless $id;
+    push @ids, $id;
+    $offset += 2;
+  }
+
+  return @ids;
+}
+
 ##############################################################################
 #
 # Option::ROM::PnP

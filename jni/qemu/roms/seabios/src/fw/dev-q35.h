@@ -27,6 +27,9 @@
 #define ICH9_LPC_GEN_PMCON_1_SMI_LOCK  (1 << 4)
 #define ICH9_LPC_PORT_ELCR1            0x4d0
 #define ICH9_LPC_PORT_ELCR2            0x4d1
+#define ICH9_LPC_RCBA                  0xf0
+#define ICH9_LPC_RCBA_ADDR             0xfed1c000
+#define ICH9_LPC_RCBA_EN               0x1
 #define PCI_DEVICE_ID_INTEL_ICH9_SMBUS 0x2930
 #define ICH9_SMB_SMB_BASE              0x20
 #define ICH9_SMB_HOSTC                 0x40

@@ -18,16 +18,113 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>
  */
 
+#include "qemu/osdep.h"
 #include "hw/mem/pc-dimm.h"
+#include "qapi/error.h"
 #include "qemu/config-file.h"
 #include "qapi/visitor.h"
 #include "qemu/range.h"
 #include "sysemu/numa.h"
+#include "sysemu/kvm.h"
+#include "trace.h"
+#include "hw/virtio/vhost.h"
 
 typedef struct pc_dimms_capacity {
      uint64_t size;
      Error    **errp;
 } pc_dimms_capacity;
+
+void pc_dimm_memory_plug(DeviceState *dev, MemoryHotplugState *hpms,
+                         MemoryRegion *mr, uint64_t align, Error **errp)
+{
+    int slot;
+    MachineState *machine = MACHINE(qdev_get_machine());
+    PCDIMMDevice *dimm = PC_DIMM(dev);
+    PCDIMMDeviceClass *ddc = PC_DIMM_GET_CLASS(dimm);
+    MemoryRegion *vmstate_mr = ddc->get_vmstate_memory_region(dimm);
+    Error *local_err = NULL;
+    uint64_t existing_dimms_capacity = 0;
+    uint64_t addr;
+
+    addr = object_property_get_int(OBJECT(dimm), PC_DIMM_ADDR_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    addr = pc_dimm_get_free_addr(hpms->base,
+                                 memory_region_size(&hpms->mr),
+                                 !addr ? NULL : &addr, align,
+                                 memory_region_size(mr), &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    existing_dimms_capacity = pc_existing_dimms_capacity(&local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    if (existing_dimms_capacity + memory_region_size(mr) >
+        machine->maxram_size - machine->ram_size) {
+        error_setg(&local_err, "not enough space, currently 0x%" PRIx64
+                   " in use of total hot pluggable 0x" RAM_ADDR_FMT,
+                   existing_dimms_capacity,
+                   machine->maxram_size - machine->ram_size);
+        goto out;
+    }
+
+    object_property_set_int(OBJECT(dev), addr, PC_DIMM_ADDR_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    trace_mhp_pc_dimm_assigned_address(addr);
+
+    slot = object_property_get_int(OBJECT(dev), PC_DIMM_SLOT_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    slot = pc_dimm_get_free_slot(slot == PC_DIMM_UNASSIGNED_SLOT ? NULL : &slot,
+                                 machine->ram_slots, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    object_property_set_int(OBJECT(dev), slot, PC_DIMM_SLOT_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    trace_mhp_pc_dimm_assigned_slot(slot);
+
+    if (kvm_enabled() && !kvm_has_free_slot(machine)) {
+        error_setg(&local_err, "hypervisor has no free memory slots left");
+        goto out;
+    }
+
+    if (!vhost_has_free_slot()) {
+        error_setg(&local_err, "a used vhost backend has no free"
+                               " memory slots left");
+        goto out;
+    }
+
+    memory_region_add_subregion(&hpms->mr, addr - hpms->base, mr);
+    vmstate_register_ram(vmstate_mr, dev);
+    numa_set_mem_node_id(addr, memory_region_size(mr), dimm->node);
+
+out:
+    error_propagate(errp, local_err);
+}
+
+void pc_dimm_memory_unplug(DeviceState *dev, MemoryHotplugState *hpms,
+                           MemoryRegion *mr)
+{
+    PCDIMMDevice *dimm = PC_DIMM(dev);
+    PCDIMMDeviceClass *ddc = PC_DIMM_GET_CLASS(dimm);
+    MemoryRegion *vmstate_mr = ddc->get_vmstate_memory_region(dimm);
+
+    numa_unset_mem_node_id(dimm->addr, memory_region_size(mr), dimm->node);
+    memory_region_del_subregion(&hpms->mr, mr);
+    vmstate_unregister_ram(vmstate_mr, dev);
+}
 
 static int pc_existing_dimms_capacity_internal(Object *obj, void *opaque)
 {
@@ -88,7 +185,7 @@ int qmp_pc_dimm_device_list(Object *obj, void *opaque)
                                                NULL);
             di->memdev = object_get_canonical_path(OBJECT(dimm->hostmem));
 
-            info->dimm = di;
+            info->u.dimm.data = di;
             elem->value = info;
             elem->next = NULL;
             **prev = elem;
@@ -98,32 +195,6 @@ int qmp_pc_dimm_device_list(Object *obj, void *opaque)
 
     object_child_foreach(obj, qmp_pc_dimm_device_list, opaque);
     return 0;
-}
-
-ram_addr_t get_current_ram_size(void)
-{
-    MemoryDeviceInfoList *info_list = NULL;
-    MemoryDeviceInfoList **prev = &info_list;
-    MemoryDeviceInfoList *info;
-    ram_addr_t size = ram_size;
-
-    qmp_pc_dimm_device_list(qdev_get_machine(), &prev);
-    for (info = info_list; info; info = info->next) {
-        MemoryDeviceInfo *value = info->value;
-
-        if (value) {
-            switch (value->kind) {
-            case MEMORY_DEVICE_INFO_KIND_DIMM:
-                size += value->dimm->size;
-                break;
-            default:
-                break;
-            }
-        }
-    }
-    qapi_free_MemoryDeviceInfoList(info_list);
-
-    return size;
 }
 
 static int pc_dimm_slot2bitmap(Object *obj, void *opaque)
@@ -211,7 +282,6 @@ uint64_t pc_dimm_get_free_addr(uint64_t address_space_start,
     uint64_t address_space_end = address_space_start + address_space_size;
 
     g_assert(QEMU_ALIGN_UP(address_space_start, align) == address_space_start);
-    g_assert(QEMU_ALIGN_UP(address_space_size, align) == address_space_size);
 
     if (!address_space_size) {
         error_setg(errp, "memory hotplug is not enabled, "
@@ -282,32 +352,34 @@ static Property pc_dimm_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
-static void pc_dimm_get_size(Object *obj, Visitor *v, void *opaque,
-                          const char *name, Error **errp)
+static void pc_dimm_get_size(Object *obj, Visitor *v, const char *name,
+                             void *opaque, Error **errp)
 {
     int64_t value;
     MemoryRegion *mr;
     PCDIMMDevice *dimm = PC_DIMM(obj);
+    PCDIMMDeviceClass *ddc = PC_DIMM_GET_CLASS(obj);
 
-    mr = host_memory_backend_get_memory(dimm->hostmem, errp);
+    mr = ddc->get_memory_region(dimm);
     value = memory_region_size(mr);
 
-    visit_type_int(v, &value, name, errp);
+    visit_type_int(v, name, &value, errp);
 }
 
 static void pc_dimm_check_memdev_is_busy(Object *obj, const char *name,
                                       Object *val, Error **errp)
 {
-    MemoryRegion *mr;
+    Error *local_err = NULL;
 
-    mr = host_memory_backend_get_memory(MEMORY_BACKEND(val), errp);
-    if (memory_region_is_mapped(mr)) {
+    if (host_memory_backend_is_mapped(MEMORY_BACKEND(val))) {
         char *path = object_get_canonical_path_component(val);
-        error_setg(errp, "can't use already busy memdev: %s", path);
+        error_setg(&local_err, "can't use already busy memdev: %s", path);
         g_free(path);
     } else {
-        qdev_prop_allow_set_link_before_realize(obj, name, val, errp);
+        qdev_prop_allow_set_link_before_realize(obj, name, val, &local_err);
     }
+
+    error_propagate(errp, local_err);
 }
 
 static void pc_dimm_init(Object *obj)
@@ -326,20 +398,40 @@ static void pc_dimm_init(Object *obj)
 static void pc_dimm_realize(DeviceState *dev, Error **errp)
 {
     PCDIMMDevice *dimm = PC_DIMM(dev);
+    PCDIMMDeviceClass *ddc = PC_DIMM_GET_CLASS(dimm);
 
     if (!dimm->hostmem) {
         error_setg(errp, "'" PC_DIMM_MEMDEV_PROP "' property is not set");
         return;
     }
-    if ((nb_numa_nodes > 0) && (dimm->node >= nb_numa_nodes)) {
+    if (((nb_numa_nodes > 0) && (dimm->node >= nb_numa_nodes)) ||
+        (!nb_numa_nodes && dimm->node)) {
         error_setg(errp, "'DIMM property " PC_DIMM_NODE_PROP " has value %"
                    PRIu32 "' which exceeds the number of numa nodes: %d",
-                   dimm->node, nb_numa_nodes);
+                   dimm->node, nb_numa_nodes ? nb_numa_nodes : 1);
         return;
     }
+
+    if (ddc->realize) {
+        ddc->realize(dimm, errp);
+    }
+
+    host_memory_backend_set_mapped(dimm->hostmem, true);
+}
+
+static void pc_dimm_unrealize(DeviceState *dev, Error **errp)
+{
+    PCDIMMDevice *dimm = PC_DIMM(dev);
+
+    host_memory_backend_set_mapped(dimm->hostmem, false);
 }
 
 static MemoryRegion *pc_dimm_get_memory_region(PCDIMMDevice *dimm)
+{
+    return host_memory_backend_get_memory(dimm->hostmem, &error_abort);
+}
+
+static MemoryRegion *pc_dimm_get_vmstate_memory_region(PCDIMMDevice *dimm)
 {
     return host_memory_backend_get_memory(dimm->hostmem, &error_abort);
 }
@@ -350,10 +442,12 @@ static void pc_dimm_class_init(ObjectClass *oc, void *data)
     PCDIMMDeviceClass *ddc = PC_DIMM_CLASS(oc);
 
     dc->realize = pc_dimm_realize;
+    dc->unrealize = pc_dimm_unrealize;
     dc->props = pc_dimm_properties;
     dc->desc = "DIMM memory module";
 
     ddc->get_memory_region = pc_dimm_get_memory_region;
+    ddc->get_vmstate_memory_region = pc_dimm_get_vmstate_memory_region;
 }
 
 static TypeInfo pc_dimm_info = {

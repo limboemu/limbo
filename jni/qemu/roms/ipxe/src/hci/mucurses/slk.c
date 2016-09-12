@@ -11,6 +11,8 @@
  * Soft label key functions
  */
 
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
+
 #define MIN_SPACE_SIZE 2
 
 #define SLK_MAX_LABEL_LEN 8

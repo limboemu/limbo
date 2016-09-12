@@ -11,10 +11,16 @@
  * directory.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qapi/visitor.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "s390-pci-bus.h"
-#include <hw/pci/pci_bus.h>
-#include <hw/pci/msi.h>
-#include <qemu/error-report.h>
+#include "s390-pci-inst.h"
+#include "hw/pci/pci_bus.h"
+#include "hw/pci/msi.h"
+#include "qemu/error-report.h"
 
 /* #define DEBUG_S390PCI_BUS */
 #ifdef DEBUG_S390PCI_BUS
@@ -25,6 +31,19 @@
     do { } while (0)
 #endif
 
+static S390pciState *s390_get_phb(void)
+{
+    static S390pciState *phb;
+
+    if (!phb) {
+        phb = S390_PCI_HOST_BRIDGE(
+            object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
+        assert(phb != NULL);
+    }
+
+    return phb;
+}
+
 int chsc_sei_nt2_get_event(void *res)
 {
     ChscSeiNt2Res *nt2_res = (ChscSeiNt2Res *)res;
@@ -32,12 +51,7 @@ int chsc_sei_nt2_get_event(void *res)
     PciCcdfErr *eccdf;
     int rc = 1;
     SeiContainer *sei_cont;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
-
-    if (!s) {
-        return rc;
-    }
+    S390pciState *s = s390_get_phb();
 
     sei_cont = QTAILQ_FIRST(&s->pending_sei);
     if (sei_cont) {
@@ -72,30 +86,40 @@ int chsc_sei_nt2_get_event(void *res)
 
 int chsc_sei_nt2_have_event(void)
 {
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
-
-    if (!s) {
-        return 0;
-    }
+    S390pciState *s = s390_get_phb();
 
     return !QTAILQ_EMPTY(&s->pending_sei);
+}
+
+S390PCIBusDevice *s390_pci_find_next_avail_dev(S390PCIBusDevice *pbdev)
+{
+    int idx = 0;
+    S390PCIBusDevice *dev = NULL;
+    S390pciState *s = s390_get_phb();
+
+    if (pbdev) {
+        idx = (pbdev->fh & FH_MASK_INDEX) + 1;
+    }
+
+    for (; idx < PCI_SLOT_MAX; idx++) {
+        dev = s->pbdev[idx];
+        if (dev && dev->state != ZPCI_FS_RESERVED) {
+            return dev;
+        }
+    }
+
+    return NULL;
 }
 
 S390PCIBusDevice *s390_pci_find_dev_by_fid(uint32_t fid)
 {
     S390PCIBusDevice *pbdev;
     int i;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
-
-    if (!s) {
-        return NULL;
-    }
+    S390pciState *s = s390_get_phb();
 
     for (i = 0; i < PCI_SLOT_MAX; i++) {
-        pbdev = &s->pbdev[i];
-        if ((pbdev->fh != 0) && (pbdev->fid == fid)) {
+        pbdev = s->pbdev[i];
+        if (pbdev && pbdev->fid == fid) {
             return pbdev;
         }
     }
@@ -103,83 +127,139 @@ S390PCIBusDevice *s390_pci_find_dev_by_fid(uint32_t fid)
     return NULL;
 }
 
-void s390_pci_sclp_configure(int configure, SCCB *sccb)
+void s390_pci_sclp_configure(SCCB *sccb)
 {
     PciCfgSccb *psccb = (PciCfgSccb *)sccb;
     S390PCIBusDevice *pbdev = s390_pci_find_dev_by_fid(be32_to_cpu(psccb->aid));
     uint16_t rc;
 
-    if (pbdev) {
-        if ((configure == 1 && pbdev->configured == true) ||
-            (configure == 0 && pbdev->configured == false)) {
-            rc = SCLP_RC_NO_ACTION_REQUIRED;
-        } else {
-            pbdev->configured = !pbdev->configured;
-            rc = SCLP_RC_NORMAL_COMPLETION;
-        }
-    } else {
-        DPRINTF("sclp config %d no dev found\n", configure);
+    if (be16_to_cpu(sccb->h.length) < 16) {
+        rc = SCLP_RC_INSUFFICIENT_SCCB_LENGTH;
+        goto out;
+    }
+
+    if (!pbdev) {
+        DPRINTF("sclp config no dev found\n");
         rc = SCLP_RC_ADAPTER_ID_NOT_RECOGNIZED;
+        goto out;
     }
 
+    switch (pbdev->state) {
+    case ZPCI_FS_RESERVED:
+        rc = SCLP_RC_ADAPTER_IN_RESERVED_STATE;
+        break;
+    case ZPCI_FS_STANDBY:
+        pbdev->state = ZPCI_FS_DISABLED;
+        rc = SCLP_RC_NORMAL_COMPLETION;
+        break;
+    default:
+        rc = SCLP_RC_NO_ACTION_REQUIRED;
+    }
+out:
     psccb->header.response_code = cpu_to_be16(rc);
-    return;
 }
 
-static uint32_t s390_pci_get_pfid(PCIDevice *pdev)
+void s390_pci_sclp_deconfigure(SCCB *sccb)
 {
-    return PCI_SLOT(pdev->devfn);
-}
+    PciCfgSccb *psccb = (PciCfgSccb *)sccb;
+    S390PCIBusDevice *pbdev = s390_pci_find_dev_by_fid(be32_to_cpu(psccb->aid));
+    uint16_t rc;
 
-static uint32_t s390_pci_get_pfh(PCIDevice *pdev)
-{
-    return PCI_SLOT(pdev->devfn) | FH_VIRT;
-}
-
-S390PCIBusDevice *s390_pci_find_dev_by_idx(uint32_t idx)
-{
-    S390PCIBusDevice *pbdev;
-    int i;
-    int j = 0;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
-
-    if (!s) {
-        return NULL;
+    if (be16_to_cpu(sccb->h.length) < 16) {
+        rc = SCLP_RC_INSUFFICIENT_SCCB_LENGTH;
+        goto out;
     }
+
+    if (!pbdev) {
+        DPRINTF("sclp deconfig no dev found\n");
+        rc = SCLP_RC_ADAPTER_ID_NOT_RECOGNIZED;
+        goto out;
+    }
+
+    switch (pbdev->state) {
+    case ZPCI_FS_RESERVED:
+        rc = SCLP_RC_ADAPTER_IN_RESERVED_STATE;
+        break;
+    case ZPCI_FS_STANDBY:
+        rc = SCLP_RC_NO_ACTION_REQUIRED;
+        break;
+    default:
+        if (pbdev->summary_ind) {
+            pci_dereg_irqs(pbdev);
+        }
+        if (pbdev->iommu_enabled) {
+            pci_dereg_ioat(pbdev);
+        }
+        pbdev->state = ZPCI_FS_STANDBY;
+        rc = SCLP_RC_NORMAL_COMPLETION;
+
+        if (pbdev->release_timer) {
+            qdev_unplug(DEVICE(pbdev->pdev), NULL);
+        }
+    }
+out:
+    psccb->header.response_code = cpu_to_be16(rc);
+}
+
+static S390PCIBusDevice *s390_pci_find_dev_by_uid(uint16_t uid)
+{
+    int i;
+    S390PCIBusDevice *pbdev;
+    S390pciState *s = s390_get_phb();
 
     for (i = 0; i < PCI_SLOT_MAX; i++) {
-        pbdev = &s->pbdev[i];
-
-        if (pbdev->fh == 0) {
+        pbdev = s->pbdev[i];
+        if (!pbdev) {
             continue;
         }
 
-        if (j == idx) {
+        if (pbdev->uid == uid) {
             return pbdev;
         }
-        j++;
     }
 
     return NULL;
 }
 
-S390PCIBusDevice *s390_pci_find_dev_by_fh(uint32_t fh)
+static S390PCIBusDevice *s390_pci_find_dev_by_target(const char *target)
 {
-    S390PCIBusDevice *pbdev;
     int i;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
+    S390PCIBusDevice *pbdev;
+    S390pciState *s = s390_get_phb();
 
-    if (!s || !fh) {
+    if (!target) {
         return NULL;
     }
 
     for (i = 0; i < PCI_SLOT_MAX; i++) {
-        pbdev = &s->pbdev[i];
-        if (pbdev->fh == fh) {
+        pbdev = s->pbdev[i];
+        if (!pbdev) {
+            continue;
+        }
+
+        if (!strcmp(pbdev->target, target)) {
             return pbdev;
         }
+    }
+
+    return NULL;
+}
+
+S390PCIBusDevice *s390_pci_find_dev_by_idx(uint32_t idx)
+{
+    S390pciState *s = s390_get_phb();
+
+    return s->pbdev[idx & FH_MASK_INDEX];
+}
+
+S390PCIBusDevice *s390_pci_find_dev_by_fh(uint32_t fh)
+{
+    S390pciState *s = s390_get_phb();
+    S390PCIBusDevice *pbdev;
+
+    pbdev = s->pbdev[fh & FH_MASK_INDEX];
+    if (pbdev && pbdev->fh == fh) {
+        return pbdev;
     }
 
     return NULL;
@@ -189,12 +269,7 @@ static void s390_pci_generate_event(uint8_t cc, uint16_t pec, uint32_t fh,
                                     uint32_t fid, uint64_t faddr, uint32_t e)
 {
     SeiContainer *sei_cont;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(
-        object_resolve_path(TYPE_S390_PCI_HOST_BRIDGE, NULL));
-
-    if (!s) {
-        return;
-    }
+    S390pciState *s = s390_get_phb();
 
     sei_cont = g_malloc0(sizeof(SeiContainer));
     sei_cont->fh = fh;
@@ -214,9 +289,8 @@ static void s390_pci_generate_plug_event(uint16_t pec, uint32_t fh,
     s390_pci_generate_event(2, pec, fh, fid, 0, 0);
 }
 
-static void s390_pci_generate_error_event(uint16_t pec, uint32_t fh,
-                                          uint32_t fid, uint64_t faddr,
-                                          uint32_t e)
+void s390_pci_generate_error_event(uint16_t pec, uint32_t fh, uint32_t fid,
+                                   uint64_t faddr, uint32_t e)
 {
     s390_pci_generate_event(1, pec, fh, fid, faddr, e);
 }
@@ -278,7 +352,8 @@ static uint64_t s390_guest_io_table_walk(uint64_t guest_iota,
     px = calc_px(guest_dma_address);
 
     sto_a = guest_iota + rtx * sizeof(uint64_t);
-    sto = ldq_phys(&address_space_memory, sto_a);
+    sto = address_space_ldq(&address_space_memory, sto_a,
+                            MEMTXATTRS_UNSPECIFIED, NULL);
     sto = get_rt_sto(sto);
     if (!sto) {
         pte = 0;
@@ -286,7 +361,8 @@ static uint64_t s390_guest_io_table_walk(uint64_t guest_iota,
     }
 
     pto_a = sto + sx * sizeof(uint64_t);
-    pto = ldq_phys(&address_space_memory, pto_a);
+    pto = address_space_ldq(&address_space_memory, pto_a,
+                            MEMTXATTRS_UNSPECIFIED, NULL);
     pto = get_st_pto(pto);
     if (!pto) {
         pte = 0;
@@ -294,7 +370,8 @@ static uint64_t s390_guest_io_table_walk(uint64_t guest_iota,
     }
 
     px_a = pto + px * sizeof(uint64_t);
-    pte = ldq_phys(&address_space_memory, px_a);
+    pte = address_space_ldq(&address_space_memory, px_a,
+                            MEMTXATTRS_UNSPECIFIED, NULL);
 
 out:
     return pte;
@@ -305,9 +382,8 @@ static IOMMUTLBEntry s390_translate_iommu(MemoryRegion *iommu, hwaddr addr,
 {
     uint64_t pte;
     uint32_t flags;
-    S390PCIBusDevice *pbdev = container_of(iommu, S390PCIBusDevice, mr);
-    S390pciState *s = S390_PCI_HOST_BRIDGE(pci_device_root_bus(pbdev->pdev)
-                                           ->qbus.parent);
+    S390PCIBusDevice *pbdev = container_of(iommu, S390PCIBusDevice, iommu_mr);
+    S390pciState *s;
     IOMMUTLBEntry ret = {
         .target_as = &address_space_memory,
         .iova = 0,
@@ -316,8 +392,20 @@ static IOMMUTLBEntry s390_translate_iommu(MemoryRegion *iommu, hwaddr addr,
         .perm = IOMMU_NONE,
     };
 
+    switch (pbdev->state) {
+    case ZPCI_FS_ENABLED:
+    case ZPCI_FS_BLOCKED:
+        if (!pbdev->iommu_enabled) {
+            return ret;
+        }
+        break;
+    default:
+        return ret;
+    }
+
     DPRINTF("iommu trans addr 0x%" PRIx64 "\n", addr);
 
+    s = S390_PCI_HOST_BRIDGE(pci_device_root_bus(pbdev->pdev)->qbus.parent);
     /* s390 does not have an APIC mapped to main storage so we use
      * a separate AddressSpace only for msix notifications
      */
@@ -330,30 +418,13 @@ static IOMMUTLBEntry s390_translate_iommu(MemoryRegion *iommu, hwaddr addr,
         return ret;
     }
 
-    if (!pbdev->g_iota) {
-        pbdev->error_state = true;
-        pbdev->lgstg_blocked = true;
-        s390_pci_generate_error_event(ERR_EVENT_INVALAS, pbdev->fh, pbdev->fid,
-                                      addr, 0);
-        return ret;
-    }
-
     if (addr < pbdev->pba || addr > pbdev->pal) {
-        pbdev->error_state = true;
-        pbdev->lgstg_blocked = true;
-        s390_pci_generate_error_event(ERR_EVENT_OORANGE, pbdev->fh, pbdev->fid,
-                                      addr, 0);
         return ret;
     }
 
     pte = s390_guest_io_table_walk(s390_pci_get_table_origin(pbdev->g_iota),
                                    addr);
-
     if (!pte) {
-        pbdev->error_state = true;
-        pbdev->lgstg_blocked = true;
-        s390_pci_generate_error_event(ERR_EVENT_SERR, pbdev->fh, pbdev->fid,
-                                      addr, ERR_EVENT_Q_BIT);
         return ret;
     }
 
@@ -379,7 +450,7 @@ static AddressSpace *s390_pci_dma_iommu(PCIBus *bus, void *opaque, int devfn)
 {
     S390pciState *s = opaque;
 
-    return &s->pbdev[PCI_SLOT(devfn)].as;
+    return &s->iommu[PCI_SLOT(devfn)]->as;
 }
 
 static uint8_t set_ind_atomic(uint64_t ind_loc, uint8_t to_be_set)
@@ -407,18 +478,22 @@ static void s390_msi_ctrl_write(void *opaque, hwaddr addr, uint64_t data,
 {
     S390PCIBusDevice *pbdev;
     uint32_t io_int_word;
-    uint32_t fid = data >> ZPCI_MSI_VEC_BITS;
+    uint32_t idx = data >> ZPCI_MSI_VEC_BITS;
     uint32_t vec = data & ZPCI_MSI_VEC_MASK;
     uint64_t ind_bit;
     uint32_t sum_bit;
     uint32_t e = 0;
 
-    DPRINTF("write_msix data 0x%" PRIx64 " fid %d vec 0x%x\n", data, fid, vec);
+    DPRINTF("write_msix data 0x%" PRIx64 " idx %d vec 0x%x\n", data, idx, vec);
 
-    pbdev = s390_pci_find_dev_by_fid(fid);
+    pbdev = s390_pci_find_dev_by_idx(idx);
     if (!pbdev) {
         e |= (vec << ERR_EVENT_MVN_OFFSET);
-        s390_pci_generate_error_event(ERR_EVENT_NOMSI, 0, fid, addr, e);
+        s390_pci_generate_error_event(ERR_EVENT_NOMSI, idx, 0, addr, e);
+        return;
+    }
+
+    if (pbdev->state != ZPCI_FS_ENABLED) {
         return;
     }
 
@@ -432,8 +507,6 @@ static void s390_msi_ctrl_write(void *opaque, hwaddr addr, uint64_t data,
         io_int_word = (pbdev->isc << 27) | IO_INT_WORD_AI;
         s390_io_interrupt(0, 0, 0, io_int_word);
     }
-
-    return;
 }
 
 static uint64_t s390_msi_ctrl_read(void *opaque, hwaddr addr, unsigned size)
@@ -447,14 +520,33 @@ static const MemoryRegionOps s390_msi_ctrl_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
+void s390_pci_iommu_enable(S390PCIBusDevice *pbdev)
+{
+    memory_region_init_iommu(&pbdev->iommu_mr, OBJECT(&pbdev->iommu->mr),
+                             &s390_iommu_ops, "iommu-s390", pbdev->pal + 1);
+    memory_region_add_subregion(&pbdev->iommu->mr, 0, &pbdev->iommu_mr);
+    pbdev->iommu_enabled = true;
+}
+
+void s390_pci_iommu_disable(S390PCIBusDevice *pbdev)
+{
+    memory_region_del_subregion(&pbdev->iommu->mr, &pbdev->iommu_mr);
+    object_unparent(OBJECT(&pbdev->iommu_mr));
+    pbdev->iommu_enabled = false;
+}
+
 static void s390_pcihost_init_as(S390pciState *s)
 {
     int i;
+    S390PCIIOMMU *iommu;
 
     for (i = 0; i < PCI_SLOT_MAX; i++) {
-        memory_region_init_iommu(&s->pbdev[i].mr, OBJECT(s),
-                                 &s390_iommu_ops, "iommu-s390", UINT64_MAX);
-        address_space_init(&s->pbdev[i].as, &s->pbdev[i].mr, "iommu-pci");
+        iommu = g_malloc0(sizeof(S390PCIIOMMU));
+        memory_region_init(&iommu->mr, OBJECT(s),
+                           "iommu-root-s390", UINT64_MAX);
+        address_space_init(&iommu->as, &iommu->mr, "iommu-pci");
+
+        s->iommu[i] = iommu;
     }
 
     memory_region_init_io(&s->msix_notify_mr, OBJECT(s),
@@ -481,6 +573,10 @@ static int s390_pcihost_init(SysBusDevice *dev)
     bus = BUS(b);
     qbus_set_hotplug_handler(bus, DEVICE(dev), NULL);
     phb->bus = b;
+
+    s->bus = S390_PCI_BUS(qbus_create(TYPE_S390_PCI_BUS, DEVICE(s), NULL));
+    qbus_set_hotplug_handler(BUS(s->bus), DEVICE(s), NULL);
+
     QTAILQ_INIT(&s->pending_sei);
     return 0;
 }
@@ -497,7 +593,7 @@ static int s390_pcihost_setup_msix(S390PCIBusDevice *pbdev)
         return 0;
     }
 
-    ctrl = pci_host_config_read_common(pbdev->pdev, pos + PCI_CAP_FLAGS,
+    ctrl = pci_host_config_read_common(pbdev->pdev, pos + PCI_MSIX_FLAGS,
              pci_config_size(pbdev->pdev), sizeof(ctrl));
     table = pci_host_config_read_common(pbdev->pdev, pos + PCI_MSIX_TABLE,
              pci_config_size(pbdev->pdev), sizeof(table));
@@ -513,52 +609,155 @@ static int s390_pcihost_setup_msix(S390PCIBusDevice *pbdev)
     return 0;
 }
 
+static S390PCIBusDevice *s390_pci_device_new(const char *target)
+{
+    DeviceState *dev = NULL;
+    S390pciState *s = s390_get_phb();
+
+    dev = qdev_try_create(BUS(s->bus), TYPE_S390_PCI_DEVICE);
+    if (!dev) {
+        return NULL;
+    }
+
+    qdev_prop_set_string(dev, "target", target);
+    qdev_init_nofail(dev);
+
+    return S390_PCI_DEVICE(dev);
+}
+
 static void s390_pcihost_hot_plug(HotplugHandler *hotplug_dev,
                                   DeviceState *dev, Error **errp)
 {
-    PCIDevice *pci_dev = PCI_DEVICE(dev);
-    S390PCIBusDevice *pbdev;
-    S390pciState *s = S390_PCI_HOST_BRIDGE(pci_device_root_bus(pci_dev)
-                                           ->qbus.parent);
+    PCIDevice *pdev = NULL;
+    S390PCIBusDevice *pbdev = NULL;
+    S390pciState *s = s390_get_phb();
 
-    pbdev = &s->pbdev[PCI_SLOT(pci_dev->devfn)];
+    if (object_dynamic_cast(OBJECT(dev), TYPE_PCI_DEVICE)) {
+        pdev = PCI_DEVICE(dev);
 
-    pbdev->fid = s390_pci_get_pfid(pci_dev);
-    pbdev->pdev = pci_dev;
-    pbdev->configured = true;
-    pbdev->fh = s390_pci_get_pfh(pci_dev);
+        if (!dev->id) {
+            /* In the case the PCI device does not define an id */
+            /* we generate one based on the PCI address         */
+            dev->id = g_strdup_printf("auto_%02x:%02x.%01x",
+                                      pci_bus_num(pdev->bus),
+                                      PCI_SLOT(pdev->devfn),
+                                      PCI_FUNC(pdev->devfn));
+        }
 
-    s390_pcihost_setup_msix(pbdev);
+        pbdev = s390_pci_find_dev_by_target(dev->id);
+        if (!pbdev) {
+            pbdev = s390_pci_device_new(dev->id);
+            if (!pbdev) {
+                error_setg(errp, "create zpci device failed");
+            }
+        }
 
-    if (dev->hotplugged) {
-        s390_pci_generate_plug_event(HP_EVENT_RESERVED_TO_STANDBY,
-                                     pbdev->fh, pbdev->fid);
-        s390_pci_generate_plug_event(HP_EVENT_TO_CONFIGURED,
-                                     pbdev->fh, pbdev->fid);
+        if (object_dynamic_cast(OBJECT(dev), "vfio-pci")) {
+            pbdev->fh |= FH_SHM_VFIO;
+        } else {
+            pbdev->fh |= FH_SHM_EMUL;
+        }
+
+        pbdev->pdev = pdev;
+        pbdev->iommu = s->iommu[PCI_SLOT(pdev->devfn)];
+        pbdev->state = ZPCI_FS_STANDBY;
+        s390_pcihost_setup_msix(pbdev);
+
+        if (dev->hotplugged) {
+            s390_pci_generate_plug_event(HP_EVENT_RESERVED_TO_STANDBY,
+                                         pbdev->fh, pbdev->fid);
+        }
+    } else if (object_dynamic_cast(OBJECT(dev), TYPE_S390_PCI_DEVICE)) {
+        int idx;
+
+        pbdev = S390_PCI_DEVICE(dev);
+        for (idx = 0; idx < PCI_SLOT_MAX; idx++) {
+            if (!s->pbdev[idx]) {
+                s->pbdev[idx] = pbdev;
+                pbdev->fh = idx;
+                return;
+            }
+        }
+
+        error_setg(errp, "no slot for plugging zpci device");
     }
-    return;
+}
+
+static void s390_pcihost_timer_cb(void *opaque)
+{
+    S390PCIBusDevice *pbdev = opaque;
+
+    if (pbdev->summary_ind) {
+        pci_dereg_irqs(pbdev);
+    }
+    if (pbdev->iommu_enabled) {
+        pci_dereg_ioat(pbdev);
+    }
+
+    pbdev->state = ZPCI_FS_STANDBY;
+    s390_pci_generate_plug_event(HP_EVENT_CONFIGURED_TO_STBRES,
+                                 pbdev->fh, pbdev->fid);
+    qdev_unplug(DEVICE(pbdev), NULL);
 }
 
 static void s390_pcihost_hot_unplug(HotplugHandler *hotplug_dev,
                                     DeviceState *dev, Error **errp)
 {
-    PCIDevice *pci_dev = PCI_DEVICE(dev);
-    S390pciState *s = S390_PCI_HOST_BRIDGE(pci_device_root_bus(pci_dev)
-                                           ->qbus.parent);
-    S390PCIBusDevice *pbdev = &s->pbdev[PCI_SLOT(pci_dev->devfn)];
+    int i;
+    PCIDevice *pci_dev = NULL;
+    S390PCIBusDevice *pbdev = NULL;
+    S390pciState *s = s390_get_phb();
 
-    if (pbdev->configured) {
-        pbdev->configured = false;
-        s390_pci_generate_plug_event(HP_EVENT_CONFIGURED_TO_STBRES,
+    if (object_dynamic_cast(OBJECT(dev), TYPE_PCI_DEVICE)) {
+        pci_dev = PCI_DEVICE(dev);
+
+        for (i = 0 ; i < PCI_SLOT_MAX; i++) {
+            if (s->pbdev[i] && s->pbdev[i]->pdev == pci_dev) {
+                pbdev = s->pbdev[i];
+                break;
+            }
+        }
+
+        if (!pbdev) {
+            object_unparent(OBJECT(pci_dev));
+            return;
+        }
+    } else if (object_dynamic_cast(OBJECT(dev), TYPE_S390_PCI_DEVICE)) {
+        pbdev = S390_PCI_DEVICE(dev);
+        pci_dev = pbdev->pdev;
+    }
+
+    switch (pbdev->state) {
+    case ZPCI_FS_RESERVED:
+        goto out;
+    case ZPCI_FS_STANDBY:
+        break;
+    default:
+        s390_pci_generate_plug_event(HP_EVENT_DECONFIGURE_REQUEST,
                                      pbdev->fh, pbdev->fid);
+        pbdev->release_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                            s390_pcihost_timer_cb,
+                                            pbdev);
+        timer_mod(pbdev->release_timer,
+                  qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + HOT_UNPLUG_TIMEOUT);
+        return;
+    }
+
+    if (pbdev->release_timer && timer_pending(pbdev->release_timer)) {
+        timer_del(pbdev->release_timer);
+        timer_free(pbdev->release_timer);
+        pbdev->release_timer = NULL;
     }
 
     s390_pci_generate_plug_event(HP_EVENT_STANDBY_TO_RESERVED,
                                  pbdev->fh, pbdev->fid);
-    pbdev->fh = 0;
-    pbdev->fid = 0;
-    pbdev->pdev = NULL;
     object_unparent(OBJECT(pci_dev));
+    pbdev->pdev = NULL;
+    pbdev->state = ZPCI_FS_RESERVED;
+out:
+    pbdev->fid = 0;
+    s->pbdev[pbdev->fh & FH_MASK_INDEX] = NULL;
+    object_unparent(OBJECT(pbdev));
 }
 
 static void s390_pcihost_class_init(ObjectClass *klass, void *data)
@@ -571,7 +770,7 @@ static void s390_pcihost_class_init(ObjectClass *klass, void *data)
     k->init = s390_pcihost_init;
     hc->plug = s390_pcihost_hot_plug;
     hc->unplug = s390_pcihost_hot_unplug;
-    msi_supported = true;
+    msi_nonbroken = true;
 }
 
 static const TypeInfo s390_pcihost_info = {
@@ -585,9 +784,178 @@ static const TypeInfo s390_pcihost_info = {
     }
 };
 
+static const TypeInfo s390_pcibus_info = {
+    .name = TYPE_S390_PCI_BUS,
+    .parent = TYPE_BUS,
+    .instance_size = sizeof(S390PCIBus),
+};
+
+static uint16_t s390_pci_generate_uid(void)
+{
+    uint16_t uid = 0;
+
+    do {
+        uid++;
+        if (!s390_pci_find_dev_by_uid(uid)) {
+            return uid;
+        }
+    } while (uid < ZPCI_MAX_UID);
+
+    return UID_UNDEFINED;
+}
+
+static uint32_t s390_pci_generate_fid(Error **errp)
+{
+    uint32_t fid = 0;
+
+    while (fid <= ZPCI_MAX_FID) {
+        if (!s390_pci_find_dev_by_fid(fid)) {
+            return fid;
+        }
+
+        if (fid == ZPCI_MAX_FID) {
+            break;
+        }
+
+        fid++;
+    }
+
+    error_setg(errp, "no free fid could be found");
+    return 0;
+}
+
+static void s390_pci_device_realize(DeviceState *dev, Error **errp)
+{
+    S390PCIBusDevice *zpci = S390_PCI_DEVICE(dev);
+
+    if (!zpci->target) {
+        error_setg(errp, "target must be defined");
+        return;
+    }
+
+    if (s390_pci_find_dev_by_target(zpci->target)) {
+        error_setg(errp, "target %s already has an associated zpci device",
+                   zpci->target);
+        return;
+    }
+
+    if (zpci->uid == UID_UNDEFINED) {
+        zpci->uid = s390_pci_generate_uid();
+        if (!zpci->uid) {
+            error_setg(errp, "no free uid could be found");
+            return;
+        }
+    } else if (s390_pci_find_dev_by_uid(zpci->uid)) {
+        error_setg(errp, "uid %u already in use", zpci->uid);
+        return;
+    }
+
+    if (!zpci->fid_defined) {
+        Error *local_error = NULL;
+
+        zpci->fid = s390_pci_generate_fid(&local_error);
+        if (local_error) {
+            error_propagate(errp, local_error);
+            return;
+        }
+    } else if (s390_pci_find_dev_by_fid(zpci->fid)) {
+        error_setg(errp, "fid %u already in use", zpci->fid);
+        return;
+    }
+
+    zpci->state = ZPCI_FS_RESERVED;
+}
+
+static void s390_pci_device_reset(DeviceState *dev)
+{
+    S390PCIBusDevice *pbdev = S390_PCI_DEVICE(dev);
+
+    switch (pbdev->state) {
+    case ZPCI_FS_RESERVED:
+        return;
+    case ZPCI_FS_STANDBY:
+        break;
+    default:
+        pbdev->fh &= ~FH_MASK_ENABLE;
+        pbdev->state = ZPCI_FS_DISABLED;
+        break;
+    }
+
+    if (pbdev->summary_ind) {
+        pci_dereg_irqs(pbdev);
+    }
+    if (pbdev->iommu_enabled) {
+        pci_dereg_ioat(pbdev);
+    }
+
+    pbdev->fmb_addr = 0;
+}
+
+static void s390_pci_get_fid(Object *obj, Visitor *v, const char *name,
+                         void *opaque, Error **errp)
+{
+    Property *prop = opaque;
+    uint32_t *ptr = qdev_get_prop_ptr(DEVICE(obj), prop);
+
+    visit_type_uint32(v, name, ptr, errp);
+}
+
+static void s390_pci_set_fid(Object *obj, Visitor *v, const char *name,
+                         void *opaque, Error **errp)
+{
+    DeviceState *dev = DEVICE(obj);
+    S390PCIBusDevice *zpci = S390_PCI_DEVICE(obj);
+    Property *prop = opaque;
+    uint32_t *ptr = qdev_get_prop_ptr(dev, prop);
+
+    if (dev->realized) {
+        qdev_prop_set_after_realize(dev, name, errp);
+        return;
+    }
+
+    visit_type_uint32(v, name, ptr, errp);
+    zpci->fid_defined = true;
+}
+
+static PropertyInfo s390_pci_fid_propinfo = {
+    .name = "zpci_fid",
+    .get = s390_pci_get_fid,
+    .set = s390_pci_set_fid,
+};
+
+#define DEFINE_PROP_S390_PCI_FID(_n, _s, _f) \
+    DEFINE_PROP(_n, _s, _f, s390_pci_fid_propinfo, uint32_t)
+
+static Property s390_pci_device_properties[] = {
+    DEFINE_PROP_UINT16("uid", S390PCIBusDevice, uid, UID_UNDEFINED),
+    DEFINE_PROP_S390_PCI_FID("fid", S390PCIBusDevice, fid),
+    DEFINE_PROP_STRING("target", S390PCIBusDevice, target),
+    DEFINE_PROP_END_OF_LIST(),
+};
+
+static void s390_pci_device_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->desc = "zpci device";
+    dc->reset = s390_pci_device_reset;
+    dc->bus_type = TYPE_S390_PCI_BUS;
+    dc->realize = s390_pci_device_realize;
+    dc->props = s390_pci_device_properties;
+}
+
+static const TypeInfo s390_pci_device_info = {
+    .name = TYPE_S390_PCI_DEVICE,
+    .parent = TYPE_DEVICE,
+    .instance_size = sizeof(S390PCIBusDevice),
+    .class_init = s390_pci_device_class_init,
+};
+
 static void s390_pci_register_types(void)
 {
     type_register_static(&s390_pcihost_info);
+    type_register_static(&s390_pcibus_info);
+    type_register_static(&s390_pci_device_info);
 }
 
 type_init(s390_pci_register_types)

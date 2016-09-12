@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /*
  * Symbolic names for some standard ASCII characters
@@ -58,6 +58,8 @@ FILE_LICENCE ( GPL2_OR_LATER );
  */
 
 #define KEY_ANSI( n, terminator ) ( 0x100 * ( (n) + 1 ) + (terminator) )
+#define KEY_ANSI_N( key ) ( ( (key) / 0x100 ) - 1 )
+#define KEY_ANSI_TERMINATOR( key ) ( (key) & 0xff )
 
 #define KEY_MIN		0x101
 #define KEY_UP		KEY_ANSI ( 0, 'A' )	/**< Up arrow */

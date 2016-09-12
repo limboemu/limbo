@@ -28,6 +28,10 @@
 #define HID_REQ_SET_IDLE                0x0A
 #define HID_REQ_SET_PROTOCOL            0x0B
 
+//key position for latin letters
+#define KEYP_LATIN_A 4
+#define KEYP_LATIN_Z 29
+
 //#define KEY_DEBUG
 
 /* HID SPEC - 7.2.6 Set_Protocol Request */
@@ -83,6 +87,8 @@ uint8_t set_leds;
 const uint8_t *key_std       = NULL;
 const uint8_t *key_std_shift = NULL;
 
+uint8_t ctrl; /* modifiers */
+
 /**
  * read character from Keyboard-Buffer
  *
@@ -111,6 +117,16 @@ static void write_key(uint8_t key)
 }
 
 /**
+ * Checks if keypos is a latin key
+ * @param  keypos
+ * @return -
+ */
+static bool is_latin(uint8_t keypos)
+{
+	return keypos >= KEYP_LATIN_A && keypos <= KEYP_LATIN_Z;
+}
+
+/**
  * Convert keyboard usage-ID to ANSI-Code
  *
  * @param   Ctrl=Modifier Byte
@@ -120,22 +136,24 @@ static void write_key(uint8_t key)
 static void get_char(uint8_t ctrl, uint8_t keypos)
 {
 	uint8_t ch;
+	bool caps = false;
 
 #ifdef KEY_DEBUG
 	printf("pos %02X\n", keypos);
 #endif
 
 	if (set_leds & LED_CAPS_LOCK)	                /* is CAPS Lock set ? */
-		ctrl |= MODIFIER_SHIFT;	                    /* simulate shift */
+		caps = true;
 
-	if (ctrl == 0) {
+	/* caps is a shift only for latin chars */
+	if ((!caps && ctrl == 0) || (caps && !is_latin(keypos))) {
 		ch = key_std[keypos];
 		if (ch != 0)
 			write_key(ch);
 		return;
 	}
 
-	if (ctrl & MODIFIER_SHIFT) {
+	if ((ctrl & MODIFIER_SHIFT) || caps) {
 		ch = key_std_shift[keypos];
 		if (ch != 0)
 			write_key(ch);
@@ -187,36 +205,38 @@ static void check_key_code(uint8_t *buf)
 					set_leds ^= LED_CAPS_LOCK;
 					break;
 
+				case 0x36:		                /*Shift pressed*/
+					ctrl |= MODIFIER_SHIFT;
+					break;
+				case 0xb6:		                /*Shift unpressed*/
+					ctrl &= ~MODIFIER_SHIFT;
+					break;
 				case 0x3a:	                        /* F1 */
 					write_key(0x1b);
 					write_key(0x5b);
-					write_key(0x31);
-					write_key(0x31);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x50);
 					break;
 
 				case 0x3b:		                /* F2 */
 					write_key(0x1b);
 					write_key(0x5b);
-					write_key(0x31);
-					write_key(0x32);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x51);
 					break;
 
 				case 0x3c:
 					write_key(0x1b);               /* F3 */
 					write_key(0x5b);
-					write_key(0x31);
-					write_key(0x33);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x52);
 					break;
 
 				case 0x3d:
 					write_key(0x1b);		/* F4 */
 					write_key(0x5b);
-					write_key(0x31);
-					write_key(0x34);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x53);
 					break;
 
 				case 0x3e:
@@ -254,7 +274,7 @@ static void check_key_code(uint8_t *buf)
 				case 0x42:
 					write_key(0x1b);		/* F9 */
 					write_key(0x5b);
-					write_key(0x31);
+					write_key(0x32);
 					write_key(0x30);
 					write_key(0x7e);
 					break;
@@ -262,7 +282,7 @@ static void check_key_code(uint8_t *buf)
 				case 0x43:
 					write_key(0x1b);	       /* F10 */
 					write_key(0x5b);
-					write_key(0x31);
+					write_key(0x32);
 					write_key(0x31);
 					write_key(0x7e);
 					break;
@@ -270,7 +290,7 @@ static void check_key_code(uint8_t *buf)
 				case 0x44:
 					write_key(0x1b);	       /* F11 */
 					write_key(0x5b);
-					write_key(0x31);
+					write_key(0x32);
 					write_key(0x33);
 					write_key(0x7e);
 					break;
@@ -278,7 +298,7 @@ static void check_key_code(uint8_t *buf)
 				case 0x45:
 					write_key(0x1b);	       /* F12 */
 					write_key(0x5b);
-					write_key(0x31);
+					write_key(0x32);
 					write_key(0x34);
 					write_key(0x7e);
 					break;
@@ -290,36 +310,34 @@ static void check_key_code(uint8_t *buf)
 				case 0x49:
 					write_key(0x1b);	       /* INS */
 					write_key(0x5b);
-					write_key(0x31);
+					write_key(0x32);
 					write_key(0x7e);
 					break;
 
 				case 0x4a:
 					write_key(0x1b);	      /* HOME */
-					write_key(0x5b);
-					write_key(0x32);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x48);
 					break;
 
 				case 0x4b:
 					write_key(0x1b);	      /* PgUp */
 					write_key(0x5b);
-					write_key(0x33);
+					write_key(0x35);
 					write_key(0x7e);
 					break;
 
 				case 0x4c:
 					write_key(0x1b);	       /* DEL */
 					write_key(0x5b);
-					write_key(0x34);
+					write_key(0x33);
 					write_key(0x7e);
 					break;
 
 				case 0x4d:
 					write_key(0x1b);	       /* END */
-					write_key(0x5b);
-					write_key(0x35);
-					write_key(0x7e);
+					write_key(0x4f);
+					write_key(0x46);
 					break;
 
 				case 0x4e:
@@ -416,9 +434,26 @@ int usb_hid_kbd_exit(struct usb_dev *dev)
 	return true;
 }
 
+static int usb_poll_key(void *vdev)
+{
+	struct usb_dev *dev = vdev;
+	uint8_t key[8];
+	int rc;
+
+	memset(key, 0, 8);
+	rc = usb_poll_intr(dev->intr, key);
+	if (rc)
+		check_key_code(key);
+	return rc;
+}
+
 unsigned char usb_key_available(void *dev)
 {
-	if (dev && r_ptr != w_ptr)
+	if (!dev)
+		return false;
+
+	usb_poll_key(dev);
+	if (r_ptr != w_ptr)
 		return true;
 	else
 		return false;
@@ -426,16 +461,8 @@ unsigned char usb_key_available(void *dev)
 
 unsigned char usb_read_keyb(void *vdev)
 {
-	struct usb_dev *dev = vdev;
-	uint8_t key[8];
-
-	if (!dev)
-		return false;
-
-	memset(key, 0, 8);
-	while (usb_poll_intr(dev->intr, key)) {
-		check_key_code(key);
-		memset(key, 0, 8);
-	}
-	return read_key();
+	if (usb_key_available(vdev))
+		return read_key();
+	else
+		return 0;
 }

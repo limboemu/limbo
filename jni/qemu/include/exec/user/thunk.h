@@ -19,7 +19,6 @@
 #ifndef THUNK_H
 #define THUNK_H
 
-#include <inttypes.h>
 #include "cpu.h"
 
 /* types enums definitions */
@@ -61,10 +60,10 @@ typedef struct {
 
 /* Translation table for bitmasks... */
 typedef struct bitmask_transtbl {
-	unsigned int	x86_mask;
-	unsigned int	x86_bits;
-	unsigned int	alpha_mask;
-	unsigned int	alpha_bits;
+    unsigned int target_mask;
+    unsigned int target_bits;
+    unsigned int host_mask;
+    unsigned int host_bits;
 } bitmask_transtbl;
 
 void thunk_register_struct(int id, const char *name, const argtype *types);
@@ -72,9 +71,8 @@ void thunk_register_struct_direct(int id, const char *name,
                                   const StructEntry *se1);
 const argtype *thunk_convert(void *dst, const void *src,
                              const argtype *type_ptr, int to_host);
-#ifndef NO_THUNK_TYPE_SIZE
 
-extern StructEntry struct_entries[];
+extern StructEntry *struct_entries;
 
 int thunk_type_size_array(const argtype *type_ptr, int is_host);
 int thunk_type_align_array(const argtype *type_ptr, int is_host);
@@ -179,11 +177,11 @@ static inline int thunk_type_align(const argtype *type_ptr, int is_host)
     }
 }
 
-#endif /* NO_THUNK_TYPE_SIZE */
+unsigned int target_to_host_bitmask(unsigned int target_mask,
+                                    const bitmask_transtbl * trans_tbl);
+unsigned int host_to_target_bitmask(unsigned int host_mask,
+                                    const bitmask_transtbl * trans_tbl);
 
-unsigned int target_to_host_bitmask(unsigned int x86_mask,
-                                    const bitmask_transtbl * trans_tbl);
-unsigned int host_to_target_bitmask(unsigned int alpha_mask,
-                                    const bitmask_transtbl * trans_tbl);
+void thunk_init(unsigned int max_structs);
 
 #endif

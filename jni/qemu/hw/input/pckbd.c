@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/isa/isa.h"
 #include "hw/i386/pc.h"
@@ -145,7 +146,7 @@ typedef struct KBDState {
 
     qemu_irq irq_kbd;
     qemu_irq irq_mouse;
-    qemu_irq *a20_out;
+    qemu_irq a20_out;
     hwaddr mask;
 } KBDState;
 
@@ -223,9 +224,7 @@ static void outport_write(KBDState *s, uint32_t val)
 {
     DPRINTF("kbd: write outport=0x%02x\n", val);
     s->outport = val;
-    if (s->a20_out) {
-        qemu_set_irq(*s->a20_out, (val >> 1) & 1);
-    }
+    qemu_set_irq(s->a20_out, (val >> 1) & 1);
     if (!(val & 1)) {
         qemu_system_reset_request();
     }
@@ -294,15 +293,11 @@ static void kbd_write_command(void *opaque, hwaddr addr,
         kbd_queue(s, s->outport, 0);
         break;
     case KBD_CCMD_ENABLE_A20:
-        if (s->a20_out) {
-            qemu_irq_raise(*s->a20_out);
-        }
+        qemu_irq_raise(s->a20_out);
         s->outport |= KBD_OUT_A20;
         break;
     case KBD_CCMD_DISABLE_A20:
-        if (s->a20_out) {
-            qemu_irq_lower(*s->a20_out);
-        }
+        qemu_irq_lower(s->a20_out);
         s->outport &= ~KBD_OUT_A20;
         break;
     case KBD_CCMD_RESET:
@@ -391,22 +386,23 @@ static int kbd_outport_post_load(void *opaque, int version_id)
     return 0;
 }
 
-static const VMStateDescription vmstate_kbd_outport = {
-    .name = "pckbd_outport",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .post_load = kbd_outport_post_load,
-    .fields = (VMStateField[]) {
-        VMSTATE_UINT8(outport, KBDState),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
 static bool kbd_outport_needed(void *opaque)
 {
     KBDState *s = opaque;
     return s->outport != kbd_outport_default(s);
 }
+
+static const VMStateDescription vmstate_kbd_outport = {
+    .name = "pckbd_outport",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = kbd_outport_post_load,
+    .needed = kbd_outport_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT8(outport, KBDState),
+        VMSTATE_END_OF_LIST()
+    }
+};
 
 static int kbd_post_load(void *opaque, int version_id)
 {
@@ -430,12 +426,9 @@ static const VMStateDescription vmstate_kbd = {
         VMSTATE_UINT8(pending, KBDState),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection[]) {
-        {
-            .vmsd = &vmstate_kbd_outport,
-            .needed = kbd_outport_needed,
-        },
-        VMSTATE_END_OF_LIST()
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_kbd_outport,
+        NULL
     }
 };
 
@@ -508,10 +501,7 @@ void i8042_isa_mouse_fake_event(void *opaque)
 
 void i8042_setup_a20_line(ISADevice *dev, qemu_irq *a20_out)
 {
-    ISAKBDState *isa = I8042(dev);
-    KBDState *s = &isa->kbd;
-
-    s->a20_out = a20_out;
+    qdev_connect_gpio_out_named(DEVICE(dev), I8042_A20_LINE, 0, *a20_out);
 }
 
 static const VMStateDescription vmstate_kbd_isa = {
@@ -553,6 +543,8 @@ static void i8042_initfn(Object *obj)
                           "i8042-data", 1);
     memory_region_init_io(isa_s->io + 1, obj, &i8042_cmd_ops, s,
                           "i8042-cmd", 1);
+
+    qdev_init_gpio_out_named(DEVICE(obj), &s->a20_out, I8042_A20_LINE, 1);
 }
 
 static void i8042_realizefn(DeviceState *dev, Error **errp)

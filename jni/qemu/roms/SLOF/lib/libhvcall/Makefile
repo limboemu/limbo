@@ -12,6 +12,8 @@
 
 TOPCMNDIR ?= ../..
 
+include $(TOPCMNDIR)/make.rules
+
 ASFLAGS = $(FLAG) $(RELEASE) $(CPUARCHDEF) -Wa,-mregnames
 CPPFLAGS = -I../libc/include $(CPUARCHDEF) -I$(INCLBRDDIR) \
 	   -I$(INCLCMNDIR) -I$(INCLCMNDIR)/$(CPUARCH)
@@ -22,7 +24,7 @@ TARGET = ../libhvcall.a
 
 all: $(TARGET)
 
-SRCS = brokensc1.c
+SRCS = brokensc1.c rfill.c
 SRCSS = hvcall.S
 
 

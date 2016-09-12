@@ -10,16 +10,14 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <glib.h>
+#include "qemu/osdep.h"
 #include <glib/gstdio.h>
 #include "qemu-common.h"
 #include "libqtest.h"
-#include "qemu/compiler.h"
-#include "hw/i386/acpi-defs.h"
-#include "hw/i386/smbios.h"
+#include "hw/acpi/acpi-defs.h"
+#include "hw/smbios/smbios.h"
 #include "qemu/bitmap.h"
+#include "boot-sector.h"
 
 #define MACHINE_PC "pc"
 #define MACHINE_Q35 "q35"
@@ -50,15 +48,10 @@ typedef struct {
     int rsdt_tables_nr;
     GArray *tables;
     uint32_t smbios_ep_addr;
-    struct smbios_entry_point smbios_ep_table;
+    struct smbios_21_entry_point smbios_ep_table;
+    uint8_t *required_struct_types;
+    int required_struct_types_len;
 } test_data;
-
-#define LOW(x) ((x) & 0xff)
-#define HIGH(x) ((x) >> 8)
-
-#define SIGNATURE 0xdead
-#define SIGNATURE_OFFSET 0x10
-#define BOOT_SECTOR_ADDRESS 0x7c00
 
 #define ACPI_READ_FIELD(field, addr)           \
     do {                                       \
@@ -119,35 +112,6 @@ typedef struct {
     g_assert_cmpstr(ACPI_ASSERT_CMP_str, ==, expected); \
 } while (0)
 
-/* Boot sector code: write SIGNATURE into memory,
- * then halt.
- * Q35 machine requires a minimum 0x7e000 bytes disk.
- * (bug or feature?)
- */
-static uint8_t boot_sector[0x7e000] = {
-    /* 7c00: mov $0xdead,%ax */
-    [0x00] = 0xb8,
-    [0x01] = LOW(SIGNATURE),
-    [0x02] = HIGH(SIGNATURE),
-    /* 7c03:  mov %ax,0x7c10 */
-    [0x03] = 0xa3,
-    [0x04] = LOW(BOOT_SECTOR_ADDRESS + SIGNATURE_OFFSET),
-    [0x05] = HIGH(BOOT_SECTOR_ADDRESS + SIGNATURE_OFFSET),
-    /* 7c06: cli */
-    [0x06] = 0xfa,
-    /* 7c07: hlt */
-    [0x07] = 0xf4,
-    /* 7c08: jmp 0x7c07=0x7c0a-3 */
-    [0x08] = 0xeb,
-    [0x09] = LOW(-3),
-    /* We mov 0xdead here: set value to make debugging easier */
-    [SIGNATURE_OFFSET] = LOW(0xface),
-    [SIGNATURE_OFFSET + 1] = HIGH(0xface),
-    /* End of boot sector marker */
-    [0x1FE] = 0x55,
-    [0x1FF] = 0xAA,
-};
-
 static const char *disk = "tests/acpi-test-disk.raw";
 static const char *data_dir = "tests/acpi-test-data";
 #ifdef CONFIG_IASL
@@ -161,31 +125,23 @@ static void free_test_data(test_data *data)
     AcpiSdtTable *temp;
     int i;
 
-    if (data->rsdt_tables_addr) {
-        g_free(data->rsdt_tables_addr);
-    }
+    g_free(data->rsdt_tables_addr);
 
     for (i = 0; i < data->tables->len; ++i) {
         temp = &g_array_index(data->tables, AcpiSdtTable, i);
-        if (temp->aml) {
-            g_free(temp->aml);
+        g_free(temp->aml);
+        if (temp->aml_file &&
+            !temp->tmp_files_retain &&
+            g_strstr_len(temp->aml_file, -1, "aml-")) {
+            unlink(temp->aml_file);
         }
-        if (temp->aml_file) {
-            if (!temp->tmp_files_retain &&
-                g_strstr_len(temp->aml_file, -1, "aml-")) {
-                unlink(temp->aml_file);
-            }
-            g_free(temp->aml_file);
+        g_free(temp->aml_file);
+        g_free(temp->asl);
+        if (temp->asl_file &&
+            !temp->tmp_files_retain) {
+            unlink(temp->asl_file);
         }
-        if (temp->asl) {
-            g_free(temp->asl);
-        }
-        if (temp->asl_file) {
-            if (!temp->tmp_files_retain) {
-                unlink(temp->asl_file);
-            }
-            g_free(temp->asl_file);
-        }
+        g_free(temp->asl_file);
     }
 
     g_array_free(data->tables, false);
@@ -380,7 +336,7 @@ static void test_acpi_tables(test_data *data)
     for (i = 0; i < tables_nr; i++) {
         AcpiSdtTable ssdt_table;
 
-        memset(&ssdt_table, 0 , sizeof(ssdt_table));
+        memset(&ssdt_table, 0, sizeof(ssdt_table));
         uint32_t addr = data->rsdt_tables_addr[i + 1]; /* fadt is first */
         test_dst_table(&ssdt_table, addr);
         g_array_append_val(data->tables, ssdt_table);
@@ -420,9 +376,7 @@ static void dump_aml_files(test_data *data, bool rebuild)
 
         close(fd);
 
-        if (aml_file) {
-            g_free(aml_file);
-        }
+        g_free(aml_file);
     }
 }
 
@@ -479,7 +433,7 @@ static bool load_asl(GArray *sdts, AcpiSdtTable *sdt)
 
 #define COMMENT_END "*/"
 #define DEF_BLOCK "DefinitionBlock ("
-#define BLOCK_NAME_END ".aml"
+#define BLOCK_NAME_END ","
 
 static GString *normalize_asl(gchar *asl_code)
 {
@@ -511,7 +465,6 @@ static GArray *load_expected_aml(test_data *data)
 {
     int i;
     AcpiSdtTable *sdt;
-    gchar *aml_file = NULL;
     GError *error = NULL;
     gboolean ret;
 
@@ -519,6 +472,7 @@ static GArray *load_expected_aml(test_data *data)
     for (i = 0; i < data->tables->len; ++i) {
         AcpiSdtTable exp_sdt;
         uint32_t signature;
+        gchar *aml_file = NULL;
         const char *ext = data->variant ? data->variant : "";
 
         sdt = &g_array_index(data->tables, AcpiSdtTable, i);
@@ -531,13 +485,21 @@ static GArray *load_expected_aml(test_data *data)
 try_again:
         aml_file = g_strdup_printf("%s/%s/%.4s%s", data_dir, data->machine,
                                    (gchar *)&signature, ext);
-        if (data->variant && !g_file_test(aml_file, G_FILE_TEST_EXISTS)) {
-            g_free(aml_file);
+        if (getenv("V")) {
+            fprintf(stderr, "\nLooking for expected file '%s'\n", aml_file);
+        }
+        if (g_file_test(aml_file, G_FILE_TEST_EXISTS)) {
+            exp_sdt.aml_file = aml_file;
+        } else if (*ext != '\0') {
+            /* try fallback to generic (extention less) expected file */
             ext = "";
+            g_free(aml_file);
             goto try_again;
         }
-        exp_sdt.aml_file = aml_file;
-        g_assert(g_file_test(aml_file, G_FILE_TEST_EXISTS));
+        g_assert(exp_sdt.aml_file);
+        if (getenv("V")) {
+            fprintf(stderr, "\nUsing expected file '%s'\n", aml_file);
+        }
         ret = g_file_get_contents(aml_file, &exp_sdt.aml,
                                   &exp_sdt.aml_len, &error);
         g_assert(ret);
@@ -590,6 +552,22 @@ static void test_acpi_asl(test_data *data)
                         (gchar *)&signature,
                         sdt->asl_file, sdt->aml_file,
                         exp_sdt->asl_file, exp_sdt->aml_file);
+                if (getenv("V")) {
+                    const char *diff_cmd = getenv("DIFF");
+                    if (diff_cmd) {
+                        int ret G_GNUC_UNUSED;
+                        char *diff = g_strdup_printf("%s %s %s", diff_cmd,
+                            exp_sdt->asl_file, sdt->asl_file);
+                        ret = system(diff) ;
+                        g_free(diff);
+                    } else {
+                        fprintf(stderr, "acpi-test: Warning. not showing "
+                            "difference since no diff utility is specified. "
+                            "Set 'DIFF' environment variable to a preferred "
+                            "diff utility and run 'make V=1 check' again to "
+                            "see ASL difference.");
+                    }
+                }
           }
         }
         g_string_free(asl, true);
@@ -599,7 +577,45 @@ static void test_acpi_asl(test_data *data)
     free_test_data(&exp_data);
 }
 
-static void test_smbios_ep_address(test_data *data)
+static bool smbios_ep_table_ok(test_data *data)
+{
+    struct smbios_21_entry_point *ep_table = &data->smbios_ep_table;
+    uint32_t addr = data->smbios_ep_addr;
+
+    ACPI_READ_ARRAY(ep_table->anchor_string, addr);
+    if (memcmp(ep_table->anchor_string, "_SM_", 4)) {
+        return false;
+    }
+    ACPI_READ_FIELD(ep_table->checksum, addr);
+    ACPI_READ_FIELD(ep_table->length, addr);
+    ACPI_READ_FIELD(ep_table->smbios_major_version, addr);
+    ACPI_READ_FIELD(ep_table->smbios_minor_version, addr);
+    ACPI_READ_FIELD(ep_table->max_structure_size, addr);
+    ACPI_READ_FIELD(ep_table->entry_point_revision, addr);
+    ACPI_READ_ARRAY(ep_table->formatted_area, addr);
+    ACPI_READ_ARRAY(ep_table->intermediate_anchor_string, addr);
+    if (memcmp(ep_table->intermediate_anchor_string, "_DMI_", 5)) {
+        return false;
+    }
+    ACPI_READ_FIELD(ep_table->intermediate_checksum, addr);
+    ACPI_READ_FIELD(ep_table->structure_table_length, addr);
+    if (ep_table->structure_table_length == 0) {
+        return false;
+    }
+    ACPI_READ_FIELD(ep_table->structure_table_address, addr);
+    ACPI_READ_FIELD(ep_table->number_of_structures, addr);
+    if (ep_table->number_of_structures == 0) {
+        return false;
+    }
+    ACPI_READ_FIELD(ep_table->smbios_bcd_revision, addr);
+    if (acpi_checksum((uint8_t *)ep_table, sizeof *ep_table) ||
+        acpi_checksum((uint8_t *)ep_table + 0x10, sizeof *ep_table - 0x10)) {
+        return false;
+    }
+    return true;
+}
+
+static void test_smbios_entry_point(test_data *data)
 {
     uint32_t off;
 
@@ -613,40 +629,15 @@ static void test_smbios_ep_address(test_data *data)
         }
 
         if (!memcmp(sig, "_SM_", sizeof sig)) {
-            break;
+            /* signature match, but is this a valid entry point? */
+            data->smbios_ep_addr = off;
+            if (smbios_ep_table_ok(data)) {
+                break;
+            }
         }
     }
 
     g_assert_cmphex(off, <, 0x100000);
-    data->smbios_ep_addr = off;
-}
-
-static void test_smbios_ep_table(test_data *data)
-{
-    struct smbios_entry_point *ep_table = &data->smbios_ep_table;
-    uint32_t addr = data->smbios_ep_addr;
-
-    ACPI_READ_ARRAY(ep_table->anchor_string, addr);
-    g_assert(!memcmp(ep_table->anchor_string, "_SM_", 4));
-    ACPI_READ_FIELD(ep_table->checksum, addr);
-    ACPI_READ_FIELD(ep_table->length, addr);
-    ACPI_READ_FIELD(ep_table->smbios_major_version, addr);
-    ACPI_READ_FIELD(ep_table->smbios_minor_version, addr);
-    ACPI_READ_FIELD(ep_table->max_structure_size, addr);
-    ACPI_READ_FIELD(ep_table->entry_point_revision, addr);
-    ACPI_READ_ARRAY(ep_table->formatted_area, addr);
-    ACPI_READ_ARRAY(ep_table->intermediate_anchor_string, addr);
-    g_assert(!memcmp(ep_table->intermediate_anchor_string, "_DMI_", 5));
-    ACPI_READ_FIELD(ep_table->intermediate_checksum, addr);
-    ACPI_READ_FIELD(ep_table->structure_table_length, addr);
-    g_assert_cmpuint(ep_table->structure_table_length, >, 0);
-    ACPI_READ_FIELD(ep_table->structure_table_address, addr);
-    ACPI_READ_FIELD(ep_table->number_of_structures, addr);
-    g_assert_cmpuint(ep_table->number_of_structures, >, 0);
-    ACPI_READ_FIELD(ep_table->smbios_bcd_revision, addr);
-    g_assert(!acpi_checksum((uint8_t *)ep_table, sizeof *ep_table));
-    g_assert(!acpi_checksum((uint8_t *)ep_table + 0x10,
-                            sizeof *ep_table - 0x10));
 }
 
 static inline bool smbios_single_instance(uint8_t type)
@@ -668,11 +659,10 @@ static inline bool smbios_single_instance(uint8_t type)
 static void test_smbios_structs(test_data *data)
 {
     DECLARE_BITMAP(struct_bitmap, SMBIOS_MAX_TYPE+1) = { 0 };
-    struct smbios_entry_point *ep_table = &data->smbios_ep_table;
+    struct smbios_21_entry_point *ep_table = &data->smbios_ep_table;
     uint32_t addr = ep_table->structure_table_address;
     int i, len, max_len = 0;
     uint8_t type, prv, crt;
-    uint8_t required_struct_types[] = {0, 1, 3, 4, 16, 17, 19, 32, 127};
 
     /* walk the smbios tables */
     for (i = 0; i < ep_table->number_of_structures; i++) {
@@ -712,18 +702,14 @@ static void test_smbios_structs(test_data *data)
     g_assert_cmpuint(ep_table->max_structure_size, ==, max_len);
 
     /* required struct types must all be present */
-    for (i = 0; i < ARRAY_SIZE(required_struct_types); i++) {
-        g_assert(test_bit(required_struct_types[i], struct_bitmap));
+    for (i = 0; i < data->required_struct_types_len; i++) {
+        g_assert(test_bit(data->required_struct_types[i], struct_bitmap));
     }
 }
 
 static void test_acpi_one(const char *params, test_data *data)
 {
     char *args;
-    uint8_t signature_low;
-    uint8_t signature_high;
-    uint16_t signature;
-    int i;
 
     args = g_strdup_printf("-net none -display none %s "
                            "-drive id=hd0,if=none,file=%s,format=raw "
@@ -732,24 +718,7 @@ static void test_acpi_one(const char *params, test_data *data)
 
     qtest_start(args);
 
-   /* Wait at most 1 minute */
-#define TEST_DELAY (1 * G_USEC_PER_SEC / 10)
-#define TEST_CYCLES MAX((60 * G_USEC_PER_SEC / TEST_DELAY), 1)
-
-    /* Poll until code has run and modified memory.  Once it has we know BIOS
-     * initialization is done.  TODO: check that IP reached the halt
-     * instruction.
-     */
-    for (i = 0; i < TEST_CYCLES; ++i) {
-        signature_low = readb(BOOT_SECTOR_ADDRESS + SIGNATURE_OFFSET);
-        signature_high = readb(BOOT_SECTOR_ADDRESS + SIGNATURE_OFFSET + 1);
-        signature = (signature_high << 8) | signature_low;
-        if (signature == SIGNATURE) {
-            break;
-        }
-        g_usleep(TEST_DELAY);
-    }
-    g_assert_cmphex(signature, ==, SIGNATURE);
+    boot_sector_test();
 
     test_acpi_rsdp_address(data);
     test_acpi_rsdp_table(data);
@@ -767,13 +736,16 @@ static void test_acpi_one(const char *params, test_data *data)
         }
     }
 
-    test_smbios_ep_address(data);
-    test_smbios_ep_table(data);
+    test_smbios_entry_point(data);
     test_smbios_structs(data);
 
     qtest_quit(global_qtest);
     g_free(args);
 }
+
+static uint8_t base_required_struct_types[] = {
+    0, 1, 3, 4, 16, 17, 19, 32, 127
+};
 
 static void test_acpi_piix4_tcg(void)
 {
@@ -784,6 +756,8 @@ static void test_acpi_piix4_tcg(void)
      */
     memset(&data, 0, sizeof(data));
     data.machine = MACHINE_PC;
+    data.required_struct_types = base_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(base_required_struct_types);
     test_acpi_one("-machine accel=tcg", &data);
     free_test_data(&data);
 }
@@ -795,6 +769,8 @@ static void test_acpi_piix4_tcg_bridge(void)
     memset(&data, 0, sizeof(data));
     data.machine = MACHINE_PC;
     data.variant = ".bridge";
+    data.required_struct_types = base_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(base_required_struct_types);
     test_acpi_one("-machine accel=tcg -device pci-bridge,chassis_nr=1", &data);
     free_test_data(&data);
 }
@@ -805,6 +781,8 @@ static void test_acpi_q35_tcg(void)
 
     memset(&data, 0, sizeof(data));
     data.machine = MACHINE_Q35;
+    data.required_struct_types = base_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(base_required_struct_types);
     test_acpi_one("-machine q35,accel=tcg", &data);
     free_test_data(&data);
 }
@@ -816,7 +794,72 @@ static void test_acpi_q35_tcg_bridge(void)
     memset(&data, 0, sizeof(data));
     data.machine = MACHINE_Q35;
     data.variant = ".bridge";
+    data.required_struct_types = base_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(base_required_struct_types);
     test_acpi_one("-machine q35,accel=tcg -device pci-bridge,chassis_nr=1",
+                  &data);
+    free_test_data(&data);
+}
+
+static void test_acpi_piix4_tcg_cphp(void)
+{
+    test_data data;
+
+    memset(&data, 0, sizeof(data));
+    data.machine = MACHINE_PC;
+    data.variant = ".cphp";
+    test_acpi_one("-machine accel=tcg"
+                  " -smp 2,cores=3,sockets=2,maxcpus=6",
+                  &data);
+    free_test_data(&data);
+}
+
+static void test_acpi_q35_tcg_cphp(void)
+{
+    test_data data;
+
+    memset(&data, 0, sizeof(data));
+    data.machine = MACHINE_Q35;
+    data.variant = ".cphp";
+    test_acpi_one("-machine q35,accel=tcg"
+                  " -smp 2,cores=3,sockets=2,maxcpus=6",
+                  &data);
+    free_test_data(&data);
+}
+
+static uint8_t ipmi_required_struct_types[] = {
+    0, 1, 3, 4, 16, 17, 19, 32, 38, 127
+};
+
+static void test_acpi_q35_tcg_ipmi(void)
+{
+    test_data data;
+
+    memset(&data, 0, sizeof(data));
+    data.machine = MACHINE_Q35;
+    data.variant = ".ipmibt";
+    data.required_struct_types = ipmi_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(ipmi_required_struct_types);
+    test_acpi_one("-machine q35,accel=tcg -device ipmi-bmc-sim,id=bmc0"
+                  " -device isa-ipmi-bt,bmc=bmc0",
+                  &data);
+    free_test_data(&data);
+}
+
+static void test_acpi_piix4_tcg_ipmi(void)
+{
+    test_data data;
+
+    /* Supplying -machine accel argument overrides the default (qtest).
+     * This is to make guest actually run.
+     */
+    memset(&data, 0, sizeof(data));
+    data.machine = MACHINE_PC;
+    data.variant = ".ipmikcs";
+    data.required_struct_types = ipmi_required_struct_types;
+    data.required_struct_types_len = ARRAY_SIZE(ipmi_required_struct_types);
+    test_acpi_one("-machine accel=tcg -device ipmi-bmc-sim,id=bmc0"
+                  " -device isa-ipmi-kcs,irq=0,bmc=bmc0",
                   &data);
     free_test_data(&data);
 }
@@ -824,15 +867,11 @@ static void test_acpi_q35_tcg_bridge(void)
 int main(int argc, char *argv[])
 {
     const char *arch = qtest_get_arch();
-    FILE *f = fopen(disk, "w");
     int ret;
 
-    if (!f) {
-        fprintf(stderr, "Couldn't open \"%s\": %s", disk, strerror(errno));
-        return 1;
-    }
-    fwrite(boot_sector, 1, sizeof boot_sector, f);
-    fclose(f);
+    ret = boot_sector_init(disk);
+    if(ret)
+        return ret;
 
     g_test_init(&argc, &argv, NULL);
 
@@ -841,8 +880,12 @@ int main(int argc, char *argv[])
         qtest_add_func("acpi/piix4/tcg/bridge", test_acpi_piix4_tcg_bridge);
         qtest_add_func("acpi/q35/tcg", test_acpi_q35_tcg);
         qtest_add_func("acpi/q35/tcg/bridge", test_acpi_q35_tcg_bridge);
+        qtest_add_func("acpi/piix4/tcg/ipmi", test_acpi_piix4_tcg_ipmi);
+        qtest_add_func("acpi/q35/tcg/ipmi", test_acpi_q35_tcg_ipmi);
+        qtest_add_func("acpi/piix4/tcg/cpuhp", test_acpi_piix4_tcg_cphp);
+        qtest_add_func("acpi/q35/tcg/cpuhp", test_acpi_q35_tcg_cphp);
     }
     ret = g_test_run();
-    unlink(disk);
+    boot_sector_cleanup(disk);
     return ret;
 }

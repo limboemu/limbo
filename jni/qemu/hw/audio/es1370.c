@@ -26,6 +26,7 @@
 /* #define VERBOSE_ES1370 */
 #define SILENT_ES1370
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/audio/audio.h"
 #include "audio/audio.h"
@@ -157,11 +158,6 @@ static const unsigned dac1_samplerate[] = { 5512, 11025, 22050, 44100 };
 #define DAC2_CHANNEL 1
 #define ADC_CHANNEL 2
 
-#define IO_READ_PROTO(n) \
-static uint32_t n (void *opaque, uint32_t addr)
-#define IO_WRITE_PROTO(n) \
-static void n (void *opaque, uint32_t addr, uint32_t val)
-
 static void es1370_dac1_callback (void *opaque, int free);
 static void es1370_dac2_callback (void *opaque, int free);
 static void es1370_adc_callback (void *opaque, int avail);
@@ -292,6 +288,10 @@ struct chan_bits {
     void (*calc_freq) (ES1370State *s, uint32_t ctl,
                        uint32_t *old_freq, uint32_t *new_freq);
 };
+
+#define TYPE_ES1370 "ES1370"
+#define ES1370(obj) \
+    OBJECT_CHECK(ES1370State, (obj), TYPE_ES1370)
 
 static void es1370_dac1_calc_freq (ES1370State *s, uint32_t ctl,
                                    uint32_t *old_freq, uint32_t *new_freq);
@@ -474,7 +474,7 @@ static inline uint32_t es1370_fixup (ES1370State *s, uint32_t addr)
     return addr;
 }
 
-IO_WRITE_PROTO (es1370_writeb)
+static void es1370_writeb(void *opaque, uint32_t addr, uint32_t val)
 {
     ES1370State *s = opaque;
     uint32_t shift, mask;
@@ -512,7 +512,7 @@ IO_WRITE_PROTO (es1370_writeb)
     }
 }
 
-IO_WRITE_PROTO (es1370_writew)
+static void es1370_writew(void *opaque, uint32_t addr, uint32_t val)
 {
     ES1370State *s = opaque;
     addr = es1370_fixup (s, addr);
@@ -549,7 +549,7 @@ IO_WRITE_PROTO (es1370_writew)
     }
 }
 
-IO_WRITE_PROTO (es1370_writel)
+static void es1370_writel(void *opaque, uint32_t addr, uint32_t val)
 {
     ES1370State *s = opaque;
     struct chan *d = &s->chan[0];
@@ -615,7 +615,7 @@ IO_WRITE_PROTO (es1370_writel)
     }
 }
 
-IO_READ_PROTO (es1370_readb)
+static uint32_t es1370_readb(void *opaque, uint32_t addr)
 {
     ES1370State *s = opaque;
     uint32_t val;
@@ -650,7 +650,7 @@ IO_READ_PROTO (es1370_readb)
     return val;
 }
 
-IO_READ_PROTO (es1370_readw)
+static uint32_t es1370_readw(void *opaque, uint32_t addr)
 {
     ES1370State *s = opaque;
     struct chan *d = &s->chan[0];
@@ -692,7 +692,7 @@ IO_READ_PROTO (es1370_readw)
     return val;
 }
 
-IO_READ_PROTO (es1370_readl)
+static uint32_t es1370_readl(void *opaque, uint32_t addr)
 {
     ES1370State *s = opaque;
     uint32_t val;
@@ -1018,7 +1018,7 @@ static void es1370_on_reset (void *opaque)
 
 static void es1370_realize(PCIDevice *dev, Error **errp)
 {
-    ES1370State *s = DO_UPCAST (ES1370State, dev, dev);
+    ES1370State *s = ES1370(dev);
     uint8_t *c = s->dev.config;
 
     c[PCI_STATUS + 1] = PCI_STATUS_DEVSEL_SLOW >> 8;
@@ -1043,7 +1043,7 @@ static void es1370_realize(PCIDevice *dev, Error **errp)
 
 static int es1370_init (PCIBus *bus)
 {
-    pci_create_simple (bus, -1, "ES1370");
+    pci_create_simple (bus, -1, TYPE_ES1370);
     return 0;
 }
 
@@ -1064,7 +1064,7 @@ static void es1370_class_init (ObjectClass *klass, void *data)
 }
 
 static const TypeInfo es1370_info = {
-    .name          = "ES1370",
+    .name          = TYPE_ES1370,
     .parent        = TYPE_PCI_DEVICE,
     .instance_size = sizeof (ES1370State),
     .class_init    = es1370_class_init,

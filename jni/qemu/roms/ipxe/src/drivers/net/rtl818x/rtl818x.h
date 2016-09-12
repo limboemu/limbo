@@ -19,6 +19,7 @@
 
 #include <ipxe/spi_bit.h>
 #include <ipxe/tables.h>
+#include <ipxe/net80211.h>
 
 FILE_LICENCE(GPL2_ONLY);
 
@@ -355,5 +356,8 @@ struct rtl818x_rf_ops {
 	void (*set_chan)(struct net80211_device *dev, struct net80211_channel *chan);
 	void (*conf_erp)(struct net80211_device *dev); /* set based on dev->erp_flags */
 };
+
+extern int rtl818x_probe(struct pci_device *pdev );
+extern void rtl818x_remove(struct pci_device *pdev);
 
 #endif /* RTL818X_H */

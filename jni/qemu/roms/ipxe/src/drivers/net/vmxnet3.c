@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <errno.h>
@@ -88,18 +92,23 @@ static int vmxnet3_transmit ( struct net_device *netdev,
 			      struct io_buffer *iobuf ) {
 	struct vmxnet3_nic *vmxnet = netdev_priv ( netdev );
 	struct vmxnet3_tx_desc *tx_desc;
+	unsigned int fill;
 	unsigned int desc_idx;
 	unsigned int generation;
 
 	/* Check that we have a free transmit descriptor */
-	desc_idx = ( vmxnet->count.tx_prod % VMXNET3_NUM_TX_DESC );
-	generation = ( ( vmxnet->count.tx_prod & VMXNET3_NUM_TX_DESC ) ?
-		       0 : cpu_to_le32 ( VMXNET3_TXF_GEN ) );
-	if ( vmxnet->tx_iobuf[desc_idx] ) {
+	fill = ( vmxnet->count.tx_prod - vmxnet->count.tx_cons );
+	if ( fill >= VMXNET3_TX_FILL ) {
 		DBGC ( vmxnet, "VMXNET3 %p out of transmit descriptors\n",
 		       vmxnet );
 		return -ENOBUFS;
 	}
+
+	/* Locate transmit descriptor */
+	desc_idx = ( vmxnet->count.tx_prod % VMXNET3_NUM_TX_DESC );
+	generation = ( ( vmxnet->count.tx_prod & VMXNET3_NUM_TX_DESC ) ?
+		       0 : cpu_to_le32 ( VMXNET3_TXF_GEN ) );
+	assert ( vmxnet->tx_iobuf[desc_idx] == NULL );
 
 	/* Increment producer counter */
 	vmxnet->count.tx_prod++;

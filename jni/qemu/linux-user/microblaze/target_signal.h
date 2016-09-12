@@ -1,5 +1,5 @@
-#ifndef TARGET_SIGNAL_H
-#define TARGET_SIGNAL_H
+#ifndef MICROBLAZE_TARGET_SIGNAL_H
+#define MICROBLAZE_TARGET_SIGNAL_H
 
 #include "cpu.h"
 
@@ -26,4 +26,5 @@ static inline abi_ulong get_sp_from_cpustate(CPUMBState *state)
     return state->regs[14];
 }
 
-#endif /* TARGET_SIGNAL_H */
+
+#endif /* MICROBLAZE_TARGET_SIGNAL_H */

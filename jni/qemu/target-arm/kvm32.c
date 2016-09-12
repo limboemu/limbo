@@ -8,21 +8,20 @@
  *
  */
 
-#include <stdio.h>
-#include <sys/types.h>
+#include "qemu/osdep.h"
 #include <sys/ioctl.h>
-#include <sys/mman.h>
 
 #include <linux/kvm.h>
 
 #include "qemu-common.h"
+#include "cpu.h"
 #include "qemu/timer.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/kvm.h"
 #include "kvm_arm.h"
-#include "cpu.h"
 #include "internals.h"
 #include "hw/arm/arm.h"
+#include "qemu/log.h"
 
 static inline void set_feature(uint64_t *features, int feature)
 {
@@ -153,10 +152,41 @@ bool kvm_arm_reg_syncs_via_cpreg_list(uint64_t regidx)
     }
 }
 
+typedef struct CPRegStateLevel {
+    uint64_t regidx;
+    int level;
+} CPRegStateLevel;
+
+/* All coprocessor registers not listed in the following table are assumed to
+ * be of the level KVM_PUT_RUNTIME_STATE. If a register should be written less
+ * often, you must add it to this table with a state of either
+ * KVM_PUT_RESET_STATE or KVM_PUT_FULL_STATE.
+ */
+static const CPRegStateLevel non_runtime_cpregs[] = {
+    { KVM_REG_ARM_TIMER_CNT, KVM_PUT_FULL_STATE },
+};
+
+int kvm_arm_cpreg_level(uint64_t regidx)
+{
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(non_runtime_cpregs); i++) {
+        const CPRegStateLevel *l = &non_runtime_cpregs[i];
+        if (l->regidx == regidx) {
+            return l->level;
+        }
+    }
+
+    return KVM_PUT_RUNTIME_STATE;
+}
+
+#define ARM_CPU_ID_MPIDR       0, 0, 0, 5
+
 int kvm_arch_init_vcpu(CPUState *cs)
 {
     int ret;
     uint64_t v;
+    uint32_t mpidr;
     struct kvm_one_reg r;
     ARMCPU *cpu = ARM_CPU(cs);
 
@@ -192,6 +222,17 @@ int kvm_arch_init_vcpu(CPUState *cs)
     if (ret == -ENOENT) {
         return -EINVAL;
     }
+
+    /*
+     * When KVM is in use, PSCI is emulated in-kernel and not by qemu.
+     * Currently KVM has its own idea about MPIDR assignment, so we
+     * override our defaults with what we get from KVM.
+     */
+    ret = kvm_get_one_reg(cs, ARM_CP15_REG32(ARM_CPU_ID_MPIDR), &mpidr);
+    if (ret) {
+        return ret;
+    }
+    cpu->mp_affinity = mpidr & ARM32_AFFINITY_MASK;
 
     return kvm_arm_init_cpreg_list(cpu);
 }
@@ -238,30 +279,30 @@ static const Reg regs[] = {
     COREREG(usr_regs.uregs[10], usr_regs[2]),
     COREREG(usr_regs.uregs[11], usr_regs[3]),
     COREREG(usr_regs.uregs[12], usr_regs[4]),
-    COREREG(usr_regs.uregs[13], banked_r13[0]),
-    COREREG(usr_regs.uregs[14], banked_r14[0]),
+    COREREG(usr_regs.uregs[13], banked_r13[BANK_USRSYS]),
+    COREREG(usr_regs.uregs[14], banked_r14[BANK_USRSYS]),
     /* R13, R14, SPSR for SVC, ABT, UND, IRQ banks */
-    COREREG(svc_regs[0], banked_r13[1]),
-    COREREG(svc_regs[1], banked_r14[1]),
-    COREREG64(svc_regs[2], banked_spsr[1]),
-    COREREG(abt_regs[0], banked_r13[2]),
-    COREREG(abt_regs[1], banked_r14[2]),
-    COREREG64(abt_regs[2], banked_spsr[2]),
-    COREREG(und_regs[0], banked_r13[3]),
-    COREREG(und_regs[1], banked_r14[3]),
-    COREREG64(und_regs[2], banked_spsr[3]),
-    COREREG(irq_regs[0], banked_r13[4]),
-    COREREG(irq_regs[1], banked_r14[4]),
-    COREREG64(irq_regs[2], banked_spsr[4]),
+    COREREG(svc_regs[0], banked_r13[BANK_SVC]),
+    COREREG(svc_regs[1], banked_r14[BANK_SVC]),
+    COREREG64(svc_regs[2], banked_spsr[BANK_SVC]),
+    COREREG(abt_regs[0], banked_r13[BANK_ABT]),
+    COREREG(abt_regs[1], banked_r14[BANK_ABT]),
+    COREREG64(abt_regs[2], banked_spsr[BANK_ABT]),
+    COREREG(und_regs[0], banked_r13[BANK_UND]),
+    COREREG(und_regs[1], banked_r14[BANK_UND]),
+    COREREG64(und_regs[2], banked_spsr[BANK_UND]),
+    COREREG(irq_regs[0], banked_r13[BANK_IRQ]),
+    COREREG(irq_regs[1], banked_r14[BANK_IRQ]),
+    COREREG64(irq_regs[2], banked_spsr[BANK_IRQ]),
     /* R8_fiq .. R14_fiq and SPSR_fiq */
     COREREG(fiq_regs[0], fiq_regs[0]),
     COREREG(fiq_regs[1], fiq_regs[1]),
     COREREG(fiq_regs[2], fiq_regs[2]),
     COREREG(fiq_regs[3], fiq_regs[3]),
     COREREG(fiq_regs[4], fiq_regs[4]),
-    COREREG(fiq_regs[5], banked_r13[5]),
-    COREREG(fiq_regs[6], banked_r14[5]),
-    COREREG64(fiq_regs[7], banked_spsr[5]),
+    COREREG(fiq_regs[5], banked_r13[BANK_FIQ]),
+    COREREG(fiq_regs[6], banked_r14[BANK_FIQ]),
+    COREREG64(fiq_regs[7], banked_spsr[BANK_FIQ]),
     /* R15 */
     COREREG(usr_regs.uregs[15], regs[15]),
     /* VFP system registers */
@@ -352,7 +393,7 @@ int kvm_arch_put_registers(CPUState *cs, int level)
      * managed to update the CPUARMState with, and only allowing those
      * to be written back up into the kernel).
      */
-    if (!write_list_to_kvmstate(cpu)) {
+    if (!write_list_to_kvmstate(cpu, level)) {
         return EINVAL;
     }
 
@@ -387,7 +428,7 @@ int kvm_arch_get_registers(CPUState *cs)
     if (ret) {
         return ret;
     }
-    cpsr_write(env, cpsr, 0xffffffff);
+    cpsr_write(env, cpsr, 0xffffffff, CPSRWriteRaw);
 
     /* Make sure the current mode regs are properly set */
     mode = env->uncached_cpsr & CPSR_M;
@@ -431,5 +472,58 @@ int kvm_arch_get_registers(CPUState *cs)
 
     kvm_arm_sync_mpstate_to_qemu(cpu);
 
+    return 0;
+}
+
+int kvm_arch_insert_sw_breakpoint(CPUState *cs, struct kvm_sw_breakpoint *bp)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: guest debug not yet implemented\n", __func__);
+    return -EINVAL;
+}
+
+int kvm_arch_remove_sw_breakpoint(CPUState *cs, struct kvm_sw_breakpoint *bp)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: guest debug not yet implemented\n", __func__);
+    return -EINVAL;
+}
+
+bool kvm_arm_handle_debug(CPUState *cs, struct kvm_debug_exit_arch *debug_exit)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: guest debug not yet implemented\n", __func__);
+    return false;
+}
+
+int kvm_arch_insert_hw_breakpoint(target_ulong addr,
+                                  target_ulong len, int type)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: not implemented\n", __func__);
+    return -EINVAL;
+}
+
+int kvm_arch_remove_hw_breakpoint(target_ulong addr,
+                                  target_ulong len, int type)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: not implemented\n", __func__);
+    return -EINVAL;
+}
+
+void kvm_arch_remove_all_hw_breakpoints(void)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: not implemented\n", __func__);
+}
+
+void kvm_arm_copy_hw_debug_data(struct kvm_guest_debug_arch *ptr)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: not implemented\n", __func__);
+}
+
+bool kvm_arm_hw_debug_active(CPUState *cs)
+{
+    return false;
+}
+
+int kvm_arm_pmu_create(CPUState *cs, int irq)
+{
+    qemu_log_mask(LOG_UNIMP, "%s: not implemented\n", __func__);
     return 0;
 }

@@ -1,40 +1,234 @@
-[OrderedDict([('enum', 'EnumOne'), ('data', ['value1', 'value2', 'value3'])]),
- OrderedDict([('type', 'NestedEnumsOne'), ('data', OrderedDict([('enum1', 'EnumOne'), ('*enum2', 'EnumOne'), ('enum3', 'EnumOne'), ('*enum4', 'EnumOne')]))]),
- OrderedDict([('type', 'UserDefZero'), ('data', OrderedDict([('integer', 'int')]))]),
- OrderedDict([('type', 'UserDefOne'), ('base', 'UserDefZero'), ('data', OrderedDict([('string', 'str'), ('*enum1', 'EnumOne')]))]),
- OrderedDict([('type', 'UserDefTwo'), ('data', OrderedDict([('string', 'str'), ('dict', OrderedDict([('string', 'str'), ('dict', OrderedDict([('userdef', 'UserDefOne'), ('string', 'str')])), ('*dict2', OrderedDict([('userdef', 'UserDefOne'), ('string', 'str')]))]))]))]),
- OrderedDict([('type', 'UserDefNested'), ('data', OrderedDict([('string0', 'str'), ('dict1', OrderedDict([('string1', 'str'), ('dict2', OrderedDict([('userdef1', 'UserDefOne'), ('string2', 'str')])), ('*dict3', OrderedDict([('userdef2', 'UserDefOne'), ('string3', 'str')]))]))]))]),
- OrderedDict([('type', 'UserDefA'), ('data', OrderedDict([('boolean', 'bool')]))]),
- OrderedDict([('type', 'UserDefB'), ('data', OrderedDict([('integer', 'int')]))]),
- OrderedDict([('type', 'UserDefC'), ('data', OrderedDict([('string1', 'str'), ('string2', 'str')]))]),
- OrderedDict([('union', 'UserDefUnion'), ('base', 'UserDefZero'), ('data', OrderedDict([('a', 'UserDefA'), ('b', 'UserDefB')]))]),
- OrderedDict([('type', 'UserDefUnionBase'), ('data', OrderedDict([('string', 'str'), ('enum1', 'EnumOne')]))]),
- OrderedDict([('union', 'UserDefFlatUnion'), ('base', 'UserDefUnionBase'), ('discriminator', 'enum1'), ('data', OrderedDict([('value1', 'UserDefA'), ('value2', 'UserDefB'), ('value3', 'UserDefB')]))]),
- OrderedDict([('union', 'UserDefFlatUnion2'), ('base', 'UserDefUnionBase'), ('discriminator', 'enum1'), ('data', OrderedDict([('value1', 'UserDefC'), ('value2', 'UserDefB'), ('value3', 'UserDefA')]))]),
- OrderedDict([('union', 'UserDefAnonUnion'), ('discriminator', OrderedDict()), ('data', OrderedDict([('uda', 'UserDefA'), ('s', 'str'), ('i', 'int')]))]),
- OrderedDict([('union', 'UserDefNativeListUnion'), ('data', OrderedDict([('integer', ['int']), ('s8', ['int8']), ('s16', ['int16']), ('s32', ['int32']), ('s64', ['int64']), ('u8', ['uint8']), ('u16', ['uint16']), ('u32', ['uint32']), ('u64', ['uint64']), ('number', ['number']), ('boolean', ['bool']), ('string', ['str'])]))]),
- OrderedDict([('command', 'user_def_cmd'), ('data', OrderedDict())]),
- OrderedDict([('command', 'user_def_cmd1'), ('data', OrderedDict([('ud1a', 'UserDefOne')]))]),
- OrderedDict([('command', 'user_def_cmd2'), ('data', OrderedDict([('ud1a', 'UserDefOne'), ('*ud1b', 'UserDefOne')])), ('returns', 'UserDefTwo')]),
- OrderedDict([('command', 'user_def_cmd3'), ('data', OrderedDict([('a', 'int'), ('*b', 'int')])), ('returns', 'int')]),
- OrderedDict([('type', 'UserDefOptions'), ('data', OrderedDict([('*i64', ['int']), ('*u64', ['uint64']), ('*u16', ['uint16']), ('*i64x', 'int'), ('*u64x', 'uint64')]))]),
- OrderedDict([('type', 'EventStructOne'), ('data', OrderedDict([('struct1', 'UserDefOne'), ('string', 'str'), ('*enum2', 'EnumOne')]))]),
- OrderedDict([('event', 'EVENT_A')]),
- OrderedDict([('event', 'EVENT_B'), ('data', OrderedDict())]),
- OrderedDict([('event', 'EVENT_C'), ('data', OrderedDict([('*a', 'int'), ('*b', 'UserDefOne'), ('c', 'str')]))]),
- OrderedDict([('event', 'EVENT_D'), ('data', OrderedDict([('a', 'EventStructOne'), ('b', 'str'), ('*c', 'str'), ('*enum3', 'EnumOne')]))])]
-[{'enum_name': 'EnumOne', 'enum_values': ['value1', 'value2', 'value3']},
- {'enum_name': 'UserDefUnionKind', 'enum_values': None},
- {'enum_name': 'UserDefAnonUnionKind', 'enum_values': None},
- {'enum_name': 'UserDefNativeListUnionKind', 'enum_values': None}]
-[OrderedDict([('type', 'NestedEnumsOne'), ('data', OrderedDict([('enum1', 'EnumOne'), ('*enum2', 'EnumOne'), ('enum3', 'EnumOne'), ('*enum4', 'EnumOne')]))]),
- OrderedDict([('type', 'UserDefZero'), ('data', OrderedDict([('integer', 'int')]))]),
- OrderedDict([('type', 'UserDefOne'), ('base', 'UserDefZero'), ('data', OrderedDict([('string', 'str'), ('*enum1', 'EnumOne')]))]),
- OrderedDict([('type', 'UserDefTwo'), ('data', OrderedDict([('string', 'str'), ('dict', OrderedDict([('string', 'str'), ('dict', OrderedDict([('userdef', 'UserDefOne'), ('string', 'str')])), ('*dict2', OrderedDict([('userdef', 'UserDefOne'), ('string', 'str')]))]))]))]),
- OrderedDict([('type', 'UserDefNested'), ('data', OrderedDict([('string0', 'str'), ('dict1', OrderedDict([('string1', 'str'), ('dict2', OrderedDict([('userdef1', 'UserDefOne'), ('string2', 'str')])), ('*dict3', OrderedDict([('userdef2', 'UserDefOne'), ('string3', 'str')]))]))]))]),
- OrderedDict([('type', 'UserDefA'), ('data', OrderedDict([('boolean', 'bool')]))]),
- OrderedDict([('type', 'UserDefB'), ('data', OrderedDict([('integer', 'int')]))]),
- OrderedDict([('type', 'UserDefC'), ('data', OrderedDict([('string1', 'str'), ('string2', 'str')]))]),
- OrderedDict([('type', 'UserDefUnionBase'), ('data', OrderedDict([('string', 'str'), ('enum1', 'EnumOne')]))]),
- OrderedDict([('type', 'UserDefOptions'), ('data', OrderedDict([('*i64', ['int']), ('*u64', ['uint64']), ('*u16', ['uint16']), ('*i64x', 'int'), ('*u64x', 'uint64')]))]),
- OrderedDict([('type', 'EventStructOne'), ('data', OrderedDict([('struct1', 'UserDefOne'), ('string', 'str'), ('*enum2', 'EnumOne')]))])]
+alternate AltIntNum
+    tag type
+    case i: int
+    case n: number
+alternate AltNumInt
+    tag type
+    case n: number
+    case i: int
+alternate AltNumStr
+    tag type
+    case n: number
+    case s: str
+alternate AltStrBool
+    tag type
+    case s: str
+    case b: bool
+alternate AltStrInt
+    tag type
+    case s: str
+    case i: int
+alternate AltStrNum
+    tag type
+    case s: str
+    case n: number
+event EVENT_A None
+   boxed=False
+event EVENT_B None
+   boxed=False
+event EVENT_C q_obj_EVENT_C-arg
+   boxed=False
+event EVENT_D q_obj_EVENT_D-arg
+   boxed=False
+event EVENT_E UserDefZero
+   boxed=True
+event EVENT_F UserDefAlternate
+   boxed=True
+object Empty1
+object Empty2
+    base Empty1
+enum EnumOne ['value1', 'value2', 'value3']
+object EventStructOne
+    member struct1: UserDefOne optional=False
+    member string: str optional=False
+    member enum2: EnumOne optional=True
+object ForceArrays
+    member unused1: UserDefOneList optional=False
+    member unused2: UserDefTwoList optional=False
+    member unused3: TestStructList optional=False
+enum MyEnum []
+object NestedEnumsOne
+    member enum1: EnumOne optional=False
+    member enum2: EnumOne optional=True
+    member enum3: EnumOne optional=False
+    member enum4: EnumOne optional=True
+enum QEnumTwo ['value1', 'value2']
+    prefix QENUM_TWO
+enum QType ['none', 'qnull', 'qint', 'qstring', 'qdict', 'qlist', 'qfloat', 'qbool']
+    prefix QTYPE
+object TestStruct
+    member integer: int optional=False
+    member boolean: bool optional=False
+    member string: str optional=False
+object UserDefA
+    member boolean: bool optional=False
+    member a_b: int optional=True
+alternate UserDefAlternate
+    tag type
+    case udfu: UserDefFlatUnion
+    case s: str
+    case i: int
+object UserDefB
+    member intb: int optional=False
+    member a-b: bool optional=True
+object UserDefC
+    member string1: str optional=False
+    member string2: str optional=False
+object UserDefFlatUnion
+    base UserDefUnionBase
+    tag enum1
+    case value1: UserDefA
+    case value2: UserDefB
+    case value3: UserDefB
+object UserDefFlatUnion2
+    base q_obj_UserDefFlatUnion2-base
+    tag enum1
+    case value1: UserDefC
+    case value2: UserDefB
+object UserDefNativeListUnion
+    member type: UserDefNativeListUnionKind optional=False
+    tag type
+    case integer: q_obj_intList-wrapper
+    case s8: q_obj_int8List-wrapper
+    case s16: q_obj_int16List-wrapper
+    case s32: q_obj_int32List-wrapper
+    case s64: q_obj_int64List-wrapper
+    case u8: q_obj_uint8List-wrapper
+    case u16: q_obj_uint16List-wrapper
+    case u32: q_obj_uint32List-wrapper
+    case u64: q_obj_uint64List-wrapper
+    case number: q_obj_numberList-wrapper
+    case boolean: q_obj_boolList-wrapper
+    case string: q_obj_strList-wrapper
+    case sizes: q_obj_sizeList-wrapper
+    case any: q_obj_anyList-wrapper
+enum UserDefNativeListUnionKind ['integer', 's8', 's16', 's32', 's64', 'u8', 'u16', 'u32', 'u64', 'number', 'boolean', 'string', 'sizes', 'any']
+object UserDefOne
+    base UserDefZero
+    member string: str optional=False
+    member enum1: EnumOne optional=True
+object UserDefOptions
+    member i64: intList optional=True
+    member u64: uint64List optional=True
+    member u16: uint16List optional=True
+    member i64x: int optional=True
+    member u64x: uint64 optional=True
+object UserDefTwo
+    member string0: str optional=False
+    member dict1: UserDefTwoDict optional=False
+object UserDefTwoDict
+    member string1: str optional=False
+    member dict2: UserDefTwoDictDict optional=False
+    member dict3: UserDefTwoDictDict optional=True
+object UserDefTwoDictDict
+    member userdef: UserDefOne optional=False
+    member string: str optional=False
+object UserDefUnionBase
+    base UserDefZero
+    member string: str optional=False
+    member enum1: EnumOne optional=False
+object UserDefZero
+    member integer: int optional=False
+object WrapAlternate
+    member alt: UserDefAlternate optional=False
+event __ORG.QEMU_X-EVENT __org.qemu_x-Struct
+   boxed=False
+alternate __org.qemu_x-Alt
+    tag type
+    case __org.qemu_x-branch: str
+    case b: __org.qemu_x-Base
+object __org.qemu_x-Base
+    member __org.qemu_x-member1: __org.qemu_x-Enum optional=False
+enum __org.qemu_x-Enum ['__org.qemu_x-value']
+object __org.qemu_x-Struct
+    base __org.qemu_x-Base
+    member __org.qemu_x-member2: str optional=False
+    member wchar-t: int optional=True
+object __org.qemu_x-Struct2
+    member array: __org.qemu_x-Union1List optional=False
+object __org.qemu_x-Union1
+    member type: __org.qemu_x-Union1Kind optional=False
+    tag type
+    case __org.qemu_x-branch: q_obj_str-wrapper
+enum __org.qemu_x-Union1Kind ['__org.qemu_x-branch']
+object __org.qemu_x-Union2
+    base __org.qemu_x-Base
+    tag __org.qemu_x-member1
+    case __org.qemu_x-value: __org.qemu_x-Struct2
+command __org.qemu_x-command q_obj___org.qemu_x-command-arg -> __org.qemu_x-Union1
+   gen=True success_response=True boxed=False
+command boxed-struct UserDefZero -> None
+   gen=True success_response=True boxed=True
+command boxed-union UserDefNativeListUnion -> None
+   gen=True success_response=True boxed=True
+command guest-get-time q_obj_guest-get-time-arg -> int
+   gen=True success_response=True boxed=False
+command guest-sync q_obj_guest-sync-arg -> any
+   gen=True success_response=True boxed=False
+object q_empty
+object q_obj_EVENT_C-arg
+    member a: int optional=True
+    member b: UserDefOne optional=True
+    member c: str optional=False
+object q_obj_EVENT_D-arg
+    member a: EventStructOne optional=False
+    member b: str optional=False
+    member c: str optional=True
+    member enum3: EnumOne optional=True
+object q_obj_UserDefFlatUnion2-base
+    member integer: int optional=True
+    member string: str optional=False
+    member enum1: QEnumTwo optional=False
+object q_obj___org.qemu_x-command-arg
+    member a: __org.qemu_x-EnumList optional=False
+    member b: __org.qemu_x-StructList optional=False
+    member c: __org.qemu_x-Union2 optional=False
+    member d: __org.qemu_x-Alt optional=False
+object q_obj_anyList-wrapper
+    member data: anyList optional=False
+object q_obj_boolList-wrapper
+    member data: boolList optional=False
+object q_obj_guest-get-time-arg
+    member a: int optional=False
+    member b: int optional=True
+object q_obj_guest-sync-arg
+    member arg: any optional=False
+object q_obj_int16List-wrapper
+    member data: int16List optional=False
+object q_obj_int32List-wrapper
+    member data: int32List optional=False
+object q_obj_int64List-wrapper
+    member data: int64List optional=False
+object q_obj_int8List-wrapper
+    member data: int8List optional=False
+object q_obj_intList-wrapper
+    member data: intList optional=False
+object q_obj_numberList-wrapper
+    member data: numberList optional=False
+object q_obj_sizeList-wrapper
+    member data: sizeList optional=False
+object q_obj_str-wrapper
+    member data: str optional=False
+object q_obj_strList-wrapper
+    member data: strList optional=False
+object q_obj_uint16List-wrapper
+    member data: uint16List optional=False
+object q_obj_uint32List-wrapper
+    member data: uint32List optional=False
+object q_obj_uint64List-wrapper
+    member data: uint64List optional=False
+object q_obj_uint8List-wrapper
+    member data: uint8List optional=False
+object q_obj_user_def_cmd1-arg
+    member ud1a: UserDefOne optional=False
+object q_obj_user_def_cmd2-arg
+    member ud1a: UserDefOne optional=False
+    member ud1b: UserDefOne optional=True
+command user_def_cmd None -> None
+   gen=True success_response=True boxed=False
+command user_def_cmd0 Empty2 -> Empty2
+   gen=True success_response=True boxed=False
+command user_def_cmd1 q_obj_user_def_cmd1-arg -> None
+   gen=True success_response=True boxed=False
+command user_def_cmd2 q_obj_user_def_cmd2-arg -> UserDefTwo
+   gen=True success_response=True boxed=False

@@ -19,10 +19,12 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/pci/pci_ids.h"
 #include "hw/pci/msi.h"
 #include "hw/pci/pcie.h"
 #include "xio3130_downstream.h"
+#include "qapi/error.h"
 
 #define PCI_DEVICE_ID_TI_XIO3130D       0x8233  /* downstream port */
 #define XIO3130_REVISION                0x1
@@ -59,25 +61,26 @@ static int xio3130_downstream_initfn(PCIDevice *d)
     PCIEPort *p = PCIE_PORT(d);
     PCIESlot *s = PCIE_SLOT(d);
     int rc;
+    Error *err = NULL;
 
-    rc = pci_bridge_initfn(d, TYPE_PCIE_BUS);
-    if (rc < 0) {
-        return rc;
-    }
-
+    pci_bridge_initfn(d, TYPE_PCIE_BUS);
     pcie_port_init_reg(d);
 
     rc = msi_init(d, XIO3130_MSI_OFFSET, XIO3130_MSI_NR_VECTOR,
                   XIO3130_MSI_SUPPORTED_FLAGS & PCI_MSI_FLAGS_64BIT,
-                  XIO3130_MSI_SUPPORTED_FLAGS & PCI_MSI_FLAGS_MASKBIT);
+                  XIO3130_MSI_SUPPORTED_FLAGS & PCI_MSI_FLAGS_MASKBIT, &err);
     if (rc < 0) {
+        assert(rc == -ENOTSUP);
+        error_report_err(err);
         goto err_bridge;
     }
+
     rc = pci_bridge_ssvid_init(d, XIO3130_SSVID_OFFSET,
                                XIO3130_SSVID_SVID, XIO3130_SSVID_SSID);
     if (rc < 0) {
         goto err_bridge;
     }
+
     rc = pcie_cap_init(d, XIO3130_EXP_OFFSET, PCI_EXP_TYPE_DOWNSTREAM,
                        p->port);
     if (rc < 0) {
@@ -86,13 +89,15 @@ static int xio3130_downstream_initfn(PCIDevice *d)
     pcie_cap_flr_init(d);
     pcie_cap_deverr_init(d);
     pcie_cap_slot_init(d, s->slot);
+    pcie_cap_arifwd_init(d);
+
     pcie_chassis_create(s->chassis);
     rc = pcie_chassis_add_slot(s);
     if (rc < 0) {
         goto err_pcie_cap;
     }
-    pcie_cap_arifwd_init(d);
-    rc = pcie_aer_init(d, XIO3130_AER_OFFSET);
+
+    rc = pcie_aer_init(d, XIO3130_AER_OFFSET, PCI_ERR_SIZEOF);
     if (rc < 0) {
         goto err;
     }
@@ -198,12 +203,3 @@ static void xio3130_downstream_register_types(void)
 }
 
 type_init(xio3130_downstream_register_types)
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- *  tab-width: 8
- *  indent-tab-mode: nil
- * End:
- */

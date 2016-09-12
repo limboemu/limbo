@@ -1,5 +1,5 @@
-#if !defined (__QEMU_MIPS_DEFS_H__)
-#define __QEMU_MIPS_DEFS_H__
+#ifndef QEMU_MIPS_DEFS_H
+#define QEMU_MIPS_DEFS_H
 
 /* If we want to use host float regs... */
 //#define USE_HOST_FLOAT_REGS
@@ -10,11 +10,11 @@
 
 #if defined(TARGET_MIPS64)
 #define TARGET_LONG_BITS 64
-#define TARGET_PHYS_ADDR_SPACE_BITS 36
-#define TARGET_VIRT_ADDR_SPACE_BITS 42
+#define TARGET_PHYS_ADDR_SPACE_BITS 48
+#define TARGET_VIRT_ADDR_SPACE_BITS 48
 #else
 #define TARGET_LONG_BITS 32
-#define TARGET_PHYS_ADDR_SPACE_BITS 36
+#define TARGET_PHYS_ADDR_SPACE_BITS 40
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
 #endif
 
@@ -88,4 +88,4 @@
    Note that we still maintain Count/Compare to match the host clock. */
 //#define MIPS_STRICT_STANDARD 1
 
-#endif /* !defined (__QEMU_MIPS_DEFS_H__) */
+#endif /* QEMU_MIPS_DEFS_H */

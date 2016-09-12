@@ -11,17 +11,14 @@
 #ifndef TRACE_SIMPLE_H
 #define TRACE_SIMPLE_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
 
 #include "trace/generated-events.h"
 
 
 void st_print_trace_file_status(FILE *stream, fprintf_function stream_printf);
 void st_set_trace_file_enabled(bool enable);
-bool st_set_trace_file(const char *file);
-bool st_init(const char *file);
+void st_set_trace_file(const char *file);
+bool st_init(void);
 void st_flush_trace_buffer(void);
 
 typedef struct {

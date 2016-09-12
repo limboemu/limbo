@@ -136,6 +136,28 @@ uint32_t fdt_next_tag(const void *fdt, int offset, int *nextoffset);
 
 int fdt_next_node(const void *fdt, int offset, int *depth);
 
+/**
+ * fdt_first_subnode() - get offset of first direct subnode
+ *
+ * @fdt:	FDT blob
+ * @offset:	Offset of node to check
+ * @return offset of first subnode, or -FDT_ERR_NOTFOUND if there is none
+ */
+int fdt_first_subnode(const void *fdt, int offset);
+
+/**
+ * fdt_next_subnode() - get offset of next direct subnode
+ *
+ * After first calling fdt_first_subnode(), call this function repeatedly to
+ * get direct subnodes of a parent node.
+ *
+ * @fdt:	FDT blob
+ * @offset:	Offset of previous subnode
+ * @return offset of next subnode, or -FDT_ERR_NOTFOUND if there are no more
+ * subnodes
+ */
+int fdt_next_subnode(const void *fdt, int offset);
+
 /**********************************************************************/
 /* General functions                                                  */
 /**********************************************************************/
@@ -582,7 +604,7 @@ const char *fdt_get_alias_namelen(const void *fdt,
  * value of the property named 'name' in the node /aliases.
  *
  * returns:
- *	a pointer to the expansion of the alias named 'name', of it exists
+ *	a pointer to the expansion of the alias named 'name', if it exists
  *	NULL, if the given alias or the /aliases node does not exist
  */
 const char *fdt_get_alias(const void *fdt, const char *name);
@@ -816,6 +838,20 @@ int fdt_node_check_compatible(const void *fdt, int nodeoffset,
 int fdt_node_offset_by_compatible(const void *fdt, int startoffset,
 				  const char *compatible);
 
+/**
+ * fdt_stringlist_contains - check a string list property for a string
+ * @strlist: Property containing a list of strings to check
+ * @listlen: Length of property
+ * @str: String to search for
+ *
+ * This is a utility function provided for convenience. The list contains
+ * one or more strings, each terminated by \0, as is found in a device tree
+ * "compatible" property.
+ *
+ * @return: 1 if the string is found in the list, 0 not found, or invalid list
+ */
+int fdt_stringlist_contains(const char *strlist, int listlen, const char *str);
+
 /**********************************************************************/
 /* Write-in-place functions                                           */
 /**********************************************************************/
@@ -852,17 +888,17 @@ int fdt_setprop_inplace(void *fdt, int nodeoffset, const char *name,
 			const void *val, int len);
 
 /**
- * fdt_setprop_inplace_cell - change the value of a single-cell property
+ * fdt_setprop_inplace_u32 - change the value of a 32-bit integer property
  * @fdt: pointer to the device tree blob
  * @nodeoffset: offset of the node whose property to change
  * @name: name of the property to change
- * @val: cell (32-bit integer) value to replace the property with
+ * @val: 32-bit integer value to replace the property with
  *
- * fdt_setprop_inplace_cell() replaces the value of a given property
- * with the 32-bit integer cell value in val, converting val to
- * big-endian if necessary.  This function cannot change the size of a
- * property, and so will only work if the property already exists and
- * has length 4.
+ * fdt_setprop_inplace_u32() replaces the value of a given property
+ * with the 32-bit integer value in val, converting val to big-endian
+ * if necessary.  This function cannot change the size of a property,
+ * and so will only work if the property already exists and has length
+ * 4.
  *
  * This function will alter only the bytes in the blob which contain
  * the given property value, and will not alter or move any other part
@@ -871,7 +907,7 @@ int fdt_setprop_inplace(void *fdt, int nodeoffset, const char *name,
  * returns:
  *	0, on success
  *	-FDT_ERR_NOSPACE, if the property's length is not equal to 4
-  *	-FDT_ERR_NOTFOUND, node does not have the named property
+ *	-FDT_ERR_NOTFOUND, node does not have the named property
  *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
  *	-FDT_ERR_BADMAGIC,
  *	-FDT_ERR_BADVERSION,
@@ -879,11 +915,57 @@ int fdt_setprop_inplace(void *fdt, int nodeoffset, const char *name,
  *	-FDT_ERR_BADSTRUCTURE,
  *	-FDT_ERR_TRUNCATED, standard meanings
  */
+static inline int fdt_setprop_inplace_u32(void *fdt, int nodeoffset,
+					  const char *name, uint32_t val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+	return fdt_setprop_inplace(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_setprop_inplace_u64 - change the value of a 64-bit integer property
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to change
+ * @val: 64-bit integer value to replace the property with
+ *
+ * fdt_setprop_inplace_u64() replaces the value of a given property
+ * with the 64-bit integer value in val, converting val to big-endian
+ * if necessary.  This function cannot change the size of a property,
+ * and so will only work if the property already exists and has length
+ * 8.
+ *
+ * This function will alter only the bytes in the blob which contain
+ * the given property value, and will not alter or move any other part
+ * of the tree.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, if the property's length is not equal to 8
+ *	-FDT_ERR_NOTFOUND, node does not have the named property
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+static inline int fdt_setprop_inplace_u64(void *fdt, int nodeoffset,
+					  const char *name, uint64_t val)
+{
+	fdt64_t tmp = cpu_to_fdt64(val);
+	return fdt_setprop_inplace(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_setprop_inplace_cell - change the value of a single-cell property
+ *
+ * This is an alternative name for fdt_setprop_inplace_u32()
+ */
 static inline int fdt_setprop_inplace_cell(void *fdt, int nodeoffset,
 					   const char *name, uint32_t val)
 {
-	val = cpu_to_fdt32(val);
-	return fdt_setprop_inplace(fdt, nodeoffset, name, &val, sizeof(val));
+	return fdt_setprop_inplace_u32(fdt, nodeoffset, name, val);
 }
 
 /**
@@ -945,10 +1027,19 @@ int fdt_add_reservemap_entry(void *fdt, uint64_t addr, uint64_t size);
 int fdt_finish_reservemap(void *fdt);
 int fdt_begin_node(void *fdt, const char *name);
 int fdt_property(void *fdt, const char *name, const void *val, int len);
+static inline int fdt_property_u32(void *fdt, const char *name, uint32_t val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+	return fdt_property(fdt, name, &tmp, sizeof(tmp));
+}
+static inline int fdt_property_u64(void *fdt, const char *name, uint64_t val)
+{
+	fdt64_t tmp = cpu_to_fdt64(val);
+	return fdt_property(fdt, name, &tmp, sizeof(tmp));
+}
 static inline int fdt_property_cell(void *fdt, const char *name, uint32_t val)
 {
-	val = cpu_to_fdt32(val);
-	return fdt_property(fdt, name, &val, sizeof(val));
+	return fdt_property_u32(fdt, name, val);
 }
 #define fdt_property_string(fdt, name, str) \
 	fdt_property(fdt, name, str, strlen(str)+1)
@@ -959,6 +1050,7 @@ int fdt_finish(void *fdt);
 /* Read-write functions                                               */
 /**********************************************************************/
 
+int fdt_create_empty_tree(void *buf, int bufsize);
 int fdt_open_into(const void *fdt, void *buf, int bufsize);
 int fdt_pack(void *fdt);
 
@@ -1068,14 +1160,14 @@ int fdt_setprop(void *fdt, int nodeoffset, const char *name,
 		const void *val, int len);
 
 /**
- * fdt_setprop_cell - set a property to a single cell value
+ * fdt_setprop_u32 - set a property to a 32-bit integer
  * @fdt: pointer to the device tree blob
  * @nodeoffset: offset of the node whose property to change
  * @name: name of the property to change
  * @val: 32-bit integer value for the property (native endian)
  *
- * fdt_setprop_cell() sets the value of the named property in the
- * given node to the given cell value (converting to big-endian if
+ * fdt_setprop_u32() sets the value of the named property in the given
+ * node to the given 32-bit integer value (converting to big-endian if
  * necessary), or creates a new property with that value if it does
  * not already exist.
  *
@@ -1095,11 +1187,57 @@ int fdt_setprop(void *fdt, int nodeoffset, const char *name,
  *	-FDT_ERR_BADLAYOUT,
  *	-FDT_ERR_TRUNCATED, standard meanings
  */
+static inline int fdt_setprop_u32(void *fdt, int nodeoffset, const char *name,
+				  uint32_t val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+	return fdt_setprop(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_setprop_u64 - set a property to a 64-bit integer
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to change
+ * @val: 64-bit integer value for the property (native endian)
+ *
+ * fdt_setprop_u64() sets the value of the named property in the given
+ * node to the given 64-bit integer value (converting to big-endian if
+ * necessary), or creates a new property with that value if it does
+ * not already exist.
+ *
+ * This function may insert or delete data from the blob, and will
+ * therefore change the offsets of some existing nodes.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there is insufficient free space in the blob to
+ *		contain the new property value
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+static inline int fdt_setprop_u64(void *fdt, int nodeoffset, const char *name,
+				  uint64_t val)
+{
+	fdt64_t tmp = cpu_to_fdt64(val);
+	return fdt_setprop(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_setprop_cell - set a property to a single cell value
+ *
+ * This is an alternative name for fdt_setprop_u32()
+ */
 static inline int fdt_setprop_cell(void *fdt, int nodeoffset, const char *name,
 				   uint32_t val)
 {
-	val = cpu_to_fdt32(val);
-	return fdt_setprop(fdt, nodeoffset, name, &val, sizeof(val));
+	return fdt_setprop_u32(fdt, nodeoffset, name, val);
 }
 
 /**
@@ -1132,6 +1270,147 @@ static inline int fdt_setprop_cell(void *fdt, int nodeoffset, const char *name,
  */
 #define fdt_setprop_string(fdt, nodeoffset, name, str) \
 	fdt_setprop((fdt), (nodeoffset), (name), (str), strlen(str)+1)
+
+/**
+ * fdt_appendprop - append to or create a property
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to append to
+ * @val: pointer to data to append to the property value
+ * @len: length of the data to append to the property value
+ *
+ * fdt_appendprop() appends the value to the named property in the
+ * given node, creating the property if it does not already exist.
+ *
+ * This function may insert data into the blob, and will therefore
+ * change the offsets of some existing nodes.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there is insufficient free space in the blob to
+ *		contain the new property value
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+int fdt_appendprop(void *fdt, int nodeoffset, const char *name,
+		   const void *val, int len);
+
+/**
+ * fdt_appendprop_u32 - append a 32-bit integer value to a property
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to change
+ * @val: 32-bit integer value to append to the property (native endian)
+ *
+ * fdt_appendprop_u32() appends the given 32-bit integer value
+ * (converting to big-endian if necessary) to the value of the named
+ * property in the given node, or creates a new property with that
+ * value if it does not already exist.
+ *
+ * This function may insert data into the blob, and will therefore
+ * change the offsets of some existing nodes.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there is insufficient free space in the blob to
+ *		contain the new property value
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+static inline int fdt_appendprop_u32(void *fdt, int nodeoffset,
+				     const char *name, uint32_t val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+	return fdt_appendprop(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_appendprop_u64 - append a 64-bit integer value to a property
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to change
+ * @val: 64-bit integer value to append to the property (native endian)
+ *
+ * fdt_appendprop_u64() appends the given 64-bit integer value
+ * (converting to big-endian if necessary) to the value of the named
+ * property in the given node, or creates a new property with that
+ * value if it does not already exist.
+ *
+ * This function may insert data into the blob, and will therefore
+ * change the offsets of some existing nodes.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there is insufficient free space in the blob to
+ *		contain the new property value
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+static inline int fdt_appendprop_u64(void *fdt, int nodeoffset,
+				     const char *name, uint64_t val)
+{
+	fdt64_t tmp = cpu_to_fdt64(val);
+	return fdt_appendprop(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+}
+
+/**
+ * fdt_appendprop_cell - append a single cell value to a property
+ *
+ * This is an alternative name for fdt_appendprop_u32()
+ */
+static inline int fdt_appendprop_cell(void *fdt, int nodeoffset,
+				      const char *name, uint32_t val)
+{
+	return fdt_appendprop_u32(fdt, nodeoffset, name, val);
+}
+
+/**
+ * fdt_appendprop_string - append a string to a property
+ * @fdt: pointer to the device tree blob
+ * @nodeoffset: offset of the node whose property to change
+ * @name: name of the property to change
+ * @str: string value to append to the property
+ *
+ * fdt_appendprop_string() appends the given string to the value of
+ * the named property in the given node, or creates a new property
+ * with that value if it does not already exist.
+ *
+ * This function may insert data into the blob, and will therefore
+ * change the offsets of some existing nodes.
+ *
+ * returns:
+ *	0, on success
+ *	-FDT_ERR_NOSPACE, there is insufficient free space in the blob to
+ *		contain the new property value
+ *	-FDT_ERR_BADOFFSET, nodeoffset did not point to FDT_BEGIN_NODE tag
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE,
+ *	-FDT_ERR_BADLAYOUT,
+ *	-FDT_ERR_TRUNCATED, standard meanings
+ */
+#define fdt_appendprop_string(fdt, nodeoffset, name, str) \
+	fdt_appendprop((fdt), (nodeoffset), (name), (str), strlen(str)+1)
 
 /**
  * fdt_delprop - delete a property

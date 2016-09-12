@@ -12,6 +12,8 @@
 
 TOPCMNDIR ?= ../..
 
+include $(TOPCMNDIR)/make.rules
+
 CPPFLAGS = -I../libc/include $(CPUARCHDEF) -I$(INCLBRDDIR) \
 	   -I$(INCLCMNDIR) -I$(INCLCMNDIR)/$(CPUARCH)
 

@@ -93,3 +93,48 @@ variable keyboard-phandle 0 keyboard-phandle !
 :noname
   set-defaults
 ; PREPOST-initializer
+
+\ -------------------------------------------------------------------------
+\ copyright property handling
+\ -------------------------------------------------------------------------
+
+: insert-copyright-property
+  \ As required for MacOS 9 and below
+  " Pbclevtug 1983-2001 Nccyr Pbzchgre, Vap. GUVF ZRFFNTR SBE PBZCNGVOVYVGL BAYL"
+  rot13-str encode-string " copyright"
+  " /" find-package if
+    " set-property" $find if
+      execute
+    else
+      3drop drop
+    then
+  then
+;
+
+: delete-copyright-property
+  \ Remove copyright property created above
+  active-package
+  " /" find-package if
+      active-package!
+      " copyright" delete-property
+  then
+  active-package!
+;
+
+: (exit)
+  \ Clean up before returning to the interpreter
+  delete-copyright-property
+;
+
+\ -------------------------------------------------------------------------
+\ Adler-32 wrapper
+\ -------------------------------------------------------------------------
+
+: adler32 ( adler buf len -- checksum )
+  " (adler32)" $find if
+    execute
+  else
+    ." Can't find " ( adler32-name ) type cr
+    3drop 0
+  then
+;

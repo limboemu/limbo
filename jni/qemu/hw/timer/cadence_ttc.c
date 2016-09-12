@@ -16,6 +16,7 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "qemu/timer.h"
 
@@ -208,15 +209,14 @@ static void cadence_timer_sync(CadenceTimerState *s)
             s->reg_intr |= (2 << i);
         }
     }
+    if ((x < 0) || (x >= interval)) {
+        s->reg_intr |= (s->reg_count & COUNTER_CTRL_INT) ?
+            COUNTER_INTR_IV : COUNTER_INTR_OV;
+    }
     while (x < 0) {
         x += interval;
     }
     s->reg_value = (uint32_t)(x % interval);
-
-    if (s->reg_value != x) {
-        s->reg_intr |= (s->reg_count & COUNTER_CTRL_INT) ?
-            COUNTER_INTR_IV : COUNTER_INTR_OV;
-    }
     cadence_timer_update(s);
 }
 

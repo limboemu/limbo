@@ -641,7 +641,9 @@ static int w89c840_probe ( struct nic *nic, struct pci_device *p ) {
 
     ioaddr = ioaddr & ~3; /* Mask the bit that says "this is an io addr" */
 
+#define PCI_VENDOR_ID_WINBOND2		0x1050
 #define PCI_DEVICE_ID_WINBOND2_89C840   0x0840
+#define PCI_VENDOR_ID_COMPEX		0x11f6
 #define PCI_DEVICE_ID_COMPEX_RL100ATX   0x2011
 
     /* From Matt Hortman <mbhortman@acpthinclient.com> */

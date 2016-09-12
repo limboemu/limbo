@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -35,6 +39,7 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/device.h>
 #include <ipxe/errortab.h>
 #include <ipxe/profile.h>
+#include <ipxe/fault.h>
 #include <ipxe/vlan.h>
 #include <ipxe/netdevice.h>
 
@@ -157,6 +162,9 @@ void netdev_rx_unfreeze ( struct net_device *netdev ) {
  */
 void netdev_link_err ( struct net_device *netdev, int rc ) {
 
+	/* Stop link block timer */
+	stop_timer ( &netdev->link_block );
+
 	/* Record link state */
 	netdev->link_rc = rc;
 	if ( netdev->link_rc == 0 ) {
@@ -184,6 +192,50 @@ void netdev_link_down ( struct net_device *netdev ) {
 	     ( netdev->link_rc == -EUNKNOWN_LINK_STATUS ) ) {
 		netdev_link_err ( netdev, -ENOTCONN_LINK_DOWN );
 	}
+}
+
+/**
+ * Mark network device link as being blocked
+ *
+ * @v netdev		Network device
+ * @v timeout		Timeout (in ticks)
+ */
+void netdev_link_block ( struct net_device *netdev, unsigned long timeout ) {
+
+	/* Start link block timer */
+	if ( ! netdev_link_blocked ( netdev ) ) {
+		DBGC ( netdev, "NETDEV %s link blocked for %ld ticks\n",
+		       netdev->name, timeout );
+	}
+	start_timer_fixed ( &netdev->link_block, timeout );
+}
+
+/**
+ * Mark network device link as being unblocked
+ *
+ * @v netdev		Network device
+ */
+void netdev_link_unblock ( struct net_device *netdev ) {
+
+	/* Stop link block timer */
+	if ( netdev_link_blocked ( netdev ) )
+		DBGC ( netdev, "NETDEV %s link unblocked\n", netdev->name );
+	stop_timer ( &netdev->link_block );
+}
+
+/**
+ * Handle network device link block timer expiry
+ *
+ * @v timer		Link block timer
+ * @v fail		Failure indicator
+ */
+static void netdev_link_block_expired ( struct retry_timer *timer,
+					int fail __unused ) {
+	struct net_device *netdev =
+		container_of ( timer, struct net_device, link_block );
+
+	/* Assume link is no longer blocked */
+	DBGC ( netdev, "NETDEV %s link block expired\n", netdev->name );
 }
 
 /**
@@ -252,11 +304,8 @@ int netdev_tx ( struct net_device *netdev, struct io_buffer *iobuf ) {
 	}
 
 	/* Discard packet (for test purposes) if applicable */
-	if ( ( NETDEV_DISCARD_RATE > 0 ) &&
-	     ( ( random() % NETDEV_DISCARD_RATE ) == 0 ) ) {
-		rc = -EAGAIN;
+	if ( ( rc = inject_fault ( NETDEV_DISCARD_RATE ) ) != 0 )
 		goto err;
-	}
 
 	/* Transmit packet */
 	if ( ( rc = netdev->op->transmit ( netdev, iobuf ) ) != 0 )
@@ -406,14 +455,14 @@ static void netdev_tx_flush ( struct net_device *netdev ) {
  * function takes ownership of the I/O buffer.
  */
 void netdev_rx ( struct net_device *netdev, struct io_buffer *iobuf ) {
+	int rc;
 
 	DBGC2 ( netdev, "NETDEV %s received %p (%p+%zx)\n",
 		netdev->name, iobuf, iobuf->data, iob_len ( iobuf ) );
 
 	/* Discard packet (for test purposes) if applicable */
-	if ( ( NETDEV_DISCARD_RATE > 0 ) &&
-	     ( ( random() % NETDEV_DISCARD_RATE ) == 0 ) ) {
-		netdev_rx_err ( netdev, iobuf, -EAGAIN );
+	if ( ( rc = inject_fault ( NETDEV_DISCARD_RATE ) ) != 0 ) {
+		netdev_rx_err ( netdev, iobuf, rc );
 		return;
 	}
 
@@ -541,7 +590,8 @@ static struct interface_descriptor netdev_config_desc =
 static void free_netdev ( struct refcnt *refcnt ) {
 	struct net_device *netdev =
 		container_of ( refcnt, struct net_device, refcnt );
-	
+
+	stop_timer ( &netdev->link_block );
 	netdev_tx_flush ( netdev );
 	netdev_rx_flush ( netdev );
 	clear_settings ( netdev_settings ( netdev ) );
@@ -571,6 +621,8 @@ struct net_device * alloc_netdev ( size_t priv_len ) {
 	if ( netdev ) {
 		ref_init ( &netdev->refcnt, free_netdev );
 		netdev->link_rc = -EUNKNOWN_LINK_STATUS;
+		timer_init ( &netdev->link_block, netdev_link_block_expired,
+			     &netdev->refcnt );
 		INIT_LIST_HEAD ( &netdev->tx_queue );
 		INIT_LIST_HEAD ( &netdev->tx_deferred );
 		INIT_LIST_HEAD ( &netdev->rx_queue );
@@ -623,12 +675,20 @@ int register_netdev ( struct net_device *netdev ) {
 		goto err_duplicate;
 	}
 
+	/* Reject named network devices that already exist */
+	if ( netdev->name[0] && ( duplicate = find_netdev ( netdev->name ) ) ) {
+		DBGC ( netdev, "NETDEV rejecting duplicate name %s\n",
+		       duplicate->name );
+		rc = -EEXIST;
+		goto err_duplicate;
+	}
+
 	/* Record device index and create device name */
-	netdev->index = netdev_index++;
 	if ( netdev->name[0] == '\0' ) {
 		snprintf ( netdev->name, sizeof ( netdev->name ), "net%d",
-			   netdev->index );
+			   netdev_index );
 	}
+	netdev->index = ++netdev_index;
 
 	/* Use least significant bits of the link-layer address to
 	 * improve the randomness of the (non-cryptographic) random
@@ -673,6 +733,8 @@ int register_netdev ( struct net_device *netdev ) {
 	clear_settings ( netdev_settings ( netdev ) );
 	unregister_settings ( netdev_settings ( netdev ) );
  err_register_settings:
+	list_del ( &netdev->list );
+	netdev_put ( netdev );
  err_duplicate:
 	return rc;
 }

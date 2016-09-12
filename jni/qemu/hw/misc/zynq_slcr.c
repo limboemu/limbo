@@ -14,10 +14,12 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "qemu/timer.h"
 #include "hw/sysbus.h"
 #include "sysemu/sysemu.h"
+#include "qemu/log.h"
 
 #ifndef ZYNQ_SLCR_ERR_DEBUG
 #define ZYNQ_SLCR_ERR_DEBUG 0
@@ -393,12 +395,12 @@ static void zynq_slcr_write(void *opaque, hwaddr offset,
         return;
     }
 
-    if (!s->regs[LOCKSTA]) {
-        s->regs[offset / 4] = val;
-    } else {
-        DB_PRINT("SCLR registers are locked. Unlock them first\n");
+    if (s->regs[LOCKSTA]) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "SCLR registers are locked. Unlock them first\n");
         return;
     }
+    s->regs[offset] = val;
 
     switch (offset) {
     case PSS_RST_CTRL:

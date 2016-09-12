@@ -1,10 +1,12 @@
 /*
  * QEMU throttling infrastructure
  *
- * Copyright (C) Nodalink, SARL. 2013
+ * Copyright (C) Nodalink, EURL. 2013-2014
+ * Copyright (C) Igalia, S.L. 2015
  *
- * Author:
- *   Benoît Canet <benoit.canet@irqsave.net>
+ * Authors:
+ *   Benoît Canet <benoit.canet@nodalink.com>
+ *   Alberto Garcia <berto@igalia.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,6 +22,8 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu/throttle.h"
 #include "qemu/timer.h"
 #include "block/aio.h"
@@ -38,6 +42,14 @@ void throttle_leak_bucket(LeakyBucket *bkt, int64_t delta_ns)
 
     /* make the bucket leak */
     bkt->level = MAX(bkt->level - leak, 0);
+
+    /* if we allow bursts for more than one second we also need to
+     * keep track of bkt->burst_level so the bkt->max goal per second
+     * is attained */
+    if (bkt->burst_length > 1) {
+        leak = (bkt->max * (double) delta_ns) / NANOSECONDS_PER_SECOND;
+        bkt->burst_level = MAX(bkt->burst_level - leak, 0);
+    }
 }
 
 /* Calculate the time delta since last leak and make proportionals leaks
@@ -88,13 +100,24 @@ int64_t throttle_compute_wait(LeakyBucket *bkt)
         return 0;
     }
 
-    extra = bkt->level - bkt->max;
-
-    if (extra <= 0) {
-        return 0;
+    /* If the bucket is full then we have to wait */
+    extra = bkt->level - bkt->max * bkt->burst_length;
+    if (extra > 0) {
+        return throttle_do_compute_wait(bkt->avg, extra);
     }
 
-    return throttle_do_compute_wait(bkt->avg, extra);
+    /* If the bucket is not full yet we have to make sure that we
+     * fulfill the goal of bkt->max units per second. */
+    if (bkt->burst_length > 1) {
+        /* We use 1/10 of the max value to smooth the throttling.
+         * See throttle_fix_bucket() for more details. */
+        extra = bkt->burst_level - bkt->max / 10;
+        if (extra > 0) {
+            return throttle_do_compute_wait(bkt->max, extra);
+        }
+    }
+
+    return 0;
 }
 
 /* This function compute the time that must be waited while this IO
@@ -134,10 +157,10 @@ static int64_t throttle_compute_wait_for(ThrottleState *ts,
  * @next_timestamp: the resulting timer
  * @ret:        true if a timer must be set
  */
-bool throttle_compute_timer(ThrottleState *ts,
-                            bool is_write,
-                            int64_t now,
-                            int64_t *next_timestamp)
+static bool throttle_compute_timer(ThrottleState *ts,
+                                   bool is_write,
+                                   int64_t now,
+                                   int64_t *next_timestamp)
 {
     int64_t wait;
 
@@ -159,29 +182,50 @@ bool throttle_compute_timer(ThrottleState *ts,
 }
 
 /* Add timers to event loop */
-void throttle_attach_aio_context(ThrottleState *ts, AioContext *new_context)
+void throttle_timers_attach_aio_context(ThrottleTimers *tt,
+                                        AioContext *new_context)
 {
-    ts->timers[0] = aio_timer_new(new_context, ts->clock_type, SCALE_NS,
-                                  ts->read_timer_cb, ts->timer_opaque);
-    ts->timers[1] = aio_timer_new(new_context, ts->clock_type, SCALE_NS,
-                                  ts->write_timer_cb, ts->timer_opaque);
+    tt->timers[0] = aio_timer_new(new_context, tt->clock_type, SCALE_NS,
+                                  tt->read_timer_cb, tt->timer_opaque);
+    tt->timers[1] = aio_timer_new(new_context, tt->clock_type, SCALE_NS,
+                                  tt->write_timer_cb, tt->timer_opaque);
+}
+
+/*
+ * Initialize the ThrottleConfig structure to a valid state
+ * @cfg: the config to initialize
+ */
+void throttle_config_init(ThrottleConfig *cfg)
+{
+    unsigned i;
+    memset(cfg, 0, sizeof(*cfg));
+    for (i = 0; i < BUCKETS_COUNT; i++) {
+        cfg->buckets[i].burst_length = 1;
+    }
 }
 
 /* To be called first on the ThrottleState */
-void throttle_init(ThrottleState *ts,
-                   AioContext *aio_context,
-                   QEMUClockType clock_type,
-                   QEMUTimerCB *read_timer_cb,
-                   QEMUTimerCB *write_timer_cb,
-                   void *timer_opaque)
+void throttle_init(ThrottleState *ts)
 {
     memset(ts, 0, sizeof(ThrottleState));
+    throttle_config_init(&ts->cfg);
+}
 
-    ts->clock_type = clock_type;
-    ts->read_timer_cb = read_timer_cb;
-    ts->write_timer_cb = write_timer_cb;
-    ts->timer_opaque = timer_opaque;
-    throttle_attach_aio_context(ts, aio_context);
+/* To be called first on the ThrottleTimers */
+void throttle_timers_init(ThrottleTimers *tt,
+                          AioContext *aio_context,
+                          QEMUClockType clock_type,
+                          QEMUTimerCB *read_timer_cb,
+                          QEMUTimerCB *write_timer_cb,
+                          void *timer_opaque)
+{
+    memset(tt, 0, sizeof(ThrottleTimers));
+
+    tt->clock_type = clock_type;
+    tt->read_timer_cb = read_timer_cb;
+    tt->write_timer_cb = write_timer_cb;
+    tt->timer_opaque = timer_opaque;
+    throttle_timers_attach_aio_context(tt, aio_context);
 }
 
 /* destroy a timer */
@@ -195,25 +239,25 @@ static void throttle_timer_destroy(QEMUTimer **timer)
 }
 
 /* Remove timers from event loop */
-void throttle_detach_aio_context(ThrottleState *ts)
+void throttle_timers_detach_aio_context(ThrottleTimers *tt)
 {
     int i;
 
     for (i = 0; i < 2; i++) {
-        throttle_timer_destroy(&ts->timers[i]);
+        throttle_timer_destroy(&tt->timers[i]);
     }
 }
 
-/* To be called last on the ThrottleState */
-void throttle_destroy(ThrottleState *ts)
+/* To be called last on the ThrottleTimers */
+void throttle_timers_destroy(ThrottleTimers *tt)
 {
-    throttle_detach_aio_context(ts);
+    throttle_timers_detach_aio_context(tt);
 }
 
 /* is any throttling timer configured */
-bool throttle_have_timer(ThrottleState *ts)
+bool throttle_timers_are_initialized(ThrottleTimers *tt)
 {
-    if (ts->timers[0]) {
+    if (tt->timers[0]) {
         return true;
     }
 
@@ -238,13 +282,14 @@ bool throttle_enabled(ThrottleConfig *cfg)
     return false;
 }
 
-/* return true if any two throttling parameters conflicts
- *
+/* check if a throttling configuration is valid
  * @cfg: the throttling configuration to inspect
- * @ret: true if any conflict detected else false
+ * @ret: true if valid else false
+ * @errp: error object
  */
-bool throttle_conflicting(ThrottleConfig *cfg)
+bool throttle_is_valid(ThrottleConfig *cfg, Error **errp)
 {
+    int i;
     bool bps_flag, ops_flag;
     bool bps_max_flag, ops_max_flag;
 
@@ -264,31 +309,53 @@ bool throttle_conflicting(ThrottleConfig *cfg)
                    (cfg->buckets[THROTTLE_OPS_READ].max ||
                    cfg->buckets[THROTTLE_OPS_WRITE].max);
 
-    return bps_flag || ops_flag || bps_max_flag || ops_max_flag;
-}
+    if (bps_flag || ops_flag || bps_max_flag || ops_max_flag) {
+        error_setg(errp, "bps/iops/max total values and read/write values"
+                   " cannot be used at the same time");
+        return false;
+    }
 
-/* check if a throttling configuration is valid
- * @cfg: the throttling configuration to inspect
- * @ret: true if valid else false
- */
-bool throttle_is_valid(ThrottleConfig *cfg)
-{
-    bool invalid = false;
-    int i;
-
-    for (i = 0; i < BUCKETS_COUNT; i++) {
-        if (cfg->buckets[i].avg < 0) {
-            invalid = true;
-        }
+    if (cfg->op_size &&
+        !cfg->buckets[THROTTLE_OPS_TOTAL].avg &&
+        !cfg->buckets[THROTTLE_OPS_READ].avg &&
+        !cfg->buckets[THROTTLE_OPS_WRITE].avg) {
+        error_setg(errp, "iops size requires an iops value to be set");
+        return false;
     }
 
     for (i = 0; i < BUCKETS_COUNT; i++) {
-        if (cfg->buckets[i].max < 0) {
-            invalid = true;
+        if (cfg->buckets[i].avg < 0 ||
+            cfg->buckets[i].max < 0 ||
+            cfg->buckets[i].avg > THROTTLE_VALUE_MAX ||
+            cfg->buckets[i].max > THROTTLE_VALUE_MAX) {
+            error_setg(errp, "bps/iops/max values must be within [0, %lld]",
+                       THROTTLE_VALUE_MAX);
+            return false;
+        }
+
+        if (!cfg->buckets[i].burst_length) {
+            error_setg(errp, "the burst length cannot be 0");
+            return false;
+        }
+
+        if (cfg->buckets[i].burst_length > 1 && !cfg->buckets[i].max) {
+            error_setg(errp, "burst length set without burst rate");
+            return false;
+        }
+
+        if (cfg->buckets[i].max && !cfg->buckets[i].avg) {
+            error_setg(errp, "bps_max/iops_max require corresponding"
+                       " bps/iops values");
+            return false;
+        }
+
+        if (cfg->buckets[i].max && cfg->buckets[i].max < cfg->buckets[i].avg) {
+            error_setg(errp, "bps_max/iops_max cannot be lower than bps/iops");
+            return false;
         }
     }
 
-    return !invalid;
+    return true;
 }
 
 /* fix bucket parameters */
@@ -297,7 +364,7 @@ static void throttle_fix_bucket(LeakyBucket *bkt)
     double min;
 
     /* zero bucket level */
-    bkt->level = 0;
+    bkt->level = bkt->burst_level = 0;
 
     /* The following is done to cope with the Linux CFQ block scheduler
      * which regroup reads and writes by block of 100ms in the guest.
@@ -324,9 +391,12 @@ static void throttle_cancel_timer(QEMUTimer *timer)
 /* Used to configure the throttle
  *
  * @ts: the throttle state we are working on
+ * @tt: the throttle timers we use in this aio context
  * @cfg: the config to set
  */
-void throttle_config(ThrottleState *ts, ThrottleConfig *cfg)
+void throttle_config(ThrottleState *ts,
+                     ThrottleTimers *tt,
+                     ThrottleConfig *cfg)
 {
     int i;
 
@@ -336,10 +406,10 @@ void throttle_config(ThrottleState *ts, ThrottleConfig *cfg)
         throttle_fix_bucket(&ts->cfg.buckets[i]);
     }
 
-    ts->previous_leak = qemu_clock_get_ns(ts->clock_type);
+    ts->previous_leak = qemu_clock_get_ns(tt->clock_type);
 
     for (i = 0; i < 2; i++) {
-        throttle_cancel_timer(ts->timers[i]);
+        throttle_cancel_timer(tt->timers[i]);
     }
 }
 
@@ -358,12 +428,15 @@ void throttle_get_config(ThrottleState *ts, ThrottleConfig *cfg)
  *
  * NOTE: this function is not unit tested due to it's usage of timer_mod
  *
+ * @tt:       the timers structure
  * @is_write: the type of operation (read/write)
  * @ret:      true if the timer has been scheduled else false
  */
-bool throttle_schedule_timer(ThrottleState *ts, bool is_write)
+bool throttle_schedule_timer(ThrottleState *ts,
+                             ThrottleTimers *tt,
+                             bool is_write)
 {
-    int64_t now = qemu_clock_get_ns(ts->clock_type);
+    int64_t now = qemu_clock_get_ns(tt->clock_type);
     int64_t next_timestamp;
     bool must_wait;
 
@@ -378,12 +451,12 @@ bool throttle_schedule_timer(ThrottleState *ts, bool is_write)
     }
 
     /* request throttled and timer pending -> do nothing */
-    if (timer_pending(ts->timers[is_write])) {
+    if (timer_pending(tt->timers[is_write])) {
         return true;
     }
 
     /* request throttled and timer not pending -> arm timer */
-    timer_mod(ts->timers[is_write], next_timestamp);
+    timer_mod(tt->timers[is_write], next_timestamp);
     return true;
 }
 
@@ -394,22 +467,36 @@ bool throttle_schedule_timer(ThrottleState *ts, bool is_write)
  */
 void throttle_account(ThrottleState *ts, bool is_write, uint64_t size)
 {
+    const BucketType bucket_types_size[2][2] = {
+        { THROTTLE_BPS_TOTAL, THROTTLE_BPS_READ },
+        { THROTTLE_BPS_TOTAL, THROTTLE_BPS_WRITE }
+    };
+    const BucketType bucket_types_units[2][2] = {
+        { THROTTLE_OPS_TOTAL, THROTTLE_OPS_READ },
+        { THROTTLE_OPS_TOTAL, THROTTLE_OPS_WRITE }
+    };
     double units = 1.0;
+    unsigned i;
 
     /* if cfg.op_size is defined and smaller than size we compute unit count */
     if (ts->cfg.op_size && size > ts->cfg.op_size) {
         units = (double) size / ts->cfg.op_size;
     }
 
-    ts->cfg.buckets[THROTTLE_BPS_TOTAL].level += size;
-    ts->cfg.buckets[THROTTLE_OPS_TOTAL].level += units;
+    for (i = 0; i < 2; i++) {
+        LeakyBucket *bkt;
 
-    if (is_write) {
-        ts->cfg.buckets[THROTTLE_BPS_WRITE].level += size;
-        ts->cfg.buckets[THROTTLE_OPS_WRITE].level += units;
-    } else {
-        ts->cfg.buckets[THROTTLE_BPS_READ].level += size;
-        ts->cfg.buckets[THROTTLE_OPS_READ].level += units;
+        bkt = &ts->cfg.buckets[bucket_types_size[is_write][i]];
+        bkt->level += size;
+        if (bkt->burst_length > 1) {
+            bkt->burst_level += size;
+        }
+
+        bkt = &ts->cfg.buckets[bucket_types_units[is_write][i]];
+        bkt->level += units;
+        if (bkt->burst_length > 1) {
+            bkt->burst_level += units;
+        }
     }
 }
 

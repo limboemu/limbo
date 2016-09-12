@@ -81,8 +81,8 @@ cache_inhibited_access(uint64_t, 64)
 #define _FASTMOVE(s, d, size) \
 	switch (((type_u)s | (type_u)d | size) & (sizeof(type_u)-1)) { \
 	case 0:			_MOVE(s, d, size, type_u); break;	\
-	case sizeof(type_l):	_MOVE(s, d, size, type_l); break;	\
-	case sizeof(type_w):	_MOVE(s, d, size, type_w); break;	\
+	case 4:			_MOVE(s, d, size, type_l); break;	\
+	case 2: case 6:		_MOVE(s, d, size, type_w); break;	\
 	default:		_MOVE(s, d, size, type_c); break;	\
 	}
 
@@ -116,11 +116,16 @@ static inline void ci_rmove(void *dst, void *src, unsigned long esize,
 #define _FASTRMOVE(s, d, size) do {					      \
 		switch (((type_u)s | (type_u)d | size) & (sizeof(type_u)-1)) {\
 		case 0:			ci_rmove(d,s,3,size>>3); break;	      \
-		case sizeof(type_l):	ci_rmove(d,s,2,size>>2); break;	      \
-		case sizeof(type_w):	ci_rmove(d,s,1,size>>1); break;	      \
+		case 4:			ci_rmove(d,s,2,size>>2); break;	      \
+		case 2: case 6:		ci_rmove(d,s,1,size>>1); break;	      \
 		default:		ci_rmove(d,s,0,size); break;	      \
 		}							      \
 	} while(0)
+
+#define FAST_MRMOVE(s, d, size) _FASTRMOVE(s, d, size)
+
+extern void fast_rfill(char *dst, long size, char pat);
+#define FAST_RFILL(dst, size, pat) fast_rfill(dst, size, pat)
 
 static inline uint16_t bswap16_load(uint64_t addr)
 {

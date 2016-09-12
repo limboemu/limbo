@@ -19,7 +19,9 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/timer/arm_mptimer.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "qom/cpu.h"
 
@@ -38,7 +40,7 @@ static inline int get_current_cpu(ARMMPTimerState *s)
 
 static inline void timerblock_update_irq(TimerBlock *tb)
 {
-    qemu_set_irq(tb->irq, tb->status);
+    qemu_set_irq(tb->irq, tb->status && (tb->control & 4));
 }
 
 /* Return conversion factor from mpcore timer ticks to qemu timer ticks.  */
@@ -122,11 +124,18 @@ static void timerblock_write(void *opaque, hwaddr addr,
     case 8: /* Control.  */
         old = tb->control;
         tb->control = value;
-        if (((old & 1) == 0) && (value & 1)) {
-            if (tb->count == 0 && (tb->control & 2)) {
+        if (value & 1) {
+            if ((old & 1) && (tb->count != 0)) {
+                /* Do nothing if timer is ticking right now.  */
+                break;
+            }
+            if (tb->control & 2) {
                 tb->count = tb->load;
             }
             timerblock_reload(tb, 1);
+        } else if (old & 1) {
+            /* Shutdown the timer.  */
+            timer_del(tb->timer);
         }
         break;
     case 12: /* Interrupt status.  */
@@ -213,8 +222,9 @@ static void arm_mptimer_realize(DeviceState *dev, Error **errp)
     int i;
 
     if (s->num_cpu < 1 || s->num_cpu > ARM_MPTIMER_MAX_CPUS) {
-        hw_error("%s: num-cpu must be between 1 and %d\n",
-                 __func__, ARM_MPTIMER_MAX_CPUS);
+        error_setg(errp, "num-cpu must be between 1 and %d",
+                   ARM_MPTIMER_MAX_CPUS);
+        return;
     }
     /* We implement one timer block per CPU, and expose multiple MMIO regions:
      *  * region 0 is "timer for this core"

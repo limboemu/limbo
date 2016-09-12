@@ -20,6 +20,7 @@ false VALUE debug-disk-label?
 \ If we ever want to put a large kernel with initramfs from a PREP partition
 \ we might need to increase this value. The default value is 65536 blocks (32MB)
 d# 65536 value max-prep-partition-blocks
+d# 4096 CONSTANT block-array-size
 
 s" disk-label" device-name
 
@@ -152,8 +153,8 @@ CONSTANT /gpt-part-entry
 : init-block ( -- )
    s" block-size" ['] $call-parent CATCH IF ABORT" parent has no block-size." THEN
    to block-size
-   d# 4096 alloc-mem
-   dup d# 4096 erase
+   block-array-size alloc-mem
+   dup block-array-size erase
    to block
    debug-disk-label? IF
       ." init-block: block-size=" block-size .d ." block=0x" block u. cr
@@ -178,7 +179,8 @@ CONSTANT /gpt-part-entry
 \ This word returns true if the currently loaded block has _NO_ GPT partition id
 : no-gpt? ( -- true|false )
    0 read-sector
-   1 partition>part-entry part-entry>id c@ ee <>
+   1 partition>part-entry part-entry>id c@ ee <> IF true EXIT THEN
+   block mbr>magic w@-le aa55 <>
 ;
 
 : pc-extended-partition? ( part-entry-addr -- true|false )
@@ -266,7 +268,10 @@ CONSTANT /gpt-part-entry
 
 : try-dos-partition ( -- okay? )
    \ Read partition table and check magic.
-   no-mbr? IF cr ." No DOS disk-label found." cr false EXIT THEN
+   no-mbr? IF
+       debug-disk-label? IF cr ." No DOS disk-label found." cr THEN
+       false EXIT
+   THEN
 
    count-dos-logical-partitions TO dos-logical-partitions
 
@@ -320,6 +325,14 @@ CONSTANT /gpt-part-entry
 
 \ Load from first active DOS boot partition.
 
+: fat-bootblock? ( addr -- flag )
+   \ byte 0-2 of the bootblock is a jump instruction in
+   \ all FAT filesystems.
+   \ e9 and eb are jump instructions in x86 assembler.
+   dup c@ e9 = IF drop true EXIT THEN
+   dup c@ eb = swap 2+ c@ 90 = and
+;
+
 \ NOTE: block-size is always 512 bytes for DOS partition tables.
 
 : load-from-dos-boot-partition ( addr -- size )
@@ -352,60 +365,103 @@ CONSTANT /gpt-part-entry
    drop 0
 ;
 
-\ Check for GPT PReP partition GUID
-9E1A2D38     CONSTANT GPT-PREP-PARTITION-1
-C612         CONSTANT GPT-PREP-PARTITION-2
-4316         CONSTANT GPT-PREP-PARTITION-3
-AA26         CONSTANT GPT-PREP-PARTITION-4
-8B49521E5A8B CONSTANT GPT-PREP-PARTITION-5
+\ Check for GPT PReP partition GUID. Only first 3 blocks are
+\ byte-swapped treating last two blocks as contigous for simplifying
+\ comparison
+9E1A2D38            CONSTANT GPT-PREP-PARTITION-1
+C612                CONSTANT GPT-PREP-PARTITION-2
+4316                CONSTANT GPT-PREP-PARTITION-3
+AA268B49521E5A8B    CONSTANT GPT-PREP-PARTITION-4
 
 : gpt-prep-partition? ( -- true|false )
-   block gpt-part-entry>part-type-guid l@-le GPT-PREP-PARTITION-1 = IF
-      block gpt-part-entry>part-type-guid 4 + w@-le
-      GPT-PREP-PARTITION-2 = IF
-         block gpt-part-entry>part-type-guid 6 + w@-le
-         GPT-PREP-PARTITION-3 = IF
-            block gpt-part-entry>part-type-guid 8 + w@
-            GPT-PREP-PARTITION-4 = IF
-               block gpt-part-entry>part-type-guid a + w@
-               block gpt-part-entry>part-type-guid c + l@ swap lxjoin
-               GPT-PREP-PARTITION-5 = IF
-                   TRUE EXIT
-               THEN
-            THEN
-         THEN
-      THEN
+   block gpt-part-entry>part-type-guid
+   dup l@-le     GPT-PREP-PARTITION-1 <> IF drop false EXIT THEN
+   dup 4 + w@-le GPT-PREP-PARTITION-2 <> IF drop false EXIT THEN
+   dup 6 + w@-le GPT-PREP-PARTITION-3 <> IF drop false EXIT THEN
+       8 + x@    GPT-PREP-PARTITION-4 =
+;
+
+\ Check for GPT MSFT BASIC DATA GUID - fat based
+EBD0A0A2            CONSTANT GPT-BASIC-DATA-PARTITION-1
+B9E5                CONSTANT GPT-BASIC-DATA-PARTITION-2
+4433                CONSTANT GPT-BASIC-DATA-PARTITION-3
+87C068B6B72699C7    CONSTANT GPT-BASIC-DATA-PARTITION-4
+
+: gpt-basic-data-partition? ( -- true|false )
+   block gpt-part-entry>part-type-guid
+   dup l@-le     GPT-BASIC-DATA-PARTITION-1 <> IF drop false EXIT THEN
+   dup 4 + w@-le GPT-BASIC-DATA-PARTITION-2 <> IF drop false EXIT THEN
+   dup 6 + w@-le GPT-BASIC-DATA-PARTITION-3 <> IF drop false EXIT THEN
+       8 + x@    GPT-BASIC-DATA-PARTITION-4 =
+;
+
+\
+\ GPT Signature
+\ ("EFI PART", 45h 46h 49h 20h 50h 41h 52h 54h)
+\
+4546492050415254 CONSTANT GPT-SIGNATURE
+
+\ The routine checks whether the protective MBR has GPT ID and then
+\ reads the gpt data from the sector. Also set the seek position and
+\ the partition size used in caller routines.
+
+: get-gpt-partition ( -- true|false )
+   no-gpt? IF false EXIT THEN
+   debug-disk-label? IF cr ." GPT partition found " cr  THEN
+   1 read-sector
+   block gpt>part-entry-lba x@-le
+   block-size * to seek-pos
+   block gpt>part-entry-size l@-le to gpt-part-size
+   gpt-part-size block-array-size > IF
+      cr ." GPT part size exceeds buffer allocated " cr
+      false exit
    THEN
-   FALSE
+   block gpt>signature x@ GPT-SIGNATURE =
 ;
 
 : load-from-gpt-prep-partition ( addr -- size )
-   no-gpt? IF drop FALSE EXIT THEN
-   debug-disk-label? IF
-      cr ." GPT partition found " cr
-   THEN
-   1 read-sector block gpt>part-entry-lba l@-le
-   block-size * to seek-pos
-   block gpt>part-entry-size l@-le to gpt-part-size
-   block gpt>num-part-entry l@-le dup 0= IF FALSE EXIT THEN
+   get-gpt-partition 0= IF false EXIT THEN
+   block gpt>num-part-entry l@-le dup 0= IF false exit THEN
    1+ 1 ?DO
       seek-pos 0 seek drop
       block gpt-part-size read drop gpt-prep-partition? IF
-         debug-disk-label? IF
-            ." GPT PReP partition found " cr
-         THEN
-         block gpt-part-entry>first-lba x@ xbflip
-         block gpt-part-entry>last-lba x@ xbflip
-         over - 1+                 ( addr offset len )
-         swap                      ( addr len offset )
-         block-size * to part-offset
-         0 0 seek drop             ( addr len )
-         block-size * read         ( size )
+         debug-disk-label? IF  ." GPT PReP partition found " cr THEN
+         block gpt-part-entry>first-lba x@-le ( addr first-lba )
+         block gpt-part-entry>last-lba x@-le  ( addr first-lba last-lba)
+         over - 1+                            ( addr first-lba blocks )
+         swap                                 ( addr blocks first-lba )
+         block-size * to part-offset          ( addr blocks )
+         0 0 seek drop                        ( addr blocks )
+         block-size * read                    ( size )
+         UNLOOP EXIT
+     THEN
+     seek-pos gpt-part-size + to seek-pos
+   LOOP
+   false
+;
+
+: try-gpt-dos-partition ( -- true|false )
+   get-gpt-partition 0= IF false EXIT THEN
+   block gpt>num-part-entry l@-le dup 0= IF false EXIT THEN
+   1+ 1 ?DO
+      seek-pos 0 seek drop
+      block gpt-part-size read drop
+      gpt-basic-data-partition? IF
+         debug-disk-label? IF ." GPT BASIC DATA partition found " cr THEN
+         block gpt-part-entry>first-lba x@-le       ( first-lba )
+         dup to part-start                          ( first-lba )
+         block gpt-part-entry>last-lba x@-le        ( first-lba last-lba )
+         over - 1+                                  ( first-lba s1 )
+         block-size * to part-size                  ( first-lba )
+         block-size * to part-offset                ( )
+         0 0 seek drop
+         block block-size read drop
+         block fat-bootblock?                    ( true|false )
          UNLOOP EXIT
       THEN
-      seek-pos gpt-part-size i * + to seek-pos
+      seek-pos gpt-part-size + to seek-pos
    LOOP
-   FALSE
+   false
 ;
 
 \ Extract the boot loader path from a bootinfo.txt file
@@ -493,7 +549,7 @@ AA26         CONSTANT GPT-PREP-PARTITION-4
 
    debug-disk-label? IF ." Trying CHRP boot " .s cr THEN
    1 disk-chrp-boot !
-   dup load-chrp-boot-file ?dup 0 <> IF .s cr nip EXIT THEN
+   dup load-chrp-boot-file ?dup 0 <> IF nip EXIT THEN
    0 disk-chrp-boot !
 
    debug-disk-label? IF ." Trying GPT boot " .s cr THEN
@@ -558,14 +614,7 @@ AA26         CONSTANT GPT-PREP-PARTITION-4
 : try-dos-files ( -- found? )
    no-mbr? IF false EXIT THEN
 
-   \ block 0 byte 0-2 is a jump instruction in all FAT
-   \ filesystems.
-   \ e9 and eb are jump instructions in x86 assembler.
-   block c@ e9 <> IF
-      block c@ eb <>
-      block 2+ c@ 90 <> or
-      IF false EXIT THEN
-   THEN
+   block fat-bootblock? 0= IF false EXIT THEN
    s" fat-files" (interpose-filesystem)
    true
 ;
@@ -600,6 +649,7 @@ AA26         CONSTANT GPT-PREP-PARTITION-4
 
 : try-partitions ( -- found? )
    try-dos-partition IF try-files EXIT THEN
+   try-gpt-dos-partition IF try-files EXIT THEN
    \ try-iso9660-partition IF try-files EXIT THEN
    \ ... more partition types here...
    false
@@ -610,7 +660,7 @@ AA26         CONSTANT GPT-PREP-PARTITION-4
 
 : close ( -- )
    debug-disk-label? IF ." Closing disk-label: block=0x" block u. ." block-size=" block-size .d cr THEN
-   block d# 4096 free-mem
+   block block-array-size free-mem
 ;
 
 

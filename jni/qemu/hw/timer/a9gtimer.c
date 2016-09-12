@@ -20,10 +20,13 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "hw/timer/a9gtimer.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "qemu/bitops.h"
 #include "qemu/log.h"
+#include "qom/cpu.h"
 
 #ifndef A9_GTIMER_ERR_DEBUG
 #define A9_GTIMER_ERR_DEBUG 0
@@ -181,7 +184,7 @@ static void a9_gtimer_write(void *opaque, hwaddr addr, uint64_t value,
     case R_COUNTER_LO:
         /*
          * Keep it simple - ARM docco explicitly says to disable timer before
-         * modding it, so dont bother trying to do all the difficult on the fly
+         * modding it, so don't bother trying to do all the difficult on the fly
          * timer modifications - (if they even work in real hardware??).
          */
         if (s->control & R_CONTROL_TIMER_ENABLE) {

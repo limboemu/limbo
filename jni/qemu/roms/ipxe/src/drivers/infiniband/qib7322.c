@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -133,32 +137,21 @@ struct qib7322 {
  * This card requires atomic 64-bit accesses.  Strange things happen
  * if you try to use 32-bit accesses; sometimes they work, sometimes
  * they don't, sometimes you get random data.
- *
- * These accessors use the "movq" MMX instruction, and so won't work
- * on really old Pentiums (which won't have PCIe anyway, so this is
- * something of a moot point).
  */
 
 /**
  * Read QIB7322 qword register
  *
  * @v qib7322		QIB7322 device
- * @v dwords		Register buffer to read into
+ * @v qword		Register buffer to read into
  * @v offset		Register offset
  */
-static void qib7322_readq ( struct qib7322 *qib7322, uint32_t *dwords,
+static void qib7322_readq ( struct qib7322 *qib7322, uint64_t *qword,
 			    unsigned long offset ) {
-	void *addr = ( qib7322->regs + offset );
-
-	__asm__ __volatile__ ( "movq (%1), %%mm0\n\t"
-			       "movq %%mm0, (%0)\n\t"
-			       : : "r" ( dwords ), "r" ( addr ) : "memory" );
-
-	DBGIO ( "[%08lx] => %08x%08x\n",
-		virt_to_phys ( addr ), dwords[1], dwords[0] );
+	*qword = readq ( qib7322->regs + offset );
 }
 #define qib7322_readq( _qib7322, _ptr, _offset ) \
-	qib7322_readq ( (_qib7322), (_ptr)->u.dwords, (_offset) )
+	qib7322_readq ( (_qib7322), (_ptr)->u.qwords, (_offset) )
 #define qib7322_readq_array8b( _qib7322, _ptr, _offset, _idx ) \
 	qib7322_readq ( (_qib7322), (_ptr), ( (_offset) + ( (_idx) * 8 ) ) )
 #define qib7322_readq_array64k( _qib7322, _ptr, _offset, _idx ) \
@@ -170,22 +163,15 @@ static void qib7322_readq ( struct qib7322 *qib7322, uint32_t *dwords,
  * Write QIB7322 qword register
  *
  * @v qib7322		QIB7322 device
- * @v dwords		Register buffer to write
+ * @v qword		Register buffer to write
  * @v offset		Register offset
  */
-static void qib7322_writeq ( struct qib7322 *qib7322, const uint32_t *dwords,
+static void qib7322_writeq ( struct qib7322 *qib7322, const uint64_t *qword,
 			     unsigned long offset ) {
-	void *addr = ( qib7322->regs + offset );
-
-	DBGIO ( "[%08lx] <= %08x%08x\n",
-		virt_to_phys ( addr ), dwords[1], dwords[0] );
-
-	__asm__ __volatile__ ( "movq (%0), %%mm0\n\t"
-			       "movq %%mm0, (%1)\n\t"
-			       : : "r" ( dwords ), "r" ( addr ) : "memory" );
+	writeq ( *qword, ( qib7322->regs + offset ) );
 }
 #define qib7322_writeq( _qib7322, _ptr, _offset ) \
-	qib7322_writeq ( (_qib7322), (_ptr)->u.dwords, (_offset) )
+	qib7322_writeq ( (_qib7322), (_ptr)->u.qwords, (_offset) )
 #define qib7322_writeq_array8b( _qib7322, _ptr, _offset, _idx ) \
 	qib7322_writeq ( (_qib7322), (_ptr), ( (_offset) + ( (_idx) * 8 ) ) )
 #define qib7322_writeq_array64k( _qib7322, _ptr, _offset, _idx ) \
@@ -1521,8 +1507,15 @@ static void qib7322_complete_recv ( struct ib_device *ibdev,
 			/* Completing the eager buffer described in
 			 * this header entry.
 			 */
-			iob_put ( iobuf, payload_len );
-			rc = ( err ? -EIO : ( useegrbfr ? 0 : -ECANCELED ) );
+			if ( payload_len <= iob_tailroom ( iobuf ) ) {
+				iob_put ( iobuf, payload_len );
+				rc = ( err ?
+				       -EIO : ( useegrbfr ? 0 : -ECANCELED ) );
+			} else {
+				DBGC ( qib7322, "QIB7322 %p bad payload len "
+				       "%zd\n", qib7322, payload_len );
+				rc = -EPROTO;
+			}
 			/* Redirect to target QP if necessary */
 			if ( qp != intended_qp ) {
 				DBGC2 ( qib7322, "QIB7322 %p redirecting QPN "
@@ -1533,7 +1526,7 @@ static void qib7322_complete_recv ( struct ib_device *ibdev,
 				intended_qp->recv.fill++;
 			}
 			ib_complete_recv ( ibdev, intended_qp, &dest, &source,
-					   iobuf, rc);
+					   iobuf, rc );
 		} else {
 			/* Completing on a skipped-over eager buffer */
 			ib_complete_recv ( ibdev, qp, &dest, &source, iobuf,
@@ -2303,7 +2296,7 @@ static int qib7322_probe ( struct pci_device *pci ) {
 	/* Fix up PCI device */
 	adjust_pci_device ( pci );
 
-	/* Get PCI BARs */
+	/* Map PCI BARs */
 	qib7322->regs = ioremap ( pci->membase, QIB7322_BAR0_SIZE );
 	DBGC2 ( qib7322, "QIB7322 %p has BAR at %08lx\n",
 		qib7322, pci->membase );
@@ -2398,6 +2391,7 @@ static int qib7322_probe ( struct pci_device *pci ) {
  err_init_recv:
  err_read_eeprom:
  err_init_i2c:
+	iounmap ( qib7322->regs );
 	free ( qib7322 );
  err_alloc_qib7322:
 	return rc;
@@ -2420,6 +2414,7 @@ static void qib7322_remove ( struct pci_device *pci ) {
 		ibdev_put ( qib7322->ibdev[i] );
 	qib7322_fini_send ( qib7322 );
 	qib7322_fini_recv ( qib7322 );
+	iounmap ( qib7322->regs );
 	free ( qib7322 );
 }
 

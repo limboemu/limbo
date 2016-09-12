@@ -6,8 +6,7 @@
  *
  */
 
-#include <glib.h>
-#include <stdint.h>
+#include "qemu/osdep.h"
 #include "block/block_int.h"
 #include "block/write-threshold.h"
 

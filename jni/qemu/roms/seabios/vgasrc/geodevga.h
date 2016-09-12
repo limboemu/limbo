@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2009 Chris Kindt
 //
-// Writen for Google Summer of Code 2009 for the coreboot project
+// Written for Google Summer of Code 2009 for the coreboot project
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 

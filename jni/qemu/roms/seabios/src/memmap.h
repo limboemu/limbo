@@ -1,29 +1,21 @@
-#ifndef __E820MAP_H
-#define __E820MAP_H
+#ifndef __MEMMAP_H
+#define __MEMMAP_H
 
-#include "types.h" // u64
-
-#define E820_RAM          1
-#define E820_RESERVED     2
-#define E820_ACPI         3
-#define E820_NVS          4
-#define E820_UNUSABLE     5
-#define E820_HOLE         ((u32)-1) // Useful for removing entries
-
-struct e820entry {
-    u64 start;
-    u64 size;
-    u32 type;
-};
-
-void add_e820(u64 start, u64 size, u32 type);
-void memmap_prepboot(void);
+#include "types.h" // u32
 
 // A typical OS page size
 #define PAGE_SIZE 4096
+#define PAGE_SHIFT 12
 
-// e820 map storage
-extern struct e820entry e820_list[];
-extern int e820_count;
+static inline u32 virt_to_phys(void *v) {
+    return (u32)v;
+}
+static inline void *memremap(u32 addr, u32 len) {
+    return (void*)addr;
+}
 
-#endif // e820map.h
+// Return the value of a linker script symbol (see scripts/layoutrom.py)
+#define SYMBOL(SYM) ({ extern char SYM; (u32)&SYM; })
+#define VSYMBOL(SYM) ((void*)SYMBOL(SYM))
+
+#endif // memmap.h

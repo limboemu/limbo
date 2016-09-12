@@ -51,7 +51,11 @@ SECTIONS
 	*(.bss)
 	*(.bss.*)
 	*(COMMON)
-	_ebss = .;
+	
+	_stack = .;
+	. += CSTACK_SIZE;
+	. = ALIGN(16);
+	_estack = .;
     }
 
     . = HRESET_ADDR;

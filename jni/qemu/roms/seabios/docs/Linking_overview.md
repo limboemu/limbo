@@ -92,15 +92,9 @@ those situations where an address of a C function in another mode is
 required the build supports symbols with a special "\_cfuncX_"
 prefix. The layoutrom.py script detects these references and will emit
 a corresponding symbol definitions in the linker script that points to
-the C code of the specified mode. This is typically seen with code
-like:
-
-`extern void _cfunc32flat_process_op(void);`\
-`return call32(_cfunc32flat_process_op, 0, 0);`
-
-In the above example, when the build finds the symbol
-"\_cfunc32flat_process_op" it will emit that symbol with the physical
-address of the 32bit "flat" version of the process_op() C function.
+the C code of the specified mode. The call32() and stack_hop_back()
+macros automatically add the required prefix for C code, but the
+prefixes need to be explicitly added in assembler code.
 
 Build garbage collection
 ------------------------

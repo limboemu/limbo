@@ -60,7 +60,7 @@ struct arphdr {
 	uint32_t dest_ip;    /**< Proto address of target of this packet       */
 } __attribute((packed));
 
-/*>>>>>>>>>>>>> Initialization of the IPv4 network layer. <<<<<<<<<<<<<*/
+/************** Initialization of the IPv4 network layer. **************/
 extern void     set_ipv4_address(uint32_t own_ip);
 extern uint32_t get_ipv4_address(void);
 extern void     set_ipv4_multicast(uint32_t multicast_ip);
@@ -88,9 +88,9 @@ extern void ping_ipv4(int fd, uint32_t _ping_dst_ip);
 extern uint32_t pong_ipv4(void);
 
 /* Handles IPv4-packets that are detected by receive_ether. */
-extern int8_t handle_ipv4(int fd, uint8_t * packet, int32_t packetsize);
+extern int8_t handle_ipv4(int fd, uint8_t * packet, uint32_t packetsize);
 
 /* Handles ARP-packets that are detected by receive_ether. */
-extern int8_t handle_arp(int fd, uint8_t * packet, int32_t packetsize);
+extern int8_t handle_arp(int fd, uint8_t * packet, uint32_t packetsize);
 
 #endif

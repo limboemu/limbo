@@ -123,8 +123,7 @@ case "${LEGACY}" in
 		cp ${ISOLINUX_BIN} ${dir}
 
 		# syslinux 6.x needs a file called ldlinux.c32
-		LDLINUX_C32=$(dirname ${ISOLINUX_BIN})/ldlinux.c32
-		if [ -s ${LDLINUX_C32} ]; then
+		if [ -n "${LDLINUX_C32}" -a -s "${LDLINUX_C32}" ]; then
 			cp ${LDLINUX_C32} ${dir}
 		fi
 

@@ -17,7 +17,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "exec/helper-proto.h"
 #include "qemu/host-utils.h"
 
@@ -37,47 +39,68 @@ uint64_t helper_cttz(uint64_t arg)
     return ctz64(arg);
 }
 
-static inline uint64_t byte_zap(uint64_t op, uint8_t mskb)
+uint64_t helper_zapnot(uint64_t val, uint64_t mskb)
 {
     uint64_t mask;
 
-    mask = 0;
-    mask |= ((mskb >> 0) & 1) * 0x00000000000000FFULL;
-    mask |= ((mskb >> 1) & 1) * 0x000000000000FF00ULL;
-    mask |= ((mskb >> 2) & 1) * 0x0000000000FF0000ULL;
-    mask |= ((mskb >> 3) & 1) * 0x00000000FF000000ULL;
-    mask |= ((mskb >> 4) & 1) * 0x000000FF00000000ULL;
-    mask |= ((mskb >> 5) & 1) * 0x0000FF0000000000ULL;
-    mask |= ((mskb >> 6) & 1) * 0x00FF000000000000ULL;
-    mask |= ((mskb >> 7) & 1) * 0xFF00000000000000ULL;
+    mask  = -(mskb & 0x01) & 0x00000000000000ffull;
+    mask |= -(mskb & 0x02) & 0x000000000000ff00ull;
+    mask |= -(mskb & 0x04) & 0x0000000000ff0000ull;
+    mask |= -(mskb & 0x08) & 0x00000000ff000000ull;
+    mask |= -(mskb & 0x10) & 0x000000ff00000000ull;
+    mask |= -(mskb & 0x20) & 0x0000ff0000000000ull;
+    mask |= -(mskb & 0x40) & 0x00ff000000000000ull;
+    mask |= -(mskb & 0x80) & 0xff00000000000000ull;
 
-    return op & ~mask;
+    return val & mask;
 }
 
 uint64_t helper_zap(uint64_t val, uint64_t mask)
 {
-    return byte_zap(val, mask);
+    return helper_zapnot(val, ~mask);
 }
 
-uint64_t helper_zapnot(uint64_t val, uint64_t mask)
+uint64_t helper_cmpbe0(uint64_t a)
 {
-    return byte_zap(val, ~mask);
+    uint64_t m = 0x7f7f7f7f7f7f7f7fULL;
+    uint64_t c = ~(((a & m) + m) | a | m);
+    /* a.......b.......c.......d.......e.......f.......g.......h....... */
+    c |= c << 7;
+    /* ab......bc......cd......de......ef......fg......gh......h....... */
+    c |= c << 14;
+    /* abcd....bcde....cdef....defg....efgh....fgh.....gh......h....... */
+    c |= c << 28;
+    /* abcdefghbcdefgh.cdefgh..defgh...efgh....fgh.....gh......h....... */
+    return c >> 56;
 }
 
-uint64_t helper_cmpbge(uint64_t op1, uint64_t op2)
+uint64_t helper_cmpbge(uint64_t a, uint64_t b)
 {
-    uint8_t opa, opb, res;
-    int i;
+    uint64_t mask = 0x00ff00ff00ff00ffULL;
+    uint64_t test = 0x0100010001000100ULL;
+    uint64_t al, ah, bl, bh, cl, ch;
 
-    res = 0;
-    for (i = 0; i < 8; i++) {
-        opa = op1 >> (i * 8);
-        opb = op2 >> (i * 8);
-        if (opa >= opb) {
-            res |= 1 << i;
-        }
-    }
-    return res;
+    /* Separate the bytes to avoid false positives.  */
+    al = a & mask;
+    bl = b & mask;
+    ah = (a >> 8) & mask;
+    bh = (b >> 8) & mask;
+
+    /* "Compare".  If a byte in B is greater than a byte in A,
+       it will clear the test bit.  */
+    cl = ((al | test) - bl) & test;
+    ch = ((ah | test) - bh) & test;
+
+    /* Fold all of the test bits into a contiguous set.  */
+    /* ch=.......a...............c...............e...............g........ */
+    /* cl=.......b...............d...............f...............h........ */
+    cl += ch << 1;
+    /* cl=......ab..............cd..............ef..............gh........ */
+    cl |= cl << 14;
+    /* cl=......abcd............cdef............efgh............gh........ */
+    cl |= cl << 28;
+    /* cl=......abcdefgh........cdefgh..........efgh............gh........ */
+    return cl >> 50;
 }
 
 uint64_t helper_minub8(uint64_t op1, uint64_t op2)
@@ -249,64 +272,9 @@ uint64_t helper_unpkbw(uint64_t op1)
             | ((op1 & 0xff000000) << 24));
 }
 
-uint64_t helper_addqv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
+void helper_check_overflow(CPUAlphaState *env, uint64_t op1, uint64_t op2)
 {
-    uint64_t tmp = op1;
-    op1 += op2;
-    if (unlikely((tmp ^ op2 ^ (-1ULL)) & (tmp ^ op1) & (1ULL << 63))) {
+    if (unlikely(op1 != op2)) {
         arith_excp(env, GETPC(), EXC_M_IOV, 0);
     }
-    return op1;
-}
-
-uint64_t helper_addlv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
-{
-    uint64_t tmp = op1;
-    op1 = (uint32_t)(op1 + op2);
-    if (unlikely((tmp ^ op2 ^ (-1UL)) & (tmp ^ op1) & (1UL << 31))) {
-        arith_excp(env, GETPC(), EXC_M_IOV, 0);
-    }
-    return op1;
-}
-
-uint64_t helper_subqv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
-{
-    uint64_t res;
-    res = op1 - op2;
-    if (unlikely((op1 ^ op2) & (res ^ op1) & (1ULL << 63))) {
-        arith_excp(env, GETPC(), EXC_M_IOV, 0);
-    }
-    return res;
-}
-
-uint64_t helper_sublv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
-{
-    uint32_t res;
-    res = op1 - op2;
-    if (unlikely((op1 ^ op2) & (res ^ op1) & (1UL << 31))) {
-        arith_excp(env, GETPC(), EXC_M_IOV, 0);
-    }
-    return res;
-}
-
-uint64_t helper_mullv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
-{
-    int64_t res = (int64_t)op1 * (int64_t)op2;
-
-    if (unlikely((int32_t)res != res)) {
-        arith_excp(env, GETPC(), EXC_M_IOV, 0);
-    }
-    return (int64_t)((int32_t)res);
-}
-
-uint64_t helper_mulqv(CPUAlphaState *env, uint64_t op1, uint64_t op2)
-{
-    uint64_t tl, th;
-
-    muls64(&tl, &th, op1, op2);
-    /* If th != 0 && th != -1, then we had an overflow */
-    if (unlikely((th + 1) > 1)) {
-        arith_excp(env, GETPC(), EXC_M_IOV, 0);
-    }
-    return tl;
 }

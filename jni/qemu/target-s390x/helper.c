@@ -18,10 +18,14 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "cpu.h"
 #include "exec/gdbstub.h"
 #include "qemu/timer.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
+#include "hw/s390x/ioinst.h"
 #ifndef CONFIG_USER_ONLY
 #include "sysemu/sysemu.h"
 #endif
@@ -33,7 +37,7 @@
 #ifdef DEBUG_S390_STDOUT
 #define DPRINTF(fmt, ...) \
     do { fprintf(stderr, fmt, ## __VA_ARGS__); \
-         qemu_log(fmt, ##__VA_ARGS__); } while (0)
+         if (qemu_log_separate()) qemu_log(fmt, ##__VA_ARGS__); } while (0)
 #else
 #define DPRINTF(fmt, ...) \
     do { qemu_log(fmt, ## __VA_ARGS__); } while (0)
@@ -64,14 +68,47 @@ void s390x_cpu_timer(void *opaque)
 }
 #endif
 
-S390CPU *cpu_s390x_init(const char *cpu_model)
+S390CPU *cpu_s390x_create(const char *cpu_model, Error **errp)
+{
+    return S390_CPU(object_new(TYPE_S390_CPU));
+}
+
+S390CPU *s390x_new_cpu(const char *cpu_model, int64_t id, Error **errp)
 {
     S390CPU *cpu;
+    Error *err = NULL;
 
-    cpu = S390_CPU(object_new(TYPE_S390_CPU));
+    cpu = cpu_s390x_create(cpu_model, &err);
+    if (err != NULL) {
+        goto out;
+    }
 
-    object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
+    object_property_set_int(OBJECT(cpu), id, "id", &err);
+    if (err != NULL) {
+        goto out;
+    }
+    object_property_set_bool(OBJECT(cpu), true, "realized", &err);
 
+out:
+    if (err) {
+        error_propagate(errp, err);
+        object_unref(OBJECT(cpu));
+        cpu = NULL;
+    }
+    return cpu;
+}
+
+S390CPU *cpu_s390x_init(const char *cpu_model)
+{
+    Error *err = NULL;
+    S390CPU *cpu;
+    /* Use to track CPU ID for linux-user only */
+    static int64_t next_cpu_id;
+
+    cpu = s390x_new_cpu(cpu_model, next_cpu_id++, &err);
+    if (err) {
+        error_report_err(err);
+    }
     return cpu;
 }
 
@@ -112,7 +149,7 @@ int s390_cpu_handle_mmu_fault(CPUState *cs, vaddr orig_vaddr,
 {
     S390CPU *cpu = S390_CPU(cs);
     CPUS390XState *env = &cpu->env;
-    uint64_t asc = env->psw.mask & PSW_MASK_ASC;
+    uint64_t asc = cpu_mmu_idx_to_asc(mmu_idx);
     target_ulong vaddr, raddr;
     int prot;
 
@@ -133,7 +170,7 @@ int s390_cpu_handle_mmu_fault(CPUState *cs, vaddr orig_vaddr,
     }
 
     /* check out of RAM access */
-    if (raddr > (ram_size + virtio_size)) {
+    if (raddr > ram_size) {
         DPRINTF("%s: raddr %" PRIx64 " > ram_size %" PRIx64 "\n", __func__,
                 (uint64_t)raddr, (uint64_t)ram_size);
         trigger_pgm_exception(env, PGM_ADDRESSING, ILEN_LATER);
@@ -162,8 +199,9 @@ hwaddr s390_cpu_get_phys_page_debug(CPUState *cs, vaddr vaddr)
         vaddr &= 0x7fffffff;
     }
 
-    mmu_translate(env, vaddr, 2, asc, &raddr, &prot, false);
-
+    if (mmu_translate(env, vaddr, MMU_INST_FETCH, asc, &raddr, &prot, false)) {
+        return -1;
+    }
     return raddr;
 }
 
@@ -181,10 +219,16 @@ hwaddr s390_cpu_get_phys_addr_debug(CPUState *cs, vaddr vaddr)
 
 void load_psw(CPUS390XState *env, uint64_t mask, uint64_t addr)
 {
+    uint64_t old_mask = env->psw.mask;
+
     env->psw.addr = addr;
     env->psw.mask = mask;
     if (tcg_enabled()) {
         env->cc_op = (mask >> 44) & 3;
+    }
+
+    if ((old_mask ^ mask) & PSW_MASK_PER) {
+        s390_cpu_recompute_watchpoints(CPU(s390_env_get_cpu(env)));
     }
 
     if (mask & PSW_MASK_WAIT) {
@@ -250,25 +294,6 @@ void do_restart_interrupt(CPUS390XState *env)
     load_psw(env, mask, addr);
 }
 
-static void do_svc_interrupt(CPUS390XState *env)
-{
-    uint64_t mask, addr;
-    LowCore *lowcore;
-
-    lowcore = cpu_map_lowcore(env);
-
-    lowcore->svc_code = cpu_to_be16(env->int_svc_code);
-    lowcore->svc_ilen = cpu_to_be16(env->int_svc_ilen);
-    lowcore->svc_old_psw.mask = cpu_to_be64(get_psw_mask(env));
-    lowcore->svc_old_psw.addr = cpu_to_be64(env->psw.addr + env->int_svc_ilen);
-    mask = be64_to_cpu(lowcore->svc_new_psw.mask);
-    addr = be64_to_cpu(lowcore->svc_new_psw.addr);
-
-    cpu_unmap_lowcore(lowcore);
-
-    load_psw(env, mask, addr);
-}
-
 static void do_program_interrupt(CPUS390XState *env)
 {
     uint64_t mask, addr;
@@ -292,12 +317,21 @@ static void do_program_interrupt(CPUS390XState *env)
 
     lowcore = cpu_map_lowcore(env);
 
+    /* Signal PER events with the exception.  */
+    if (env->per_perc_atmid) {
+        env->int_pgm_code |= PGM_PER;
+        lowcore->per_address = cpu_to_be64(env->per_address);
+        lowcore->per_perc_atmid = cpu_to_be16(env->per_perc_atmid);
+        env->per_perc_atmid = 0;
+    }
+
     lowcore->pgm_ilen = cpu_to_be16(ilen);
     lowcore->pgm_code = cpu_to_be16(env->int_pgm_code);
     lowcore->program_old_psw.mask = cpu_to_be64(get_psw_mask(env));
     lowcore->program_old_psw.addr = cpu_to_be64(env->psw.addr);
     mask = be64_to_cpu(lowcore->program_new_psw.mask);
     addr = be64_to_cpu(lowcore->program_new_psw.addr);
+    lowcore->per_breaking_event_addr = cpu_to_be64(env->gbea);
 
     cpu_unmap_lowcore(lowcore);
 
@@ -306,6 +340,33 @@ static void do_program_interrupt(CPUS390XState *env)
             env->psw.addr);
 
     load_psw(env, mask, addr);
+}
+
+static void do_svc_interrupt(CPUS390XState *env)
+{
+    uint64_t mask, addr;
+    LowCore *lowcore;
+
+    lowcore = cpu_map_lowcore(env);
+
+    lowcore->svc_code = cpu_to_be16(env->int_svc_code);
+    lowcore->svc_ilen = cpu_to_be16(env->int_svc_ilen);
+    lowcore->svc_old_psw.mask = cpu_to_be64(get_psw_mask(env));
+    lowcore->svc_old_psw.addr = cpu_to_be64(env->psw.addr + env->int_svc_ilen);
+    mask = be64_to_cpu(lowcore->svc_new_psw.mask);
+    addr = be64_to_cpu(lowcore->svc_new_psw.addr);
+
+    cpu_unmap_lowcore(lowcore);
+
+    load_psw(env, mask, addr);
+
+    /* When a PER event is pending, the PER exception has to happen
+       immediately after the SERVICE CALL one.  */
+    if (env->per_perc_atmid) {
+        env->int_pgm_code = PGM_PER;
+        env->int_pgm_ilen = env->int_svc_ilen;
+        do_program_interrupt(env);
+    }
 }
 
 #define VIRTIO_SUBCODE_64 0x0D00
@@ -445,7 +506,7 @@ static void do_mchk_interrupt(CPUS390XState *env)
     lowcore = cpu_map_lowcore(env);
 
     for (i = 0; i < 16; i++) {
-        lowcore->floating_pt_save_area[i] = cpu_to_be64(env->fregs[i].ll);
+        lowcore->floating_pt_save_area[i] = cpu_to_be64(get_freg(env, i)->ll);
         lowcore->gpregs_save_area[i] = cpu_to_be64(env->regs[i]);
         lowcore->access_regs_save_area[i] = cpu_to_be32(env->aregs[i]);
         lowcore->cregs_save_area[i] = cpu_to_be64(env->cregs[i]);
@@ -556,5 +617,74 @@ bool s390_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         }
     }
     return false;
+}
+
+void s390_cpu_recompute_watchpoints(CPUState *cs)
+{
+    const int wp_flags = BP_CPU | BP_MEM_WRITE | BP_STOP_BEFORE_ACCESS;
+    S390CPU *cpu = S390_CPU(cs);
+    CPUS390XState *env = &cpu->env;
+
+    /* We are called when the watchpoints have changed. First
+       remove them all.  */
+    cpu_watchpoint_remove_all(cs, BP_CPU);
+
+    /* Return if PER is not enabled */
+    if (!(env->psw.mask & PSW_MASK_PER)) {
+        return;
+    }
+
+    /* Return if storage-alteration event is not enabled.  */
+    if (!(env->cregs[9] & PER_CR9_EVENT_STORE)) {
+        return;
+    }
+
+    if (env->cregs[10] == 0 && env->cregs[11] == -1LL) {
+        /* We can't create a watchoint spanning the whole memory range, so
+           split it in two parts.   */
+        cpu_watchpoint_insert(cs, 0, 1ULL << 63, wp_flags, NULL);
+        cpu_watchpoint_insert(cs, 1ULL << 63, 1ULL << 63, wp_flags, NULL);
+    } else if (env->cregs[10] > env->cregs[11]) {
+        /* The address range loops, create two watchpoints.  */
+        cpu_watchpoint_insert(cs, env->cregs[10], -env->cregs[10],
+                              wp_flags, NULL);
+        cpu_watchpoint_insert(cs, 0, env->cregs[11] + 1, wp_flags, NULL);
+
+    } else {
+        /* Default case, create a single watchpoint.  */
+        cpu_watchpoint_insert(cs, env->cregs[10],
+                              env->cregs[11] - env->cregs[10] + 1,
+                              wp_flags, NULL);
+    }
+}
+
+void s390x_cpu_debug_excp_handler(CPUState *cs)
+{
+    S390CPU *cpu = S390_CPU(cs);
+    CPUS390XState *env = &cpu->env;
+    CPUWatchpoint *wp_hit = cs->watchpoint_hit;
+
+    if (wp_hit && wp_hit->flags & BP_CPU) {
+        /* FIXME: When the storage-alteration-space control bit is set,
+           the exception should only be triggered if the memory access
+           is done using an address space with the storage-alteration-event
+           bit set.  We have no way to detect that with the current
+           watchpoint code.  */
+        cs->watchpoint_hit = NULL;
+
+        env->per_address = env->psw.addr;
+        env->per_perc_atmid |= PER_CODE_EVENT_STORE | get_per_atmid(env);
+        /* FIXME: We currently no way to detect the address space used
+           to trigger the watchpoint.  For now just consider it is the
+           current default ASC. This turn to be true except when MVCP
+           and MVCS instrutions are not used.  */
+        env->per_perc_atmid |= env->psw.mask & (PSW_MASK_ASC) >> 46;
+
+        /* Remove all watchpoints to re-execute the code.  A PER exception
+           will be triggered, it will call load_psw which will recompute
+           the watchpoints.  */
+        cpu_watchpoint_remove_all(cs, BP_CPU);
+        cpu_loop_exit_noexc(cs);
+    }
 }
 #endif /* CONFIG_USER_ONLY */

@@ -22,8 +22,10 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qemu/readline.h"
+#include "qemu/cutils.h"
 
 #define IS_NORM 0
 #define IS_ESC  1

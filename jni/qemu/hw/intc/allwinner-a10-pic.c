@@ -15,15 +15,17 @@
  * for more details.
  */
 
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/devices.h"
 #include "sysemu/sysemu.h"
 #include "hw/intc/allwinner-a10-pic.h"
+#include "qemu/log.h"
 
 static void aw_a10_pic_update(AwA10PICState *s)
 {
     uint8_t i;
-    int irq = 0, fiq = 0, pending;
+    int irq = 0, fiq = 0, zeroes;
 
     s->vector = 0;
 
@@ -32,9 +34,9 @@ static void aw_a10_pic_update(AwA10PICState *s)
         fiq |= s->select[i] & s->irq_pending[i] & ~s->mask[i];
 
         if (!s->vector) {
-            pending = ffs(s->irq_pending[i] & ~s->mask[i]);
-            if (pending) {
-                s->vector = (i * 32 + pending - 1) * 4;
+            zeroes = ctz32(s->irq_pending[i] & ~s->mask[i]);
+            if (zeroes != 32) {
+                s->vector = (i * 32 + zeroes) * 4;
             }
         }
     }

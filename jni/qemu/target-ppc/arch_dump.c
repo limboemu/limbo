@@ -12,6 +12,7 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "elf.h"
 #include "exec/cpu-all.h"
@@ -219,6 +220,11 @@ int cpu_get_dump_info(ArchDumpInfo *info,
     } else {
         info->d_endian = ELFDATA2LSB;
     }
+    /* 64KB is the max page size for pseries kernel */
+    if (strncmp(object_get_typename(qdev_get_machine()),
+                "pseries-", 8) == 0) {
+        info->page_size = (1U << 16);
+    }
 
     return 0;
 }
@@ -277,10 +283,4 @@ int ppc64_cpu_write_elf64_note(WriteCoreDumpFunction f, CPUState *cs,
 {
     PowerPCCPU *cpu = POWERPC_CPU(cs);
     return ppc64_write_all_elf64_notes("CORE", f, cpu, cpuid, opaque);
-}
-
-int ppc64_cpu_write_elf64_qemunote(WriteCoreDumpFunction f,
-                                   CPUState *cpu, void *opaque)
-{
-    return 0;
 }

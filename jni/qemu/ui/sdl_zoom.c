@@ -11,11 +11,8 @@
  *
  */
 
-#include "sdl_zoom.h"
 #include "qemu/osdep.h"
-#include <glib.h>
-#include <stdint.h>
-#include <stdio.h>
+#include "sdl_zoom.h"
 
 static void sdl_zoom_rgb16(SDL_Surface *src, SDL_Surface *dst, int smooth,
                            SDL_Rect *dst_rect);
@@ -79,12 +76,10 @@ int sdl_zoom_blit(SDL_Surface *src_sfc, SDL_Surface *dst_sfc, int smooth,
     /* The rectangle (zoom.x, zoom.y, zoom.w, zoom.h) is the area on the
      * destination surface that needs to be updated.
      */
-    if (src_sfc->format->BitsPerPixel == 32){
+    if (src_sfc->format->BitsPerPixel == 32)
         sdl_zoom_rgb32(src_sfc, dst_sfc, smooth, &zoom);
-    }
-    else if (src_sfc->format->BitsPerPixel == 16){
+    else if (src_sfc->format->BitsPerPixel == 16)
         sdl_zoom_rgb16(src_sfc, dst_sfc, smooth, &zoom);
-    }
     else {
         fprintf(stderr, "pixel format not supported\n");
         return -1;

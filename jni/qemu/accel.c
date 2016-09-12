@@ -23,6 +23,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "sysemu/accel.h"
 #include "hw/boards.h"
 #include "qemu-common.h"
@@ -76,7 +77,7 @@ static int accel_init_machine(AccelClass *acc, MachineState *ms)
     return ret;
 }
 
-int configure_accelerator(MachineState *ms)
+void configure_accelerator(MachineState *ms)
 {
     const char *p;
     char buf[10];
@@ -127,8 +128,6 @@ int configure_accelerator(MachineState *ms)
     if (init_failed) {
         fprintf(stderr, "Back to %s accelerator.\n", acc->name);
     }
-
-    return !accel_initialised;
 }
 
 

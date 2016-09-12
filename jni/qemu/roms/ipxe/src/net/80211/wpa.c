@@ -912,4 +912,5 @@ struct eapol_handler eapol_key_handler __eapol_handler = {
 };
 
 /* WPA always needs EAPOL in order to be useful */
+REQUIRING_SYMBOL ( eapol_key_handler );
 REQUIRE_OBJECT ( eapol );

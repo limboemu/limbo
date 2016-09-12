@@ -16,7 +16,7 @@
 #include <of.h>
 #include <pci.h>
 #include <cpu.h>
-#include <ioctl.h>
+#include <unistd.h>
 #include <takeover.h>
 
 extern void call_client_interface(of_arg_t *);

@@ -181,17 +181,13 @@ defer go ( -- )
       \ with watchdog timeout.
       4ec set-watchdog
    THEN
+   2dup " HALT" str= IF 2drop 0 EXIT THEN
    my-self >r current-node @ >r         \ Save my-self
    ." Trying to load: " $bootargs type ."  from: " 2dup type ."  ... "
    2dup open-dev dup IF
       dup to my-self
       dup ihandle>phandle set-node
       -rot                              ( ihandle devstr len )
-      my-args nip 0= IF
-	 2dup 1- + c@ [char] : <> IF    \ Add : to device path if missing
-	    1+ strdup 2dup 1- + [char] : swap c!
-	 THEN
-      THEN
       encode-string s" bootpath" set-chosen
       $bootargs encode-string s" bootargs" set-chosen
       get-load-base s" load" 3 pick ['] $call-method CATCH IF
@@ -211,7 +207,7 @@ defer go ( -- )
 
 : parse-load ( "{devlist}" -- success )	\ Parse-execute boot-device list
    cr BEGIN parse-word dup WHILE
-	 ( de-alias ) do-load dup 0< IF drop 0 THEN IF
+	 de-alias do-load dup 0< IF drop 0 THEN IF
 	    state-valid @ IF ."   Successfully loaded" cr THEN
 	    true 0d parse strdup load-list 2! EXIT
 	 THEN

@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <string.h>
@@ -32,10 +36,6 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <ipxe/command.h>
 #include <ipxe/parseopt.h>
 #include <ipxe/settings.h>
-#include <ipxe/console.h>
-#include <ipxe/keys.h>
-#include <ipxe/process.h>
-#include <ipxe/nap.h>
 #include <ipxe/shell.h>
 
 /** @file
@@ -569,8 +569,6 @@ static struct command_descriptor sleep_cmd =
 static int sleep_exec ( int argc, char **argv ) {
 	struct sleep_options opts;
 	unsigned int seconds;
-	unsigned long start;
-	unsigned long delay;
 	int rc;
 
 	/* Parse options */
@@ -582,14 +580,8 @@ static int sleep_exec ( int argc, char **argv ) {
 		return rc;
 
 	/* Delay for specified number of seconds */
-	start = currticks();
-	delay = ( seconds * TICKS_PER_SEC );
-	while ( ( currticks() - start ) <= delay ) {
-		step();
-		if ( iskey() && ( getchar() == CTRL_C ) )
-			return -ECANCELED;
-		cpu_nap();
-	}
+	if ( sleep ( seconds ) != 0 )
+		return -ECANCELED;
 
 	return 0;
 }

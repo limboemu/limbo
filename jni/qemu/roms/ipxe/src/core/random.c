@@ -4,7 +4,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdlib.h>
 #include <ipxe/timer.h>
@@ -18,6 +18,8 @@ static int32_t rnd_seed = 0;
  */
 void srandom ( unsigned int seed ) {
 	rnd_seed = seed;
+	if ( ! rnd_seed )
+		rnd_seed = 4; /* Chosen by fair dice roll */
 }
 
 /**

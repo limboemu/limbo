@@ -17,8 +17,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
+#include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
 
 /* Softmmu support */
@@ -97,7 +99,8 @@ uint64_t helper_stq_c_phys(CPUAlphaState *env, uint64_t p, uint64_t v)
 }
 
 void alpha_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
-                                   int is_write, int is_user, uintptr_t retaddr)
+                                   MMUAccessType access_type,
+                                   int mmu_idx, uintptr_t retaddr)
 {
     AlphaCPU *cpu = ALPHA_CPU(cs);
     CPUAlphaState *env = &cpu->env;
@@ -128,19 +131,26 @@ void alpha_cpu_unassigned_access(CPUState *cs, hwaddr addr,
 
     env->trap_arg0 = addr;
     env->trap_arg1 = is_write ? 1 : 0;
-    dynamic_excp(env, 0, EXCP_MCHK, 0);
+    cs->exception_index = EXCP_MCHK;
+    env->error_code = 0;
+
+    /* ??? We should cpu_restore_state to the faulting insn, but this hook
+       does not have access to the retaddr value from the original helper.
+       It's all moot until the QEMU PALcode grows an MCHK handler.  */
+
+    cpu_loop_exit(cs);
 }
 
 /* try to fill the TLB and return an exception if error. If retaddr is
    NULL, it means that the function was called in C code (i.e. not
    from generated code or from helper.c) */
 /* XXX: fix it to restore all registers */
-void tlb_fill(CPUState *cs, target_ulong addr, int is_write,
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
               int mmu_idx, uintptr_t retaddr)
 {
     int ret;
 
-    ret = alpha_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
+    ret = alpha_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
     if (unlikely(ret != 0)) {
         if (retaddr) {
             cpu_restore_state(cs, retaddr);

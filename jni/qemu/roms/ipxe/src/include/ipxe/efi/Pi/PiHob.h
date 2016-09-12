@@ -1,7 +1,7 @@
 /** @file
   HOB related definitions in PI.
 
-Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under
 the terms and conditions of the BSD License that accompanies this distribution.
 The full text of the license may be found at
@@ -11,7 +11,7 @@ THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
   @par Revision Reference:
-  PI Version 1.0
+  PI Version 1.4
 
 **/
 
@@ -257,8 +257,16 @@ typedef UINT32 EFI_RESOURCE_ATTRIBUTE_TYPE;
 #define EFI_RESOURCE_ATTRIBUTE_INITIALIZED              0x00000002
 #define EFI_RESOURCE_ATTRIBUTE_TESTED                   0x00000004
 #define EFI_RESOURCE_ATTRIBUTE_READ_PROTECTED           0x00000080
+//
+// This is typically used as memory cacheability attribute today.
+// NOTE: Since PI spec 1.4, please use EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTED
+// as Physical write protected attribute, and EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTED
+// means Memory cacheability attribute: The memory supports being programmed with
+// a writeprotected cacheable attribute.
+//
 #define EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTED          0x00000100
 #define EFI_RESOURCE_ATTRIBUTE_EXECUTION_PROTECTED      0x00000200
+#define EFI_RESOURCE_ATTRIBUTE_PERSISTENT               0x00800000
 //
 // The rest of the attributes are used to describe capabilities
 //
@@ -275,8 +283,27 @@ typedef UINT32 EFI_RESOURCE_ATTRIBUTE_TYPE;
 #define EFI_RESOURCE_ATTRIBUTE_64_BIT_IO                0x00010000
 #define EFI_RESOURCE_ATTRIBUTE_UNCACHED_EXPORTED        0x00020000
 #define EFI_RESOURCE_ATTRIBUTE_READ_PROTECTABLE         0x00100000
+//
+// This is typically used as memory cacheability attribute today.
+// NOTE: Since PI spec 1.4, please use EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTABLE
+// as Memory capability attribute: The memory supports being protected from processor
+// writes, and EFI_RESOURCE_ATTRIBUTE_WRITE_PROTEC TABLE means Memory cacheability attribute:
+// The memory supports being programmed with a writeprotected cacheable attribute.
+//
 #define EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTABLE        0x00200000
 #define EFI_RESOURCE_ATTRIBUTE_EXECUTION_PROTECTABLE    0x00400000
+#define EFI_RESOURCE_ATTRIBUTE_PERSISTABLE              0x01000000
+
+#define EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTED      0x00040000
+#define EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTABLE    0x00800000
+
+//
+// Physical memory relative reliability attribute. This
+// memory provides higher reliability relative to other
+// memory in the system. If all memory has the same
+// reliability, then this bit is not used.
+//
+#define EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE            0x02000000
 
 ///
 /// Describes the resource properties of all fixed,

@@ -10,7 +10,7 @@
  *     IBM Corporation - initial implementation
  *****************************************************************************/
 
-/*>>>>>>>>>>>>>>>>>>>>>>> DEFINITIONS & DECLARATIONS <<<<<<<<<<<<<<<<<<<<*/
+/************************ DEFINITIONS & DECLARATIONS *********************/
 
 #include <udp.h>
 #include <sys/socket.h>
@@ -25,7 +25,7 @@
 
 
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> LOCAL VARIABLES <<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** LOCAL VARIABLES **************************/
 
 
 #ifdef USE_MTFTP
@@ -33,17 +33,19 @@
 uint16_t net_tftp_uport;
 uint16_t net_mtftp_uport;
 
-void net_set_tftp_port(uint16_t tftp_port) {
+void net_set_tftp_port(uint16_t tftp_port)
+{
 	net_tftp_uport = tftp_port;
 }
 
-void net_set_mtftp_port(uint16_t tftp_port) {
+void net_set_mtftp_port(uint16_t tftp_port)
+{
 	net_mtftp_uport = tftp_port;
 }
 
 #endif
 
-/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>> IMPLEMENTATION <<<<<<<<<<<<<<<<<<<<<<<<<<*/
+/****************************** IMPLEMENTATION ***************************/
 
 
 /**
@@ -56,8 +58,8 @@ void net_set_mtftp_port(uint16_t tftp_port) {
  * @see               receive_ether
  * @see               udphdr
  */
-int8_t
-handle_udp(int fd, uint8_t * udp_packet, int32_t packetsize) {
+int8_t handle_udp(int fd, uint8_t * udp_packet, uint32_t packetsize)
+{
 	struct udphdr * udph = (struct udphdr *) udp_packet;
 
 	if (packetsize < sizeof(struct udphdr))
@@ -108,8 +110,8 @@ handle_udp(int fd, uint8_t * udp_packet, int32_t packetsize) {
  * @param  packetsize length of the packet
  * @see               handle_icmp
  */
-void
-handle_udp_dun(uint8_t * udp_packet, uint32_t packetsize, uint8_t err_code) {
+void handle_udp_dun(uint8_t * udp_packet, uint32_t packetsize, uint8_t err_code)
+{
 	struct udphdr * udph = (struct udphdr *) udp_packet;
 
 	if (packetsize < sizeof(struct udphdr))
@@ -139,9 +141,9 @@ handle_udp_dun(uint8_t * udp_packet, uint32_t packetsize, uint8_t err_code) {
  * @see                fill_dnshdr
  * @see                fill_btphdr
  */
-void
-fill_udphdr(uint8_t * packet, uint16_t packetsize,
-            uint16_t src_port, uint16_t dest_port) {
+void fill_udphdr(uint8_t * packet, uint16_t packetsize,
+		 uint16_t src_port, uint16_t dest_port)
+{
 	struct udphdr * udph = (struct udphdr *) packet;
 
 	udph -> uh_sport = htons(src_port);

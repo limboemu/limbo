@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/pci/pci.h"
@@ -33,6 +34,10 @@ PCIDevice *piix4_dev;
 typedef struct PIIX4State {
     PCIDevice dev;
 } PIIX4State;
+
+#define TYPE_PIIX4_PCI_DEVICE "PIIX4"
+#define PIIX4_PCI_DEVICE(obj) \
+    OBJECT_CHECK(PIIX4State, (obj), TYPE_PIIX4_PCI_DEVICE)
 
 static void piix4_reset(void *opaque)
 {
@@ -84,10 +89,12 @@ static const VMStateDescription vmstate_piix4 = {
 
 static void piix4_realize(PCIDevice *dev, Error **errp)
 {
-    PIIX4State *d = DO_UPCAST(PIIX4State, dev, dev);
+    PIIX4State *d = PIIX4_PCI_DEVICE(dev);
 
-    isa_bus_new(DEVICE(d), pci_address_space(dev),
-                pci_address_space_io(dev));
+    if (!isa_bus_new(DEVICE(d), pci_address_space(dev),
+                     pci_address_space_io(dev), errp)) {
+        return;
+    }
     piix4_dev = &d->dev;
     qemu_register_reset(piix4_reset, d);
 }
@@ -121,7 +128,7 @@ static void piix4_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo piix4_info = {
-    .name          = "PIIX4",
+    .name          = TYPE_PIIX4_PCI_DEVICE,
     .parent        = TYPE_PCI_DEVICE,
     .instance_size = sizeof(PIIX4State),
     .class_init    = piix4_class_init,

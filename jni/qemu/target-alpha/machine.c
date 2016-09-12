@@ -1,5 +1,9 @@
+#include "qemu/osdep.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/boards.h"
+#include "migration/cpu.h"
 
 static int get_fpcr(QEMUFile *f, void *opaque, size_t size)
 {
@@ -70,8 +74,8 @@ static VMStateField vmstate_env_fields[] = {
 
 static const VMStateDescription vmstate_env = {
     .name = "env",
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = vmstate_env_fields,
 };
 

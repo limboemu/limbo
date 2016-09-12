@@ -19,7 +19,7 @@
  * By Richard W.M. Jones (rjones@redhat.com).
  */
 
-#include "qemu-common.h"
+#include "qemu/osdep.h"
 #include "qemu/option.h"
 #include "qemu/config-file.h"
 #include "qemu/queue.h"
@@ -27,14 +27,8 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/watchdog.h"
 #include "qapi-event.h"
-
-/* Possible values for action parameter. */
-#define WDT_RESET        1	/* Hard reset. */
-#define WDT_SHUTDOWN     2	/* Shutdown. */
-#define WDT_POWEROFF     3	/* Quit. */
-#define WDT_PAUSE        4	/* Pause. */
-#define WDT_DEBUG        5	/* Prints a message and continues running. */
-#define WDT_NONE         6	/* Do nothing. */
+#include "hw/nmi.h"
+#include "qemu/help_option.h"
 
 static int watchdog_action = WDT_RESET;
 static QLIST_HEAD(watchdog_list, WatchdogTimerModel) watchdog_list;
@@ -95,10 +89,17 @@ int select_watchdog_action(const char *p)
         watchdog_action = WDT_DEBUG;
     else if (strcasecmp(p, "none") == 0)
         watchdog_action = WDT_NONE;
+    else if (strcasecmp(p, "inject-nmi") == 0)
+        watchdog_action = WDT_NMI;
     else
         return -1;
 
     return 0;
+}
+
+int get_watchdog_action(void)
+{
+    return watchdog_action;
 }
 
 /* This actually performs the "action" once a watchdog has expired,
@@ -137,6 +138,12 @@ void watchdog_perform_action(void)
 
     case WDT_NONE:
         qapi_event_send_watchdog(WATCHDOG_EXPIRATION_ACTION_NONE, &error_abort);
+        break;
+
+    case WDT_NMI:
+        qapi_event_send_watchdog(WATCHDOG_EXPIRATION_ACTION_INJECT_NMI,
+                                 &error_abort);
+        nmi_monitor_handle(0, NULL);
         break;
     }
 }

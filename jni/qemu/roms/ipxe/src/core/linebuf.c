@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * @file
@@ -39,7 +43,18 @@ FILE_LICENCE ( GPL2_OR_LATER );
  * @ret line		Buffered line, or NULL if no line ready to read
  */
 char * buffered_line ( struct line_buffer *linebuf ) {
-	return ( linebuf->ready ? linebuf->data : NULL );
+	char *line = &linebuf->data[ linebuf->len ];
+
+	/* Fail unless we have a newly completed line to retrieve */
+	if ( ( linebuf->len == 0 ) || ( linebuf->consumed == 0 ) ||
+	     ( *(--line) != '\0' ) )
+		return NULL;
+
+	/* Identify start of line */
+	while ( ( line > linebuf->data ) && ( line[-1] != '\0' ) )
+		line--;
+
+	return line;
 }
 
 /**
@@ -48,10 +63,11 @@ char * buffered_line ( struct line_buffer *linebuf ) {
  * @v linebuf		Line buffer
  */
 void empty_line_buffer ( struct line_buffer *linebuf ) {
+
 	free ( linebuf->data );
 	linebuf->data = NULL;
 	linebuf->len = 0;
-	linebuf->ready = 0;
+	linebuf->consumed = 0;
 }
 
 /**
@@ -72,16 +88,13 @@ void empty_line_buffer ( struct line_buffer *linebuf ) {
  * should call empty_line_buffer() before freeing a @c struct @c
  * line_buffer.
  */
-ssize_t line_buffer ( struct line_buffer *linebuf,
-		      const char *data, size_t len ) {
+int line_buffer ( struct line_buffer *linebuf, const char *data, size_t len ) {
 	const char *eol;
 	size_t consume;
 	size_t new_len;
 	char *new_data;
-
-	/* Free any completed line from previous iteration */
-	if ( linebuf->ready )
-		empty_line_buffer ( linebuf );
+	char *lf;
+	char *cr;
 
 	/* Search for line terminator */
 	if ( ( eol = memchr ( data, '\n', len ) ) ) {
@@ -89,6 +102,10 @@ ssize_t line_buffer ( struct line_buffer *linebuf,
 	} else {
 		consume = len;
 	}
+
+	/* Reject any embedded NULs within the data to be consumed */
+	if ( memchr ( data, '\0', consume ) )
+		return -EINVAL;
 
 	/* Reallocate data buffer and copy in new data */
 	new_len = ( linebuf->len + consume );
@@ -100,13 +117,27 @@ ssize_t line_buffer ( struct line_buffer *linebuf,
 	linebuf->data = new_data;
 	linebuf->len = new_len;
 
-	/* If we have reached end of line, trim the line and mark as ready */
+	/* If we have reached end of line, terminate the line */
 	if ( eol ) {
-		linebuf->data[--linebuf->len] = '\0'; /* trim NL */
-		if ( linebuf->data[linebuf->len - 1] == '\r' )
-			linebuf->data[--linebuf->len] = '\0'; /* trim CR */
-		linebuf->ready = 1;
+
+		/* Overwrite trailing LF (which must exist at this point) */
+		assert ( linebuf->len > 0 );
+		lf = &linebuf->data[ linebuf->len - 1 ];
+		assert ( *lf == '\n' );
+		*lf = '\0';
+
+		/* Trim (and overwrite) trailing CR, if present */
+		if ( linebuf->len > 1 ) {
+			cr = ( lf - 1 );
+			if ( *cr == '\r' ) {
+				linebuf->len--;
+				*cr = '\0';
+			}
+		}
 	}
+
+	/* Record consumed length */
+	linebuf->consumed = consume;
 
 	return consume;
 }

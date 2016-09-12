@@ -44,10 +44,10 @@ SECTIONS {
 	  *(.opd)
 	}
 
-	. = ALIGN(0x10);
+	. = ALIGN(256);
 	.got :
 	{
-	  _got = .;
+	  _got = DEFINED (.TOC.) ? .TOC. : ADDR (.got) + 0x8000;
           *(.got)
 	  *(.toc)
 	  _got_end = .;

@@ -77,6 +77,7 @@
 #define DUID_LL		3 /* DUID based on Link-layer Address */
 
 /* Prototypes */
+void dhcpv6_generate_transaction_id(void);
 int32_t dhcpv6 ( char *ret_buffer, void *fn_ip);
 uint32_t handle_dhcpv6(uint8_t * , int32_t);
 
@@ -102,6 +103,8 @@ struct server_identifier {
 	uint8_t mac[6];
 };
 
+#define DHCPV6_OPTREQUEST_NUMOPTS 3
+
 struct dhcp_info_request {
 	struct client_identifier client_id;
 	struct elapsed_time {
@@ -112,7 +115,7 @@ struct dhcp_info_request {
 	struct option_request {
 		uint16_t code;
 		uint16_t length;
-		uint16_t option_code[5];
+		uint16_t option_code[DHCPV6_OPTREQUEST_NUMOPTS];
 	} option_request_option;
 };
 
@@ -141,12 +144,6 @@ struct dhcp_boot_url {
 	uint8_t url[256];
 };
 
-struct dhcp6_received_options {
-	uint8_t filename;
-	uint8_t ip;
-	uint8_t client_id;
-	uint8_t server_id;
-};
 struct dhcp_message_reply {
 	uint8_t type;			    /* Message type   */
 	uint8_t transaction_id[3];          /* Transaction id */

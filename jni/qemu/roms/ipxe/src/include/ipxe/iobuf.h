@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <assert.h>
@@ -217,5 +217,6 @@ extern void free_iob ( struct io_buffer *iobuf );
 extern void iob_pad ( struct io_buffer *iobuf, size_t min_len );
 extern int iob_ensure_headroom ( struct io_buffer *iobuf, size_t len );
 extern struct io_buffer * iob_concatenate ( struct list_head *list );
+extern struct io_buffer * iob_split ( struct io_buffer *iobuf, size_t len );
 
 #endif /* _IPXE_IOBUF_H */

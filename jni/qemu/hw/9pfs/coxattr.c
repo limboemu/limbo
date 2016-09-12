@@ -1,6 +1,5 @@
-
 /*
- * Virtio 9p backend
+ * 9p backend
  *
  * Copyright IBM, Corp. 2011
  *
@@ -12,10 +11,11 @@
  *
  */
 
+#include "qemu/osdep.h"
 #include "fsdev/qemu-fsdev.h"
 #include "qemu/thread.h"
-#include "block/coroutine.h"
-#include "virtio-9p-coth.h"
+#include "qemu/coroutine.h"
+#include "coth.h"
 
 int v9fs_co_llistxattr(V9fsPDU *pdu, V9fsPath *path, void *value, size_t size)
 {

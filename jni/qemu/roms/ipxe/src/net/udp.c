@@ -17,7 +17,7 @@
  * UDP protocol
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * A UDP connection
@@ -328,6 +328,7 @@ static int udp_rx ( struct io_buffer *iobuf,
 struct tcpip_protocol udp_protocol __tcpip_protocol = {
 	.name = "UDP",
 	.rx = udp_rx,
+	.zero_csum = TCPIP_NEGATIVE_ZERO_CSUM,
 	.tcpip_proto = IP_UDP,
 };
 

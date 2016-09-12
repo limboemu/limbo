@@ -1,353 +1,501 @@
 /*
- *  Copyright (C) 1991, 1992  Linus Torvalds
- *  Copyright (C) 2004 Tobias Lorenz
+ * Copyright (C) 2015 Michael Brown <mbrown@fensystems.co.uk>.
  *
- *  string handling functions
- *  based on linux/lib/string.c
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_ONLY );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
-/*
- * stupid library routines.. The optimized versions should generally be found
- * as inline code in <asm-xx/string.h>
- *
- * These are buggy as well..
- *
- * * Fri Jun 25 1999, Ingo Oeser <ioe@informatik.tu-chemnitz.de>
- * -  Added strsep() which will replace strtok() soon (because strsep() is
- *    reentrant and should be faster). Use only strsep() in new code, please.
- */
- 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-/* *** FROM string.c *** */
-
-#ifndef __HAVE_ARCH_STRCPY
-/**
- * strcpy - Copy a %NUL terminated string
- * @dest: Where to copy the string to
- * @src: Where to copy the string from
- */
-char * strcpy(char * dest,const char *src)
-{
-	char *tmp = dest;
-
-	while ((*dest++ = *src++) != '\0')
-		/* nothing */;
-	return tmp;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRNCPY
-/**
- * strncpy - Copy a length-limited, %NUL-terminated string
- * @dest: Where to copy the string to
- * @src: Where to copy the string from
- * @count: The maximum number of bytes to copy
+/** @file
  *
- * Note that unlike userspace strncpy, this does not %NUL-pad the buffer.
- * However, the result is not %NUL-terminated if the source exceeds
- * @count bytes.
+ * String functions
+ *
  */
-char * strncpy(char * dest,const char *src,size_t count)
-{
-	char *tmp = dest;
 
-	while (count-- && (*dest++ = *src++) != '\0')
-		/* nothing */;
-
-	return tmp;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRCAT
 /**
- * strcat - Append one %NUL-terminated string to another
- * @dest: The string to be appended to
- * @src: The string to append to it
+ * Fill memory region
+ *
+ * @v dest		Destination region
+ * @v character		Fill character
+ * @v len		Length
+ * @ret dest		Destination region
  */
-char * strcat(char * dest, const char * src)
-{
-	char *tmp = dest;
+void * generic_memset ( void *dest, int character, size_t len ) {
+	uint8_t *dest_bytes = dest;
 
-	while (*dest)
-		dest++;
-	while ((*dest++ = *src++) != '\0')
-		;
-
-	return tmp;
+	while ( len-- )
+		*(dest_bytes++) = character;
+	return dest;
 }
-#endif
 
-#ifndef __HAVE_ARCH_STRCMP
 /**
- * strcmp - Compare two strings
- * @cs: One string
- * @ct: Another string
+ * Copy memory region
+ *
+ * @v dest		Destination region
+ * @v src		Source region
+ * @v len		Length
+ * @ret dest		Destination region
  */
-int strcmp(const char * cs,const char * ct)
-{
-	register signed char __res;
+void * generic_memcpy ( void *dest, const void *src, size_t len ) {
+	const uint8_t *src_bytes = src;
+	uint8_t *dest_bytes = dest;
 
-	while (1) {
-		if ((__res = *cs - *ct++) != 0 || !*cs++)
-			break;
+	while ( len-- )
+		*(dest_bytes++) = *(src_bytes++);
+	return dest;
+}
+
+/**
+ * Copy (possibly overlapping) memory region
+ *
+ * @v dest		Destination region
+ * @v src		Source region
+ * @v len		Length
+ * @ret dest		Destination region
+ */
+void * generic_memmove ( void *dest, const void *src, size_t len ) {
+	const uint8_t *src_bytes = ( src + len );
+	uint8_t *dest_bytes = ( dest + len );
+
+	if ( dest < src )
+		return generic_memcpy ( dest, src, len );
+	while ( len-- )
+		*(--dest_bytes) = *(--src_bytes);
+	return dest;
+}
+
+/**
+ * Compare memory regions
+ *
+ * @v first		First region
+ * @v second		Second region
+ * @v len		Length
+ * @ret diff		Difference
+ */
+int memcmp ( const void *first, const void *second, size_t len ) {
+	const uint8_t *first_bytes = first;
+	const uint8_t *second_bytes = second;
+	int diff;
+
+	while ( len-- ) {
+		diff = ( *(second_bytes++) - *(first_bytes++) );
+		if ( diff )
+			return diff;
 	}
-
-	return __res;
+	return 0;
 }
-#endif
 
-#ifndef __HAVE_ARCH_STRNCMP
 /**
- * strncmp - Compare two length-limited strings
- * @cs: One string
- * @ct: Another string
- * @count: The maximum number of bytes to compare
+ * Find character within a memory region
+ *
+ * @v src		Source region
+ * @v character		Character to find
+ * @v len		Length
+ * @ret found		Found character, or NULL if not found
  */
-int strncmp(const char * cs,const char * ct,size_t count)
-{
-	register signed char __res = 0;
+void * memchr ( const void *src, int character, size_t len ) {
+	const uint8_t *src_bytes = src;
 
-	while (count) {
-		if ((__res = *cs - *ct++) != 0 || !*cs++)
-			break;
-		count--;
+	for ( ; len-- ; src_bytes++ ) {
+		if ( *src_bytes == character )
+			return ( ( void * ) src_bytes );
 	}
-
-	return __res;
+	return NULL;
 }
-#endif
 
-#ifndef __HAVE_ARCH_STRCASECMP
-int strcasecmp(const char *a, const char *b)
-{
-	while (*a && *b && (*a & ~0x20) == (*b & ~0x20)) {a++; b++; }
-	return((*a & ~0x20) - (*b & ~0x20));
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRCHR
 /**
- * strchr - Find the first occurrence of a character in a string
- * @s: The string to be searched
- * @c: The character to search for
+ * Swap memory regions
+ *
+ * @v first		First region
+ * @v second		Second region
+ * @v len		Length
+ * @ret first		First region
  */
-char * strchr(const char * s, int c)
-{
-	for(; *s != (char) c; ++s)
-		if (*s == '\0')
+void * memswap ( void *first, void *second, size_t len ) {
+	uint8_t *first_bytes = first;
+	uint8_t *second_bytes = second;
+	uint8_t temp;
+
+	for ( ; len-- ; first_bytes++, second_bytes++ ) {
+		temp = *first_bytes;
+		*first_bytes = *second_bytes;
+		*second_bytes = temp;
+	}
+	return first;
+}
+
+/**
+ * Compare strings
+ *
+ * @v first		First string
+ * @v second		Second string
+ * @ret diff		Difference
+ */
+int strcmp ( const char *first, const char *second ) {
+
+	return strncmp ( first, second, ~( ( size_t ) 0 ) );
+}
+
+/**
+ * Compare strings
+ *
+ * @v first		First string
+ * @v second		Second string
+ * @v max		Maximum length to compare
+ * @ret diff		Difference
+ */
+int strncmp ( const char *first, const char *second, size_t max ) {
+	const uint8_t *first_bytes = ( ( const uint8_t * ) first );
+	const uint8_t *second_bytes = ( ( const uint8_t * ) second );
+	int diff;
+
+	for ( ; max-- ; first_bytes++, second_bytes++ ) {
+		diff = ( *second_bytes - *first_bytes );
+		if ( diff )
+			return diff;
+		if ( ! *first_bytes )
+			return 0;
+	}
+	return 0;
+}
+
+/**
+ * Compare case-insensitive strings
+ *
+ * @v first		First string
+ * @v second		Second string
+ * @ret diff		Difference
+ */
+int strcasecmp ( const char *first, const char *second ) {
+	const uint8_t *first_bytes = ( ( const uint8_t * ) first );
+	const uint8_t *second_bytes = ( ( const uint8_t * ) second );
+	int diff;
+
+	for ( ; ; first_bytes++, second_bytes++ ) {
+		diff = ( toupper ( *second_bytes ) -
+			 toupper ( *first_bytes ) );
+		if ( diff )
+			return diff;
+		if ( ! *first_bytes )
+			return 0;
+	}
+}
+
+/**
+ * Get length of string
+ *
+ * @v src		String
+ * @ret len		Length
+ */
+size_t strlen ( const char *src ) {
+
+	return strnlen ( src, ~( ( size_t ) 0 ) );
+}
+
+/**
+ * Get length of string
+ *
+ * @v src		String
+ * @v max		Maximum length
+ * @ret len		Length
+ */
+size_t strnlen ( const char *src, size_t max ) {
+	const uint8_t *src_bytes = ( ( const uint8_t * ) src );
+	size_t len = 0;
+
+	while ( max-- && *(src_bytes++) )
+		len++;
+	return len;
+}
+
+/**
+ * Find character within a string
+ *
+ * @v src		String
+ * @v character		Character to find
+ * @ret found		Found character, or NULL if not found
+ */
+char * strchr ( const char *src, int character ) {
+	const uint8_t *src_bytes = ( ( const uint8_t * ) src );
+
+	for ( ; ; src_bytes++ ) {
+		if ( *src_bytes == character )
+			return ( ( char * ) src_bytes );
+		if ( ! *src_bytes )
 			return NULL;
-	return (char *) s;
+	}
 }
-#endif
 
-#ifndef __HAVE_ARCH_STRRCHR
 /**
- * strrchr - Find the last occurrence of a character in a string
- * @s: The string to be searched
- * @c: The character to search for
- */
-char * strrchr(const char * s, int c)
-{
-       const char *p = s + strlen(s);
-       do {
-           if (*p == (char)c)
-               return (char *)p;
-       } while (--p >= s);
-       return NULL;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRLEN
-/**
- * strlen - Find the length of a string
- * @s: The string to be sized
- */
-size_t strlen(const char * s)
-{
-	const char *sc;
-
-	for (sc = s; *sc != '\0'; ++sc)
-		/* nothing */;
-	return sc - s;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRNLEN
-/**
- * strnlen - Find the length of a length-limited string
- * @s: The string to be sized
- * @count: The maximum number of bytes to search
- */
-size_t strnlen(const char * s, size_t count)
-{
-	const char *sc;
-
-	for (sc = s; count-- && *sc != '\0'; ++sc)
-		/* nothing */;
-	return sc - s;
-}
-#endif
-
-#ifndef __HAVE_ARCH_MEMSET
-/**
- * memset - Fill a region of memory with the given value
- * @s: Pointer to the start of the area.
- * @c: The byte to fill the area with
- * @count: The size of the area.
+ * Find rightmost character within a string
  *
- * Do not use memset() to access IO space, use memset_io() instead.
+ * @v src		String
+ * @v character		Character to find
+ * @ret found		Found character, or NULL if not found
  */
-void * memset(void * s,int c,size_t count)
-{
-	char *xs = (char *) s;
+char * strrchr ( const char *src, int character ) {
+	const uint8_t *src_bytes = ( ( const uint8_t * ) src );
+	const uint8_t *start = src_bytes;
 
-	while (count--)
-		*xs++ = c;
-
-	return s;
+	while ( *src_bytes )
+		src_bytes++;
+	for ( src_bytes-- ; src_bytes >= start ; src_bytes-- ) {
+		if ( *src_bytes == character )
+			return ( ( char * ) src_bytes );
+	}
+	return NULL;
 }
-#endif
 
-#ifndef __HAVE_ARCH_MEMCPY
 /**
- * memcpy - Copy one area of memory to another
- * @dest: Where to copy to
- * @src: Where to copy from
- * @count: The size of the area.
+ * Find substring
  *
- * You should not use this function to access IO space, use memcpy_toio()
- * or memcpy_fromio() instead.
+ * @v haystack		String
+ * @v needle		Substring
+ * @ret found		Found substring, or NULL if not found
  */
-void * memcpy(void * dest,const void *src,size_t count)
-{
-	char *tmp = (char *) dest, *s = (char *) src;
+char * strstr ( const char *haystack, const char *needle ) {
+	size_t len = strlen ( needle );
 
-	while (count--)
-		*tmp++ = *s++;
-
-	return dest;
+	for ( ; *haystack ; haystack++ ) {
+		if ( memcmp ( haystack, needle, len ) == 0 )
+			return ( ( char * ) haystack );
+	}
+	return NULL;
 }
-#endif
 
-#ifndef __HAVE_ARCH_MEMMOVE
 /**
- * memmove - Copy one area of memory to another
- * @dest: Where to copy to
- * @src: Where to copy from
- * @count: The size of the area.
+ * Copy string
  *
- * Unlike memcpy(), memmove() copes with overlapping areas.
+ * @v dest		Destination string
+ * @v src		Source string
+ * @ret dest		Destination string
  */
-void * memmove(void * dest,const void *src,size_t count)
-{
-	char *tmp, *s;
+char * strcpy ( char *dest, const char *src ) {
+	const uint8_t *src_bytes = ( ( const uint8_t * ) src );
+	uint8_t *dest_bytes = ( ( uint8_t * ) dest );
 
-	if (dest <= src) {
-		tmp = (char *) dest;
-		s = (char *) src;
-		while (count--)
-			*tmp++ = *s++;
-		}
-	else {
-		tmp = (char *) dest + count;
-		s = (char *) src + count;
-		while (count--)
-			*--tmp = *--s;
-		}
-
-	return dest;
-}
-#endif
-
-#ifndef __HAVE_ARCH_MEMCMP
-/**
- * memcmp - Compare two areas of memory
- * @cs: One area of memory
- * @ct: Another area of memory
- * @count: The size of the area.
- */
-int memcmp(const void * cs,const void * ct,size_t count)
-{
-	const unsigned char *su1, *su2;
-	int res = 0;
-
-	for( su1 = cs, su2 = ct; 0 < count; ++su1, ++su2, count--)
-		if ((res = *su1 - *su2) != 0)
+	/* We cannot use strncpy(), since that would pad the destination */
+	for ( ; ; src_bytes++, dest_bytes++ ) {
+		*dest_bytes = *src_bytes;
+		if ( ! *dest_bytes )
 			break;
-	return res;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRSTR
-/**
- * strstr - Find the first substring in a %NUL terminated string
- * @s1: The string to be searched
- * @s2: The string to search for
- */
-char * strstr(const char * s1,const char * s2)
-{
-	int l1, l2;
-
-	l2 = strlen(s2);
-	if (!l2)
-		return (char *) s1;
-	l1 = strlen(s1);
-	while (l1 >= l2) {
-		l1--;
-		if (!memcmp(s1,s2,l2))
-			return (char *) s1;
-		s1++;
 	}
-	return NULL;
+	return dest;
 }
-#endif
 
-#ifndef __HAVE_ARCH_MEMCHR
 /**
- * memchr - Find a character in an area of memory.
- * @s: The memory area
- * @c: The byte to search for
- * @n: The size of the area.
+ * Copy string
  *
- * returns the address of the first occurrence of @c, or %NULL
- * if @c is not found
+ * @v dest		Destination string
+ * @v src		Source string
+ * @v max		Maximum length
+ * @ret dest		Destination string
  */
-void * memchr(const void *s, int c, size_t n)
-{
-	const unsigned char *p = s;
-	while (n-- != 0) {
-        	if ((unsigned char)c == *p++) {
-			return (void *)(p-1);
+char * strncpy ( char *dest, const char *src, size_t max ) {
+	const uint8_t *src_bytes = ( ( const uint8_t * ) src );
+	uint8_t *dest_bytes = ( ( uint8_t * ) dest );
+
+	for ( ; max ; max--, src_bytes++, dest_bytes++ ) {
+		*dest_bytes = *src_bytes;
+		if ( ! *dest_bytes )
+			break;
+	}
+	while ( max-- )
+		*(dest_bytes++) = '\0';
+	return dest;
+}
+
+/**
+ * Concatenate string
+ *
+ * @v dest		Destination string
+ * @v src		Source string
+ * @ret dest		Destination string
+ */
+char * strcat ( char *dest, const char *src ) {
+
+	strcpy ( ( dest + strlen ( dest ) ), src );
+	return dest;
+}
+
+/**
+ * Duplicate string
+ *
+ * @v src		Source string
+ * @ret dup		Duplicated string, or NULL if allocation failed
+ */
+char * strdup ( const char *src ) {
+
+	return strndup ( src, ~( ( size_t ) 0 ) );
+}
+
+/**
+ * Duplicate string
+ *
+ * @v src		Source string
+ * @v max		Maximum length
+ * @ret dup		Duplicated string, or NULL if allocation failed
+ */
+char * strndup ( const char *src, size_t max ) {
+	size_t len = strnlen ( src, max );
+        char *dup;
+
+        dup = malloc ( len + 1 /* NUL */ );
+        if ( dup ) {
+		memcpy ( dup, src, len );
+		dup[len] = '\0';
+        }
+        return dup;
+}
+
+/**
+ * Calculate digit value
+ *
+ * @v character		Digit character
+ * @ret digit		Digit value
+ *
+ * Invalid digits will be returned as a value greater than or equal to
+ * the numeric base.
+ */
+unsigned int digit_value ( unsigned int character ) {
+
+	if ( character >= 'a' )
+		return ( character - ( 'a' - 10 ) );
+	if ( character >= 'A' )
+		return ( character - ( 'A' - 10 ) );
+	if ( character <= '9' )
+		return ( character - '0' );
+	return character;
+}
+
+/**
+ * Preprocess string for strtoul() or strtoull()
+ *
+ * @v string		String
+ * @v negate		Final value should be negated
+ * @v base		Numeric base
+ * @ret string		Remaining string
+ */
+static const char * strtoul_pre ( const char *string, int *negate, int *base ) {
+
+	/* Skip any leading whitespace */
+	while ( isspace ( *string ) )
+		string++;
+
+	/* Process arithmetic sign, if present */
+	*negate = 0;
+	if ( *string == '-' ) {
+		string++;
+		*negate = 1;
+	} else if ( *string == '+' ) {
+		string++;
+	}
+
+	/* Process base, if present */
+	if ( *base == 0 ) {
+		*base = 10;
+		if ( *string == '0' ) {
+			string++;
+			*base = 8;
+			if ( ( *string & ~0x20 ) == 'X' ) {
+				string++;
+				*base = 16;
+			}
 		}
 	}
-	return NULL;
+
+	return string;
 }
 
-#endif
+/**
+ * Convert string to numeric value
+ *
+ * @v string		String
+ * @v endp		End pointer (or NULL)
+ * @v base		Numeric base (or zero to autodetect)
+ * @ret value		Numeric value
+ */
+unsigned long strtoul ( const char *string, char **endp, int base ) {
+	unsigned long value = 0;
+	unsigned int digit;
+	int negate;
 
-char * strndup(const char *s, size_t n)
-{
-        size_t len = strnlen(s,n);
-        char *new;
+	/* Preprocess string */
+	string = strtoul_pre ( string, &negate, &base );
 
-        new = malloc(len+1);
-        if (new) {
-                new[len] = '\0';
-                memcpy(new,s,len);
-        }
-        return new;
+	/* Process digits */
+	for ( ; ; string++ ) {
+		digit = digit_value ( *string );
+		if ( digit >= ( unsigned int ) base )
+			break;
+		value = ( ( value * base ) + digit );
+	}
+
+	/* Negate value if, applicable */
+	if ( negate )
+		value = -value;
+
+	/* Fill in end pointer, if applicable */
+	if ( endp )
+		*endp = ( ( char * ) string );
+
+	return value;
 }
 
-char * strdup(const char *s) {
-	return strndup(s, ~((size_t)0));
+/**
+ * Convert string to numeric value
+ *
+ * @v string		String
+ * @v endp		End pointer (or NULL)
+ * @v base		Numeric base (or zero to autodetect)
+ * @ret value		Numeric value
+ */
+unsigned long long strtoull ( const char *string, char **endp, int base ) {
+	unsigned long long value = 0;
+	unsigned int digit;
+	int negate;
+
+	/* Preprocess string */
+	string = strtoul_pre ( string, &negate, &base );
+
+	/* Process digits */
+	for ( ; ; string++ ) {
+		digit = digit_value ( *string );
+		if ( digit >= ( unsigned int ) base )
+			break;
+		value = ( ( value * base ) + digit );
+	}
+
+	/* Negate value if, applicable */
+	if ( negate )
+		value = -value;
+
+	/* Fill in end pointer, if applicable */
+	if ( endp )
+		*endp = ( ( char * ) string );
+
+	return value;
 }

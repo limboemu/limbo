@@ -21,9 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "net/slirp.h"
 
-#include "config-host.h"
 
 #ifndef _WIN32
 #include <pwd.h>
@@ -33,9 +33,13 @@
 #include "clients.h"
 #include "hub.h"
 #include "monitor/monitor.h"
+#include "qemu/error-report.h"
 #include "qemu/sockets.h"
 #include "slirp/libslirp.h"
+#include "slirp/ip6.h"
 #include "sysemu/char.h"
+#include "sysemu/sysemu.h"
+#include "qemu/cutils.h"
 
 static int get_str_sep(char *buf, int buf_size, const char **pp, int sep)
 {
@@ -73,6 +77,7 @@ typedef struct SlirpState {
     NetClientState nc;
     QTAILQ_ENTRY(SlirpState) entry;
     Slirp *slirp;
+    Notifier exit_notifier;
 #ifndef _WIN32
     char smb_dir[128];
 #endif
@@ -115,17 +120,26 @@ static ssize_t net_slirp_receive(NetClientState *nc, const uint8_t *buf, size_t 
     return size;
 }
 
+static void slirp_smb_exit(Notifier *n, void *data)
+{
+    SlirpState *s = container_of(n, SlirpState, exit_notifier);
+    slirp_smb_cleanup(s);
+}
+
 static void net_slirp_cleanup(NetClientState *nc)
 {
     SlirpState *s = DO_UPCAST(SlirpState, nc, nc);
 
     slirp_cleanup(s->slirp);
+    if (s->exit_notifier.notify) {
+        qemu_remove_exit_notifier(&s->exit_notifier);
+    }
     slirp_smb_cleanup(s);
     QTAILQ_REMOVE(&slirp_stacks, s, entry);
 }
 
 static NetClientInfo net_slirp_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_USER,
+    .type = NET_CLIENT_DRIVER_USER,
     .size = sizeof(SlirpState),
     .receive = net_slirp_receive,
     .cleanup = net_slirp_cleanup,
@@ -133,11 +147,14 @@ static NetClientInfo net_slirp_info = {
 
 static int net_slirp_init(NetClientState *peer, const char *model,
                           const char *name, int restricted,
-                          const char *vnetwork, const char *vhost,
+                          bool ipv4, const char *vnetwork, const char *vhost,
+                          bool ipv6, const char *vprefix6, int vprefix6_len,
+                          const char *vhost6,
                           const char *vhostname, const char *tftp_export,
                           const char *bootfile, const char *vdhcp_start,
-                          const char *vnameserver, const char *smb_export,
-                          const char *vsmbserver, const char **dnssearch)
+                          const char *vnameserver, const char *vnameserver6,
+                          const char *smb_export, const char *vsmbserver,
+                          const char **dnssearch)
 {
     /* default settings according to historic slirp */
     struct in_addr net  = { .s_addr = htonl(0x0a000200) }; /* 10.0.2.0 */
@@ -145,6 +162,9 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     struct in_addr host = { .s_addr = htonl(0x0a000202) }; /* 10.0.2.2 */
     struct in_addr dhcp = { .s_addr = htonl(0x0a00020f) }; /* 10.0.2.15 */
     struct in_addr dns  = { .s_addr = htonl(0x0a000203) }; /* 10.0.2.3 */
+    struct in6_addr ip6_prefix;
+    struct in6_addr ip6_host;
+    struct in6_addr ip6_dns;
 #ifndef _WIN32
     struct in_addr smbsrv = { .s_addr = 0 };
 #endif
@@ -155,6 +175,19 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     int shift;
     char *end;
     struct slirp_config_str *config;
+
+    if (!ipv4 && (vnetwork || vhost || vnameserver)) {
+        return -1;
+    }
+
+    if (!ipv6 && (vprefix6 || vhost6 || vnameserver6)) {
+        return -1;
+    }
+
+    if (!ipv4 && !ipv6) {
+        /* It doesn't make sense to disable both */
+        return -1;
+    }
 
     if (!tftp_export) {
         tftp_export = legacy_tftp_prefix;
@@ -234,6 +267,64 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     }
 #endif
 
+#if defined(_WIN32) && (_WIN32_WINNT < 0x0600)
+    /* No inet_pton helper before Vista... */
+    if (vprefix6) {
+        /* Unsupported */
+        return -1;
+    }
+    memset(&ip6_prefix, 0, sizeof(ip6_prefix));
+    ip6_prefix.s6_addr[0] = 0xfe;
+    ip6_prefix.s6_addr[1] = 0xc0;
+#else
+    if (!vprefix6) {
+        vprefix6 = "fec0::";
+    }
+    if (!inet_pton(AF_INET6, vprefix6, &ip6_prefix)) {
+        return -1;
+    }
+#endif
+
+    if (!vprefix6_len) {
+        vprefix6_len = 64;
+    }
+    if (vprefix6_len < 0 || vprefix6_len > 126) {
+        return -1;
+    }
+
+    if (vhost6) {
+#if defined(_WIN32) && (_WIN32_WINNT < 0x0600)
+        return -1;
+#else
+        if (!inet_pton(AF_INET6, vhost6, &ip6_host)) {
+            return -1;
+        }
+        if (!in6_equal_net(&ip6_prefix, &ip6_host, vprefix6_len)) {
+            return -1;
+        }
+#endif
+    } else {
+        ip6_host = ip6_prefix;
+        ip6_host.s6_addr[15] |= 2;
+    }
+
+    if (vnameserver6) {
+#if defined(_WIN32) && (_WIN32_WINNT < 0x0600)
+        return -1;
+#else
+        if (!inet_pton(AF_INET6, vnameserver6, &ip6_dns)) {
+            return -1;
+        }
+        if (!in6_equal_net(&ip6_prefix, &ip6_dns, vprefix6_len)) {
+            return -1;
+        }
+#endif
+    } else {
+        ip6_dns = ip6_prefix;
+        ip6_dns.s6_addr[15] |= 3;
+    }
+
+
     nc = qemu_new_net_client(&net_slirp_info, peer, model, name);
 
     snprintf(nc->info_str, sizeof(nc->info_str),
@@ -242,8 +333,10 @@ static int net_slirp_init(NetClientState *peer, const char *model,
 
     s = DO_UPCAST(SlirpState, nc, nc);
 
-    s->slirp = slirp_init(restricted, net, mask, host, vhostname,
-                          tftp_export, bootfile, dhcp, dns, dnssearch, s);
+    s->slirp = slirp_init(restricted, ipv4, net, mask, host,
+                          ipv6, ip6_prefix, vprefix6_len, ip6_host,
+                          vhostname, tftp_export, bootfile, dhcp,
+                          dns, ip6_dns, dnssearch, s);
     QTAILQ_INSERT_TAIL(&slirp_stacks, s, entry);
 
     for (config = slirp_configs; config; config = config->next) {
@@ -267,6 +360,8 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     }
 #endif
 
+    s->exit_notifier.notify = slirp_smb_exit;
+    qemu_add_exit_notifier(&s->exit_notifier);
     return 0;
 
 error:
@@ -481,7 +576,6 @@ static void slirp_smb_cleanup(SlirpState *s)
 static int slirp_smb(SlirpState* s, const char *exported_dir,
                      struct in_addr vserver_addr)
 {
-    static int instance;
     char smb_conf[128];
     char smb_cmdline[128];
     struct passwd *passwd;
@@ -505,10 +599,10 @@ static int slirp_smb(SlirpState* s, const char *exported_dir,
         return -1;
     }
 
-    snprintf(s->smb_dir, sizeof(s->smb_dir), "/tmp/qemu-smb.%ld-%d",
-             (long)getpid(), instance++);
-    if (mkdir(s->smb_dir, 0700) < 0) {
+    snprintf(s->smb_dir, sizeof(s->smb_dir), "/tmp/qemu-smb.XXXXXX");
+    if (!mkdtemp(s->smb_dir)) {
         error_report("could not create samba server dir '%s'", s->smb_dir);
+        s->smb_dir[0] = 0;
         return -1;
     }
     snprintf(smb_conf, sizeof(smb_conf), "%s/%s", s->smb_dir, "smb.conf");
@@ -736,17 +830,28 @@ static const char **slirp_dnssearch(const StringList *dnsname)
     return ret;
 }
 
-int net_init_slirp(const NetClientOptions *opts, const char *name,
-                   NetClientState *peer)
+int net_init_slirp(const Netdev *netdev, const char *name,
+                   NetClientState *peer, Error **errp)
 {
+    /* FIXME error_setg(errp, ...) on failure */
     struct slirp_config_str *config;
     char *vnet;
     int ret;
     const NetdevUserOptions *user;
     const char **dnssearch;
+    bool ipv4 = true, ipv6 = true;
 
-    assert(opts->kind == NET_CLIENT_OPTIONS_KIND_USER);
-    user = opts->user;
+    assert(netdev->type == NET_CLIENT_DRIVER_USER);
+    user = &netdev->u.user;
+
+    if ((user->has_ipv6 && user->ipv6 && !user->has_ipv4) ||
+        (user->has_ipv4 && !user->ipv4)) {
+        ipv4 = 0;
+    }
+    if ((user->has_ipv4 && user->ipv4 && !user->has_ipv6) ||
+        (user->has_ipv6 && !user->ipv6)) {
+        ipv6 = 0;
+    }
 
     vnet = user->has_net ? g_strdup(user->net) :
            user->has_ip  ? g_strdup_printf("%s/24", user->ip) :
@@ -759,9 +864,12 @@ int net_init_slirp(const NetClientOptions *opts, const char *name,
     net_init_slirp_configs(user->hostfwd, SLIRP_CFG_HOSTFWD);
     net_init_slirp_configs(user->guestfwd, 0);
 
-    ret = net_slirp_init(peer, "user", name, user->q_restrict, vnet,
-                         user->host, user->hostname, user->tftp,
-                         user->bootfile, user->dhcpstart, user->dns, user->smb,
+    ret = net_slirp_init(peer, "user", name, user->q_restrict,
+                         ipv4, vnet, user->host,
+                         ipv6, user->ipv6_prefix, user->ipv6_prefixlen,
+                         user->ipv6_host, user->hostname, user->tftp,
+                         user->bootfile, user->dhcpstart,
+                         user->dns, user->ipv6_dns, user->smb,
                          user->smbserver, dnssearch);
 
     while (slirp_configs) {
@@ -782,6 +890,9 @@ int net_slirp_parse_legacy(QemuOptsList *opts_list, const char *optarg, int *ret
         strncmp(optarg, "channel,", strlen("channel,")) != 0) {
         return 0;
     }
+
+    error_report("The '-net channel' option is deprecated. "
+                 "Please use '-netdev user,guestfwd=...' instead.");
 
     /* handle legacy -net channel,port:chr */
     optarg += strlen("channel,");

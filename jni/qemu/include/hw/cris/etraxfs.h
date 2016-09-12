@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_EXTRAXFS_H
-#define HW_EXTRAXFS_H 1
+#ifndef HW_ETRAXFS_H
+#define HW_ETRAXFS_H
 
 #include "net/net.h"
 #include "hw/cris/etraxfs_dma.h"
@@ -43,6 +43,22 @@ etraxfs_eth_init(NICInfo *nd, hwaddr base, int phyaddr,
     qdev_prop_set_ptr(dev, "dma_in", dma_in);
     qdev_init_nofail(dev);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, base);
+    return dev;
+}
+
+static inline DeviceState *etraxfs_ser_create(hwaddr addr,
+                                              qemu_irq irq,
+                                              CharDriverState *chr)
+{
+    DeviceState *dev;
+    SysBusDevice *s;
+
+    dev = qdev_create(NULL, "etraxfs,serial");
+    s = SYS_BUS_DEVICE(dev);
+    qdev_prop_set_chr(dev, "chardev", chr);
+    qdev_init_nofail(dev);
+    sysbus_mmio_map(s, 0, addr);
+    sysbus_connect_irq(s, 0, irq);
     return dev;
 }
 

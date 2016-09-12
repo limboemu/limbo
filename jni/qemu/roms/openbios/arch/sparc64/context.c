@@ -40,6 +40,10 @@ static uint8_t image_stack[IMAGE_STACK_SIZE];
 /* Pointer to startup context (physical address) */
 unsigned long __boot_ctx;
 
+/* Pointer to Forth context stack */
+void *_fcstack_ptr = &_efcstack;
+
+
 /*
  * Main starter
  * This is the C function that runs first.
@@ -84,7 +88,8 @@ init_context(uint8_t *stack, uint64_t stack_size, int num_params)
 /* Switch to another context. */
 struct context *switch_to(struct context *ctx)
 {
-    struct context *save, *ret;
+    volatile struct context *save;
+    struct context *ret;
 
     debug("switching to new context: entry point %#llx stack 0x%016llx\n", ctx->pc, ctx->regs[REG_SP]);
     save = __context;
@@ -92,7 +97,7 @@ struct context *switch_to(struct context *ctx)
     //asm ("pushl %cs; call __switch_context");
     asm ("call __switch_context_nosave; nop");
     ret = __context;
-    __context = save;
+    __context = (struct context *)save;
     return ret;
 }
 

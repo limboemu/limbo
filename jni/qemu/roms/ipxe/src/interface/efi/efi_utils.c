@@ -51,6 +51,18 @@ EFI_DEVICE_PATH_PROTOCOL * efi_devpath_end ( EFI_DEVICE_PATH_PROTOCOL *path ) {
 }
 
 /**
+ * Find length of device path (excluding terminator)
+ *
+ * @v path		Path to device
+ * @ret path_len	Length of device path
+ */
+size_t efi_devpath_len ( EFI_DEVICE_PATH_PROTOCOL *path ) {
+	EFI_DEVICE_PATH_PROTOCOL *end = efi_devpath_end ( path );
+
+	return ( ( ( void * ) end ) - ( ( void * ) path ) );
+}
+
+/**
  * Locate parent device supporting a given protocol
  *
  * @v device		EFI device handle
@@ -76,8 +88,8 @@ int efi_locate_device ( EFI_HANDLE device, EFI_GUID *protocol,
 					  efi_image_handle, device,
 					  EFI_OPEN_PROTOCOL_GET_PROTOCOL ))!=0){
 		rc = -EEFI ( efirc );
-		DBGC ( device, "EFIDEV %p %s cannot open device path: %s\n",
-		       device, efi_handle_name ( device ), strerror ( rc ) );
+		DBGC ( device, "EFIDEV %s cannot open device path: %s\n",
+		       efi_handle_name ( device ), strerror ( rc ) );
 		goto err_open_device_path;
 	}
 	devpath = path.path;
@@ -86,8 +98,8 @@ int efi_locate_device ( EFI_HANDLE device, EFI_GUID *protocol,
 	if ( ( efirc = bs->LocateDevicePath ( protocol, &devpath,
 					      parent ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		DBGC ( device, "EFIDEV %p %s has no parent supporting %s: %s\n",
-		       device, efi_handle_name ( device ),
+		DBGC ( device, "EFIDEV %s has no parent supporting %s: %s\n",
+		       efi_handle_name ( device ),
 		       efi_guid_ntoa ( protocol ), strerror ( rc ) );
 		goto err_locate_protocol;
 	}
@@ -123,18 +135,17 @@ int efi_child_add ( EFI_HANDLE parent, EFI_HANDLE child ) {
 					  EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
 					  ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		DBGC ( parent, "EFIDEV %p %s could not add child",
-		       parent, efi_handle_name ( parent ) );
-		DBGC ( parent, " %p %s: %s\n", child,
+		DBGC ( parent, "EFIDEV %s could not add child",
+		       efi_handle_name ( parent ) );
+		DBGC ( parent, " %s: %s\n",
 		       efi_handle_name ( child ), strerror ( rc ) );
 		DBGC_EFI_OPENERS ( parent, parent,
 				   &efi_device_path_protocol_guid );
 		return rc;
 	}
 
-	DBGC2 ( parent, "EFIDEV %p %s added child",
-		parent, efi_handle_name ( parent ) );
-	DBGC2 ( parent, " %p %s\n", child, efi_handle_name ( child ) );
+	DBGC2 ( parent, "EFIDEV %s added child", efi_handle_name ( parent ) );
+	DBGC2 ( parent, " %s\n", efi_handle_name ( child ) );
 	return 0;
 }
 
@@ -149,10 +160,8 @@ void efi_child_del ( EFI_HANDLE parent, EFI_HANDLE child ) {
 
 	bs->CloseProtocol ( parent, &efi_device_path_protocol_guid,
 			    efi_image_handle, child );
-	DBGC2 ( parent, "EFIDEV %p %s removed child",
-		parent, efi_handle_name ( parent ) );
-	DBGC2 ( parent, " %p %s\n",
-		child, efi_handle_name ( child ) );
+	DBGC2 ( parent, "EFIDEV %s removed child", efi_handle_name ( parent ) );
+	DBGC2 ( parent, " %s\n", efi_handle_name ( child ) );
 }
 
 /**
@@ -172,16 +181,15 @@ static int efi_pci_info ( EFI_HANDLE device, const char *prefix,
 	/* Find parent PCI device */
 	if ( ( rc = efi_locate_device ( device, &efi_pci_io_protocol_guid,
 					&pci_device ) ) != 0 ) {
-		DBGC ( device, "EFIDEV %p %s is not a PCI device: %s\n",
-		       device, efi_handle_name ( device ), strerror ( rc ) );
+		DBGC ( device, "EFIDEV %s is not a PCI device: %s\n",
+		       efi_handle_name ( device ), strerror ( rc ) );
 		return rc;
 	}
 
 	/* Get PCI device information */
 	if ( ( rc = efipci_info ( pci_device, &pci ) ) != 0 ) {
-		DBGC ( device, "EFIDEV %p %s could not get PCI information: "
-		       "%s\n", device, efi_handle_name ( device ),
-		       strerror ( rc ) );
+		DBGC ( device, "EFIDEV %s could not get PCI information: %s\n",
+		       efi_handle_name ( device ), strerror ( rc ) );
 		return rc;
 	}
 
@@ -211,8 +219,8 @@ void efi_device_info ( EFI_HANDLE device, const char *prefix,
 	/* If we cannot get any underlying device information, fall
 	 * back to providing information about the EFI handle.
 	 */
-	DBGC ( device, "EFIDEV %p %s could not get underlying device "
-	       "information\n", device, efi_handle_name ( device ) );
+	DBGC ( device, "EFIDEV %s could not get underlying device "
+	       "information\n", efi_handle_name ( device ) );
 	dev->desc.bus_type = BUS_TYPE_EFI;
 	snprintf ( dev->name, sizeof ( dev->name ), "%s-%p", prefix, device );
 }

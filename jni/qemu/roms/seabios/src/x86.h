@@ -75,13 +75,21 @@ static inline void __cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
         : "0" (index));
 }
 
-static inline u32 getcr0(void) {
+static inline u32 cr0_read(void) {
     u32 cr0;
     asm("movl %%cr0, %0" : "=r"(cr0));
     return cr0;
 }
-static inline void setcr0(u32 cr0) {
+static inline void cr0_write(u32 cr0) {
     asm("movl %0, %%cr0" : : "r"(cr0));
+}
+static inline void cr0_mask(u32 off, u32 on) {
+    cr0_write((cr0_read() & ~off) | on);
+}
+static inline u16 cr0_vm86_read(void) {
+    u16 cr0;
+    asm("smsww %0" : "=r"(cr0));
+    return cr0;
 }
 
 static inline u64 rdmsr(u32 index)
@@ -122,6 +130,13 @@ static inline u32 getesp(void) {
     u32 esp;
     asm("movl %%esp, %0" : "=rm"(esp));
     return esp;
+}
+
+static inline u32 rol(u32 val, u16 rol) {
+    u32 res;
+    asm volatile("roll %%cl, %%eax"
+                 : "=a" (res) : "a" (val), "c" (rol));
+    return res;
 }
 
 static inline void outb(u8 value, u16 port) {
@@ -173,6 +188,14 @@ static inline void outsw(u16 port, u16 *data, u32 count) {
 static inline void outsl(u16 port, u32 *data, u32 count) {
     asm volatile("rep outsl %%es:(%%esi), (%%dx)"
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
+}
+
+/* Compiler barrier is enough as an x86 CPU does not reorder reads or writes */
+static inline void smp_rmb(void) {
+    barrier();
+}
+static inline void smp_wmb(void) {
+    barrier();
 }
 
 static inline void writel(void *addr, u32 val) {

@@ -1,5 +1,8 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
+DEF_HELPER_1(raise_exception_debug, noreturn, env)
+
+DEF_HELPER_1(do_semihosting, void, env)
 
 #ifdef TARGET_MIPS64
 DEF_HELPER_4(sdl, void, env, tl, tl, int)
@@ -74,6 +77,8 @@ DEF_HELPER_1(mftc0_epc, tl, env)
 DEF_HELPER_1(mftc0_ebase, tl, env)
 DEF_HELPER_2(mftc0_configx, tl, env, tl)
 DEF_HELPER_1(mfc0_lladdr, tl, env)
+DEF_HELPER_1(mfc0_maar, tl, env)
+DEF_HELPER_1(mfhc0_maar, tl, env)
 DEF_HELPER_2(mfc0_watchlo, tl, env, i32)
 DEF_HELPER_2(mfc0_watchhi, tl, env, i32)
 DEF_HELPER_1(mfc0_debug, tl, env)
@@ -85,6 +90,7 @@ DEF_HELPER_1(dmfc0_tccontext, tl, env)
 DEF_HELPER_1(dmfc0_tcschedule, tl, env)
 DEF_HELPER_1(dmfc0_tcschefback, tl, env)
 DEF_HELPER_1(dmfc0_lladdr, tl, env)
+DEF_HELPER_1(dmfc0_maar, tl, env)
 DEF_HELPER_2(dmfc0_watchlo, tl, env, i32)
 #endif /* TARGET_MIPS64 */
 
@@ -141,6 +147,9 @@ DEF_HELPER_2(mtc0_config3, void, env, tl)
 DEF_HELPER_2(mtc0_config4, void, env, tl)
 DEF_HELPER_2(mtc0_config5, void, env, tl)
 DEF_HELPER_2(mtc0_lladdr, void, env, tl)
+DEF_HELPER_2(mtc0_maar, void, env, tl)
+DEF_HELPER_2(mthc0_maar, void, env, tl)
+DEF_HELPER_2(mtc0_maari, void, env, tl)
 DEF_HELPER_3(mtc0_watchlo, void, env, tl, i32)
 DEF_HELPER_3(mtc0_watchhi, void, env, tl, i32)
 DEF_HELPER_2(mtc0_xcontext, void, env, tl)
@@ -148,6 +157,7 @@ DEF_HELPER_2(mtc0_framemask, void, env, tl)
 DEF_HELPER_2(mtc0_debug, void, env, tl)
 DEF_HELPER_2(mttc0_debug, void, env, tl)
 DEF_HELPER_2(mtc0_performance0, void, env, tl)
+DEF_HELPER_2(mtc0_errctl, void, env, tl)
 DEF_HELPER_2(mtc0_taglo, void, env, tl)
 DEF_HELPER_2(mtc0_datalo, void, env, tl)
 DEF_HELPER_2(mtc0_taghi, void, env, tl)
@@ -173,6 +183,10 @@ DEF_HELPER_0(dmt, tl)
 DEF_HELPER_0(emt, tl)
 DEF_HELPER_1(dvpe, tl, env)
 DEF_HELPER_1(evpe, tl, env)
+
+/* R6 Multi-threading */
+DEF_HELPER_1(dvp, tl, env)
+DEF_HELPER_1(evp, tl, env)
 #endif /* !CONFIG_USER_ONLY */
 
 /* microMIPS functions */
@@ -193,8 +207,6 @@ DEF_HELPER_4(ctc1, void, env, tl, i32, i32)
 DEF_HELPER_2(float_cvtd_s, i64, env, i32)
 DEF_HELPER_2(float_cvtd_w, i64, env, i32)
 DEF_HELPER_2(float_cvtd_l, i64, env, i64)
-DEF_HELPER_2(float_cvtl_d, i64, env, i64)
-DEF_HELPER_2(float_cvtl_s, i64, env, i32)
 DEF_HELPER_2(float_cvtps_pw, i64, env, i64)
 DEF_HELPER_2(float_cvtpw_ps, i64, env, i64)
 DEF_HELPER_2(float_cvts_d, i32, env, i64)
@@ -202,14 +214,12 @@ DEF_HELPER_2(float_cvts_w, i32, env, i32)
 DEF_HELPER_2(float_cvts_l, i32, env, i64)
 DEF_HELPER_2(float_cvts_pl, i32, env, i32)
 DEF_HELPER_2(float_cvts_pu, i32, env, i32)
-DEF_HELPER_2(float_cvtw_s, i32, env, i32)
-DEF_HELPER_2(float_cvtw_d, i32, env, i64)
 
 DEF_HELPER_3(float_addr_ps, i64, env, i64, i64)
 DEF_HELPER_3(float_mulr_ps, i64, env, i64, i64)
 
-DEF_HELPER_FLAGS_1(float_class_s, TCG_CALL_NO_RWG_SE, i32, i32)
-DEF_HELPER_FLAGS_1(float_class_d, TCG_CALL_NO_RWG_SE, i64, i64)
+DEF_HELPER_FLAGS_2(float_class_s, TCG_CALL_NO_RWG_SE, i32, env, i32)
+DEF_HELPER_FLAGS_2(float_class_d, TCG_CALL_NO_RWG_SE, i64, env, i64)
 
 #define FOP_PROTO(op)                                     \
 DEF_HELPER_4(float_ ## op ## _s, i32, env, i32, i32, i32) \
@@ -228,14 +238,20 @@ FOP_PROTO(mina)
 #undef FOP_PROTO
 
 #define FOP_PROTO(op)                            \
-DEF_HELPER_2(float_ ## op ## l_s, i64, env, i32) \
-DEF_HELPER_2(float_ ## op ## l_d, i64, env, i64) \
-DEF_HELPER_2(float_ ## op ## w_s, i32, env, i32) \
-DEF_HELPER_2(float_ ## op ## w_d, i32, env, i64)
+DEF_HELPER_2(float_ ## op ## _l_s, i64, env, i32) \
+DEF_HELPER_2(float_ ## op ## _l_d, i64, env, i64) \
+DEF_HELPER_2(float_ ## op ## _w_s, i32, env, i32) \
+DEF_HELPER_2(float_ ## op ## _w_d, i32, env, i64)
+FOP_PROTO(cvt)
 FOP_PROTO(round)
 FOP_PROTO(trunc)
 FOP_PROTO(ceil)
 FOP_PROTO(floor)
+FOP_PROTO(cvt_2008)
+FOP_PROTO(round_2008)
+FOP_PROTO(trunc_2008)
+FOP_PROTO(ceil_2008)
+FOP_PROTO(floor_2008)
 #undef FOP_PROTO
 
 #define FOP_PROTO(op)                            \
@@ -348,12 +364,15 @@ DEF_HELPER_1(tlbinvf, void, env)
 DEF_HELPER_1(di, tl, env)
 DEF_HELPER_1(ei, tl, env)
 DEF_HELPER_1(eret, void, env)
+DEF_HELPER_1(eretnc, void, env)
 DEF_HELPER_1(deret, void, env)
 #endif /* !CONFIG_USER_ONLY */
 DEF_HELPER_1(rdhwr_cpunum, tl, env)
 DEF_HELPER_1(rdhwr_synci_step, tl, env)
 DEF_HELPER_1(rdhwr_cc, tl, env)
 DEF_HELPER_1(rdhwr_ccres, tl, env)
+DEF_HELPER_1(rdhwr_performance, tl, env)
+DEF_HELPER_1(rdhwr_xnp, tl, env)
 DEF_HELPER_2(pmon, void, env, int)
 DEF_HELPER_1(wait, void, env)
 
@@ -931,5 +950,13 @@ DEF_HELPER_4(msa_ftint_u_df, void, env, i32, i32, i32)
 DEF_HELPER_4(msa_ffint_s_df, void, env, i32, i32, i32)
 DEF_HELPER_4(msa_ffint_u_df, void, env, i32, i32, i32)
 
-DEF_HELPER_5(msa_ld_df, void, env, i32, i32, i32, s32)
-DEF_HELPER_5(msa_st_df, void, env, i32, i32, i32, s32)
+#define MSALDST_PROTO(type)                         \
+DEF_HELPER_3(msa_ld_ ## type, void, env, i32, tl)   \
+DEF_HELPER_3(msa_st_ ## type, void, env, i32, tl)
+MSALDST_PROTO(b)
+MSALDST_PROTO(h)
+MSALDST_PROTO(w)
+MSALDST_PROTO(d)
+#undef MSALDST_PROTO
+
+DEF_HELPER_3(cache, void, env, tl, i32)

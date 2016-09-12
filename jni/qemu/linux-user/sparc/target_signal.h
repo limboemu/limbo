@@ -1,5 +1,5 @@
-#ifndef TARGET_SIGNAL_H
-#define TARGET_SIGNAL_H
+#ifndef SPARC_TARGET_SIGNAL_H
+#define SPARC_TARGET_SIGNAL_H
 
 #include "cpu.h"
 
@@ -33,4 +33,5 @@ static inline abi_ulong get_sp_from_cpustate(CPUSPARCState *state)
     return state->regwptr[UREG_FP];
 }
 
-#endif /* TARGET_SIGNAL_H */
+
+#endif /* SPARC_TARGET_SIGNAL_H */

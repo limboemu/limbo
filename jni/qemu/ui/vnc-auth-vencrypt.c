@@ -24,7 +24,9 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "vnc.h"
+#include "qapi/error.h"
 #include "qemu/main-loop.h"
 
 static void start_auth_vencrypt_subauth(VncState *vs)
@@ -63,57 +65,22 @@ static void start_auth_vencrypt_subauth(VncState *vs)
     }
 }
 
-static void vnc_tls_handshake_io(void *opaque);
+static void vnc_tls_handshake_done(Object *source,
+                                   Error *err,
+                                   gpointer user_data)
+{
+    VncState *vs = user_data;
 
-static int vnc_start_vencrypt_handshake(struct VncState *vs) {
-    int ret;
-
-    if ((ret = gnutls_handshake(vs->tls.session)) < 0) {
-       if (!gnutls_error_is_fatal(ret)) {
-           VNC_DEBUG("Handshake interrupted (blocking)\n");
-           if (!gnutls_record_get_direction(vs->tls.session))
-               qemu_set_fd_handler(vs->csock, vnc_tls_handshake_io, NULL, vs);
-           else
-               qemu_set_fd_handler(vs->csock, NULL, vnc_tls_handshake_io, vs);
-           return 0;
-       }
-       VNC_DEBUG("Handshake failed %s\n", gnutls_strerror(ret));
-       vnc_client_error(vs);
-       return -1;
+    if (err) {
+        VNC_DEBUG("Handshake failed %s\n",
+                  error_get_pretty(err));
+        vnc_client_error(vs);
+    } else {
+        vs->ioc_tag = qio_channel_add_watch(
+            vs->ioc, G_IO_IN | G_IO_OUT, vnc_client_io, vs, NULL);
+        start_auth_vencrypt_subauth(vs);
     }
-
-    if (vs->vd->tls.x509verify) {
-        if (vnc_tls_validate_certificate(vs) < 0) {
-            VNC_DEBUG("Client verification failed\n");
-            vnc_client_error(vs);
-            return -1;
-        } else {
-            VNC_DEBUG("Client verification passed\n");
-        }
-    }
-
-    VNC_DEBUG("Handshake done, switching to TLS data mode\n");
-    qemu_set_fd_handler2(vs->csock, NULL, vnc_client_read, vnc_client_write, vs);
-
-    start_auth_vencrypt_subauth(vs);
-
-    return 0;
 }
-
-static void vnc_tls_handshake_io(void *opaque) {
-    struct VncState *vs = (struct VncState *)opaque;
-
-    VNC_DEBUG("Handshake IO continue\n");
-    vnc_start_vencrypt_handshake(vs);
-}
-
-
-
-#define NEED_X509_AUTH(vs)                              \
-    ((vs)->subauth == VNC_AUTH_VENCRYPT_X509NONE ||   \
-     (vs)->subauth == VNC_AUTH_VENCRYPT_X509VNC ||    \
-     (vs)->subauth == VNC_AUTH_VENCRYPT_X509PLAIN ||  \
-     (vs)->subauth == VNC_AUTH_VENCRYPT_X509SASL)
 
 
 static int protocol_client_vencrypt_auth(VncState *vs, uint8_t *data, size_t len)
@@ -126,20 +93,38 @@ static int protocol_client_vencrypt_auth(VncState *vs, uint8_t *data, size_t len
         vnc_flush(vs);
         vnc_client_error(vs);
     } else {
+        Error *err = NULL;
+        QIOChannelTLS *tls;
         VNC_DEBUG("Accepting auth %d, setting up TLS for handshake\n", auth);
         vnc_write_u8(vs, 1); /* Accept auth */
         vnc_flush(vs);
 
-        if (vnc_tls_client_setup(vs, NEED_X509_AUTH(vs)) < 0) {
-            VNC_DEBUG("Failed to setup TLS\n");
+        if (vs->ioc_tag) {
+            g_source_remove(vs->ioc_tag);
+            vs->ioc_tag = 0;
+        }
+
+        tls = qio_channel_tls_new_server(
+            vs->ioc,
+            vs->vd->tlscreds,
+            vs->vd->tlsaclname,
+            &err);
+        if (!tls) {
+            VNC_DEBUG("Failed to setup TLS %s\n", error_get_pretty(err));
+            error_free(err);
+            vnc_client_error(vs);
             return 0;
         }
 
         VNC_DEBUG("Start TLS VeNCrypt handshake process\n");
-        if (vnc_start_vencrypt_handshake(vs) < 0) {
-            VNC_DEBUG("Failed to start TLS handshake\n");
-            return 0;
-        }
+        object_unref(OBJECT(vs->ioc));
+        vs->ioc = QIO_CHANNEL(tls);
+        vs->tls = qio_channel_tls_get_session(tls);
+
+        qio_channel_tls_handshake(tls,
+                                  vnc_tls_handshake_done,
+                                  vs,
+                                  NULL);
     }
     return 0;
 }

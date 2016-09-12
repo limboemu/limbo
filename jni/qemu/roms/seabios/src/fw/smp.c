@@ -10,7 +10,7 @@
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
-#include "util.h" // smp_setup
+#include "util.h" // smp_setup, msr_feature_control_setup
 #include "x86.h" // wrmsr
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
@@ -20,20 +20,20 @@
 
 #define APIC_ENABLED 0x0100
 
-static struct { u32 index; u64 val; } smp_mtrr[32];
-static u32 smp_mtrr_count;
+static struct { u32 index; u64 val; } smp_msr[32];
+static u32 smp_msr_count;
 
 void
 wrmsr_smp(u32 index, u64 val)
 {
     wrmsr(index, val);
-    if (smp_mtrr_count >= ARRAY_SIZE(smp_mtrr)) {
+    if (smp_msr_count >= ARRAY_SIZE(smp_msr)) {
         warn_noalloc();
         return;
     }
-    smp_mtrr[smp_mtrr_count].index = index;
-    smp_mtrr[smp_mtrr_count].val = val;
-    smp_mtrr_count++;
+    smp_msr[smp_msr_count].index = index;
+    smp_msr[smp_msr_count].val = val;
+    smp_msr_count++;
 }
 
 u32 MaxCountCPUs;
@@ -52,19 +52,16 @@ handle_smp(void)
     if (!CONFIG_QEMU)
         return;
 
-    // Enable CPU caching
-    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
-
     // Detect apic_id
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
     u8 apic_id = ebx>>24;
     dprintf(DEBUG_HDL_smp, "handle_smp: apic_id=%d\n", apic_id);
 
-    // MTRR setup
+    // MTRR and MSR_IA32_FEATURE_CONTROL setup
     int i;
-    for (i=0; i<smp_mtrr_count; i++)
-        wrmsr(smp_mtrr[i].index, smp_mtrr[i].val);
+    for (i=0; i<smp_msr_count; i++)
+        wrmsr(smp_msr[i].index, smp_msr[i].val);
 
     // Set bit on FoundAPICIDs
     FoundAPICIDs[apic_id/32] |= (1 << (apic_id % 32));

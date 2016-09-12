@@ -34,6 +34,8 @@
 static inline void
 pic_eoi1(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC1_CMD);
 }
@@ -41,6 +43,8 @@ pic_eoi1(void)
 static inline void
 pic_eoi2(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC2_CMD);
     pic_eoi1();

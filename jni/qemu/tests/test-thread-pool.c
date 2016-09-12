@@ -1,8 +1,9 @@
-#include <glib.h>
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "block/aio.h"
 #include "block/thread-pool.h"
 #include "block/block.h"
+#include "qapi/error.h"
 #include "qemu/timer.h"
 #include "qemu/error-report.h"
 
@@ -90,9 +91,9 @@ static void co_test_cb(void *opaque)
 static void test_submit_co(void)
 {
     WorkerTestData data;
-    Coroutine *co = qemu_coroutine_create(co_test_cb);
+    Coroutine *co = qemu_coroutine_create(co_test_cb, &data);
 
-    qemu_coroutine_enter(co, &data);
+    qemu_coroutine_enter(co);
 
     /* Back here once the worker has started.  */
 
@@ -229,9 +230,7 @@ int main(int argc, char **argv)
 
     ctx = aio_context_new(&local_error);
     if (!ctx) {
-        error_report("Failed to create AIO Context: '%s'",
-                     error_get_pretty(local_error));
-        error_free(local_error);
+        error_reportf_err(local_error, "Failed to create AIO Context: ");
         exit(1);
     }
     pool = aio_get_thread_pool(ctx);

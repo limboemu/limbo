@@ -520,6 +520,19 @@ PRIM(RMOVE)
 
 	MIRP
 
+PRIM(MRMOVE)
+	type_u size = TOS.u; POP;
+	void *d = TOS.a; POP;
+	void *s = TOS.a; POP;
+	FAST_MRMOVE(s, d, size);
+	MIRP
+
+PRIM(RFILL)
+	type_u pat = TOS.u; POP;
+	type_u size = TOS.u; POP;
+	void *dst = TOS.a; POP;
+	FAST_RFILL(dst, size, pat);
+	MIRP
 
 // String compare, case insensitive:
 // : string=ci  ( str1 len1 str2 len2 -- equal? )

@@ -13,16 +13,16 @@
 #ifndef QINT_H
 #define QINT_H
 
-#include <stdint.h>
 #include "qapi/qmp/qobject.h"
 
 typedef struct QInt {
-    QObject_HEAD;
+    QObject base;
     int64_t value;
 } QInt;
 
 QInt *qint_from_int(int64_t value);
 int64_t qint_get_int(const QInt *qi);
 QInt *qobject_to_qint(const QObject *obj);
+void qint_destroy_obj(QObject *obj);
 
 #endif /* QINT_H */

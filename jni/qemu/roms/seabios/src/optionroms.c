@@ -19,6 +19,9 @@
 #include "std/pnpbios.h" // PNP_SIGNATURE
 #include "string.h" // memset
 #include "util.h" // get_pnp_offset
+#include "tcgbios.h" // tpm_*
+
+static int EnforceChecksum, S3ResumeVga, RunPCIroms;
 
 
 /****************************************************************
@@ -59,8 +62,6 @@ call_bcv(u16 seg, u16 ip)
 {
     __callrom(MAKE_FLATPTR(seg, 0), ip, 0);
 }
-
-static int EnforceChecksum;
 
 // Verify that an option rom looks valid
 static int
@@ -132,6 +133,8 @@ init_optionrom(struct rom_header *rom, u16 bdf, int isvga)
     if (newrom != rom)
         memmove(newrom, rom, rom->size * 512);
 
+    tpm_option_rom(newrom, rom->size * 512);
+
     if (isvga || get_pnp_rom(newrom))
         // Only init vga and PnP roms here.
         callrom(newrom, bdf);
@@ -178,19 +181,6 @@ deploy_romfile(struct romfile_s *file)
     if (ret <= 0)
         return NULL;
     return rom;
-}
-
-// Check if an option rom is at a hardcoded location or in CBFS.
-static struct rom_header *
-lookup_hardcode(struct pci_device *pci)
-{
-    char fname[17];
-    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
-             , pci->vendor, pci->device);
-    struct romfile_s *file = romfile_find(fname);
-    if (file)
-        return deploy_romfile(file);
-    return NULL;
 }
 
 // Run all roms in a given CBFS directory.
@@ -321,21 +311,28 @@ fail:
 }
 
 // Attempt to map and initialize the option rom on a given PCI device.
-static int
+static void
 init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
 {
     u16 bdf = pci->bdf;
     dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (vd %04x:%04x)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
-    struct rom_header *rom = lookup_hardcode(pci);
-    if (! rom)
+
+    char fname[17];
+    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
+             , pci->vendor, pci->device);
+    struct romfile_s *file = romfile_find(fname);
+    struct rom_header *rom = NULL;
+    if (file)
+        rom = deploy_romfile(file);
+    else if (RunPCIroms > 1 || (RunPCIroms == 1 && isvga))
         rom = map_pcirom(pci);
     if (! rom)
         // No ROM present.
-        return -1;
+        return;
     setRomSource(sources, rom, RS_PCIROM | (u32)pci);
-    return init_optionrom(rom, bdf, isvga);
+    init_optionrom(rom, bdf, isvga);
 }
 
 
@@ -416,7 +413,6 @@ optionrom_setup(void)
  * VGA init
  ****************************************************************/
 
-static int S3ResumeVga;
 int ScreenAndDebug;
 struct rom_header *VgaROM;
 
@@ -432,6 +428,7 @@ vgarom_setup(void)
     // Load some config settings that impact VGA.
     EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
     S3ResumeVga = romfile_loadint("etc/s3-resume-vga-init", CONFIG_QEMU);
+    RunPCIroms = romfile_loadint("etc/pci-optionrom-exec", 2);
     ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {

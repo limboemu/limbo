@@ -22,6 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/isa/isa.h"
@@ -46,7 +47,7 @@ int pit_get_out(PITChannelState *s, int64_t current_time)
     int out;
 
     d = muldiv64(current_time - s->count_load_time, PIT_FREQ,
-                 get_ticks_per_sec());
+                 NANOSECONDS_PER_SECOND);
     switch (s->mode) {
     default:
     case 0:
@@ -80,7 +81,7 @@ int64_t pit_get_next_transition_time(PITChannelState *s, int64_t current_time)
     int period2;
 
     d = muldiv64(current_time - s->count_load_time, PIT_FREQ,
-                 get_ticks_per_sec());
+                 NANOSECONDS_PER_SECOND);
     switch (s->mode) {
     default:
     case 0:
@@ -120,7 +121,7 @@ int64_t pit_get_next_transition_time(PITChannelState *s, int64_t current_time)
         break;
     }
     /* convert to timer units */
-    next_time = s->count_load_time + muldiv64(next_time, get_ticks_per_sec(),
+    next_time = s->count_load_time + muldiv64(next_time, NANOSECONDS_PER_SECOND,
                                               PIT_FREQ);
     /* fix potential rounding problems */
     /* XXX: better solution: use a clock at PIT_FREQ Hz */

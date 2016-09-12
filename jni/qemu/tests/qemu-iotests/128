@@ -25,10 +25,15 @@ seq=`basename $0`
 echo "QA output created by $seq"
 
 here=`pwd`
-tmp=/tmp/$$
 status=1	# failure is the default!
 
 devname="eiodev$$"
+sudo=""
+
+_sudo_qemu_io_wrapper()
+{
+    (exec $sudo "$QEMU_IO_PROG" $QEMU_IO_OPTIONS "$@")
+}
 
 _setup_eiodev()
 {
@@ -37,6 +42,7 @@ _setup_eiodev()
 		echo "0 $((1024 * 1024 * 1024 / 512)) error" | \
 			$cmd dmsetup create "$devname" 2>/dev/null
 		if [ "$?" -eq 0 ]; then
+			sudo="$cmd"
 			return
 		fi
 	done
@@ -74,7 +80,9 @@ TEST_IMG="/dev/mapper/$devname"
 echo
 echo "== reading from error device =="
 # Opening image should succeed but the read operation should fail
-$QEMU_IO --format "$IMGFMT" --nocache -c "read 0 65536" "$TEST_IMG" | _filter_qemu_io
+_sudo_qemu_io_wrapper --format "$IMGFMT" --nocache \
+                      -c "read 0 65536" "$TEST_IMG" \
+    | _filter_qemu_io
 
 # success, all done
 echo "*** done"

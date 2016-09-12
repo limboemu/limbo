@@ -63,7 +63,7 @@ EQMP
     {
         .name       = "quit",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_quit,
+        .mhandler.cmd_new = qmp_marshal_quit,
     },
 
 SQMP
@@ -84,7 +84,7 @@ EQMP
     {
         .name       = "eject",
         .args_type  = "force:-f,device:B",
-        .mhandler.cmd_new = qmp_marshal_input_eject,
+        .mhandler.cmd_new = qmp_marshal_eject,
     },
 
 SQMP
@@ -110,7 +110,7 @@ EQMP
     {
         .name       = "change",
         .args_type  = "device:B,target:F,arg:s?",
-        .mhandler.cmd_new = qmp_marshal_input_change,
+        .mhandler.cmd_new = qmp_marshal_change,
     },
 
 SQMP
@@ -146,7 +146,7 @@ EQMP
     {
         .name       = "screendump",
         .args_type  = "filename:F",
-        .mhandler.cmd_new = qmp_marshal_input_screendump,
+        .mhandler.cmd_new = qmp_marshal_screendump,
     },
 
 SQMP
@@ -169,7 +169,7 @@ EQMP
     {
         .name       = "stop",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_stop,
+        .mhandler.cmd_new = qmp_marshal_stop,
     },
 
 SQMP
@@ -190,7 +190,7 @@ EQMP
     {
         .name       = "cont",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_cont,
+        .mhandler.cmd_new = qmp_marshal_cont,
     },
 
 SQMP
@@ -211,7 +211,7 @@ EQMP
     {
         .name       = "system_wakeup",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_system_wakeup,
+        .mhandler.cmd_new = qmp_marshal_system_wakeup,
     },
 
 SQMP
@@ -232,7 +232,7 @@ EQMP
     {
         .name       = "system_reset",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_system_reset,
+        .mhandler.cmd_new = qmp_marshal_system_reset,
     },
 
 SQMP
@@ -253,7 +253,7 @@ EQMP
     {
         .name       = "system_powerdown",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_system_powerdown,
+        .mhandler.cmd_new = qmp_marshal_system_powerdown,
     },
 
 SQMP
@@ -276,7 +276,7 @@ EQMP
         .args_type  = "device:O",
         .params     = "driver[,prop=value][,...]",
         .help       = "add device, like -device on the command line",
-        .mhandler.cmd_new = do_device_add,
+        .mhandler.cmd_new = qmp_device_add,
     },
 
 SQMP
@@ -310,7 +310,7 @@ EQMP
     {
         .name       = "device_del",
         .args_type  = "id:s",
-        .mhandler.cmd_new = qmp_marshal_input_device_del,
+        .mhandler.cmd_new = qmp_marshal_device_del,
     },
 
 SQMP
@@ -321,19 +321,24 @@ Remove a device.
 
 Arguments:
 
-- "id": the device's ID (json-string)
+- "id": the device's ID or QOM path (json-string)
 
 Example:
 
 -> { "execute": "device_del", "arguments": { "id": "net1" } }
 <- { "return": {} }
 
+Example:
+
+-> { "execute": "device_del", "arguments": { "id": "/machine/peripheral-anon/device[0]" } }
+<- { "return": {} }
+
 EQMP
 
     {
         .name       = "send-key",
-        .args_type  = "keys:O,hold-time:i?",
-        .mhandler.cmd_new = qmp_marshal_input_send_key,
+        .args_type  = "keys:q,hold-time:i?",
+        .mhandler.cmd_new = qmp_marshal_send_key,
     },
 
 SQMP
@@ -364,7 +369,7 @@ EQMP
     {
         .name       = "cpu",
         .args_type  = "index:i",
-        .mhandler.cmd_new = qmp_marshal_input_cpu,
+        .mhandler.cmd_new = qmp_marshal_cpu,
     },
 
 SQMP
@@ -389,7 +394,7 @@ EQMP
     {
         .name       = "cpu-add",
         .args_type  = "id:i",
-        .mhandler.cmd_new = qmp_marshal_input_cpu_add,
+        .mhandler.cmd_new = qmp_marshal_cpu_add,
     },
 
 SQMP
@@ -412,7 +417,7 @@ EQMP
     {
         .name       = "memsave",
         .args_type  = "val:l,size:i,filename:s,cpu:i?",
-        .mhandler.cmd_new = qmp_marshal_input_memsave,
+        .mhandler.cmd_new = qmp_marshal_memsave,
     },
 
 SQMP
@@ -441,7 +446,7 @@ EQMP
     {
         .name       = "pmemsave",
         .args_type  = "val:l,size:i,filename:s",
-        .mhandler.cmd_new = qmp_marshal_input_pmemsave,
+        .mhandler.cmd_new = qmp_marshal_pmemsave,
     },
 
 SQMP
@@ -469,7 +474,7 @@ EQMP
     {
         .name       = "inject-nmi",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_inject_nmi,
+        .mhandler.cmd_new = qmp_marshal_inject_nmi,
     },
 
 SQMP
@@ -492,7 +497,7 @@ EQMP
     {
         .name       = "ringbuf-write",
         .args_type  = "device:s,data:s,format:s?",
-        .mhandler.cmd_new = qmp_marshal_input_ringbuf_write,
+        .mhandler.cmd_new = qmp_marshal_ringbuf_write,
     },
 
 SQMP
@@ -507,8 +512,6 @@ Arguments:
 - "data": data to write (json-string)
 - "format": data format (json-string, optional)
           - Possible values: "utf8" (default), "base64"
-            Bug: invalid base64 is currently not rejected.
-            Whitespace *is* invalid.
 
 Example:
 
@@ -523,7 +526,7 @@ EQMP
     {
         .name       = "ringbuf-read",
         .args_type  = "device:s,size:i,format:s?",
-        .mhandler.cmd_new = qmp_marshal_input_ringbuf_read,
+        .mhandler.cmd_new = qmp_marshal_ringbuf_read,
     },
 
 SQMP
@@ -559,7 +562,7 @@ EQMP
     {
         .name       = "xen-save-devices-state",
         .args_type  = "filename:F",
-    .mhandler.cmd_new = qmp_marshal_input_xen_save_devices_state,
+    .mhandler.cmd_new = qmp_marshal_xen_save_devices_state,
     },
 
 SQMP
@@ -584,9 +587,36 @@ Example:
 EQMP
 
     {
+        .name       = "xen-load-devices-state",
+        .args_type  = "filename:F",
+        .mhandler.cmd_new = qmp_marshal_xen_load_devices_state,
+    },
+
+SQMP
+xen-load-devices-state
+----------------------
+
+Load the state of all devices from file. The RAM and the block devices
+of the VM are not loaded by this command.
+
+Arguments:
+
+- "filename": the file to load the state of the devices from as binary
+data. See xen-save-devices-state.txt for a description of the binary
+format.
+
+Example:
+
+-> { "execute": "xen-load-devices-state",
+     "arguments": { "filename": "/tmp/resume" } }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "xen-set-global-dirty-log",
         .args_type  = "enable:b",
-        .mhandler.cmd_new = qmp_marshal_input_xen_set_global_dirty_log,
+        .mhandler.cmd_new = qmp_marshal_xen_set_global_dirty_log,
     },
 
 SQMP
@@ -610,7 +640,7 @@ EQMP
     {
         .name       = "migrate",
         .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
-        .mhandler.cmd_new = qmp_marshal_input_migrate,
+        .mhandler.cmd_new = qmp_marshal_migrate,
     },
 
 SQMP
@@ -643,7 +673,7 @@ EQMP
     {
         .name       = "migrate_cancel",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_migrate_cancel,
+        .mhandler.cmd_new = qmp_marshal_migrate_cancel,
     },
 
 SQMP
@@ -664,7 +694,7 @@ EQMP
     {
         .name       = "migrate-incoming",
         .args_type  = "uri:s",
-        .mhandler.cmd_new = qmp_marshal_input_migrate_incoming,
+        .mhandler.cmd_new = qmp_marshal_migrate_incoming,
     },
 
 SQMP
@@ -686,13 +716,13 @@ Notes:
 
 (1) QEMU must be started with -incoming defer to allow migrate-incoming to
     be used
-(2) The uri format is the same as to -incoming
+(2) The uri format is the same as for -incoming
 
 EQMP
     {
         .name       = "migrate-set-cache-size",
         .args_type  = "value:o",
-        .mhandler.cmd_new = qmp_marshal_input_migrate_set_cache_size,
+        .mhandler.cmd_new = qmp_marshal_migrate_set_cache_size,
     },
 
 SQMP
@@ -713,9 +743,28 @@ Example:
 
 EQMP
     {
+        .name       = "migrate-start-postcopy",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_marshal_migrate_start_postcopy,
+    },
+
+SQMP
+migrate-start-postcopy
+----------------------
+
+Switch an in-progress migration to postcopy mode. Ignored after the end of
+migration (or once already in postcopy).
+
+Example:
+-> { "execute": "migrate-start-postcopy" }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "query-migrate-cache-size",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_migrate_cache_size,
+        .mhandler.cmd_new = qmp_marshal_query_migrate_cache_size,
     },
 
 SQMP
@@ -737,7 +786,7 @@ EQMP
     {
         .name       = "migrate_set_speed",
         .args_type  = "value:o",
-        .mhandler.cmd_new = qmp_marshal_input_migrate_set_speed,
+        .mhandler.cmd_new = qmp_marshal_migrate_set_speed,
     },
 
 SQMP
@@ -760,7 +809,7 @@ EQMP
     {
         .name       = "migrate_set_downtime",
         .args_type  = "value:T",
-        .mhandler.cmd_new = qmp_marshal_input_migrate_set_downtime,
+        .mhandler.cmd_new = qmp_marshal_migrate_set_downtime,
     },
 
 SQMP
@@ -784,24 +833,23 @@ EQMP
         .name       = "client_migrate_info",
         .args_type  = "protocol:s,hostname:s,port:i?,tls-port:i?,cert-subject:s?",
         .params     = "protocol hostname port tls-port cert-subject",
-        .help       = "send migration info to spice/vnc client",
-        .mhandler.cmd_async = client_migrate_info,
-        .flags      = MONITOR_CMD_ASYNC,
+        .help       = "set migration information for remote display",
+        .mhandler.cmd_new = qmp_marshal_client_migrate_info,
     },
 
 SQMP
 client_migrate_info
-------------------
+-------------------
 
-Set the spice/vnc connection info for the migration target.  The spice/vnc
-server will ask the spice/vnc client to automatically reconnect using the
-new parameters (if specified) once the vm migration finished successfully.
+Set migration information for remote display.  This makes the server
+ask the client to automatically reconnect using the new parameters
+once migration finished successfully.  Only implemented for SPICE.
 
 Arguments:
 
-- "protocol":     protocol: "spice" or "vnc" (json-string)
+- "protocol":     must be "spice" (json-string)
 - "hostname":     migration target hostname (json-string)
-- "port":         spice/vnc tcp port for plaintext channels (json-int, optional)
+- "port":         spice tcp port for plaintext channels (json-int, optional)
 - "tls-port":     spice tcp port for tls-secured channels (json-int, optional)
 - "cert-subject": server certificate subject (json-string, optional)
 
@@ -817,10 +865,10 @@ EQMP
 
     {
         .name       = "dump-guest-memory",
-        .args_type  = "paging:b,protocol:s,begin:i?,end:i?,format:s?",
-        .params     = "-p protocol [begin] [length] [format]",
+        .args_type  = "paging:b,protocol:s,detach:b?,begin:i?,end:i?,format:s?",
+        .params     = "-p protocol [-d] [begin] [length] [format]",
         .help       = "dump guest memory to file",
-        .mhandler.cmd_new = qmp_marshal_input_dump_guest_memory,
+        .mhandler.cmd_new = qmp_marshal_dump_guest_memory,
     },
 
 SQMP
@@ -834,6 +882,9 @@ Arguments:
 - "paging": do paging to get guest's memory mapping (json-bool)
 - "protocol": destination file(started with "file:") or destination file
               descriptor (started with "fd:") (json-string)
+- "detach": if specified, command will return immediately, without waiting
+            for the dump to finish. The user can track progress using
+            "query-dump". (json-bool)
 - "begin": the starting physical address. It's optional, and should be specified
            with length together (json-int)
 - "length": the memory size, in bytes. It's optional, and should be specified
@@ -856,7 +907,7 @@ EQMP
     {
         .name       = "query-dump-guest-memory-capability",
         .args_type  = "",
-    .mhandler.cmd_new = qmp_marshal_input_query_dump_guest_memory_capability,
+    .mhandler.cmd_new = qmp_marshal_query_dump_guest_memory_capability,
     },
 
 SQMP
@@ -870,6 +921,55 @@ Example:
 -> { "execute": "query-dump-guest-memory-capability" }
 <- { "return": { "formats":
                     ["elf", "kdump-zlib", "kdump-lzo", "kdump-snappy"] }
+
+EQMP
+
+    {
+        .name       = "query-dump",
+        .args_type  = "",
+        .params     = "",
+        .help       = "query background dump status",
+        .mhandler.cmd_new = qmp_marshal_query_dump,
+    },
+
+SQMP
+query-dump
+----------
+
+Query background dump status.
+
+Arguments: None.
+
+Example:
+
+-> { "execute": "query-dump" }
+<- { "return": { "status": "active", "completed": 1024000,
+                 "total": 2048000 } }
+
+EQMP
+
+#if defined TARGET_S390X
+    {
+        .name       = "dump-skeys",
+        .args_type  = "filename:F",
+        .mhandler.cmd_new = qmp_marshal_dump_skeys,
+    },
+#endif
+
+SQMP
+dump-skeys
+----------
+
+Save guest storage keys to file.
+
+Arguments:
+
+- "filename": file path (json-string)
+
+Example:
+
+-> { "execute": "dump-skeys", "arguments": { "filename": "/tmp/skeys" } }
+<- { "return": {} }
 
 EQMP
 
@@ -893,7 +993,9 @@ Arguments:
 
 Example:
 
--> { "execute": "netdev_add", "arguments": { "type": "user", "id": "netdev1" } }
+-> { "execute": "netdev_add",
+     "arguments": { "type": "user", "id": "netdev1",
+                    "dnssearch": "example.org" } }
 <- { "return": {} }
 
 Note: The supported device options are the same ones supported by the '-netdev'
@@ -905,7 +1007,7 @@ EQMP
     {
         .name       = "netdev_del",
         .args_type  = "id:s",
-        .mhandler.cmd_new = qmp_marshal_input_netdev_del,
+        .mhandler.cmd_new = qmp_marshal_netdev_del,
     },
 
 SQMP
@@ -929,7 +1031,7 @@ EQMP
     {
         .name       = "object-add",
         .args_type  = "qom-type:s,id:s,props:q?",
-        .mhandler.cmd_new = qmp_object_add,
+        .mhandler.cmd_new = qmp_marshal_object_add,
     },
 
 SQMP
@@ -955,7 +1057,7 @@ EQMP
     {
         .name       = "object-del",
         .args_type  = "id:s",
-        .mhandler.cmd_new = qmp_marshal_input_object_del,
+        .mhandler.cmd_new = qmp_marshal_object_del,
     },
 
 SQMP
@@ -980,7 +1082,7 @@ EQMP
     {
         .name       = "block_resize",
         .args_type  = "device:s?,node-name:s?,size:o",
-        .mhandler.cmd_new = qmp_marshal_input_block_resize,
+        .mhandler.cmd_new = qmp_marshal_block_resize,
     },
 
 SQMP
@@ -1004,14 +1106,53 @@ EQMP
 
     {
         .name       = "block-stream",
-        .args_type  = "device:B,base:s?,speed:o?,backing-file:s?,on-error:s?",
-        .mhandler.cmd_new = qmp_marshal_input_block_stream,
+        .args_type  = "job-id:s?,device:B,base:s?,speed:o?,backing-file:s?,on-error:s?",
+        .mhandler.cmd_new = qmp_marshal_block_stream,
     },
+
+SQMP
+block-stream
+------------
+
+Copy data from a backing file into a block device.
+
+Arguments:
+
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
+- "device": The device's ID, must be unique (json-string)
+- "base": The file name of the backing image above which copying starts
+          (json-string, optional)
+- "backing-file": The backing file string to write into the active layer. This
+                  filename is not validated.
+
+                  If a pathname string is such that it cannot be resolved by
+                  QEMU, that means that subsequent QMP or HMP commands must use
+                  node-names for the image in question, as filename lookup
+                  methods will fail.
+
+                  If not specified, QEMU will automatically determine the
+                  backing file string to use, or error out if there is no
+                  obvious choice.  Care should be taken when specifying the
+                  string, to specify a valid filename or protocol.
+                  (json-string, optional) (Since 2.1)
+- "speed":  the maximum speed, in bytes per second (json-int, optional)
+- "on-error": the action to take on an error (default 'report').  'stop' and
+              'enospc' can only be used if the block device supports io-status.
+              (json-string, optional) (Since 2.1)
+
+Example:
+
+-> { "execute": "block-stream", "arguments": { "device": "virtio0",
+                                               "base": "/tmp/master.qcow2" } }
+<- { "return": {} }
+
+EQMP
 
     {
         .name       = "block-commit",
-        .args_type  = "device:B,base:s?,top:s?,backing-file:s?,speed:o?",
-        .mhandler.cmd_new = qmp_marshal_input_block_commit,
+        .args_type  = "job-id:s?,device:B,base:s?,top:s?,backing-file:s?,speed:o?",
+        .mhandler.cmd_new = qmp_marshal_block_commit,
     },
 
 SQMP
@@ -1023,6 +1164,8 @@ data between 'top' and 'base' into 'base'.
 
 Arguments:
 
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
 - "device": The device's ID, must be unique (json-string)
 - "base": The file name of the backing image to write data into.
           If not specified, this is the deepest backing image
@@ -1073,9 +1216,9 @@ EQMP
 
     {
         .name       = "drive-backup",
-        .args_type  = "sync:s,device:B,target:s,speed:i?,mode:s?,format:s?,"
-                      "on-source-error:s?,on-target-error:s?",
-        .mhandler.cmd_new = qmp_marshal_input_drive_backup,
+        .args_type  = "job-id:s?,sync:s,device:B,target:s,speed:i?,mode:s?,"
+                      "format:s?,bitmap:s?,on-source-error:s?,on-target-error:s?",
+        .mhandler.cmd_new = qmp_marshal_drive_backup,
     },
 
 SQMP
@@ -1090,6 +1233,8 @@ block-job-cancel command.
 
 Arguments:
 
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
 - "device": the name of the device which should be copied.
             (json-string)
 - "target": the target of the new image. If the file exists, or if it is a
@@ -1101,8 +1246,10 @@ Arguments:
             (json-string, optional)
 - "sync": what parts of the disk image should be copied to the destination;
   possibilities include "full" for all the disk, "top" for only the sectors
-  allocated in the topmost image, or "none" to only replicate new I/O
-  (MirrorSyncMode).
+  allocated in the topmost image, "incremental" for only the dirty sectors in
+  the bitmap, or "none" to only replicate new I/O (MirrorSyncMode).
+- "bitmap": dirty bitmap name for sync==incremental. Must be present if sync
+            is "incremental", must NOT be present otherwise.
 - "mode": whether and how QEMU should create a new image
           (NewImageMode, optional, default 'absolute-paths')
 - "speed": the maximum speed, in bytes per second (json-int, optional)
@@ -1125,9 +1272,9 @@ EQMP
 
     {
         .name       = "blockdev-backup",
-        .args_type  = "sync:s,device:B,target:B,speed:i?,"
+        .args_type  = "job-id:s?,sync:s,device:B,target:B,speed:i?,"
                       "on-source-error:s?,on-target-error:s?",
-        .mhandler.cmd_new = qmp_marshal_input_blockdev_backup,
+        .mhandler.cmd_new = qmp_marshal_blockdev_backup,
     },
 
 SQMP
@@ -1139,6 +1286,8 @@ as backup target.
 
 Arguments:
 
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
 - "device": the name of the device which should be copied.
             (json-string)
 - "target": the name of the backup target device. (json-string)
@@ -1167,44 +1316,55 @@ EQMP
     {
         .name       = "block-job-set-speed",
         .args_type  = "device:B,speed:o",
-        .mhandler.cmd_new = qmp_marshal_input_block_job_set_speed,
+        .mhandler.cmd_new = qmp_marshal_block_job_set_speed,
     },
 
     {
         .name       = "block-job-cancel",
         .args_type  = "device:B,force:b?",
-        .mhandler.cmd_new = qmp_marshal_input_block_job_cancel,
+        .mhandler.cmd_new = qmp_marshal_block_job_cancel,
     },
     {
         .name       = "block-job-pause",
         .args_type  = "device:B",
-        .mhandler.cmd_new = qmp_marshal_input_block_job_pause,
+        .mhandler.cmd_new = qmp_marshal_block_job_pause,
     },
     {
         .name       = "block-job-resume",
         .args_type  = "device:B",
-        .mhandler.cmd_new = qmp_marshal_input_block_job_resume,
+        .mhandler.cmd_new = qmp_marshal_block_job_resume,
     },
     {
         .name       = "block-job-complete",
         .args_type  = "device:B",
-        .mhandler.cmd_new = qmp_marshal_input_block_job_complete,
+        .mhandler.cmd_new = qmp_marshal_block_job_complete,
     },
     {
         .name       = "transaction",
-        .args_type  = "actions:q",
-        .mhandler.cmd_new = qmp_marshal_input_transaction,
+        .args_type  = "actions:q,properties:q?",
+        .mhandler.cmd_new = qmp_marshal_transaction,
     },
 
 SQMP
 transaction
 -----------
 
-Atomically operate on one or more block devices.  The only supported operations
-for now are drive-backup, internal and external snapshotting.  A list of
-dictionaries is accepted, that contains the actions to be performed.
-If there is any failure performing any of the operations, all operations
-for the group are abandoned.
+Atomically operate on one or more block devices.  Operations that are
+currently supported:
+
+    - drive-backup
+    - blockdev-backup
+    - blockdev-snapshot-sync
+    - blockdev-snapshot-internal-sync
+    - abort
+    - block-dirty-bitmap-add
+    - block-dirty-bitmap-clear
+
+Refer to the qemu/qapi-schema.json file for minimum required QEMU
+versions for these operations.  A list of dictionaries is accepted,
+that contains the actions to be performed.  If there is any failure
+performing any of the operations, all operations for the group are
+abandoned.
 
 For external snapshots, the dictionary contains the device, the file to use for
 the new snapshot, and the format.  The default format, if not specified, is
@@ -1231,8 +1391,12 @@ it later with qemu-img or other command.
 Arguments:
 
 actions array:
-    - "type": the operation to perform.  The only supported
-      value is "blockdev-snapshot-sync". (json-string)
+    - "type": the operation to perform (json-string).  Possible
+              values: "drive-backup", "blockdev-backup",
+                      "blockdev-snapshot-sync",
+                      "blockdev-snapshot-internal-sync",
+                      "abort", "block-dirty-bitmap-add",
+                      "block-dirty-bitmap-clear"
     - "data": a dictionary.  The contents depend on the value
       of "type".  When "type" is "blockdev-snapshot-sync":
       - "device": device name to snapshot (json-string)
@@ -1270,9 +1434,94 @@ Example:
 EQMP
 
     {
+        .name       = "block-dirty-bitmap-add",
+        .args_type  = "node:B,name:s,granularity:i?",
+        .mhandler.cmd_new = qmp_marshal_block_dirty_bitmap_add,
+    },
+
+SQMP
+
+block-dirty-bitmap-add
+----------------------
+Since 2.4
+
+Create a dirty bitmap with a name on the device, and start tracking the writes.
+
+Arguments:
+
+- "node": device/node on which to create dirty bitmap (json-string)
+- "name": name of the new dirty bitmap (json-string)
+- "granularity": granularity to track writes with (int, optional)
+
+Example:
+
+-> { "execute": "block-dirty-bitmap-add", "arguments": { "node": "drive0",
+                                                   "name": "bitmap0" } }
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "block-dirty-bitmap-remove",
+        .args_type  = "node:B,name:s",
+        .mhandler.cmd_new = qmp_marshal_block_dirty_bitmap_remove,
+    },
+
+SQMP
+
+block-dirty-bitmap-remove
+-------------------------
+Since 2.4
+
+Stop write tracking and remove the dirty bitmap that was created with
+block-dirty-bitmap-add.
+
+Arguments:
+
+- "node": device/node on which to remove dirty bitmap (json-string)
+- "name": name of the dirty bitmap to remove (json-string)
+
+Example:
+
+-> { "execute": "block-dirty-bitmap-remove", "arguments": { "node": "drive0",
+                                                      "name": "bitmap0" } }
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "block-dirty-bitmap-clear",
+        .args_type  = "node:B,name:s",
+        .mhandler.cmd_new = qmp_marshal_block_dirty_bitmap_clear,
+    },
+
+SQMP
+
+block-dirty-bitmap-clear
+------------------------
+Since 2.4
+
+Reset the dirty bitmap associated with a node so that an incremental backup
+from this point in time forward will only backup clusters modified after this
+clear operation.
+
+Arguments:
+
+- "node": device/node on which to remove dirty bitmap (json-string)
+- "name": name of the dirty bitmap to remove (json-string)
+
+Example:
+
+-> { "execute": "block-dirty-bitmap-clear", "arguments": { "node": "drive0",
+                                                           "name": "bitmap0" } }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "blockdev-snapshot-sync",
         .args_type  = "device:s?,node-name:s?,snapshot-file:s,snapshot-node-name:s?,format:s?,mode:s?",
-        .mhandler.cmd_new = qmp_marshal_input_blockdev_snapshot_sync,
+        .mhandler.cmd_new = qmp_marshal_blockdev_snapshot_sync,
     },
 
 SQMP
@@ -1306,9 +1555,47 @@ Example:
 EQMP
 
     {
+        .name       = "blockdev-snapshot",
+        .args_type  = "node:s,overlay:s",
+        .mhandler.cmd_new = qmp_marshal_blockdev_snapshot,
+    },
+
+SQMP
+blockdev-snapshot
+-----------------
+Since 2.5
+
+Create a snapshot, by installing 'node' as the backing image of
+'overlay'. Additionally, if 'node' is associated with a block
+device, the block device changes to using 'overlay' as its new active
+image.
+
+Arguments:
+
+- "node": device that will have a snapshot created (json-string)
+- "overlay": device that will have 'node' as its backing image (json-string)
+
+Example:
+
+-> { "execute": "blockdev-add",
+                "arguments": { "options": { "driver": "qcow2",
+                                            "node-name": "node1534",
+                                            "file": { "driver": "file",
+                                                      "filename": "hd1.qcow2" },
+                                            "backing": "" } } }
+
+<- { "return": {} }
+
+-> { "execute": "blockdev-snapshot", "arguments": { "node": "ide-hd0",
+                                                    "overlay": "node1534" } }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "blockdev-snapshot-internal-sync",
         .args_type  = "device:B,name:s",
-        .mhandler.cmd_new = qmp_marshal_input_blockdev_snapshot_internal_sync,
+        .mhandler.cmd_new = qmp_marshal_blockdev_snapshot_internal_sync,
     },
 
 SQMP
@@ -1338,7 +1625,7 @@ EQMP
         .name       = "blockdev-snapshot-delete-internal-sync",
         .args_type  = "device:B,id:s?,name:s?",
         .mhandler.cmd_new =
-                      qmp_marshal_input_blockdev_snapshot_delete_internal_sync,
+                      qmp_marshal_blockdev_snapshot_delete_internal_sync,
     },
 
 SQMP
@@ -1377,11 +1664,12 @@ EQMP
 
     {
         .name       = "drive-mirror",
-        .args_type  = "sync:s,device:B,target:s,speed:i?,mode:s?,format:s?,"
-                      "node-name:s?,replaces:s?,"
+        .args_type  = "job-id:s?,sync:s,device:B,target:s,speed:i?,mode:s?,"
+                      "format:s?,node-name:s?,replaces:s?,"
                       "on-source-error:s?,on-target-error:s?,"
+                      "unmap:b?,"
                       "granularity:i?,buf-size:i?",
-        .mhandler.cmd_new = qmp_marshal_input_drive_mirror,
+        .mhandler.cmd_new = qmp_marshal_drive_mirror,
     },
 
 SQMP
@@ -1397,6 +1685,8 @@ of the source.
 
 Arguments:
 
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
 - "device": device name to operate on (json-string)
 - "target": name of new image file (json-string)
 - "format": format of new image (json-string, optional)
@@ -1406,6 +1696,61 @@ Arguments:
               (json-string, optional)
 - "mode": how an image file should be created into the target
   file/device (NewImageMode, optional, default 'absolute-paths')
+- "speed": maximum speed of the streaming job, in bytes per second
+  (json-int)
+- "granularity": granularity of the dirty bitmap, in bytes (json-int, optional)
+- "buf-size": maximum amount of data in flight from source to target, in bytes
+  (json-int, default 10M)
+- "sync": what parts of the disk image should be copied to the destination;
+  possibilities include "full" for all the disk, "top" for only the sectors
+  allocated in the topmost image, or "none" to only replicate new I/O
+  (MirrorSyncMode).
+- "on-source-error": the action to take on an error on the source
+  (BlockdevOnError, default 'report')
+- "on-target-error": the action to take on an error on the target
+  (BlockdevOnError, default 'report')
+- "unmap": whether the target sectors should be discarded where source has only
+  zeroes. (json-bool, optional, default true)
+
+The default value of the granularity is the image cluster size clamped
+between 4096 and 65536, if the image format defines one.  If the format
+does not define a cluster size, the default value of the granularity
+is 65536.
+
+
+Example:
+
+-> { "execute": "drive-mirror", "arguments": { "device": "ide-hd0",
+                                               "target": "/some/place/my-image",
+                                               "sync": "full",
+                                               "format": "qcow2" } }
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "blockdev-mirror",
+        .args_type  = "job-id:s?,sync:s,device:B,target:B,replaces:s?,speed:i?,"
+                      "on-source-error:s?,on-target-error:s?,"
+                      "granularity:i?,buf-size:i?",
+        .mhandler.cmd_new = qmp_marshal_blockdev_mirror,
+    },
+
+SQMP
+blockdev-mirror
+------------
+
+Start mirroring a block device's writes to another block device. target
+specifies the target of mirror operation.
+
+Arguments:
+
+- "job-id": Identifier for the newly-created block job. If omitted,
+            the device name will be used. (json-string, optional)
+- "device": device name to operate on (json-string)
+- "target": device name to mirror to (json-string)
+- "replaces": the block driver node name to replace when finished
+              (json-string, optional)
 - "speed": maximum speed of the streaming job, in bytes per second
   (json-int)
 - "granularity": granularity of the dirty bitmap, in bytes (json-int, optional)
@@ -1425,21 +1770,18 @@ between 4096 and 65536, if the image format defines one.  If the format
 does not define a cluster size, the default value of the granularity
 is 65536.
 
-
 Example:
 
--> { "execute": "drive-mirror", "arguments": { "device": "ide-hd0",
-                                               "target": "/some/place/my-image",
-                                               "sync": "full",
-                                               "format": "qcow2" } }
+-> { "execute": "blockdev-mirror", "arguments": { "device": "ide-hd0",
+                                                  "target": "target0",
+                                                  "sync": "full" } }
 <- { "return": {} }
 
 EQMP
-
     {
         .name       = "change-backing-file",
         .args_type  = "device:s,image-node-name:s,backing-file:s",
-        .mhandler.cmd_new = qmp_marshal_input_change_backing_file,
+        .mhandler.cmd_new = qmp_marshal_change_backing_file,
     },
 
 SQMP
@@ -1478,7 +1820,7 @@ EQMP
     {
         .name       = "balloon",
         .args_type  = "value:M",
-        .mhandler.cmd_new = qmp_marshal_input_balloon,
+        .mhandler.cmd_new = qmp_marshal_balloon,
     },
 
 SQMP
@@ -1501,7 +1843,7 @@ EQMP
     {
         .name       = "set_link",
         .args_type  = "name:s,up:b",
-        .mhandler.cmd_new = qmp_marshal_input_set_link,
+        .mhandler.cmd_new = qmp_marshal_set_link,
     },
 
 SQMP
@@ -1527,7 +1869,7 @@ EQMP
         .args_type  = "fdname:s",
         .params     = "getfd name",
         .help       = "receive a file descriptor via SCM rights and assign it a name",
-        .mhandler.cmd_new = qmp_marshal_input_getfd,
+        .mhandler.cmd_new = qmp_marshal_getfd,
     },
 
 SQMP
@@ -1560,7 +1902,7 @@ EQMP
         .args_type  = "fdname:s",
         .params     = "closefd name",
         .help       = "close a file descriptor previously passed via SCM rights",
-        .mhandler.cmd_new = qmp_marshal_input_closefd,
+        .mhandler.cmd_new = qmp_marshal_closefd,
     },
 
 SQMP
@@ -1585,7 +1927,7 @@ EQMP
         .args_type  = "fdset-id:i?,opaque:s?",
         .params     = "add-fd fdset-id opaque",
         .help       = "Add a file descriptor, that was passed via SCM rights, to an fd set",
-        .mhandler.cmd_new = qmp_marshal_input_add_fd,
+        .mhandler.cmd_new = qmp_marshal_add_fd,
     },
 
 SQMP
@@ -1624,7 +1966,7 @@ EQMP
         .args_type  = "fdset-id:i,fd:i?",
         .params     = "remove-fd fdset-id fd",
         .help       = "Remove a file descriptor from an fd set",
-        .mhandler.cmd_new = qmp_marshal_input_remove_fd,
+        .mhandler.cmd_new = qmp_marshal_remove_fd,
     },
 
 SQMP
@@ -1656,7 +1998,7 @@ EQMP
         .name       = "query-fdsets",
         .args_type  = "",
         .help       = "Return information describing all fd sets",
-        .mhandler.cmd_new = qmp_marshal_input_query_fdsets,
+        .mhandler.cmd_new = qmp_marshal_query_fdsets,
     },
 
 SQMP
@@ -1705,7 +2047,7 @@ EQMP
     {
         .name       = "block_passwd",
         .args_type  = "device:s?,node-name:s?,password:s",
-        .mhandler.cmd_new = qmp_marshal_input_block_passwd,
+        .mhandler.cmd_new = qmp_marshal_block_passwd,
     },
 
 SQMP
@@ -1730,8 +2072,8 @@ EQMP
 
     {
         .name       = "block_set_io_throttle",
-        .args_type  = "device:B,bps:l,bps_rd:l,bps_wr:l,iops:l,iops_rd:l,iops_wr:l,bps_max:l?,bps_rd_max:l?,bps_wr_max:l?,iops_max:l?,iops_rd_max:l?,iops_wr_max:l?,iops_size:l?",
-        .mhandler.cmd_new = qmp_marshal_input_block_set_io_throttle,
+        .args_type  = "device:B,bps:l,bps_rd:l,bps_wr:l,iops:l,iops_rd:l,iops_wr:l,bps_max:l?,bps_rd_max:l?,bps_wr_max:l?,iops_max:l?,iops_rd_max:l?,iops_wr_max:l?,bps_max_length:l?,bps_rd_max_length:l?,bps_wr_max_length:l?,iops_max_length:l?,iops_rd_max_length:l?,iops_wr_max_length:l?,iops_size:l?,group:s?",
+        .mhandler.cmd_new = qmp_marshal_block_set_io_throttle,
     },
 
 SQMP
@@ -1749,13 +2091,20 @@ Arguments:
 - "iops": total I/O operations per second (json-int)
 - "iops_rd": read I/O operations per second (json-int)
 - "iops_wr": write I/O operations per second (json-int)
-- "bps_max":  total max in bytes (json-int)
-- "bps_rd_max":  read max in bytes (json-int)
-- "bps_wr_max":  write max in bytes (json-int)
-- "iops_max":  total I/O operations max (json-int)
-- "iops_rd_max":  read I/O operations max (json-int)
-- "iops_wr_max":  write I/O operations max (json-int)
-- "iops_size":  I/O size in bytes when limiting (json-int)
+- "bps_max": total throughput limit during bursts, in bytes (json-int, optional)
+- "bps_rd_max": read throughput limit during bursts, in bytes (json-int, optional)
+- "bps_wr_max": write throughput limit during bursts, in bytes (json-int, optional)
+- "iops_max": total I/O operations per second during bursts (json-int, optional)
+- "iops_rd_max": read I/O operations per second during bursts (json-int, optional)
+- "iops_wr_max": write I/O operations per second during bursts (json-int, optional)
+- "bps_max_length": maximum length of the @bps_max burst period, in seconds (json-int, optional)
+- "bps_rd_max_length": maximum length of the @bps_rd_max burst period, in seconds (json-int, optional)
+- "bps_wr_max_length": maximum length of the @bps_wr_max burst period, in seconds (json-int, optional)
+- "iops_max_length": maximum length of the @iops_max burst period, in seconds (json-int, optional)
+- "iops_rd_max_length": maximum length of the @iops_rd_max burst period, in seconds (json-int, optional)
+- "iops_wr_max_length": maximum length of the @iops_wr_max burst period, in seconds (json-int, optional)
+- "iops_size":  I/O size in bytes when limiting (json-int, optional)
+- "group": throttle group name (json-string, optional)
 
 Example:
 
@@ -1772,6 +2121,7 @@ Example:
                                                "iops_max": 0,
                                                "iops_rd_max": 0,
                                                "iops_wr_max": 0,
+                                               "bps_max_length": 60,
                                                "iops_size": 0 } }
 <- { "return": {} }
 
@@ -1780,7 +2130,7 @@ EQMP
     {
         .name       = "set_password",
         .args_type  = "protocol:s,password:s,connected:s?",
-        .mhandler.cmd_new = qmp_marshal_input_set_password,
+        .mhandler.cmd_new = qmp_marshal_set_password,
     },
 
 SQMP
@@ -1806,7 +2156,7 @@ EQMP
     {
         .name       = "expire_password",
         .args_type  = "protocol:s,time:s",
-        .mhandler.cmd_new = qmp_marshal_input_expire_password,
+        .mhandler.cmd_new = qmp_marshal_expire_password,
     },
 
 SQMP
@@ -1831,7 +2181,7 @@ EQMP
     {
         .name       = "add_client",
         .args_type  = "protocol:s,fdname:s,skipauth:b?,tls:b?",
-        .mhandler.cmd_new = qmp_marshal_input_add_client,
+        .mhandler.cmd_new = qmp_marshal_add_client,
     },
 
 SQMP
@@ -1859,7 +2209,7 @@ EQMP
         .args_type  = "",
         .params     = "",
         .help       = "enable QMP capabilities",
-        .mhandler.cmd_new = do_qmp_capabilities,
+        .mhandler.cmd_new = qmp_capabilities,
     },
 
 SQMP
@@ -1882,7 +2232,7 @@ EQMP
     {
         .name       = "human-monitor-command",
         .args_type  = "command-line:s,cpu-index:i?",
-        .mhandler.cmd_new = qmp_marshal_input_human_monitor_command,
+        .mhandler.cmd_new = qmp_marshal_human_monitor_command,
     },
 
 SQMP
@@ -1961,7 +2311,7 @@ EQMP
     {
         .name       = "query-version",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_version,
+        .mhandler.cmd_new = qmp_marshal_query_version,
     },
 
 SQMP
@@ -1998,7 +2348,7 @@ EQMP
     {
         .name       = "query-commands",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_commands,
+        .mhandler.cmd_new = qmp_marshal_query_commands,
     },
 
 SQMP
@@ -2035,7 +2385,24 @@ EQMP
     {
         .name       = "query-events",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_events,
+        .mhandler.cmd_new = qmp_marshal_query_events,
+    },
+
+SQMP
+query-qmp-schema
+----------------
+
+Return the QMP wire schema.  The returned value is a json-array of
+named schema entities.  Entities are commands, events and various
+types.  See docs/qapi-code-gen.txt for information on their structure
+and intended use.
+
+EQMP
+
+    {
+        .name       = "query-qmp-schema",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_query_qmp_schema,
     },
 
 SQMP
@@ -2080,7 +2447,7 @@ EQMP
     {
         .name       = "query-chardev",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_chardev,
+        .mhandler.cmd_new = qmp_marshal_query_chardev,
     },
 
 SQMP
@@ -2121,7 +2488,7 @@ EQMP
     {
         .name       = "query-chardev-backends",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_chardev_backends,
+        .mhandler.cmd_new = qmp_marshal_query_chardev_backends,
     },
 
 SQMP
@@ -2257,7 +2624,7 @@ Example:
                   "virtual-size":2048000,
                   "backing_file":"base.qcow2",
                   "full-backing-filename":"disks/base.qcow2",
-                  "backing-filename-format:"qcow2",
+                  "backing-filename-format":"qcow2",
                   "snapshots":[
                      {
                         "id": "1",
@@ -2305,7 +2672,7 @@ EQMP
     {
         .name       = "query-block",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_block,
+        .mhandler.cmd_new = qmp_marshal_query_block,
     },
 
 SQMP
@@ -2329,12 +2696,70 @@ Each json-object contain the following:
     - "wr_total_time_ns": total time spend on writes in nano-seconds (json-int)
     - "rd_total_time_ns": total time spend on reads in nano-seconds (json-int)
     - "flush_total_time_ns": total time spend on cache flushes in nano-seconds (json-int)
-    - "wr_highest_offset": Highest offset of a sector written since the
-                           BlockDriverState has been opened (json-int)
+    - "wr_highest_offset": The offset after the greatest byte written to the
+                           BlockDriverState since it has been opened (json-int)
     - "rd_merged": number of read requests that have been merged into
                    another request (json-int)
     - "wr_merged": number of write requests that have been merged into
                    another request (json-int)
+    - "idle_time_ns": time since the last I/O operation, in
+                      nanoseconds. If the field is absent it means
+                      that there haven't been any operations yet
+                      (json-int, optional)
+    - "failed_rd_operations": number of failed read operations
+                              (json-int)
+    - "failed_wr_operations": number of failed write operations
+                              (json-int)
+    - "failed_flush_operations": number of failed flush operations
+                               (json-int)
+    - "invalid_rd_operations": number of invalid read operations
+                               (json-int)
+    - "invalid_wr_operations": number of invalid write operations
+                               (json-int)
+    - "invalid_flush_operations": number of invalid flush operations
+                                  (json-int)
+    - "account_invalid": whether invalid operations are included in
+                         the last access statistics (json-bool)
+    - "account_failed": whether failed operations are included in the
+                         latency and last access statistics
+                         (json-bool)
+    - "timed_stats": A json-array containing statistics collected in
+                     specific intervals, with the following members:
+        - "interval_length": interval used for calculating the
+                             statistics, in seconds (json-int)
+        - "min_rd_latency_ns": minimum latency of read operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "min_wr_latency_ns": minimum latency of write operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "min_flush_latency_ns": minimum latency of flush operations
+                                  in the defined interval, in
+                                  nanoseconds (json-int)
+        - "max_rd_latency_ns": maximum latency of read operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "max_wr_latency_ns": maximum latency of write operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "max_flush_latency_ns": maximum latency of flush operations
+                                  in the defined interval, in
+                                  nanoseconds (json-int)
+        - "avg_rd_latency_ns": average latency of read operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "avg_wr_latency_ns": average latency of write operations in
+                               the defined interval, in nanoseconds
+                               (json-int)
+        - "avg_flush_latency_ns": average latency of flush operations
+                                  in the defined interval, in
+                                  nanoseconds (json-int)
+        - "avg_rd_queue_depth": average number of pending read
+                                operations in the defined interval
+                                (json-number)
+        - "avg_wr_queue_depth": average number of pending write
+                                operations in the defined interval
+                                (json-number).
 - "parent": Contains recursively the statistics of the underlying
             protocol (e.g. the host file for a qcow2 image). If there is
             no underlying protocol, this field is omitted
@@ -2359,7 +2784,10 @@ Example:
                   "flush_total_times_ns":49653
                   "flush_operations":61,
                   "rd_merged":0,
-                  "wr_merged":0
+                  "wr_merged":0,
+                  "idle_time_ns":2953431879,
+                  "account_invalid":true,
+                  "account_failed":false
                }
             },
             "stats":{
@@ -2373,7 +2801,10 @@ Example:
                "rd_total_times_ns":3465673657
                "flush_total_times_ns":49653,
                "rd_merged":0,
-               "wr_merged":0
+               "wr_merged":0,
+               "idle_time_ns":2953431879,
+               "account_invalid":true,
+               "account_failed":false
             }
          },
          {
@@ -2389,7 +2820,9 @@ Example:
                "rd_total_times_ns":0
                "flush_total_times_ns":0,
                "rd_merged":0,
-               "wr_merged":0
+               "wr_merged":0,
+               "account_invalid":false,
+               "account_failed":false
             }
          },
          {
@@ -2405,7 +2838,9 @@ Example:
                "rd_total_times_ns":0
                "flush_total_times_ns":0,
                "rd_merged":0,
-               "wr_merged":0
+               "wr_merged":0,
+               "account_invalid":false,
+               "account_failed":false
             }
          },
          {
@@ -2421,7 +2856,9 @@ Example:
                "rd_total_times_ns":0
                "flush_total_times_ns":0,
                "rd_merged":0,
-               "wr_merged":0
+               "wr_merged":0,
+               "account_invalid":false,
+               "account_failed":false
             }
          }
       ]
@@ -2432,7 +2869,7 @@ EQMP
     {
         .name       = "query-blockstats",
         .args_type  = "query-nodes:b?",
-        .mhandler.cmd_new = qmp_marshal_input_query_blockstats,
+        .mhandler.cmd_new = qmp_marshal_query_blockstats,
     },
 
 SQMP
@@ -2446,6 +2883,9 @@ Return a json-array. Each CPU is represented by a json-object, which contains:
 - "CPU": CPU index (json-int)
 - "current": true if this is the current CPU, false otherwise (json-bool)
 - "halted": true if the cpu is halted, false otherwise (json-bool)
+- "qom_path": path to the CPU object in the QOM tree (json-str)
+- "arch": architecture of the cpu, which determines what additional
+          keys will be present (json-str)
 - Current program counter. The key's name depends on the architecture:
      "pc": i386/x86_64 (json-int)
      "nip": PPC (json-int)
@@ -2462,14 +2902,18 @@ Example:
             "CPU":0,
             "current":true,
             "halted":false,
-            "pc":3227107138
+            "qom_path":"/machine/unattached/device[0]",
+            "arch":"x86",
+            "pc":3227107138,
             "thread_id":3134
          },
          {
             "CPU":1,
             "current":false,
             "halted":true,
-            "pc":7108165
+            "qom_path":"/machine/unattached/device[2]",
+            "arch":"x86",
+            "pc":7108165,
             "thread_id":3135
          }
       ]
@@ -2480,7 +2924,7 @@ EQMP
     {
         .name       = "query-cpus",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_cpus,
+        .mhandler.cmd_new = qmp_marshal_query_cpus,
     },
 
 SQMP
@@ -2519,7 +2963,7 @@ EQMP
     {
         .name       = "query-iothreads",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_iothreads,
+        .mhandler.cmd_new = qmp_marshal_query_iothreads,
     },
 
 SQMP
@@ -2736,7 +3180,7 @@ EQMP
     {
         .name       = "query-pci",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_pci,
+        .mhandler.cmd_new = qmp_marshal_query_pci,
     },
 
 SQMP
@@ -2760,7 +3204,7 @@ EQMP
     {
         .name       = "query-kvm",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_kvm,
+        .mhandler.cmd_new = qmp_marshal_query_kvm,
     },
 
 SQMP
@@ -2800,7 +3244,7 @@ EQMP
     {
         .name       = "query-status",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_status,
+        .mhandler.cmd_new = qmp_marshal_query_status,
     },
 
 SQMP
@@ -2844,7 +3288,7 @@ EQMP
     {
         .name       = "query-mice",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_mice,
+        .mhandler.cmd_new = qmp_marshal_query_mice,
     },
 
 SQMP
@@ -2907,12 +3351,12 @@ EQMP
     {
         .name       = "query-vnc",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_vnc,
+        .mhandler.cmd_new = qmp_marshal_query_vnc,
     },
     {
         .name       = "query-vnc-servers",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_vnc_servers,
+        .mhandler.cmd_new = qmp_marshal_query_vnc_servers,
     },
 
 SQMP
@@ -2989,7 +3433,7 @@ EQMP
     {
         .name       = "query-spice",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_spice,
+        .mhandler.cmd_new = qmp_marshal_query_spice,
     },
 #endif
 
@@ -3013,7 +3457,7 @@ EQMP
     {
         .name       = "query-name",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_name,
+        .mhandler.cmd_new = qmp_marshal_query_name,
     },
 
 SQMP
@@ -3036,7 +3480,7 @@ EQMP
     {
         .name       = "query-uuid",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_uuid,
+        .mhandler.cmd_new = qmp_marshal_query_uuid,
     },
 
 SQMP
@@ -3085,7 +3529,7 @@ EQMP
     {
         .name       = "query-command-line-options",
         .args_type  = "option:s?",
-        .mhandler.cmd_new = qmp_marshal_input_query_command_line_options,
+        .mhandler.cmd_new = qmp_marshal_query_command_line_options,
     },
 
 SQMP
@@ -3263,7 +3707,7 @@ EQMP
     {
         .name       = "query-migrate",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_migrate,
+        .mhandler.cmd_new = qmp_marshal_query_migrate,
     },
 
 SQMP
@@ -3276,6 +3720,9 @@ Enable/Disable migration capabilities
 - "rdma-pin-all": pin all pages when using RDMA during migration
 - "auto-converge": throttle down guest to help convergence of migration
 - "zero-blocks": compress zero blocks during block migration
+- "compress": use multiple compression threads to accelerate live migration
+- "events": generate events for each migration state change
+- "postcopy-ram": postcopy mode for live migration
 
 Arguments:
 
@@ -3288,9 +3735,9 @@ EQMP
 
     {
         .name       = "migrate-set-capabilities",
-        .args_type  = "capabilities:O",
+        .args_type  = "capabilities:q",
         .params     = "capability:s,state:b",
-	.mhandler.cmd_new = qmp_marshal_input_migrate_set_capabilities,
+        .mhandler.cmd_new = qmp_marshal_migrate_set_capabilities,
     },
 SQMP
 query-migrate-capabilities
@@ -3303,20 +3750,98 @@ Query current migration capabilities
          - "rdma-pin-all" : RDMA Pin Page state (json-bool)
          - "auto-converge" : Auto Converge state (json-bool)
          - "zero-blocks" : Zero Blocks state (json-bool)
+         - "compress": Multiple compression threads state (json-bool)
+         - "events": Migration state change event state (json-bool)
+         - "postcopy-ram": postcopy ram state (json-bool)
 
 Arguments:
 
 Example:
 
 -> { "execute": "query-migrate-capabilities" }
-<- { "return": [ { "state": false, "capability": "xbzrle" } ] }
+<- {"return": [
+     {"state": false, "capability": "xbzrle"},
+     {"state": false, "capability": "rdma-pin-all"},
+     {"state": false, "capability": "auto-converge"},
+     {"state": false, "capability": "zero-blocks"},
+     {"state": false, "capability": "compress"},
+     {"state": true, "capability": "events"},
+     {"state": false, "capability": "postcopy-ram"}
+   ]}
 
 EQMP
 
     {
         .name       = "query-migrate-capabilities",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_migrate_capabilities,
+        .mhandler.cmd_new = qmp_marshal_query_migrate_capabilities,
+    },
+
+SQMP
+migrate-set-parameters
+----------------------
+
+Set migration parameters
+
+- "compress-level": set compression level during migration (json-int)
+- "compress-threads": set compression thread count for migration (json-int)
+- "decompress-threads": set decompression thread count for migration (json-int)
+- "cpu-throttle-initial": set initial percentage of time guest cpus are
+                          throttled for auto-converge (json-int)
+- "cpu-throttle-increment": set throttle increasing percentage for
+                            auto-converge (json-int)
+
+Arguments:
+
+Example:
+
+-> { "execute": "migrate-set-parameters" , "arguments":
+      { "compress-level": 1 } }
+
+EQMP
+
+    {
+        .name       = "migrate-set-parameters",
+        .args_type  =
+            "compress-level:i?,compress-threads:i?,decompress-threads:i?,cpu-throttle-initial:i?,cpu-throttle-increment:i?",
+        .mhandler.cmd_new = qmp_marshal_migrate_set_parameters,
+    },
+SQMP
+query-migrate-parameters
+------------------------
+
+Query current migration parameters
+
+- "parameters": migration parameters value
+         - "compress-level" : compression level value (json-int)
+         - "compress-threads" : compression thread count value (json-int)
+         - "decompress-threads" : decompression thread count value (json-int)
+         - "cpu-throttle-initial" : initial percentage of time guest cpus are
+                                    throttled (json-int)
+         - "cpu-throttle-increment" : throttle increasing percentage for
+                                      auto-converge (json-int)
+
+Arguments:
+
+Example:
+
+-> { "execute": "query-migrate-parameters" }
+<- {
+      "return": {
+         "decompress-threads": 2,
+         "cpu-throttle-increment": 10,
+         "compress-threads": 8,
+         "compress-level": 1,
+         "cpu-throttle-initial": 20
+      }
+   }
+
+EQMP
+
+    {
+        .name       = "query-migrate-parameters",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_marshal_query_migrate_parameters,
     },
 
 SQMP
@@ -3344,88 +3869,88 @@ EQMP
     {
         .name       = "query-balloon",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_balloon,
+        .mhandler.cmd_new = qmp_marshal_query_balloon,
     },
 
     {
         .name       = "query-block-jobs",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_block_jobs,
+        .mhandler.cmd_new = qmp_marshal_query_block_jobs,
     },
 
     {
         .name       = "qom-list",
         .args_type  = "path:s",
-        .mhandler.cmd_new = qmp_marshal_input_qom_list,
+        .mhandler.cmd_new = qmp_marshal_qom_list,
     },
 
     {
         .name       = "qom-set",
 	.args_type  = "path:s,property:s,value:q",
-	.mhandler.cmd_new = qmp_qom_set,
+        .mhandler.cmd_new = qmp_marshal_qom_set,
     },
 
     {
         .name       = "qom-get",
 	.args_type  = "path:s,property:s",
-	.mhandler.cmd_new = qmp_qom_get,
+        .mhandler.cmd_new = qmp_marshal_qom_get,
     },
 
     {
         .name       = "nbd-server-start",
-        .args_type  = "addr:q",
-        .mhandler.cmd_new = qmp_marshal_input_nbd_server_start,
+        .args_type  = "addr:q,tls-creds:s?",
+        .mhandler.cmd_new = qmp_marshal_nbd_server_start,
     },
     {
         .name       = "nbd-server-add",
         .args_type  = "device:B,writable:b?",
-        .mhandler.cmd_new = qmp_marshal_input_nbd_server_add,
+        .mhandler.cmd_new = qmp_marshal_nbd_server_add,
     },
     {
         .name       = "nbd-server-stop",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_nbd_server_stop,
+        .mhandler.cmd_new = qmp_marshal_nbd_server_stop,
     },
 
     {
         .name       = "change-vnc-password",
         .args_type  = "password:s",
-        .mhandler.cmd_new = qmp_marshal_input_change_vnc_password,
+        .mhandler.cmd_new = qmp_marshal_change_vnc_password,
     },
     {
         .name       = "qom-list-types",
         .args_type  = "implements:s?,abstract:b?",
-        .mhandler.cmd_new = qmp_marshal_input_qom_list_types,
+        .mhandler.cmd_new = qmp_marshal_qom_list_types,
     },
 
     {
         .name       = "device-list-properties",
         .args_type  = "typename:s",
-        .mhandler.cmd_new = qmp_marshal_input_device_list_properties,
+        .mhandler.cmd_new = qmp_marshal_device_list_properties,
     },
 
     {
         .name       = "query-machines",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_machines,
+        .mhandler.cmd_new = qmp_marshal_query_machines,
     },
 
     {
         .name       = "query-cpu-definitions",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_cpu_definitions,
+        .mhandler.cmd_new = qmp_marshal_query_cpu_definitions,
     },
 
     {
         .name       = "query-target",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_target,
+        .mhandler.cmd_new = qmp_marshal_query_target,
     },
 
     {
         .name       = "query-tpm",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_tpm,
+        .mhandler.cmd_new = qmp_marshal_query_tpm,
     },
 
 SQMP
@@ -3459,7 +3984,7 @@ EQMP
     {
         .name       = "query-tpm-models",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_tpm_models,
+        .mhandler.cmd_new = qmp_marshal_query_tpm_models,
     },
 
 SQMP
@@ -3480,7 +4005,7 @@ EQMP
     {
         .name       = "query-tpm-types",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_tpm_types,
+        .mhandler.cmd_new = qmp_marshal_query_tpm_types,
     },
 
 SQMP
@@ -3501,7 +4026,7 @@ EQMP
     {
         .name       = "chardev-add",
         .args_type  = "id:s,backend:q",
-        .mhandler.cmd_new = qmp_marshal_input_chardev_add,
+        .mhandler.cmd_new = qmp_marshal_chardev_add,
     },
 
 SQMP
@@ -3538,7 +4063,7 @@ EQMP
     {
         .name       = "chardev-remove",
         .args_type  = "id:s",
-        .mhandler.cmd_new = qmp_marshal_input_chardev_remove,
+        .mhandler.cmd_new = qmp_marshal_chardev_remove,
     },
 
 
@@ -3561,7 +4086,7 @@ EQMP
     {
         .name       = "query-rx-filter",
         .args_type  = "name:s?",
-        .mhandler.cmd_new = qmp_marshal_input_query_rx_filter,
+        .mhandler.cmd_new = qmp_marshal_query_rx_filter,
     },
 
 SQMP
@@ -3627,7 +4152,7 @@ EQMP
     {
         .name       = "blockdev-add",
         .args_type  = "options:q",
-        .mhandler.cmd_new = qmp_marshal_input_blockdev_add,
+        .mhandler.cmd_new = qmp_marshal_blockdev_add,
     },
 
 SQMP
@@ -3637,8 +4162,8 @@ blockdev-add
 Add a block device.
 
 This command is still a work in progress.  It doesn't support all
-block drivers, it lacks a matching blockdev-del, and more.  Stay away
-from it unless you want to help with its development.
+block drivers among other things.  Stay away from it unless you want
+to help with its development.
 
 Arguments:
 
@@ -3684,9 +4209,290 @@ Example (2):
 EQMP
 
     {
+        .name       = "x-blockdev-del",
+        .args_type  = "id:s?,node-name:s?",
+        .mhandler.cmd_new = qmp_marshal_x_blockdev_del,
+    },
+
+SQMP
+x-blockdev-del
+------------
+Since 2.5
+
+Deletes a block device thas has been added using blockdev-add.
+The selected device can be either a block backend or a graph node.
+
+In the former case the backend will be destroyed, along with its
+inserted medium if there's any. The command will fail if the backend
+or its medium are in use.
+
+In the latter case the node will be destroyed. The command will fail
+if the node is attached to a block backend or is otherwise being
+used.
+
+One of "id" or "node-name" must be specified, but not both.
+
+This command is still a work in progress and is considered
+experimental. Stay away from it unless you want to help with its
+development.
+
+Arguments:
+
+- "id": Name of the block backend device to delete (json-string, optional)
+- "node-name": Name of the graph node to delete (json-string, optional)
+
+Example:
+
+-> { "execute": "blockdev-add",
+     "arguments": {
+         "options": {
+             "driver": "qcow2",
+             "id": "drive0",
+             "file": {
+                 "driver": "file",
+                 "filename": "test.qcow2"
+             }
+         }
+     }
+   }
+
+<- { "return": {} }
+
+-> { "execute": "x-blockdev-del",
+     "arguments": { "id": "drive0" }
+   }
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "blockdev-open-tray",
+        .args_type  = "device:s,force:b?",
+        .mhandler.cmd_new = qmp_marshal_blockdev_open_tray,
+    },
+
+SQMP
+blockdev-open-tray
+------------------
+
+Opens a block device's tray. If there is a block driver state tree inserted as a
+medium, it will become inaccessible to the guest (but it will remain associated
+to the block device, so closing the tray will make it accessible again).
+
+If the tray was already open before, this will be a no-op.
+
+Once the tray opens, a DEVICE_TRAY_MOVED event is emitted. There are cases in
+which no such event will be generated, these include:
+- if the guest has locked the tray, @force is false and the guest does not
+  respond to the eject request
+- if the BlockBackend denoted by @device does not have a guest device attached
+  to it
+- if the guest device does not have an actual tray and is empty, for instance
+  for floppy disk drives
+
+Arguments:
+
+- "device": block device name (json-string)
+- "force": if false (the default), an eject request will be sent to the guest if
+           it has locked the tray (and the tray will not be opened immediately);
+           if true, the tray will be opened regardless of whether it is locked
+           (json-bool, optional)
+
+Example:
+
+-> { "execute": "blockdev-open-tray",
+     "arguments": { "device": "ide1-cd0" } }
+
+<- { "timestamp": { "seconds": 1418751016,
+                    "microseconds": 716996 },
+     "event": "DEVICE_TRAY_MOVED",
+     "data": { "device": "ide1-cd0",
+               "tray-open": true } }
+
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "blockdev-close-tray",
+        .args_type  = "device:s",
+        .mhandler.cmd_new = qmp_marshal_blockdev_close_tray,
+    },
+
+SQMP
+blockdev-close-tray
+-------------------
+
+Closes a block device's tray. If there is a block driver state tree associated
+with the block device (which is currently ejected), that tree will be loaded as
+the medium.
+
+If the tray was already closed before, this will be a no-op.
+
+Arguments:
+
+- "device": block device name (json-string)
+
+Example:
+
+-> { "execute": "blockdev-close-tray",
+     "arguments": { "device": "ide1-cd0" } }
+
+<- { "timestamp": { "seconds": 1418751345,
+                    "microseconds": 272147 },
+     "event": "DEVICE_TRAY_MOVED",
+     "data": { "device": "ide1-cd0",
+               "tray-open": false } }
+
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "x-blockdev-remove-medium",
+        .args_type  = "device:s",
+        .mhandler.cmd_new = qmp_marshal_x_blockdev_remove_medium,
+    },
+
+SQMP
+x-blockdev-remove-medium
+------------------------
+
+Removes a medium (a block driver state tree) from a block device. That block
+device's tray must currently be open (unless there is no attached guest device).
+
+If the tray is open and there is no medium inserted, this will be a no-op.
+
+This command is still a work in progress and is considered experimental.
+Stay away from it unless you want to help with its development.
+
+Arguments:
+
+- "device": block device name (json-string)
+
+Example:
+
+-> { "execute": "x-blockdev-remove-medium",
+     "arguments": { "device": "ide1-cd0" } }
+
+<- { "error": { "class": "GenericError",
+                "desc": "Tray of device 'ide1-cd0' is not open" } }
+
+-> { "execute": "blockdev-open-tray",
+     "arguments": { "device": "ide1-cd0" } }
+
+<- { "timestamp": { "seconds": 1418751627,
+                    "microseconds": 549958 },
+     "event": "DEVICE_TRAY_MOVED",
+     "data": { "device": "ide1-cd0",
+               "tray-open": true } }
+
+<- { "return": {} }
+
+-> { "execute": "x-blockdev-remove-medium",
+     "arguments": { "device": "ide1-cd0" } }
+
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "x-blockdev-insert-medium",
+        .args_type  = "device:s,node-name:s",
+        .mhandler.cmd_new = qmp_marshal_x_blockdev_insert_medium,
+    },
+
+SQMP
+x-blockdev-insert-medium
+------------------------
+
+Inserts a medium (a block driver state tree) into a block device. That block
+device's tray must currently be open (unless there is no attached guest device)
+and there must be no medium inserted already.
+
+This command is still a work in progress and is considered experimental.
+Stay away from it unless you want to help with its development.
+
+Arguments:
+
+- "device": block device name (json-string)
+- "node-name": root node of the BDS tree to insert into the block device
+
+Example:
+
+-> { "execute": "blockdev-add",
+     "arguments": { "options": { "node-name": "node0",
+                                 "driver": "raw",
+                                 "file": { "driver": "file",
+                                           "filename": "fedora.iso" } } } }
+
+<- { "return": {} }
+
+-> { "execute": "x-blockdev-insert-medium",
+     "arguments": { "device": "ide1-cd0",
+                    "node-name": "node0" } }
+
+<- { "return": {} }
+
+EQMP
+
+    {
+        .name       = "x-blockdev-change",
+        .args_type  = "parent:B,child:B?,node:B?",
+        .mhandler.cmd_new = qmp_marshal_x_blockdev_change,
+    },
+
+SQMP
+x-blockdev-change
+-----------------
+
+Dynamically reconfigure the block driver state graph. It can be used
+to add, remove, insert or replace a graph node. Currently only the
+Quorum driver implements this feature to add or remove its child. This
+is useful to fix a broken quorum child.
+
+If @node is specified, it will be inserted under @parent. @child
+may not be specified in this case. If both @parent and @child are
+specified but @node is not, @child will be detached from @parent.
+
+Arguments:
+- "parent": the id or name of the parent node (json-string)
+- "child": the name of a child under the given parent node (json-string, optional)
+- "node": the name of the node that will be added (json-string, optional)
+
+Note: this command is experimental, and not a stable API. It doesn't
+support all kinds of operations, all kinds of children, nor all block
+drivers.
+
+Warning: The data in a new quorum child MUST be consistent with that of
+the rest of the array.
+
+Example:
+
+Add a new node to a quorum
+-> { "execute": "blockdev-add",
+     "arguments": { "options": { "driver": "raw",
+                                 "node-name": "new_node",
+                                 "file": { "driver": "file",
+                                           "filename": "test.raw" } } } }
+<- { "return": {} }
+-> { "execute": "x-blockdev-change",
+     "arguments": { "parent": "disk1",
+                    "node": "new_node" } }
+<- { "return": {} }
+
+Delete a quorum's node
+-> { "execute": "x-blockdev-change",
+     "arguments": { "parent": "disk1",
+                    "child": "children.1" } }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "query-named-block-nodes",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_named_block_nodes,
+        .mhandler.cmd_new = qmp_marshal_query_named_block_nodes,
     },
 
 SQMP
@@ -3724,7 +4530,7 @@ Example:
                       "virtual-size":2048000,
                       "backing_file":"base.qcow2",
                       "full-backing-filename":"disks/base.qcow2",
-                      "backing-filename-format:"qcow2",
+                      "backing-filename-format":"qcow2",
                       "snapshots":[
                          {
                             "id": "1",
@@ -3746,9 +4552,62 @@ Example:
 EQMP
 
     {
+        .name       = "blockdev-change-medium",
+        .args_type  = "device:B,filename:F,format:s?,read-only-mode:s?",
+        .mhandler.cmd_new = qmp_marshal_blockdev_change_medium,
+    },
+
+SQMP
+blockdev-change-medium
+----------------------
+
+Changes the medium inserted into a block device by ejecting the current medium
+and loading a new image file which is inserted as the new medium.
+
+Arguments:
+
+- "device": device name (json-string)
+- "filename": filename of the new image (json-string)
+- "format": format of the new image (json-string, optional)
+- "read-only-mode": new read-only mode (json-string, optional)
+          - Possible values: "retain" (default), "read-only", "read-write"
+
+Examples:
+
+1. Change a removable medium
+
+-> { "execute": "blockdev-change-medium",
+             "arguments": { "device": "ide1-cd0",
+                            "filename": "/srv/images/Fedora-12-x86_64-DVD.iso",
+                            "format": "raw" } }
+<- { "return": {} }
+
+2. Load a read-only medium into a writable drive
+
+-> { "execute": "blockdev-change-medium",
+             "arguments": { "device": "isa-fd0",
+                            "filename": "/srv/images/ro.img",
+                            "format": "raw",
+                            "read-only-mode": "retain" } }
+
+<- { "error":
+     { "class": "GenericError",
+       "desc": "Could not open '/srv/images/ro.img': Permission denied" } }
+
+-> { "execute": "blockdev-change-medium",
+             "arguments": { "device": "isa-fd0",
+                            "filename": "/srv/images/ro.img",
+                            "format": "raw",
+                            "read-only-mode": "read-only" } }
+
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "query-memdev",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_memdev,
+        .mhandler.cmd_new = qmp_marshal_query_memdev,
     },
 
 SQMP
@@ -3786,7 +4645,7 @@ EQMP
     {
         .name       = "query-memory-devices",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_memory_devices,
+        .mhandler.cmd_new = qmp_marshal_query_memory_devices,
     },
 
 SQMP
@@ -3813,7 +4672,7 @@ EQMP
     {
         .name       = "query-acpi-ospm-status",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_query_acpi_ospm_status,
+        .mhandler.cmd_new = qmp_marshal_query_acpi_ospm_status,
     },
 
 SQMP
@@ -3836,7 +4695,7 @@ EQMP
     {
         .name       = "rtc-reset-reinjection",
         .args_type  = "",
-        .mhandler.cmd_new = qmp_marshal_input_rtc_reset_reinjection,
+        .mhandler.cmd_new = qmp_marshal_rtc_reset_reinjection,
     },
 #endif
 
@@ -3856,8 +4715,8 @@ EQMP
 
     {
         .name       = "trace-event-get-state",
-        .args_type  = "name:s",
-        .mhandler.cmd_new = qmp_marshal_input_trace_event_get_state,
+        .args_type  = "name:s,vcpu:i?",
+        .mhandler.cmd_new = qmp_marshal_trace_event_get_state,
     },
 
 SQMP
@@ -3865,6 +4724,20 @@ trace-event-get-state
 ---------------------
 
 Query the state of events.
+
+Arguments:
+
+- "name": Event name pattern (json-string).
+- "vcpu": The vCPU to query, any vCPU by default (json-int, optional).
+
+An event is returned if:
+- its name matches the "name" pattern, and
+- if "vcpu" is given, the event has the "vcpu" property.
+
+Therefore, if "vcpu" is given, the operation will only match per-vCPU events,
+returning their state on the specified vCPU. Special case: if "name" is an exact
+match, "vcpu" is given and the event does not have the "vcpu" property, an error
+is returned.
 
 Example:
 
@@ -3874,8 +4747,8 @@ EQMP
 
     {
         .name       = "trace-event-set-state",
-        .args_type  = "name:s,enable:b,ignore-unavailable:b?",
-        .mhandler.cmd_new = qmp_marshal_input_trace_event_set_state,
+        .args_type  = "name:s,enable:b,ignore-unavailable:b?,vcpu:i?",
+        .mhandler.cmd_new = qmp_marshal_trace_event_set_state,
     },
 
 SQMP
@@ -3884,6 +4757,23 @@ trace-event-set-state
 
 Set the state of events.
 
+Arguments:
+
+- "name": Event name pattern (json-string).
+- "enable": Whether to enable or disable the event (json-bool).
+- "ignore-unavailable": Whether to ignore errors for events that cannot be
+  changed (json-bool, optional).
+- "vcpu": The vCPU to act upon, all vCPUs by default (json-int, optional).
+
+An event's state is modified if:
+- its name matches the "name" pattern, and
+- if "vcpu" is given, the event has the "vcpu" property.
+
+Therefore, if "vcpu" is given, the operation will only match per-vCPU events,
+setting their state on the specified vCPU. Special case: if "name" is an exact
+match, "vcpu" is given and the event does not have the "vcpu" property, an error
+is returned.
+
 Example:
 
 -> { "execute": "trace-event-set-state", "arguments": { "name": "qemu_memalign", "enable": "true" } }
@@ -3891,50 +4781,49 @@ Example:
 EQMP
 
     {
-        .name       = "x-input-send-event",
+        .name       = "input-send-event",
         .args_type  = "console:i?,events:q",
-        .mhandler.cmd_new = qmp_marshal_input_x_input_send_event,
+        .mhandler.cmd_new = qmp_marshal_input_send_event,
     },
 
 SQMP
-@x-input-send-event
+@input-send-event
 -----------------
 
 Send input event to guest.
 
 Arguments:
 
-- "console": console index. (json-int, optional)
-- "events": list of input events.
+- "device": display device (json-string, optional)
+- "head": display head (json-int, optional)
+- "events": list of input events
 
 The consoles are visible in the qom tree, under
 /backend/console[$index]. They have a device link and head property, so
 it is possible to map which console belongs to which device and display.
 
-Note: this command is experimental, and not a stable API.
-
 Example (1):
 
 Press left mouse button.
 
--> { "execute": "x-input-send-event",
-    "arguments": { "console": 0,
+-> { "execute": "input-send-event",
+    "arguments": { "device": "video0",
                    "events": [ { "type": "btn",
-                    "data" : { "down": true, "button": "Left" } } ] } }
+                   "data" : { "down": true, "button": "left" } } ] } }
 <- { "return": {} }
 
--> { "execute": "x-input-send-event",
-    "arguments": { "console": 0,
+-> { "execute": "input-send-event",
+    "arguments": { "device": "video0",
                    "events": [ { "type": "btn",
-                    "data" : { "down": false, "button": "Left" } } ] } }
+                   "data" : { "down": false, "button": "left" } } ] } }
 <- { "return": {} }
 
 Example (2):
 
 Press ctrl-alt-del.
 
--> { "execute": "x-input-send-event",
-     "arguments": { "console": 0, "events": [
+-> { "execute": "input-send-event",
+     "arguments": { "events": [
         { "type": "key", "data" : { "down": true,
           "key": {"type": "qcode", "data": "ctrl" } } },
         { "type": "key", "data" : { "down": true,
@@ -3947,10 +4836,10 @@ Example (3):
 
 Move mouse pointer to absolute coordinates (20000, 400).
 
--> { "execute": "x-input-send-event" ,
-  "arguments": { "console": 0, "events": [
-               { "type": "abs", "data" : { "axis": "X", "value" : 20000 } },
-               { "type": "abs", "data" : { "axis": "Y", "value" : 400 } } ] } }
+-> { "execute": "input-send-event" ,
+  "arguments": { "events": [
+               { "type": "abs", "data" : { "axis": "x", "value" : 20000 } },
+               { "type": "abs", "data" : { "axis": "y", "value" : 400 } } ] } }
 <- { "return": {} }
 
 EQMP
@@ -3958,7 +4847,7 @@ EQMP
     {
         .name       = "block-set-write-threshold",
         .args_type  = "node-name:s,write-threshold:l",
-        .mhandler.cmd_new = qmp_marshal_input_block_set_write_threshold,
+        .mhandler.cmd_new = qmp_marshal_block_set_write_threshold,
     },
 
 SQMP
@@ -3982,3 +4871,171 @@ Example:
 <- { "return": {} }
 
 EQMP
+
+    {
+        .name       = "query-rocker",
+        .args_type  = "name:s",
+        .mhandler.cmd_new = qmp_marshal_query_rocker,
+    },
+
+SQMP
+Show rocker switch
+------------------
+
+Arguments:
+
+- "name": switch name
+
+Example:
+
+-> { "execute": "query-rocker", "arguments": { "name": "sw1" } }
+<- { "return": {"name": "sw1", "ports": 2, "id": 1327446905938}}
+
+EQMP
+
+    {
+        .name       = "query-rocker-ports",
+        .args_type  = "name:s",
+        .mhandler.cmd_new = qmp_marshal_query_rocker_ports,
+    },
+
+SQMP
+Show rocker switch ports
+------------------------
+
+Arguments:
+
+- "name": switch name
+
+Example:
+
+-> { "execute": "query-rocker-ports", "arguments": { "name": "sw1" } }
+<- { "return": [ {"duplex": "full", "enabled": true, "name": "sw1.1",
+                  "autoneg": "off", "link-up": true, "speed": 10000},
+                 {"duplex": "full", "enabled": true, "name": "sw1.2",
+                  "autoneg": "off", "link-up": true, "speed": 10000}
+   ]}
+
+EQMP
+
+    {
+        .name       = "query-rocker-of-dpa-flows",
+        .args_type  = "name:s,tbl-id:i?",
+        .mhandler.cmd_new = qmp_marshal_query_rocker_of_dpa_flows,
+    },
+
+SQMP
+Show rocker switch OF-DPA flow tables
+-------------------------------------
+
+Arguments:
+
+- "name": switch name
+- "tbl-id": (optional) flow table ID
+
+Example:
+
+-> { "execute": "query-rocker-of-dpa-flows", "arguments": { "name": "sw1" } }
+<- { "return": [ {"key": {"in-pport": 0, "priority": 1, "tbl-id": 0},
+                  "hits": 138,
+                  "cookie": 0,
+                  "action": {"goto-tbl": 10},
+                  "mask": {"in-pport": 4294901760}
+                 },
+                 {...more...},
+   ]}
+
+EQMP
+
+    {
+        .name       = "query-rocker-of-dpa-groups",
+        .args_type  = "name:s,type:i?",
+        .mhandler.cmd_new = qmp_marshal_query_rocker_of_dpa_groups,
+    },
+
+SQMP
+Show rocker OF-DPA group tables
+-------------------------------
+
+Arguments:
+
+- "name": switch name
+- "type": (optional) group type
+
+Example:
+
+-> { "execute": "query-rocker-of-dpa-groups", "arguments": { "name": "sw1" } }
+<- { "return": [ {"type": 0, "out-pport": 2, "pport": 2, "vlan-id": 3841,
+                  "pop-vlan": 1, "id": 251723778},
+                 {"type": 0, "out-pport": 0, "pport": 0, "vlan-id": 3841,
+                  "pop-vlan": 1, "id": 251723776},
+                 {"type": 0, "out-pport": 1, "pport": 1, "vlan-id": 3840,
+                  "pop-vlan": 1, "id": 251658241},
+                 {"type": 0, "out-pport": 0, "pport": 0, "vlan-id": 3840,
+                  "pop-vlan": 1, "id": 251658240}
+   ]}
+
+EQMP
+
+#if defined TARGET_ARM
+    {
+        .name       = "query-gic-capabilities",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_marshal_query_gic_capabilities,
+    },
+#endif
+
+SQMP
+query-gic-capabilities
+---------------
+
+Return a list of GICCapability objects, describing supported GIC
+(Generic Interrupt Controller) versions.
+
+Arguments: None
+
+Example:
+
+-> { "execute": "query-gic-capabilities" }
+<- { "return": [{ "version": 2, "emulated": true, "kernel": false },
+                { "version": 3, "emulated": false, "kernel": true } ] }
+
+EQMP
+
+    {
+        .name       = "query-hotpluggable-cpus",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_marshal_query_hotpluggable_cpus,
+    },
+
+SQMP
+Show existing/possible CPUs
+---------------------------
+
+Arguments: None.
+
+Example for pseries machine type started with
+-smp 2,cores=2,maxcpus=4 -cpu POWER8:
+
+-> { "execute": "query-hotpluggable-cpus" }
+<- {"return": [
+     { "props": { "core-id": 8 }, "type": "POWER8-spapr-cpu-core",
+       "vcpus-count": 1 },
+     { "props": { "core-id": 0 }, "type": "POWER8-spapr-cpu-core",
+       "vcpus-count": 1, "qom-path": "/machine/unattached/device[0]"}
+   ]}'
+
+Example for pc machine type started with
+-smp 1,maxcpus=2:
+    -> { "execute": "query-hotpluggable-cpus" }
+    <- {"return": [
+         {
+            "type": "qemu64-x86_64-cpu", "vcpus-count": 1,
+            "props": {"core-id": 0, "socket-id": 1, "thread-id": 0}
+         },
+         {
+            "qom-path": "/machine/unattached/device[0]",
+            "type": "qemu64-x86_64-cpu", "vcpus-count": 1,
+            "props": {"core-id": 0, "socket-id": 0, "thread-id": 0}
+         }
+       ]}

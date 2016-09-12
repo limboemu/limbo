@@ -56,7 +56,7 @@ void VISIBLE16
 handle_10(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_10);
-    // dont do anything, since the VGA BIOS handles int10h requests
+    // don't do anything, since the VGA BIOS handles int10h requests
 }
 
 // NMI handler

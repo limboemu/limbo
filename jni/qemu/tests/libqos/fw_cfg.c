@@ -12,7 +12,7 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
+#include "qemu/osdep.h"
 #include "libqos/fw_cfg.h"
 #include "libqtest.h"
 #include "qemu/bswap.h"

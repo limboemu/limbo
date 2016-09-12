@@ -10,7 +10,7 @@
  * Copyright (c) 2009 Joshua Oreman <oremanj@rwcr.net>.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *

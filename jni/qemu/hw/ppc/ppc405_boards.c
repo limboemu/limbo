@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/hw.h"
 #include "hw/ppc/ppc.h"
 #include "ppc405.h"
@@ -215,7 +219,8 @@ static void ref405ep_init(MachineState *machine)
                         33333333, &pic, kernel_filename == NULL ? 0 : 1);
     /* allocate SRAM */
     sram_size = 512 * 1024;
-    memory_region_init_ram(sram, NULL, "ef405ep.sram", sram_size, &error_abort);
+    memory_region_init_ram(sram, NULL, "ef405ep.sram", sram_size,
+                           &error_fatal);
     vmstate_register_ram_global(sram);
     memory_region_add_subregion(sysmem, 0xFFF00000, sram);
     /* allocate and load BIOS */
@@ -250,7 +255,7 @@ static void ref405ep_init(MachineState *machine)
 #endif
         bios = g_new(MemoryRegion, 1);
         memory_region_init_ram(bios, NULL, "ef405ep.bios", BIOS_SIZE,
-                               &error_abort);
+                               &error_fatal);
         vmstate_register_ram_global(bios);
 
         if (bios_name == NULL)
@@ -368,10 +373,18 @@ static void ref405ep_init(MachineState *machine)
 #endif
 }
 
-static QEMUMachine ref405ep_machine = {
-    .name = "ref405ep",
-    .desc = "ref405ep",
-    .init = ref405ep_init,
+static void ref405ep_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "ref405ep";
+    mc->init = ref405ep_init;
+}
+
+static const TypeInfo ref405ep_type = {
+    .name = MACHINE_TYPE_NAME("ref405ep"),
+    .parent = TYPE_MACHINE,
+    .class_init = ref405ep_class_init,
 };
 
 /*****************************************************************************/
@@ -399,7 +412,7 @@ struct taihu_cpld_t {
     uint8_t reg1;
 };
 
-static uint32_t taihu_cpld_readb (void *opaque, hwaddr addr)
+static uint64_t taihu_cpld_read(void *opaque, hwaddr addr, unsigned size)
 {
     taihu_cpld_t *cpld;
     uint32_t ret;
@@ -420,8 +433,8 @@ static uint32_t taihu_cpld_readb (void *opaque, hwaddr addr)
     return ret;
 }
 
-static void taihu_cpld_writeb (void *opaque,
-                               hwaddr addr, uint32_t value)
+static void taihu_cpld_write(void *opaque, hwaddr addr,
+                             uint64_t value, unsigned size)
 {
     taihu_cpld_t *cpld;
 
@@ -438,48 +451,12 @@ static void taihu_cpld_writeb (void *opaque,
     }
 }
 
-static uint32_t taihu_cpld_readw (void *opaque, hwaddr addr)
-{
-    uint32_t ret;
-
-    ret = taihu_cpld_readb(opaque, addr) << 8;
-    ret |= taihu_cpld_readb(opaque, addr + 1);
-
-    return ret;
-}
-
-static void taihu_cpld_writew (void *opaque,
-                               hwaddr addr, uint32_t value)
-{
-    taihu_cpld_writeb(opaque, addr, (value >> 8) & 0xFF);
-    taihu_cpld_writeb(opaque, addr + 1, value & 0xFF);
-}
-
-static uint32_t taihu_cpld_readl (void *opaque, hwaddr addr)
-{
-    uint32_t ret;
-
-    ret = taihu_cpld_readb(opaque, addr) << 24;
-    ret |= taihu_cpld_readb(opaque, addr + 1) << 16;
-    ret |= taihu_cpld_readb(opaque, addr + 2) << 8;
-    ret |= taihu_cpld_readb(opaque, addr + 3);
-
-    return ret;
-}
-
-static void taihu_cpld_writel (void *opaque,
-                               hwaddr addr, uint32_t value)
-{
-    taihu_cpld_writel(opaque, addr, (value >> 24) & 0xFF);
-    taihu_cpld_writel(opaque, addr + 1, (value >> 16) & 0xFF);
-    taihu_cpld_writel(opaque, addr + 2, (value >> 8) & 0xFF);
-    taihu_cpld_writeb(opaque, addr + 3, value & 0xFF);
-}
-
 static const MemoryRegionOps taihu_cpld_ops = {
-    .old_mmio = {
-        .read = { taihu_cpld_readb, taihu_cpld_readw, taihu_cpld_readl, },
-        .write = { taihu_cpld_writeb, taihu_cpld_writew, taihu_cpld_writel, },
+    .read = taihu_cpld_read,
+    .write = taihu_cpld_write,
+    .impl = {
+        .min_access_size = 1,
+        .max_access_size = 1,
     },
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
@@ -579,7 +556,7 @@ static void taihu_405ep_init(MachineState *machine)
             bios_name = BIOS_FILENAME;
         bios = g_new(MemoryRegion, 1);
         memory_region_init_ram(bios, NULL, "taihu_405ep.bios", BIOS_SIZE,
-                               &error_abort);
+                               &error_fatal);
         vmstate_register_ram_global(bios);
         filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
         if (filename) {
@@ -664,16 +641,24 @@ static void taihu_405ep_init(MachineState *machine)
 #endif
 }
 
-static QEMUMachine taihu_machine = {
-    .name = "taihu",
-    .desc = "taihu",
-    .init = taihu_405ep_init,
+static void taihu_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "taihu";
+    mc->init = taihu_405ep_init;
+}
+
+static const TypeInfo taihu_type = {
+    .name = MACHINE_TYPE_NAME("taihu"),
+    .parent = TYPE_MACHINE,
+    .class_init = taihu_class_init,
 };
 
 static void ppc405_machine_init(void)
 {
-    qemu_register_machine(&ref405ep_machine);
-    qemu_register_machine(&taihu_machine);
+    type_register_static(&ref405ep_type);
+    type_register_static(&taihu_type);
 }
 
-machine_init(ppc405_machine_init);
+type_init(ppc405_machine_init)

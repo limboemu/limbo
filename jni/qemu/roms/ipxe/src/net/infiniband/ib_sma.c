@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -172,9 +176,9 @@ static int ib_sma_set_port_info ( struct ib_device *ibdev,
 	       ( port_info->link_speed_active__link_speed_enabled & 0xf ) ) )
 		ibdev->link_speed_enabled = link_speed_enabled;
 	ibdev->sm_sl = ( port_info->neighbour_mtu__mastersm_sl & 0xf );
-	DBGC ( mi, "SMA %p set LID %04x SMLID %04x link width %02x speed "
-	       "%02x\n", mi, ibdev->lid, ibdev->sm_lid,
-	       ibdev->link_width_enabled, ibdev->link_speed_enabled );
+	DBGC ( mi, "SMA %p set LID %d SMLID %d link width %d speed %d\n",
+	       mi, ibdev->lid, ibdev->sm_lid, ibdev->link_width_enabled,
+	       ibdev->link_speed_enabled );
 
 	/* Update parameters on device */
 	if ( ( rc = ib_set_port_info ( ibdev, mad ) ) != 0 ) {
@@ -354,7 +358,7 @@ struct ib_mad_agent ib_sma_agent[] __ib_mad_agent = {
 int ib_create_sma ( struct ib_device *ibdev, struct ib_mad_interface *mi ) {
 
 	/* Nothing to do */
-	DBGC ( ibdev, "IBDEV %p SMA using SMI %p\n", ibdev, mi );
+	DBGC ( ibdev, "IBDEV %s SMA using SMI %p\n", ibdev->name, mi );
 
 	return 0;
 }

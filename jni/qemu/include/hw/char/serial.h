@@ -22,8 +22,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 #ifndef HW_SERIAL_H
-#define HW_SERIAL_H 1
+#define HW_SERIAL_H
 
 #include "hw/hw.h"
 #include "sysemu/sysemu.h"
@@ -55,7 +56,8 @@ struct SerialState {
     int last_break_enable;
     int it_shift;
     int baudbase;
-    int tsr_retry;
+    uint32_t tsr_retry;
+    guint watch_tag;
     uint32_t wakeup;
 
     /* Time when the last byte was successfully sent out of the tsr */

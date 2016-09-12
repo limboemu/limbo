@@ -10,7 +10,7 @@
  * See the COPYING.LIB file in the top-level directory.
  */
 
-#include <glib.h>
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qemu/rfifolock.h"
 

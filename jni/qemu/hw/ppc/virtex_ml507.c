@@ -22,6 +22,8 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
 #include "hw/hw.h"
 #include "hw/char/serial.h"
@@ -32,6 +34,7 @@
 #include "sysemu/device_tree.h"
 #include "hw/loader.h"
 #include "elf.h"
+#include "qemu/error-report.h"
 #include "qemu/log.h"
 #include "exec/address-spaces.h"
 
@@ -40,7 +43,6 @@
 #include "ppc405.h"
 
 #include "sysemu/block-backend.h"
-#include "qapi/qmp/qerror.h"
 
 #define EPAPR_MAGIC    (0x45504150)
 #define FLASH_SIZE     (16 * 1024 * 1024)
@@ -197,7 +199,6 @@ static int xilinx_load_device_tree(hwaddr addr,
 static void virtex_init(MachineState *machine)
 {
     ram_addr_t ram_size = machine->ram_size;
-    const char *cpu_model = machine->cpu_model;
     const char *kernel_filename = machine->kernel_filename;
     const char *kernel_cmdline = machine->kernel_cmdline;
     hwaddr initrd_base = 0;
@@ -214,11 +215,11 @@ static void virtex_init(MachineState *machine)
     int i;
 
     /* init CPUs */
-    if (cpu_model == NULL) {
-        cpu_model = "440-Xilinx";
+    if (machine->cpu_model == NULL) {
+        machine->cpu_model = "440-Xilinx";
     }
 
-    cpu = ppc440_init_xilinx(&ram_size, 1, cpu_model, 400000000);
+    cpu = ppc440_init_xilinx(&ram_size, 1, machine->cpu_model, 400000000);
     env = &cpu->env;
     qemu_register_reset(main_cpu_reset, cpu);
 
@@ -258,7 +259,8 @@ static void virtex_init(MachineState *machine)
 
         /* Boots a kernel elf binary.  */
         kernel_size = load_elf(kernel_filename, NULL, NULL,
-                               &entry, &low, &high, 1, ELF_MACHINE, 0);
+                               &entry, &low, &high, 1, PPC_ELF_MACHINE,
+                               0, 0);
         boot_info.bootstrap_pc = entry & 0x00ffffff;
 
         if (kernel_size < 0) {
@@ -298,15 +300,10 @@ static void virtex_init(MachineState *machine)
     env->load_info = &boot_info;
 }
 
-static QEMUMachine virtex_machine = {
-    .name = "virtex-ml507",
-    .desc = "Xilinx Virtex ML507 reference design",
-    .init = virtex_init,
-};
-
-static void virtex_machine_init(void)
+static void virtex_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&virtex_machine);
+    mc->desc = "Xilinx Virtex ML507 reference design";
+    mc->init = virtex_init;
 }
 
-machine_init(virtex_machine_init);
+DEFINE_MACHINE("virtex-ml507", virtex_machine_init)

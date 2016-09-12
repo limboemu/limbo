@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -237,6 +241,10 @@ static int xenstore_response ( struct xen_hypervisor *xen, uint32_t req_id,
 	struct xsd_sockmsg msg;
 	char *string;
 	int rc;
+
+	/* Wait for response to become available */
+	while ( ! xenevent_pending ( xen, xen->store.port ) )
+		cpu_nap();
 
 	/* Receive message header */
 	xenstore_recv ( xen, &msg, sizeof ( msg ) );

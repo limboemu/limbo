@@ -77,7 +77,6 @@ finish-device
 
 : open true ;
 : close ;
-#include <archsupport.fs>
 
 \ Finish root
 finish-device

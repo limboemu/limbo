@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "qemu/osdep.h"
 #include "net/checksum.h"
-
+#include "qemu/log.h"
 #include "etsec.h"
 #include "registers.h"
 
@@ -464,9 +465,7 @@ static void rx_init_frame(eTSEC *etsec, const uint8_t *buf, size_t size)
         etsec->rx_fcb_size = 0;
     }
 
-    if (etsec->rx_buffer != NULL) {
-        g_free(etsec->rx_buffer);
-    }
+    g_free(etsec->rx_buffer);
 
     /* Do not copy the frame for now */
     etsec->rx_buffer     = (uint8_t *)buf;
@@ -481,40 +480,42 @@ static void rx_init_frame(eTSEC *etsec, const uint8_t *buf, size_t size)
                etsec->rx_buffer_len, etsec->rx_padding);
 }
 
-void etsec_rx_ring_write(eTSEC *etsec, const uint8_t *buf, size_t size)
+ssize_t etsec_rx_ring_write(eTSEC *etsec, const uint8_t *buf, size_t size)
 {
     int ring_nbr = 0;           /* Always use ring0 (no filer) */
 
     if (etsec->rx_buffer_len != 0) {
         RING_DEBUG("%s: We can't receive now,"
                    " a buffer is already in the pipe\n", __func__);
-        return;
+        return 0;
     }
 
     if (etsec->regs[RSTAT].value & 1 << (23 - ring_nbr)) {
         RING_DEBUG("%s: The ring is halted\n", __func__);
-        return;
+        return -1;
     }
 
     if (etsec->regs[DMACTRL].value & DMACTRL_GRS) {
         RING_DEBUG("%s: Graceful receive stop\n", __func__);
-        return;
+        return -1;
     }
 
     if (!(etsec->regs[MACCFG1].value & MACCFG1_RX_EN)) {
         RING_DEBUG("%s: MAC Receive not enabled\n", __func__);
-        return;
+        return -1;
     }
 
     if ((etsec->regs[RCTRL].value & RCTRL_RSF) && (size < 60)) {
         /* CRC is not in the packet yet, so short frame is below 60 bytes */
         RING_DEBUG("%s: Drop short frame\n", __func__);
-        return;
+        return -1;
     }
 
     rx_init_frame(etsec, buf, size);
 
     etsec_walk_rx_ring(etsec, ring_nbr);
+
+    return size;
 }
 
 void etsec_walk_rx_ring(eTSEC *etsec, int ring_nbr)
@@ -644,6 +645,9 @@ void etsec_walk_rx_ring(eTSEC *etsec, int ring_nbr)
     } else {
         etsec->rx_buffer_len = 0;
         etsec->rx_buffer     = NULL;
+        if (etsec->need_flush) {
+            qemu_flush_queued_packets(qemu_get_queue(etsec->nic));
+        }
     }
 
     RING_DEBUG("eTSEC End of ring_write: remaining_data:%zu\n", remaining_data);

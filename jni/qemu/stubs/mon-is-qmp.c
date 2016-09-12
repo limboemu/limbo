@@ -1,7 +1,10 @@
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "monitor/monitor.h"
 
-int monitor_cur_is_qmp(void)
+Monitor *cur_mon;
+
+bool monitor_cur_is_qmp(void)
 {
-    return 0;
+    return false;
 }

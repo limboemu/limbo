@@ -23,7 +23,9 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/isa/pc87312.h"
+#include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
@@ -324,14 +326,14 @@ static void pc87312_realize(DeviceState *dev, Error **errp)
         /* FIXME use a qdev drive property instead of drive_get() */
         drive = drive_get(IF_FLOPPY, 0, 0);
         if (drive != NULL) {
-            qdev_prop_set_drive_nofail(d, "driveA",
-                                       blk_by_legacy_dinfo(drive));
+            qdev_prop_set_drive(d, "driveA", blk_by_legacy_dinfo(drive),
+                                &error_fatal);
         }
         /* FIXME use a qdev drive property instead of drive_get() */
         drive = drive_get(IF_FLOPPY, 0, 1);
         if (drive != NULL) {
-            qdev_prop_set_drive_nofail(d, "driveB",
-                                       blk_by_legacy_dinfo(drive));
+            qdev_prop_set_drive(d, "driveB", blk_by_legacy_dinfo(drive),
+                                &error_fatal);
         }
         qdev_init_nofail(d);
         s->fdc.dev = isa;

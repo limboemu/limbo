@@ -17,8 +17,11 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "cpu.h"
 #include "qemu-common.h"
+#include "exec/exec-all.h"
 
 static inline void set_feature(CPUTriCoreState *env, int feature)
 {
@@ -68,6 +71,10 @@ static void tricore_cpu_realizefn(DeviceState *dev, Error **errp)
     CPUTriCoreState *env = &cpu->env;
 
     /* Some features automatically imply others */
+    if (tricore_feature(env, TRICORE_FEATURE_161)) {
+        set_feature(env, TRICORE_FEATURE_16);
+    }
+
     if (tricore_feature(env, TRICORE_FEATURE_16)) {
         set_feature(env, TRICORE_FEATURE_131);
     }
@@ -88,7 +95,7 @@ static void tricore_cpu_initfn(Object *obj)
     CPUTriCoreState *env = &cpu->env;
 
     cs->env_ptr = env;
-    cpu_exec_init(env);
+    cpu_exec_init(cs, &error_abort);
 
     if (tcg_enabled()) {
         tricore_tcg_init();
@@ -118,14 +125,21 @@ static void tc1796_initfn(Object *obj)
 {
     TriCoreCPU *cpu = TRICORE_CPU(obj);
 
-    set_feature(&cpu->env, TRICORE_FEATURE_131);
+    set_feature(&cpu->env, TRICORE_FEATURE_13);
 }
 
-static void aurix_initfn(Object *obj)
+static void tc1797_initfn(Object *obj)
 {
     TriCoreCPU *cpu = TRICORE_CPU(obj);
 
-    set_feature(&cpu->env, TRICORE_FEATURE_16);
+    set_feature(&cpu->env, TRICORE_FEATURE_131);
+}
+
+static void tc27x_initfn(Object *obj)
+{
+    TriCoreCPU *cpu = TRICORE_CPU(obj);
+
+    set_feature(&cpu->env, TRICORE_FEATURE_161);
 }
 
 typedef struct TriCoreCPUInfo {
@@ -136,7 +150,8 @@ typedef struct TriCoreCPUInfo {
 
 static const TriCoreCPUInfo tricore_cpus[] = {
     { .name = "tc1796",      .initfn = tc1796_initfn },
-    { .name = "aurix",       .initfn = aurix_initfn },
+    { .name = "tc1797",      .initfn = tc1797_initfn },
+    { .name = "tc27x",       .initfn = tc27x_initfn },
     { .name = NULL }
 };
 
@@ -158,6 +173,12 @@ static void tricore_cpu_class_init(ObjectClass *c, void *data)
     cc->set_pc = tricore_cpu_set_pc;
     cc->synchronize_from_tb = tricore_cpu_synchronize_from_tb;
 
+    /*
+     * Reason: tricore_cpu_initfn() calls cpu_exec_init(), which saves
+     * the object in cpus -> dangling pointer after final
+     * object_unref().
+     */
+    dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
 static void cpu_register(const TriCoreCPUInfo *info)

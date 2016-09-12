@@ -8,6 +8,7 @@
  * GNU GPL, version 2 or (at your option) any later version.
  */
 
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "hw/xen/xen.h"
 #include "exec/memory.h"
@@ -30,7 +31,13 @@ void xen_hvm_inject_msi(uint64_t addr, uint32_t data)
 {
 }
 
-void xen_ram_alloc(ram_addr_t ram_addr, ram_addr_t size, MemoryRegion *mr)
+int xen_is_pirq_msi(uint32_t msi_data)
+{
+    return 0;
+}
+
+void xen_ram_alloc(ram_addr_t ram_addr, ram_addr_t size, MemoryRegion *mr,
+                   Error **errp)
 {
 }
 
@@ -47,10 +54,8 @@ void xen_modified_memory(ram_addr_t start, ram_addr_t length)
 {
 }
 
-int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
-                 MemoryRegion **ram_memory)
+void xen_hvm_init(PCMachineState *pcms, MemoryRegion **ram_memory)
 {
-    return 0;
 }
 
 void qmp_xen_set_global_dirty_log(bool enable, Error **errp)

@@ -9,11 +9,12 @@
  * (at your option) any later version.
  */
 
-#include "config.h"
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "e500.h"
 #include "hw/boards.h"
 #include "sysemu/device_tree.h"
+#include "sysemu/kvm.h"
 #include "hw/pci/pci.h"
 #include "hw/ppc/openpic.h"
 #include "kvm_ppc.h"
@@ -57,17 +58,12 @@ static void e500plat_init(MachineState *machine)
     ppce500_init(machine, &params);
 }
 
-static QEMUMachine e500plat_machine = {
-    .name = "ppce500",
-    .desc = "generic paravirt e500 platform",
-    .init = e500plat_init,
-    .max_cpus = 32,
-    .has_dynamic_sysbus = true,
-};
-
-static void e500plat_machine_init(void)
+static void e500plat_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&e500plat_machine);
+    mc->desc = "generic paravirt e500 platform";
+    mc->init = e500plat_init;
+    mc->max_cpus = 32;
+    mc->has_dynamic_sysbus = true;
 }
 
-machine_init(e500plat_machine_init);
+DEFINE_MACHINE("ppce500", e500plat_machine_init)

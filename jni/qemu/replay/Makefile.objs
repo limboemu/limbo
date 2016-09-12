@@ -1,0 +1,6 @@
+common-obj-y += replay.o
+common-obj-y += replay-internal.o
+common-obj-y += replay-events.o
+common-obj-y += replay-time.o
+common-obj-y += replay-input.o
+common-obj-y += replay-char.o

@@ -20,14 +20,10 @@
  *  Copyright (C) 2008, Red Hat, Amit Shah (amit.shah@redhat.com)
  *  Copyright (C) 2008, IBM, Muli Ben-Yehuda (muli@il.ibm.com)
  */
-#include <stdio.h>
-#include <unistd.h>
-#ifndef __ANDROID__
-#include <sys/io.h>
-#endif //__ANDROID__
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+
+#include "qemu/osdep.h"
+#include <linux/kvm.h>
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "qemu/error-report.h"
@@ -39,8 +35,7 @@
 #include "hw/pci/pci.h"
 #include "hw/pci/msi.h"
 #include "kvm_i386.h"
-
-#define MSIX_PAGE_SIZE 0x1000
+#include "hw/pci/pci-assign.h"
 
 /* From linux/ioport.h */
 #define IORESOURCE_IO       0x00000100  /* Resource type */
@@ -49,17 +44,6 @@
 #define IORESOURCE_DMA      0x00000800
 #define IORESOURCE_PREFETCH 0x00002000  /* No side effects */
 #define IORESOURCE_MEM_64   0x00100000
-
-//#define DEVICE_ASSIGNMENT_DEBUG
-
-#ifdef DEVICE_ASSIGNMENT_DEBUG
-#define DEBUG(fmt, ...)                                       \
-    do {                                                      \
-        fprintf(stderr, "%s: " fmt, __func__ , __VA_ARGS__);  \
-    } while (0)
-#else
-#define DEBUG(fmt, ...)
-#endif
 
 typedef struct PCIRegion {
     int type;           /* Memory or port I/O */
@@ -137,11 +121,15 @@ typedef struct AssignedDevice {
     int *msi_virq;
     MSIXTableEntry *msix_table;
     hwaddr msix_table_addr;
+    uint16_t msix_table_size;
     uint16_t msix_max;
     MemoryRegion mmio;
     char *configfd_name;
     int32_t bootindex;
 } AssignedDevice;
+
+#define TYPE_PCI_ASSIGN "kvm-pci-assign"
+#define PCI_ASSIGN(obj) OBJECT_CHECK(AssignedDevice, (obj), TYPE_PCI_ASSIGN)
 
 static void assigned_dev_update_irq_routing(PCIDevice *dev);
 
@@ -259,7 +247,7 @@ static const MemoryRegionOps slow_bar_ops = {
 static void assigned_dev_iomem_setup(PCIDevice *pci_dev, int region_num,
                                      pcibus_t e_size)
 {
-    AssignedDevice *r_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *r_dev = PCI_ASSIGN(pci_dev);
     AssignedDevRegion *region = &r_dev->v_addrs[region_num];
     PCIRegion *real_region = &r_dev->real_device.regions[region_num];
 
@@ -291,7 +279,7 @@ static const MemoryRegionOps assigned_dev_ioport_ops = {
 static void assigned_dev_ioport_setup(PCIDevice *pci_dev, int region_num,
                                       pcibus_t size)
 {
-    AssignedDevice *r_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *r_dev = PCI_ASSIGN(pci_dev);
     AssignedDevRegion *region = &r_dev->v_addrs[region_num];
 
     region->e_size = size;
@@ -305,7 +293,7 @@ static void assigned_dev_ioport_setup(PCIDevice *pci_dev, int region_num,
 
 static uint32_t assigned_dev_pci_read(PCIDevice *d, int pos, int len)
 {
-    AssignedDevice *pci_dev = DO_UPCAST(AssignedDevice, dev, d);
+    AssignedDevice *pci_dev = PCI_ASSIGN(d);
     uint32_t val;
     ssize_t ret;
     int fd = pci_dev->real_device.config_fd;
@@ -330,7 +318,7 @@ static uint8_t assigned_dev_pci_read_byte(PCIDevice *d, int pos)
 
 static void assigned_dev_pci_write(PCIDevice *d, int pos, uint32_t val, int len)
 {
-    AssignedDevice *pci_dev = DO_UPCAST(AssignedDevice, dev, d);
+    AssignedDevice *pci_dev = PCI_ASSIGN(d);
     ssize_t ret;
     int fd = pci_dev->real_device.config_fd;
 
@@ -780,7 +768,7 @@ static char *assign_failed_examine(const AssignedDevice *dev)
         "*** $ echo \"%04x:%02x:%02x.%x\" > /sys/bus/pci/drivers/"
         "pci-stub/bind\n"
         "*** $ echo \"%04x %04x\" > /sys/bus/pci/drivers/pci-stub/remove_id\n"
-        "***",
+        "***\n",
         ns, dev->host.domain, dev->host.bus, dev->host.slot,
         dev->host.function, vendor_id, device_id,
         dev->host.domain, dev->host.bus, dev->host.slot, dev->host.function,
@@ -788,7 +776,7 @@ static char *assign_failed_examine(const AssignedDevice *dev)
         dev->host.function, vendor_id, device_id);
 
 fail:
-    return g_strdup("Couldn't find out why.");
+    return g_strdup("Couldn't find out why.\n");
 }
 
 static void assign_device(AssignedDevice *dev, Error **errp)
@@ -822,8 +810,9 @@ static void assign_device(AssignedDevice *dev, Error **errp)
             char *cause;
 
             cause = assign_failed_examine(dev);
-            error_setg_errno(errp, -r, "Failed to assign device \"%s\"\n%s",
-                             dev->dev.qdev.id, cause);
+            error_setg_errno(errp, -r, "Failed to assign device \"%s\"",
+                             dev->dev.qdev.id);
+            error_append_hint(errp, "%s", cause);
             g_free(cause);
             break;
         }
@@ -922,11 +911,10 @@ retry:
             dev->features |= ASSIGNED_DEVICE_PREFER_MSI_MASK;
             goto retry;
         }
-        error_setg_errno(errp, -r,
-                         "Failed to assign irq for \"%s\"\n"
-                         "Perhaps you are assigning a device "
-                         "that shares an IRQ with another device?",
+        error_setg_errno(errp, -r, "Failed to assign irq for \"%s\"",
                          dev->dev.qdev.id);
+        error_append_hint(errp, "Perhaps you are assigning a device "
+                          "that shares an IRQ with another device?\n");
         return r;
     }
 
@@ -948,7 +936,7 @@ static void deassign_device(AssignedDevice *dev)
  */
 static void assigned_dev_update_irq_routing(PCIDevice *dev)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(dev);
     Error *err = NULL;
     int r;
 
@@ -963,7 +951,7 @@ static void assigned_dev_update_irq_routing(PCIDevice *dev)
 
 static void assigned_dev_update_msi(PCIDevice *pci_dev)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(pci_dev);
     uint8_t ctrl_byte = pci_get_byte(pci_dev->config + pci_dev->msi_cap +
                                      PCI_MSI_FLAGS);
     int r;
@@ -986,10 +974,9 @@ static void assigned_dev_update_msi(PCIDevice *pci_dev)
     }
 
     if (ctrl_byte & PCI_MSI_FLAGS_ENABLE) {
-        MSIMessage msg = msi_get_message(pci_dev, 0);
         int virq;
 
-        virq = kvm_irqchip_add_msi_route(kvm_state, msg);
+        virq = kvm_irqchip_add_msi_route(kvm_state, 0, pci_dev);
         if (virq < 0) {
             perror("assigned_dev_update_msi: kvm_irqchip_add_msi_route");
             return;
@@ -1017,7 +1004,7 @@ static void assigned_dev_update_msi(PCIDevice *pci_dev)
 
 static void assigned_dev_update_msi_msg(PCIDevice *pci_dev)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(pci_dev);
     uint8_t ctrl_byte = pci_get_byte(pci_dev->config + pci_dev->msi_cap +
                                      PCI_MSI_FLAGS);
 
@@ -1027,7 +1014,8 @@ static void assigned_dev_update_msi_msg(PCIDevice *pci_dev)
     }
 
     kvm_irqchip_update_msi_route(kvm_state, assigned_dev->msi_virq[0],
-                                 msi_get_message(pci_dev, 0));
+                                 msi_get_message(pci_dev, 0), pci_dev);
+    kvm_irqchip_commit_routes(kvm_state);
 }
 
 static bool assigned_dev_msix_masked(MSIXTableEntry *entry)
@@ -1050,11 +1038,10 @@ static bool assigned_dev_msix_skipped(MSIXTableEntry *entry)
 
 static int assigned_dev_update_msix_mmio(PCIDevice *pci_dev)
 {
-    AssignedDevice *adev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *adev = PCI_ASSIGN(pci_dev);
     uint16_t entries_nr = 0;
     int i, r = 0;
     MSIXTableEntry *entry = adev->msix_table;
-    MSIMessage msg;
 
     /* Get the usable entry number for allocating */
     for (i = 0; i < adev->msix_max; i++, entry++) {
@@ -1091,9 +1078,7 @@ static int assigned_dev_update_msix_mmio(PCIDevice *pci_dev)
             continue;
         }
 
-        msg.address = entry->addr_lo | ((uint64_t)entry->addr_hi << 32);
-        msg.data = entry->data;
-        r = kvm_irqchip_add_msi_route(kvm_state, msg);
+        r = kvm_irqchip_add_msi_route(kvm_state, i, pci_dev);
         if (r < 0) {
             return r;
         }
@@ -1115,7 +1100,7 @@ static int assigned_dev_update_msix_mmio(PCIDevice *pci_dev)
 
 static void assigned_dev_update_msix(PCIDevice *pci_dev)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(pci_dev);
     uint16_t ctrl_word = pci_get_word(pci_dev->config + pci_dev->msix_cap +
                                       PCI_MSIX_FLAGS);
     int r;
@@ -1165,7 +1150,7 @@ static void assigned_dev_update_msix(PCIDevice *pci_dev)
 static uint32_t assigned_dev_pci_read_config(PCIDevice *pci_dev,
                                              uint32_t address, int len)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(pci_dev);
     uint32_t virt_val = pci_default_read_config(pci_dev, address, len);
     uint32_t real_val, emulate_mask, full_emulation_mask;
 
@@ -1186,7 +1171,7 @@ static uint32_t assigned_dev_pci_read_config(PCIDevice *pci_dev,
 static void assigned_dev_pci_write_config(PCIDevice *pci_dev, uint32_t address,
                                           uint32_t val, int len)
 {
-    AssignedDevice *assigned_dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *assigned_dev = PCI_ASSIGN(pci_dev);
     uint16_t old_cmd = pci_get_word(pci_dev->config + PCI_COMMAND);
     uint32_t emulate_mask, full_emulation_mask;
     int ret;
@@ -1246,7 +1231,7 @@ static void assigned_dev_setup_cap_read(AssignedDevice *dev, uint32_t offset,
 
 static int assigned_device_pci_cap_init(PCIDevice *pci_dev, Error **errp)
 {
-    AssignedDevice *dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *dev = PCI_ASSIGN(pci_dev);
     PCIRegion *pci_region = dev->real_device.regions;
     int ret, pos;
     Error *local_err = NULL;
@@ -1322,6 +1307,7 @@ static int assigned_device_pci_cap_init(PCIDevice *pci_dev, Error **errp)
         bar_nr = msix_table_entry & PCI_MSIX_FLAGS_BIRMASK;
         msix_table_entry &= ~PCI_MSIX_FLAGS_BIRMASK;
         dev->msix_table_addr = pci_region[bar_nr].base_addr + msix_table_entry;
+        dev->msix_table_size = msix_max * sizeof(MSIXTableEntry);
         dev->msix_max = msix_max;
     }
 
@@ -1493,7 +1479,7 @@ static int assigned_device_pci_cap_init(PCIDevice *pci_dev, Error **errp)
          * error bits, leave the rest. */
         status = pci_get_long(pci_dev->config + pos + PCI_X_STATUS);
         status &= ~(PCI_X_STATUS_BUS | PCI_X_STATUS_DEVFN);
-        status |= (pci_bus_num(pci_dev->bus) << 8) | pci_dev->devfn;
+        status |= pci_get_bdf(pci_dev);
         status &= ~(PCI_X_STATUS_SPL_DISC | PCI_X_STATUS_UNX_SPL |
                     PCI_X_STATUS_SPL_ERR);
         pci_set_long(pci_dev->config + pos + PCI_X_STATUS, status);
@@ -1612,10 +1598,12 @@ static void assigned_dev_msix_mmio_write(void *opaque, hwaddr addr,
                 msg.data = entry->data;
 
                 ret = kvm_irqchip_update_msi_route(kvm_state,
-                                                   adev->msi_virq[i], msg);
+                                                   adev->msi_virq[i], msg,
+                                                   pdev);
                 if (ret) {
                     error_report("Error updating irq routing entry (%d)", ret);
                 }
+                kvm_irqchip_commit_routes(kvm_state);
             }
         }
     }
@@ -1644,7 +1632,7 @@ static void assigned_dev_msix_reset(AssignedDevice *dev)
         return;
     }
 
-    memset(dev->msix_table, 0, MSIX_PAGE_SIZE);
+    memset(dev->msix_table, 0, dev->msix_table_size);
 
     for (i = 0, entry = dev->msix_table; i < dev->msix_max; i++, entry++) {
         entry->ctrl = cpu_to_le32(0x1); /* Masked */
@@ -1653,8 +1641,8 @@ static void assigned_dev_msix_reset(AssignedDevice *dev)
 
 static void assigned_dev_register_msix_mmio(AssignedDevice *dev, Error **errp)
 {
-    dev->msix_table = mmap(NULL, MSIX_PAGE_SIZE, PROT_READ|PROT_WRITE,
-                           MAP_ANONYMOUS|MAP_PRIVATE, 0, 0);
+    dev->msix_table = mmap(NULL, dev->msix_table_size, PROT_READ | PROT_WRITE,
+                           MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
     if (dev->msix_table == MAP_FAILED) {
         error_setg_errno(errp, errno, "failed to allocate msix_table");
         dev->msix_table = NULL;
@@ -1664,7 +1652,7 @@ static void assigned_dev_register_msix_mmio(AssignedDevice *dev, Error **errp)
     assigned_dev_msix_reset(dev);
 
     memory_region_init_io(&dev->mmio, OBJECT(dev), &assigned_dev_msix_mmio_ops,
-                          dev, "assigned-dev-msix", MSIX_PAGE_SIZE);
+                          dev, "assigned-dev-msix", dev->msix_table_size);
 }
 
 static void assigned_dev_unregister_msix_mmio(AssignedDevice *dev)
@@ -1673,7 +1661,7 @@ static void assigned_dev_unregister_msix_mmio(AssignedDevice *dev)
         return;
     }
 
-    if (munmap(dev->msix_table, MSIX_PAGE_SIZE) == -1) {
+    if (munmap(dev->msix_table, dev->msix_table_size) == -1) {
         error_report("error unmapping msix_table! %s", strerror(errno));
     }
     dev->msix_table = NULL;
@@ -1686,8 +1674,8 @@ static const VMStateDescription vmstate_assigned_device = {
 
 static void reset_assigned_device(DeviceState *dev)
 {
-    PCIDevice *pci_dev = DO_UPCAST(PCIDevice, qdev, dev);
-    AssignedDevice *adev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    PCIDevice *pci_dev = PCI_DEVICE(dev);
+    AssignedDevice *adev = PCI_ASSIGN(pci_dev);
     char reset_file[64];
     const char reset[] = "1";
     int fd, ret;
@@ -1742,7 +1730,7 @@ static void reset_assigned_device(DeviceState *dev)
 
 static void assigned_realize(struct PCIDevice *pci_dev, Error **errp)
 {
-    AssignedDevice *dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *dev = PCI_ASSIGN(pci_dev);
     uint8_t e_intx;
     int r;
     Error *local_err = NULL;
@@ -1838,7 +1826,7 @@ exit_with_error:
 
 static void assigned_exitfn(struct PCIDevice *pci_dev)
 {
-    AssignedDevice *dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+    AssignedDevice *dev = PCI_ASSIGN(pci_dev);
 
     deassign_device(dev);
     free_assigned_device(dev);
@@ -1847,7 +1835,7 @@ static void assigned_exitfn(struct PCIDevice *pci_dev)
 static void assigned_dev_instance_init(Object *obj)
 {
     PCIDevice *pci_dev = PCI_DEVICE(obj);
-    AssignedDevice *d = DO_UPCAST(AssignedDevice, dev, PCI_DEVICE(obj));
+    AssignedDevice *d = PCI_ASSIGN(pci_dev);
 
     device_add_bootindex_property(obj, &d->bootindex,
                                   "bootindex", NULL,
@@ -1881,7 +1869,7 @@ static void assign_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo assign_info = {
-    .name               = "kvm-pci-assign",
+    .name               = TYPE_PCI_ASSIGN,
     .parent             = TYPE_PCI_DEVICE,
     .instance_size      = sizeof(AssignedDevice),
     .class_init         = assign_class_init,
@@ -1895,73 +1883,11 @@ static void assign_register_types(void)
 
 type_init(assign_register_types)
 
-/*
- * Scan the assigned devices for the devices that have an option ROM, and then
- * load the corresponding ROM data to RAM. If an error occurs while loading an
- * option ROM, we just ignore that option ROM and continue with the next one.
- */
 static void assigned_dev_load_option_rom(AssignedDevice *dev)
 {
-    char name[32], rom_file[64];
-    FILE *fp;
-    uint8_t val;
-    struct stat st;
-    void *ptr;
+    int size = 0;
 
-    /* If loading ROM from file, pci handles it */
-    if (dev->dev.romfile || !dev->dev.rom_bar) {
-        return;
-    }
-
-    snprintf(rom_file, sizeof(rom_file),
-             "/sys/bus/pci/devices/%04x:%02x:%02x.%01x/rom",
-             dev->host.domain, dev->host.bus, dev->host.slot,
-             dev->host.function);
-
-    if (stat(rom_file, &st)) {
-        return;
-    }
-
-    if (access(rom_file, F_OK)) {
-        error_report("pci-assign: Insufficient privileges for %s", rom_file);
-        return;
-    }
-
-    /* Write "1" to the ROM file to enable it */
-    fp = fopen(rom_file, "r+");
-    if (fp == NULL) {
-        return;
-    }
-    val = 1;
-    if (fwrite(&val, 1, 1, fp) != 1) {
-        goto close_rom;
-    }
-    fseek(fp, 0, SEEK_SET);
-
-    snprintf(name, sizeof(name), "%s.rom",
-            object_get_typename(OBJECT(dev)));
-    memory_region_init_ram(&dev->dev.rom, OBJECT(dev), name, st.st_size,
-                           &error_abort);
-    vmstate_register_ram(&dev->dev.rom, &dev->dev.qdev);
-    ptr = memory_region_get_ram_ptr(&dev->dev.rom);
-    memset(ptr, 0xff, st.st_size);
-
-    if (!fread(ptr, 1, st.st_size, fp)) {
-        error_report("pci-assign: Cannot read from host %s", rom_file);
-        error_printf("Device option ROM contents are probably invalid "
-                     "(check dmesg).\nSkip option ROM probe with rombar=0, "
-                     "or load from file with romfile=\n");
-        goto close_rom;
-    }
-
-    pci_register_bar(&dev->dev, PCI_ROM_SLOT, 0, &dev->dev.rom);
-    dev->dev.has_rom = true;
-close_rom:
-    /* Write "0" to disable ROM */
-    fseek(fp, 0, SEEK_SET);
-    val = 0;
-    if (!fwrite(&val, 1, 1, fp)) {
-        DEBUG("%s\n", "Failed to disable pci-sysfs rom file");
-    }
-    fclose(fp);
+    pci_assign_dev_load_option_rom(&dev->dev, OBJECT(dev), &size,
+                                   dev->host.domain, dev->host.bus,
+                                   dev->host.slot, dev->host.function);
 }

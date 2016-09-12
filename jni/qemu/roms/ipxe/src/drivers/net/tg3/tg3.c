@@ -486,6 +486,8 @@ static void tg3_poll(struct net_device *dev)
 	 */
 	tp->hw_status->status &= ~SD_STATUS_UPDATED;
 
+	mb();
+
 	tg3_poll_link(tp);
 	tg3_tx_complete(dev);
 	tg3_rx_complete(dev);
@@ -545,7 +547,7 @@ static int tg3_test_dma(struct tg3 *tp)
 		goto out_nofree;
 	}
 	buf_dma = virt_to_bus(buf);
-	DBGC2(tp->dev, "dma test buffer, virt: %p phys: %#08x\n", buf, buf_dma);
+	DBGC2(tp->dev, "dma test buffer, virt: %p phys: %#016lx\n", buf, buf_dma);
 
 	if (tg3_flag(tp, 57765_PLUS)) {
 		tp->dma_rwctrl = DMA_RWCTRL_DIS_CACHE_ALIGNMENT;
@@ -928,6 +930,7 @@ static struct pci_device_id tg3_nics[] = {
 	PCI_ROM(0x14e4, 0x16b6, "14e4-16b6", "14e4-16b6", 0),
 	PCI_ROM(0x14e4, 0x1657, "14e4-1657", "14e4-1657", 0),
 	PCI_ROM(0x14e4, 0x165f, "14e4-165f", "14e4-165f", 0),
+	PCI_ROM(0x14e4, 0x1686, "14e4-1686", "14e4-1686", 0),
 	PCI_ROM(0x1148, 0x4400, "1148-4400", "1148-4400", 0),
 	PCI_ROM(0x1148, 0x4500, "1148-4500", "1148-4500", 0),
 	PCI_ROM(0x173b, 0x03e8, "173b-03e8", "173b-03e8", 0),

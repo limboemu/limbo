@@ -178,8 +178,7 @@ ETEXI
         .args_type  = "id:B",
         .params     = "device",
         .help       = "remove host block device",
-        .user_print = monitor_user_noop,
-        .mhandler.cmd_new = hmp_drive_del,
+        .mhandler.cmd = hmp_drive_del,
     },
 
 STEXI
@@ -195,8 +194,8 @@ ETEXI
 
     {
         .name       = "change",
-        .args_type  = "device:B,target:F,arg:s?",
-        .params     = "device filename [format]",
+        .args_type  = "device:B,target:F,arg:s?,read-only-mode:s?",
+        .params     = "device filename [format [read-only-mode]]",
         .help       = "change a removable medium, optional format",
         .mhandler.cmd = hmp_change,
     },
@@ -207,7 +206,7 @@ STEXI
 Change the configuration of a device.
 
 @table @option
-@item change @var{diskdevice} @var{filename} [@var{format}]
+@item change @var{diskdevice} @var{filename} [@var{format} [@var{read-only-mode}]]
 Change the medium for a removable disk device to point to @var{filename}. eg
 
 @example
@@ -215,6 +214,20 @@ Change the medium for a removable disk device to point to @var{filename}. eg
 @end example
 
 @var{format} is optional.
+
+@var{read-only-mode} may be used to change the read-only status of the device.
+It accepts the following values:
+
+@table @var
+@item retain
+Retains the current status; this is the default.
+
+@item read-only
+Makes the device read-only.
+
+@item read-write
+Makes the device writable.
+@end table
 
 @item change vnc @var{display},@var{options}
 Change the configuration of the VNC server. The valid syntax for @var{display}
@@ -268,10 +281,12 @@ ETEXI
 
     {
         .name       = "trace-event",
-        .args_type  = "name:s,option:b",
-        .params     = "name on|off",
-        .help       = "changes status of a specific trace event",
+        .args_type  = "name:s,option:b,vcpu:i?",
+        .params     = "name on|off [vcpu]",
+        .help       = "changes status of a specific trace event "
+                      "(vcpu: vCPU to set, default is all)",
         .mhandler.cmd = hmp_trace_event,
+        .command_completion = trace_event_completion,
     },
 
 STEXI
@@ -654,8 +669,7 @@ ETEXI
         .args_type  = "device:O",
         .params     = "driver[,prop=value][,...]",
         .help       = "add device, like -device on the command line",
-        .user_print = monitor_user_noop,
-        .mhandler.cmd_new = do_device_add,
+        .mhandler.cmd = hmp_device_add,
         .command_completion = device_add_completion,
     },
 
@@ -677,7 +691,8 @@ ETEXI
 STEXI
 @item device_del @var{id}
 @findex device_del
-Remove device @var{id}.
+Remove device @var{id}. @var{id} may be a short ID
+or a QOM object path.
 ETEXI
 
     {
@@ -993,29 +1008,60 @@ Enable/Disable the usage of a capability @var{capability} for migration.
 ETEXI
 
     {
+        .name       = "migrate_set_parameter",
+        .args_type  = "parameter:s,value:s",
+        .params     = "parameter value",
+        .help       = "Set the parameter for migration",
+        .mhandler.cmd = hmp_migrate_set_parameter,
+        .command_completion = migrate_set_parameter_completion,
+    },
+
+STEXI
+@item migrate_set_parameter @var{parameter} @var{value}
+@findex migrate_set_parameter
+Set the parameter @var{parameter} for migration.
+ETEXI
+
+    {
+        .name       = "migrate_start_postcopy",
+        .args_type  = "",
+        .params     = "",
+        .help       = "Followup to a migration command to switch the migration"
+                      " to postcopy mode. The postcopy-ram capability must "
+                      "be set before the original migration command.",
+        .mhandler.cmd = hmp_migrate_start_postcopy,
+    },
+
+STEXI
+@item migrate_start_postcopy
+@findex migrate_start_postcopy
+Switch in-progress migration to postcopy mode. Ignored after the end of
+migration (or once already in postcopy).
+ETEXI
+
+    {
         .name       = "client_migrate_info",
         .args_type  = "protocol:s,hostname:s,port:i?,tls-port:i?,cert-subject:s?",
         .params     = "protocol hostname port tls-port cert-subject",
-        .help       = "send migration info to spice/vnc client",
-        .user_print = monitor_user_noop,
-        .mhandler.cmd_async = client_migrate_info,
-        .flags      = MONITOR_CMD_ASYNC,
+        .help       = "set migration information for remote display",
+        .mhandler.cmd = hmp_client_migrate_info,
     },
 
 STEXI
 @item client_migrate_info @var{protocol} @var{hostname} @var{port} @var{tls-port} @var{cert-subject}
 @findex client_migrate_info
-Set the spice/vnc connection info for the migration target.  The spice/vnc
-server will ask the spice/vnc client to automatically reconnect using the
-new parameters (if specified) once the vm migration finished successfully.
+Set migration information for remote display.  This makes the server
+ask the client to automatically reconnect using the new parameters
+once migration finished successfully.  Only implemented for SPICE.
 ETEXI
 
     {
         .name       = "dump-guest-memory",
-        .args_type  = "paging:-p,zlib:-z,lzo:-l,snappy:-s,filename:F,begin:i?,length:i?",
-        .params     = "[-p] [-z|-l|-s] filename [begin length]",
+        .args_type  = "paging:-p,detach:-d,zlib:-z,lzo:-l,snappy:-s,filename:F,begin:i?,length:i?",
+        .params     = "[-p] [-d] [-z|-l|-s] filename [begin length]",
         .help       = "dump guest memory into file 'filename'.\n\t\t\t"
                       "-p: do paging to get guest's memory mapping.\n\t\t\t"
+                      "-d: return immediately (do not wait for completion).\n\t\t\t"
                       "-z: dump in kdump-compressed format, with zlib compression.\n\t\t\t"
                       "-l: dump in kdump-compressed format, with lzo compression.\n\t\t\t"
                       "-s: dump in kdump-compressed format, with snappy compression.\n\t\t\t"
@@ -1040,6 +1086,22 @@ gdb. Without -z|-l|-s, the dump format is ELF.
             specified together with length.
     length: the memory size, in bytes. It's optional, and should be specified
             together with begin.
+ETEXI
+
+#if defined(TARGET_S390X)
+    {
+        .name       = "dump-skeys",
+        .args_type  = "filename:F",
+        .params     = "",
+        .help       = "Save guest storage keys into file 'filename'.\n",
+        .mhandler.cmd = hmp_dump_skeys,
+    },
+#endif
+
+STEXI
+@item dump-skeys @var{filename}
+@findex dump-skeys
+Save guest storage keys to a file.
 ETEXI
 
     {
@@ -1140,8 +1202,8 @@ ETEXI
 
     {
         .name       = "drive_add",
-        .args_type  = "pci_addr:s,opts:s",
-        .params     = "[[<domain>:]<bus>:]<slot>\n"
+        .args_type  = "node:-n,pci_addr:s,opts:s",
+        .params     = "[-n] [[<domain>:]<bus>:]<slot>\n"
                       "[file=file][,if=type][,bus=n]\n"
                       "[,unit=m][,media=d][,index=i]\n"
                       "[,cyls=c,heads=h,secs=s[,trans=t]]\n"
@@ -1172,8 +1234,7 @@ ETEXI
                       "<error_status> = error string or 32bit\n\t\t\t"
                       "<tlb header> = 32bit x 4\n\t\t\t"
                       "<tlb header prefix> = 32bit x 4",
-        .user_print  = pcie_aer_inject_error_print,
-        .mhandler.cmd_new = hmp_pcie_aer_inject_error,
+        .mhandler.cmd = hmp_pcie_aer_inject_error,
     },
 
 STEXI
@@ -1695,96 +1756,6 @@ ETEXI
         .mhandler.cmd = hmp_info_help,
         .sub_table = info_cmds,
     },
-
-STEXI
-@item info @var{subcommand}
-@findex info
-Show various information about the system state.
-
-@table @option
-@item info version
-show the version of QEMU
-@item info network
-show the various VLANs and the associated devices
-@item info chardev
-show the character devices
-@item info block
-show the block devices
-@item info blockstats
-show block device statistics
-@item info registers
-show the cpu registers
-@item info cpus
-show infos for each CPU
-@item info history
-show the command line history
-@item info irq
-show the interrupts statistics (if available)
-@item info pic
-show i8259 (PIC) state
-@item info pci
-show emulated PCI device info
-@item info tlb
-show virtual to physical memory mappings (i386, SH4, SPARC, PPC, and Xtensa only)
-@item info mem
-show the active virtual memory mappings (i386 only)
-@item info jit
-show dynamic compiler info
-@item info numa
-show NUMA information
-@item info kvm
-show KVM information
-@item info usb
-show USB devices plugged on the virtual USB hub
-@item info usbhost
-show all USB host devices
-@item info profile
-show profiling information
-@item info capture
-show information about active capturing
-@item info snapshots
-show list of VM snapshots
-@item info status
-show the current VM status (running|paused)
-@item info mice
-show which guest mouse is receiving events
-@item info vnc
-show the vnc server status
-@item info name
-show the current VM name
-@item info uuid
-show the current VM UUID
-@item info cpustats
-show CPU statistics
-@item info usernet
-show user network stack connection states
-@item info migrate
-show migration status
-@item info migrate_capabilities
-show current migration capabilities
-@item info migrate_cache_size
-show current migration XBZRLE cache size
-@item info balloon
-show balloon information
-@item info qtree
-show device tree
-@item info qdm
-show qdev device model list
-@item info qom-tree
-show object composition tree
-@item info roms
-show roms
-@item info tpm
-show the TPM device
-@item info memory-devices
-show the memory devices
-@end table
-ETEXI
-
-STEXI
-@item info trace-events
-show available trace events and their state
-ETEXI
 
 STEXI
 @end table

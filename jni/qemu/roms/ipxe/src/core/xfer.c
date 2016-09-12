@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <stdlib.h>
@@ -134,18 +138,8 @@ size_t xfer_window ( struct interface *intf ) {
  * generating an xfer_window_changed() message.
  */
 void xfer_window_changed ( struct interface *intf ) {
-	struct interface *dest;
-	xfer_window_changed_TYPE ( void * ) *op =
-		intf_get_dest_op ( intf, xfer_window_changed, &dest );
-	void *object = intf_object ( dest );
 
-	if ( op ) {
-		op ( object );
-	} else {
-		/* Default is to do nothing */
-	}
-
-	intf_put ( dest );
+	intf_poke ( intf, xfer_window_changed );
 }
 
 /**
@@ -364,4 +358,35 @@ int xfer_seek ( struct interface *intf, off_t offset ) {
 		return -ENOMEM;
 
 	return xfer_deliver ( intf, iobuf, &meta );
+}
+
+/**
+ * Check that data is delivered strictly in order
+ *
+ * @v meta		Data transfer metadata
+ * @v pos		Current position
+ * @v len		Length of data
+ * @ret rc		Return status code
+ */
+int xfer_check_order ( struct xfer_metadata *meta, size_t *pos, size_t len ) {
+	size_t new_pos;
+
+	/* Allow out-of-order zero-length packets (as used by xfer_seek()) */
+	if ( len == 0 )
+		return 0;
+
+	/* Calculate position of this delivery */
+	new_pos = *pos;
+	if ( meta->flags & XFER_FL_ABS_OFFSET )
+		new_pos = 0;
+	new_pos += meta->offset;
+
+	/* Fail if delivery position is not equal to current position */
+	if ( new_pos != *pos )
+		return -EPROTO;
+
+	/* Update current position */
+	*pos += len;
+
+	return 0;
 }

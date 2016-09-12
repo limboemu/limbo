@@ -39,7 +39,7 @@ def main():
                 finalsize = 256*1024
     if datasize > finalsize:
         print("Error!  ROM doesn't fit (%d > %d)" % (datasize, finalsize))
-        print("   You have to either increate the size (CONFIG_ROM_SIZE)")
+        print("   You have to either increase the size (CONFIG_ROM_SIZE)")
         print("   or turn off some features (such as hardware support not")
         print("   needed) to make it fit.  Trying a more recent gcc version")
         print("   might work too.")

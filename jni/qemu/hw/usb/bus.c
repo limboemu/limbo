@@ -1,9 +1,13 @@
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/usb.h"
 #include "hw/qdev.h"
+#include "qapi/error.h"
+#include "qemu/error-report.h"
 #include "sysemu/sysemu.h"
 #include "monitor/monitor.h"
 #include "trace.h"
+#include "qemu/cutils.h"
 
 static void usb_bus_dev_print(Monitor *mon, DeviceState *qdev, int indent);
 
@@ -51,9 +55,9 @@ static int usb_device_post_load(void *opaque, int version_id)
     USBDevice *dev = opaque;
 
     if (dev->state == USB_STATE_NOTATTACHED) {
-        dev->attached = 0;
+        dev->attached = false;
     } else {
-        dev->attached = 1;
+        dev->attached = true;
     }
     if (dev->setup_index < 0 ||
         dev->setup_len < 0 ||
@@ -275,6 +279,13 @@ static void usb_qdev_realize(DeviceState *qdev, Error **errp)
 static void usb_qdev_unrealize(DeviceState *qdev, Error **errp)
 {
     USBDevice *dev = USB_DEVICE(qdev);
+    USBDescString *s, *next;
+
+    QLIST_FOREACH_SAFE(s, &dev->strings, next, next) {
+        QLIST_REMOVE(s, next);
+        g_free(s->str);
+        g_free(s);
+    }
 
     if (dev->attached) {
         usb_device_detach(dev);
@@ -328,9 +339,9 @@ static USBDevice *usb_try_create_simple(USBBus *bus, const char *name,
     }
     object_property_set_bool(OBJECT(dev), true, "realized", &err);
     if (err) {
-        error_setg(errp, "Failed to initialize USB device '%s': %s",
-                   name, error_get_pretty(err));
-        error_free(err);
+        error_propagate(errp, err);
+        error_prepend(errp, "Failed to initialize USB device '%s': ",
+                      name);
         object_unparent(OBJECT(dev));
         return NULL;
     }
@@ -529,7 +540,7 @@ void usb_device_attach(USBDevice *dev, Error **errp)
         return;
     }
 
-    dev->attached++;
+    dev->attached = true;
     usb_attach(port);
 }
 
@@ -543,7 +554,7 @@ int usb_device_detach(USBDevice *dev)
     trace_usb_port_detach(bus->busnr, port->path);
 
     usb_detach(port);
-    dev->attached--;
+    dev->attached = false;
     return 0;
 }
 
@@ -654,9 +665,12 @@ void hmp_info_usb(Monitor *mon, const QDict *qdict)
             dev = port->dev;
             if (!dev)
                 continue;
-            monitor_printf(mon, "  Device %d.%d, Port %s, Speed %s Mb/s, Product %s\n",
-                           bus->busnr, dev->addr, port->path, usb_speed(dev->speed),
-                           dev->product_desc);
+            monitor_printf(mon, "  Device %d.%d, Port %s, Speed %s Mb/s, "
+                           "Product %s%s%s\n",
+                           bus->busnr, dev->addr, port->path,
+                           usb_speed(dev->speed), dev->product_desc,
+                           dev->qdev.id ? ", ID: " : "",
+                           dev->qdev.id ?: "");
         }
     }
 }
@@ -721,13 +735,54 @@ USBDevice *usbdevice_create(const char *cmdline)
     }
     object_property_set_bool(OBJECT(dev), true, "realized", &err);
     if (err) {
-        error_report("Failed to initialize USB device '%s': %s",
-                     f->name, error_get_pretty(err));
-        error_free(err);
+        error_reportf_err(err, "Failed to initialize USB device '%s': ",
+                          f->name);
         object_unparent(OBJECT(dev));
         return NULL;
     }
     return dev;
+}
+
+static bool usb_get_attached(Object *obj, Error **errp)
+{
+    USBDevice *dev = USB_DEVICE(obj);
+
+    return dev->attached;
+}
+
+static void usb_set_attached(Object *obj, bool value, Error **errp)
+{
+    USBDevice *dev = USB_DEVICE(obj);
+    Error *err = NULL;
+
+    if (dev->attached == value) {
+        return;
+    }
+
+    if (value) {
+        usb_device_attach(dev, &err);
+        if (err) {
+            error_propagate(errp, err);
+        }
+    } else {
+        usb_device_detach(dev);
+    }
+}
+
+static void usb_device_instance_init(Object *obj)
+{
+    USBDevice *dev = USB_DEVICE(obj);
+    USBDeviceClass *klass = USB_DEVICE_GET_CLASS(dev);
+
+    if (klass->attached_settable) {
+        object_property_add_bool(obj, "attached",
+                                 usb_get_attached, usb_set_attached,
+                                 NULL);
+    } else {
+        object_property_add_bool(obj, "attached",
+                                 usb_get_attached, NULL,
+                                 NULL);
+    }
 }
 
 static void usb_device_class_init(ObjectClass *klass, void *data)
@@ -743,6 +798,7 @@ static const TypeInfo usb_device_type_info = {
     .name = TYPE_USB_DEVICE,
     .parent = TYPE_DEVICE,
     .instance_size = sizeof(USBDevice),
+    .instance_init = usb_device_instance_init,
     .abstract = true,
     .class_size = sizeof(USBDeviceClass),
     .class_init = usb_device_class_init,

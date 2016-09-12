@@ -65,26 +65,26 @@ handle_pmm00(u16 *args)
         if (align < MALLOC_MIN_ALIGN)
             align = MALLOC_MIN_ALIGN;
     }
-    void *data;
+    u32 data;
     switch (flags & 3) {
     default:
     case 0:
         return 0;
     case 1:
-        data = _malloc(lowzone, size, align);
+        data = malloc_palloc(lowzone, size, align);
         break;
     case 2:
-        data = _malloc(highzone, size, align);
+        data = malloc_palloc(highzone, size, align);
         break;
     case 3: {
-        data = _malloc(lowzone, size, align);
+        data = malloc_palloc(lowzone, size, align);
         if (!data)
-            data = _malloc(highzone, size, align);
+            data = malloc_palloc(highzone, size, align);
     }
     }
     if (data && handle != MALLOC_DEFAULT_HANDLE)
         malloc_sethandle(data, handle);
-    return (u32)data;
+    return data;
 }
 
 // PMM - find
@@ -95,7 +95,7 @@ handle_pmm01(u16 *args)
     dprintf(3, "pmm01: handle=%x\n", handle);
     if (handle == MALLOC_DEFAULT_HANDLE)
         return 0;
-    return (u32)malloc_findhandle(handle);
+    return malloc_findhandle(handle);
 }
 
 // PMM - deallocate
@@ -104,7 +104,7 @@ handle_pmm02(u16 *args)
 {
     u32 buffer = *(u32*)&args[1];
     dprintf(3, "pmm02: buffer=%x\n", buffer);
-    int ret = _free((void*)buffer);
+    int ret = malloc_pfree(buffer);
     if (ret)
         // Error
         return 1;

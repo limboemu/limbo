@@ -57,6 +57,7 @@ OF_FFS_FILES = \
 	$(SLOFBRDDIR)/attu.fs \
 	$(SLOFBRDDIR)/cpu.fs \
 	$(SLOFBRDDIR)/ioapic.fs \
+	$(SLOFBRDDIR)/dma-function.fs \
 	$(SLOFBRDDIR)/pci-bridge_1022_7460.fs \
 	$(SLOFBRDDIR)/pci-device_1014_028c.fs \
 	$(SLOFBRDDIR)/pci-device_1014_02bd.fs \

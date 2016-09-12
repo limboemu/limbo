@@ -136,7 +136,7 @@ static const u16 Sbox[256] = {
  */
 static inline u16 S ( u16 v )
 {
-	return Sbox[v & 0xFF] ^ swap16 ( Sbox[v >> 8] );
+	return Sbox[v & 0xFF] ^ bswap_16 ( Sbox[v >> 8] );
 }
 
 /**

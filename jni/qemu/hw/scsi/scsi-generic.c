@@ -11,6 +11,8 @@
  *
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "qemu/error-report.h"
 #include "hw/scsi/scsi.h"
@@ -31,10 +33,6 @@ do { printf("scsi-generic: " fmt , ## __VA_ARGS__); } while (0)
 #define BADF(fmt, ...) \
 do { fprintf(stderr, "scsi-generic: " fmt , ## __VA_ARGS__); } while (0)
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <scsi/sg.h>
 #include "block/scsi.h"
 
@@ -88,12 +86,12 @@ static void scsi_free_request(SCSIRequest *req)
 }
 
 /* Helper function for command completion.  */
-static void scsi_command_complete(void *opaque, int ret)
+static void scsi_command_complete_noio(SCSIGenericReq *r, int ret)
 {
     int status;
-    SCSIGenericReq *r = (SCSIGenericReq *)opaque;
 
-    r->req.aiocb = NULL;
+    assert(r->req.aiocb == NULL);
+
     if (r->req.io_canceled) {
         scsi_req_cancel_complete(&r->req);
         goto done;
@@ -142,6 +140,15 @@ done:
     scsi_req_unref(&r->req);
 }
 
+static void scsi_command_complete(void *opaque, int ret)
+{
+    SCSIGenericReq *r = (SCSIGenericReq *)opaque;
+
+    assert(r->req.aiocb != NULL);
+    r->req.aiocb = NULL;
+    scsi_command_complete_noio(r, ret);
+}
+
 static int execute_command(BlockBackend *blk,
                            SCSIGenericReq *r, int direction,
                            BlockCompletionFunc *complete)
@@ -172,33 +179,64 @@ static void scsi_read_complete(void * opaque, int ret)
     SCSIDevice *s = r->req.dev;
     int len;
 
+    assert(r->req.aiocb != NULL);
     r->req.aiocb = NULL;
+
     if (ret || r->req.io_canceled) {
-        scsi_command_complete(r, ret);
+        scsi_command_complete_noio(r, ret);
         return;
     }
+
     len = r->io_header.dxfer_len - r->io_header.resid;
     DPRINTF("Data ready tag=0x%x len=%d\n", r->req.tag, len);
 
     r->len = -1;
     if (len == 0) {
-        scsi_command_complete(r, 0);
-    } else {
-        /* Snoop READ CAPACITY output to set the blocksize.  */
-        if (r->req.cmd.buf[0] == READ_CAPACITY_10 &&
-            (ldl_be_p(&r->buf[0]) != 0xffffffffU || s->max_lba == 0)) {
-            s->blocksize = ldl_be_p(&r->buf[4]);
-            s->max_lba = ldl_be_p(&r->buf[0]) & 0xffffffffULL;
-        } else if (r->req.cmd.buf[0] == SERVICE_ACTION_IN_16 &&
-                   (r->req.cmd.buf[1] & 31) == SAI_READ_CAPACITY_16) {
-            s->blocksize = ldl_be_p(&r->buf[8]);
-            s->max_lba = ldq_be_p(&r->buf[0]);
-        }
-        blk_set_guest_block_size(s->conf.blk, s->blocksize);
-
-        scsi_req_data(&r->req, len);
-        scsi_req_unref(&r->req);
+        scsi_command_complete_noio(r, 0);
+        return;
     }
+
+    /* Snoop READ CAPACITY output to set the blocksize.  */
+    if (r->req.cmd.buf[0] == READ_CAPACITY_10 &&
+        (ldl_be_p(&r->buf[0]) != 0xffffffffU || s->max_lba == 0)) {
+        s->blocksize = ldl_be_p(&r->buf[4]);
+        s->max_lba = ldl_be_p(&r->buf[0]) & 0xffffffffULL;
+    } else if (r->req.cmd.buf[0] == SERVICE_ACTION_IN_16 &&
+               (r->req.cmd.buf[1] & 31) == SAI_READ_CAPACITY_16) {
+        s->blocksize = ldl_be_p(&r->buf[8]);
+        s->max_lba = ldq_be_p(&r->buf[0]);
+    }
+    blk_set_guest_block_size(s->conf.blk, s->blocksize);
+
+    /* Patch MODE SENSE device specific parameters if the BDS is opened
+     * readonly.
+     */
+    if ((s->type == TYPE_DISK || s->type == TYPE_TAPE) &&
+        blk_is_read_only(s->conf.blk) &&
+        (r->req.cmd.buf[0] == MODE_SENSE ||
+         r->req.cmd.buf[0] == MODE_SENSE_10) &&
+        (r->req.cmd.buf[1] & 0x8) == 0) {
+        if (r->req.cmd.buf[0] == MODE_SENSE) {
+            r->buf[2] |= 0x80;
+        } else  {
+            r->buf[3] |= 0x80;
+        }
+    }
+    if (s->type == TYPE_DISK &&
+        r->req.cmd.buf[0] == INQUIRY &&
+        r->req.cmd.buf[2] == 0xb0) {
+        uint32_t max_transfer =
+            blk_get_max_transfer(s->conf.blk) / s->blocksize;
+
+        assert(max_transfer);
+        stl_be_p(&r->buf[8], max_transfer);
+        /* Also take care of the opt xfer len. */
+        if (ldl_be_p(&r->buf[12]) > max_transfer) {
+            stl_be_p(&r->buf[12], max_transfer);
+        }
+    }
+    scsi_req_data(&r->req, len);
+    scsi_req_unref(&r->req);
 }
 
 /* Read more data from scsi device into buffer.  */
@@ -213,14 +251,14 @@ static void scsi_read_data(SCSIRequest *req)
     /* The request is used as the AIO opaque value, so add a ref.  */
     scsi_req_ref(&r->req);
     if (r->len == -1) {
-        scsi_command_complete(r, 0);
+        scsi_command_complete_noio(r, 0);
         return;
     }
 
     ret = execute_command(s->conf.blk, r, SG_DXFER_FROM_DEV,
                           scsi_read_complete);
     if (ret < 0) {
-        scsi_command_complete(r, ret);
+        scsi_command_complete_noio(r, ret);
     }
 }
 
@@ -230,9 +268,12 @@ static void scsi_write_complete(void * opaque, int ret)
     SCSIDevice *s = r->req.dev;
 
     DPRINTF("scsi_write_complete() ret = %d\n", ret);
+
+    assert(r->req.aiocb != NULL);
     r->req.aiocb = NULL;
+
     if (ret || r->req.io_canceled) {
-        scsi_command_complete(r, ret);
+        scsi_command_complete_noio(r, ret);
         return;
     }
 
@@ -242,7 +283,7 @@ static void scsi_write_complete(void * opaque, int ret)
         DPRINTF("block size %d\n", s->blocksize);
     }
 
-    scsi_command_complete(r, ret);
+    scsi_command_complete_noio(r, ret);
 }
 
 /* Write data to a scsi device.  Returns nonzero on failure.
@@ -264,7 +305,7 @@ static void scsi_write_data(SCSIRequest *req)
     scsi_req_ref(&r->req);
     ret = execute_command(s->conf.blk, r, SG_DXFER_TO_DEV, scsi_write_complete);
     if (ret < 0) {
-        scsi_command_complete(r, ret);
+        scsi_command_complete_noio(r, ret);
     }
 }
 
@@ -306,7 +347,7 @@ static int32_t scsi_send_command(SCSIRequest *req, uint8_t *cmd)
         ret = execute_command(s->conf.blk, r, SG_DXFER_NONE,
                               scsi_command_complete);
         if (ret < 0) {
-            scsi_command_complete(r, ret);
+            scsi_command_complete_noio(r, ret);
             return 0;
         }
         return 0;
@@ -325,6 +366,96 @@ static int32_t scsi_send_command(SCSIRequest *req, uint8_t *cmd)
         return -r->req.cmd.xfer;
     } else {
         return r->req.cmd.xfer;
+    }
+}
+
+static int read_naa_id(const uint8_t *p, uint64_t *p_wwn)
+{
+    int i;
+
+    if ((p[1] & 0xF) == 3) {
+        /* NAA designator type */
+        if (p[3] != 8) {
+            return -EINVAL;
+        }
+        *p_wwn = ldq_be_p(p + 4);
+        return 0;
+    }
+
+    if ((p[1] & 0xF) == 8) {
+        /* SCSI name string designator type */
+        if (p[3] < 20 || memcmp(&p[4], "naa.", 4)) {
+            return -EINVAL;
+        }
+        if (p[3] > 20 && p[24] != ',') {
+            return -EINVAL;
+        }
+        *p_wwn = 0;
+        for (i = 8; i < 24; i++) {
+            char c = toupper(p[i]);
+            c -= (c >= '0' && c <= '9' ? '0' : 'A' - 10);
+            *p_wwn = (*p_wwn << 4) | c;
+        }
+        return 0;
+    }
+
+    return -EINVAL;
+}
+
+void scsi_generic_read_device_identification(SCSIDevice *s)
+{
+    uint8_t cmd[6];
+    uint8_t buf[250];
+    uint8_t sensebuf[8];
+    sg_io_hdr_t io_header;
+    int ret;
+    int i, len;
+
+    memset(cmd, 0, sizeof(cmd));
+    memset(buf, 0, sizeof(buf));
+    cmd[0] = INQUIRY;
+    cmd[1] = 1;
+    cmd[2] = 0x83;
+    cmd[4] = sizeof(buf);
+
+    memset(&io_header, 0, sizeof(io_header));
+    io_header.interface_id = 'S';
+    io_header.dxfer_direction = SG_DXFER_FROM_DEV;
+    io_header.dxfer_len = sizeof(buf);
+    io_header.dxferp = buf;
+    io_header.cmdp = cmd;
+    io_header.cmd_len = sizeof(cmd);
+    io_header.mx_sb_len = sizeof(sensebuf);
+    io_header.sbp = sensebuf;
+    io_header.timeout = 6000; /* XXX */
+
+    ret = blk_ioctl(s->conf.blk, SG_IO, &io_header);
+    if (ret < 0 || io_header.driver_status || io_header.host_status) {
+        return;
+    }
+
+    len = MIN((buf[2] << 8) | buf[3], sizeof(buf) - 4);
+    for (i = 0; i + 3 <= len; ) {
+        const uint8_t *p = &buf[i + 4];
+        uint64_t wwn;
+
+        if (i + (p[3] + 4) > len) {
+            break;
+        }
+
+        if ((p[1] & 0x10) == 0) {
+            /* Associated with the logical unit */
+            if (read_naa_id(p, &wwn) == 0) {
+                s->wwn = wwn;
+            }
+        } else if ((p[1] & 0x10) == 0x10) {
+            /* Associated with the target port */
+            if (read_naa_id(p, &wwn) == 0) {
+                s->port_wwn = wwn;
+            }
+        }
+
+        i += p[3] + 4;
     }
 }
 
@@ -431,6 +562,8 @@ static void scsi_generic_realize(SCSIDevice *s, Error **errp)
     }
 
     DPRINTF("block size %d\n", s->blocksize);
+
+    scsi_generic_read_device_identification(s);
 }
 
 const SCSIReqOps scsi_generic_req_ops = {
@@ -447,10 +580,7 @@ const SCSIReqOps scsi_generic_req_ops = {
 static SCSIRequest *scsi_new_request(SCSIDevice *d, uint32_t tag, uint32_t lun,
                                      uint8_t *buf, void *hba_private)
 {
-    SCSIRequest *req;
-
-    req = scsi_req_alloc(&scsi_generic_req_ops, d, tag, lun, hba_private);
-    return req;
+    return scsi_req_alloc(&scsi_generic_req_ops, d, tag, lun, hba_private);
 }
 
 static Property scsi_generic_properties[] = {

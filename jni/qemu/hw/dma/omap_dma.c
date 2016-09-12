@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "qemu-common.h"
 #include "qemu/timer.h"
 #include "hw/arm/omap.h"
@@ -1626,8 +1627,7 @@ struct soc_dma_s *omap_dma_init(hwaddr base, qemu_irq *irqs,
                 enum omap_dma_model model)
 {
     int num_irqs, memsize, i;
-    struct omap_dma_s *s = (struct omap_dma_s *)
-            g_malloc0(sizeof(struct omap_dma_s));
+    struct omap_dma_s *s = g_new0(struct omap_dma_s, 1);
 
     if (model <= omap_dma_3_1) {
         num_irqs = 6;
@@ -2061,8 +2061,7 @@ struct soc_dma_s *omap_dma4_init(hwaddr base, qemu_irq *irqs,
                 int chans, omap_clk iclk, omap_clk fclk)
 {
     int i;
-    struct omap_dma_s *s = (struct omap_dma_s *)
-            g_malloc0(sizeof(struct omap_dma_s));
+    struct omap_dma_s *s = g_new0(struct omap_dma_s, 1);
 
     s->model = omap_dma_4;
     s->chans = chans;

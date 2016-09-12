@@ -19,6 +19,7 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "qxl.h"
 #include "trace.h"
 
@@ -159,7 +160,7 @@ static void qxl_render_update_area_unlocked(PCIQXLDevice *qxl)
 /*
  * use ssd.lock to protect render_update_cookie_num.
  * qxl_render_update is called by io thread or vcpu thread, and the completion
- * callbacks are called by spice_server thread, defering to bh called from the
+ * callbacks are called by spice_server thread, deferring to bh called from the
  * io thread.
  */
 void qxl_render_update(PCIQXLDevice *qxl)

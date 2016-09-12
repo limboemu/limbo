@@ -10,13 +10,13 @@
  * See the COPYING file in the top-level directory.
  */
 
-#include <glib.h>
+#include "qemu/osdep.h"
 
 #include "qemu/config-file.h"     /* qemu_add_opts() */
 #include "qemu/option.h"          /* qemu_opts_parse() */
+#include "qapi/error.h"
 #include "qapi/opts-visitor.h"    /* opts_visitor_new() */
 #include "test-qapi-visit.h"      /* visit_type_UserDefOptions() */
-#include "qapi/dealloc-visitor.h" /* qapi_dealloc_visitor_new() */
 
 static QemuOptsList userdef_opts = {
     .name = "userdef",
@@ -37,15 +37,15 @@ setup_fixture(OptsVisitorFixture *f, gconstpointer test_data)
 {
     const char *opts_string = test_data;
     QemuOpts *opts;
-    OptsVisitor *ov;
+    Visitor *v;
 
-    opts = qemu_opts_parse(qemu_find_opts("userdef"), opts_string, 0);
+    opts = qemu_opts_parse(qemu_find_opts("userdef"), opts_string, false,
+                           NULL);
     g_assert(opts != NULL);
 
-    ov = opts_visitor_new(opts);
-    visit_type_UserDefOptions(opts_get_visitor(ov), &f->userdef, NULL,
-                              &f->err);
-    opts_visitor_cleanup(ov);
+    v = opts_visitor_new(opts);
+    visit_type_UserDefOptions(v, NULL, &f->userdef, &f->err);
+    visit_free(v);
     qemu_opts_del(opts);
 }
 
@@ -53,14 +53,7 @@ setup_fixture(OptsVisitorFixture *f, gconstpointer test_data)
 static void
 teardown_fixture(OptsVisitorFixture *f, gconstpointer test_data)
 {
-    if (f->userdef != NULL) {
-        QapiDeallocVisitor *dv;
-
-        dv = qapi_dealloc_visitor_new();
-        visit_type_UserDefOptions(qapi_dealloc_get_visitor(dv), &f->userdef,
-                                  NULL, NULL);
-        qapi_dealloc_visitor_cleanup(dv);
-    }
+    qapi_free_UserDefOptions(f->userdef);
     error_free(f->err);
 }
 

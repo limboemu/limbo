@@ -7,7 +7,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <ipxe/device.h>
 
@@ -35,7 +35,7 @@ extern int uriboot ( struct uri *filename, struct uri *root_path, int drive,
 extern struct uri *
 fetch_next_server_and_filename ( struct settings *settings );
 extern int netboot ( struct net_device *netdev );
-extern void ipxe ( struct net_device *netdev );
+extern int ipxe ( struct net_device *netdev );
 
 extern int pxe_menu_boot ( struct net_device *netdev );
 

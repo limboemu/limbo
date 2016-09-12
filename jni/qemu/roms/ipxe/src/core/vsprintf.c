@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stddef.h>
 #include <stdarg.h>
@@ -253,11 +257,13 @@ size_t vcprintf ( struct printf_context *ctx, const char *fmt, va_list args ) {
 		} else if ( *fmt == 's' ) {
 			if ( length < &type_sizes[LONG_LEN] ) {
 				ptr = va_arg ( args, char * );
+				if ( ! ptr )
+					ptr = "<NULL>";
 			} else {
 				wptr = va_arg ( args, wchar_t * );
+				if ( ! wptr )
+					ptr = "<NULL>";
 			}
-			if ( ( ptr == NULL ) && ( wptr == NULL ) )
-				ptr = "<NULL>";
 		} else if ( *fmt == 'p' ) {
 			intptr_t ptrval;
 

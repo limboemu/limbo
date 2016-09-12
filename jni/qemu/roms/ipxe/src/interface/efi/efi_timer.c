@@ -15,18 +15,20 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <string.h>
 #include <errno.h>
-#include <limits.h>
-#include <assert.h>
 #include <unistd.h>
 #include <ipxe/timer.h>
+#include <ipxe/init.h>
 #include <ipxe/efi/efi.h>
-#include <ipxe/efi/Protocol/Cpu.h>
 
 /** @file
  *
@@ -34,19 +36,14 @@ FILE_LICENCE ( GPL2_OR_LATER );
  *
  */
 
-/** Scale factor to apply to CPU timer 0
- *
- * The timer is scaled down in order to ensure that reasonable values
- * for "number of ticks" don't exceed the size of an unsigned long.
- */
-#define EFI_TIMER0_SHIFT 12
+/** Current tick count */
+static unsigned long efi_jiffies;
 
-/** Calibration time */
-#define EFI_CALIBRATE_DELAY_MS 1
+/** Timer tick event */
+static EFI_EVENT efi_tick_event;
 
-/** CPU protocol */
-static EFI_CPU_ARCH_PROTOCOL *cpu_arch;
-EFI_REQUIRE_PROTOCOL ( EFI_CPU_ARCH_PROTOCOL, &cpu_arch );
+/** Colour for debug messages */
+#define colour &efi_jiffies
 
 /**
  * Delay for a fixed number of microseconds
@@ -60,8 +57,8 @@ static void efi_udelay ( unsigned long usecs ) {
 
 	if ( ( efirc = bs->Stall ( usecs ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		DBG ( "EFI could not delay for %ldus: %s\n",
-		      usecs, strerror ( rc ) );
+		DBGC ( colour, "EFI could not delay for %ldus: %s\n",
+		       usecs, strerror ( rc ) );
 		/* Probably screwed */
 	}
 }
@@ -72,53 +69,92 @@ static void efi_udelay ( unsigned long usecs ) {
  * @ret ticks		Current time, in ticks
  */
 static unsigned long efi_currticks ( void ) {
-	UINT64 time;
-	EFI_STATUS efirc;
-	int rc;
 
-	/* Read CPU timer 0 (TSC) */
-	if ( ( efirc = cpu_arch->GetTimerValue ( cpu_arch, 0, &time,
-						 NULL ) ) != 0 ) {
-		rc = -EEFI ( efirc );
-		DBG ( "EFI could not read CPU timer: %s\n", strerror ( rc ) );
-		/* Probably screwed */
-		return -1UL;
-	}
-
-	return ( time >> EFI_TIMER0_SHIFT );
+	return efi_jiffies;
 }
 
 /**
- * Get number of ticks per second
+ * Timer tick
  *
- * @ret ticks_per_sec	Number of ticks per second
+ * @v event		Timer tick event
+ * @v context		Event context
  */
-static unsigned long efi_ticks_per_sec ( void ) {
-	static unsigned long ticks_per_sec = 0;
+static EFIAPI void efi_tick ( EFI_EVENT event __unused,
+			      void *context __unused ) {
 
-	/* Calibrate timer, if necessary.  EFI does nominally provide
-	 * the timer speed via the (optional) TimerPeriod parameter to
-	 * the GetTimerValue() call, but it gets the speed slightly
-	 * wrong.  By up to three orders of magnitude.  Not helpful.
-	 */
-	if ( ! ticks_per_sec ) {
-		unsigned long start;
-		unsigned long elapsed;
+	/* Increment tick count */
+	efi_jiffies++;
+}
 
-		DBG ( "Calibrating EFI timer with a %d ms delay\n",
-		      EFI_CALIBRATE_DELAY_MS );
-		start = currticks();
-		mdelay ( EFI_CALIBRATE_DELAY_MS );
-		elapsed = ( currticks() - start );
-		ticks_per_sec = ( elapsed * ( 1000 / EFI_CALIBRATE_DELAY_MS ));
-		DBG ( "EFI CPU timer calibrated at %ld ticks in %d ms (%ld "
-		      "ticks/sec)\n", elapsed, EFI_CALIBRATE_DELAY_MS,
-		      ticks_per_sec );
+/**
+ * Start timer tick
+ *
+ */
+static void efi_tick_startup ( void ) {
+	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
+	EFI_STATUS efirc;
+	int rc;
+
+	/* Create timer tick event */
+	if ( ( efirc = bs->CreateEvent ( ( EVT_TIMER | EVT_NOTIFY_SIGNAL ),
+					 TPL_CALLBACK, efi_tick, NULL,
+					 &efi_tick_event ) ) != 0 ) {
+		rc = -EEFI ( efirc );
+		DBGC ( colour, "EFI could not create timer tick: %s\n",
+		       strerror ( rc ) );
+		/* Nothing we can do about it */
+		return;
 	}
 
-	return ticks_per_sec;
+	/* Start timer tick */
+	if ( ( efirc = bs->SetTimer ( efi_tick_event, TimerPeriodic,
+				      ( 10000000 / EFI_TICKS_PER_SEC ) ) ) !=0){
+		rc = -EEFI ( efirc );
+		DBGC ( colour, "EFI could not start timer tick: %s\n",
+		       strerror ( rc ) );
+		/* Nothing we can do about it */
+		return;
+	}
+	DBGC ( colour, "EFI timer started at %d ticks per second\n",
+	       EFI_TICKS_PER_SEC );
 }
+
+/**
+ * Stop timer tick
+ *
+ * @v booting		System is shutting down in order to boot
+ */
+static void efi_tick_shutdown ( int booting __unused ) {
+	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
+	EFI_STATUS efirc;
+	int rc;
+
+	/* Stop timer tick */
+	if ( ( efirc = bs->SetTimer ( efi_tick_event, TimerCancel, 0 ) ) != 0 ){
+		rc = -EEFI ( efirc );
+		DBGC ( colour, "EFI could not stop timer tick: %s\n",
+		       strerror ( rc ) );
+		/* Self-destruct initiated */
+		return;
+	}
+	DBGC ( colour, "EFI timer stopped\n" );
+
+	/* Destroy timer tick event */
+	if ( ( efirc = bs->CloseEvent ( efi_tick_event ) ) != 0 ) {
+		rc = -EEFI ( efirc );
+		DBGC ( colour, "EFI could not destroy timer tick: %s\n",
+		       strerror ( rc ) );
+		/* Probably non-fatal */
+		return;
+	}
+}
+
+/** Timer tick startup function */
+struct startup_fn efi_tick_startup_fn __startup_fn ( STARTUP_EARLY ) = {
+	.startup = efi_tick_startup,
+	.shutdown = efi_tick_shutdown,
+};
 
 PROVIDE_TIMER ( efi, udelay, efi_udelay );
 PROVIDE_TIMER ( efi, currticks, efi_currticks );
-PROVIDE_TIMER ( efi, ticks_per_sec, efi_ticks_per_sec );
+PROVIDE_TIMER_INLINE ( efi, ticks_per_sec );

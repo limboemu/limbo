@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef _ETSEC_H_
-#define _ETSEC_H_
+
+#ifndef ETSEC_H
+#define ETSEC_H
 
 #include "hw/qdev.h"
 #include "hw/sysbus.h"
@@ -144,6 +145,8 @@ typedef struct eTSEC {
     QEMUBH *bh;
     struct ptimer_state *ptimer;
 
+    /* Whether we should flush the rx queue when buffer becomes available. */
+    bool need_flush;
 } eTSEC;
 
 #define TYPE_ETSEC_COMMON "eTSEC"
@@ -162,7 +165,7 @@ DeviceState *etsec_create(hwaddr        base,
 
 void etsec_walk_tx_ring(eTSEC *etsec, int ring_nbr);
 void etsec_walk_rx_ring(eTSEC *etsec, int ring_nbr);
-void etsec_rx_ring_write(eTSEC *etsec, const uint8_t *buf, size_t size);
+ssize_t etsec_rx_ring_write(eTSEC *etsec, const uint8_t *buf, size_t size);
 
 void etsec_write_miim(eTSEC          *etsec,
                       eTSEC_Register *reg,
@@ -171,4 +174,4 @@ void etsec_write_miim(eTSEC          *etsec,
 
 void etsec_miim_link_status(eTSEC *etsec, NetClientState *nc);
 
-#endif /* ! _ETSEC_H_ */
+#endif /* ETSEC_H */

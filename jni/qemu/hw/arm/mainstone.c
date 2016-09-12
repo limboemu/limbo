@@ -11,6 +11,8 @@
  * Contributions after 2012-01-13 are licensed under the terms of the
  * GNU GPL, version 2 or (at your option) any later version.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/hw.h"
 #include "hw/arm/pxa.h"
 #include "hw/arm/arm.h"
@@ -124,7 +126,7 @@ static void mainstone_common_init(MemoryRegion *address_space_mem,
     /* Setup CPU & memory */
     mpu = pxa270_init(address_space_mem, mainstone_binfo.ram_size, cpu_model);
     memory_region_init_ram(rom, NULL, "mainstone.rom", MAINSTONE_ROM,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(rom);
     memory_region_set_readonly(rom, true);
     memory_region_add_subregion(address_space_mem, 0, rom);
@@ -188,15 +190,10 @@ static void mainstone_init(MachineState *machine)
     mainstone_common_init(get_system_memory(), machine, mainstone, 0x196);
 }
 
-static QEMUMachine mainstone2_machine = {
-    .name = "mainstone",
-    .desc = "Mainstone II (PXA27x)",
-    .init = mainstone_init,
-};
-
-static void mainstone_machine_init(void)
+static void mainstone2_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&mainstone2_machine);
+    mc->desc = "Mainstone II (PXA27x)";
+    mc->init = mainstone_init;
 }
 
-machine_init(mainstone_machine_init);
+DEFINE_MACHINE("mainstone", mainstone2_machine_init)

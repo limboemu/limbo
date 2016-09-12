@@ -1,31 +1,51 @@
 #ifndef _IPXE_AES_H
 #define _IPXE_AES_H
 
-FILE_LICENCE ( GPL2_OR_LATER );
+/** @file
+ *
+ * AES algorithm
+ *
+ */
 
-struct cipher_algorithm;
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
-/** Basic AES blocksize */
+#include <ipxe/crypto.h>
+
+/** AES blocksize */
 #define AES_BLOCKSIZE 16
 
-#include "crypto/axtls/crypto.h"
+/** Maximum number of AES rounds */
+#define AES_MAX_ROUNDS 15
+
+/** AES matrix */
+union aes_matrix {
+	/** Viewed as an array of bytes */
+	uint8_t byte[16];
+	/** Viewed as an array of four-byte columns */
+	uint32_t column[4];
+} __attribute__ (( packed ));
+
+/** AES round keys */
+struct aes_round_keys {
+	/** Round keys */
+	union aes_matrix key[AES_MAX_ROUNDS];
+};
 
 /** AES context */
 struct aes_context {
-	/** AES context for AXTLS */
-	AES_CTX axtls_ctx;
-	/** Cipher is being used for decrypting */
-	int decrypting;
+	/** Encryption keys */
+	struct aes_round_keys encrypt;
+	/** Decryption keys */
+	struct aes_round_keys decrypt;
+	/** Number of rounds */
+	unsigned int rounds;
 };
 
 /** AES context size */
 #define AES_CTX_SIZE sizeof ( struct aes_context )
 
-/* AXTLS functions */
-extern void axtls_aes_encrypt ( const AES_CTX *ctx, uint32_t *data );
-extern void axtls_aes_decrypt ( const AES_CTX *ctx, uint32_t *data );
-
 extern struct cipher_algorithm aes_algorithm;
+extern struct cipher_algorithm aes_ecb_algorithm;
 extern struct cipher_algorithm aes_cbc_algorithm;
 
 int aes_wrap ( const void *kek, const void *src, void *dest, int nblk );

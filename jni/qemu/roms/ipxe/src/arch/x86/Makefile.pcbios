@@ -1,0 +1,127 @@
+# -*- makefile -*- : Force emacs to use Makefile mode
+
+# BIOS-specific directories containing source files
+#
+SRCDIRS		+= arch/x86/drivers/net
+
+# The i386 linker script
+#
+LDSCRIPT	= arch/x86/scripts/pcbios.lds
+
+# Stop ld from complaining about our customised linker script
+#
+LDFLAGS		+= -N --no-check-sections
+
+# Prefix always starts at address zero
+#
+LDFLAGS		+= --section-start=.prefix=0
+
+# Media types.
+#
+MEDIA		+= rom
+MEDIA		+= mrom
+MEDIA		+= pcirom
+MEDIA		+= isarom
+MEDIA		+= pxe
+MEDIA		+= kpxe
+MEDIA		+= kkpxe
+MEDIA		+= kkkpxe
+MEDIA		+= lkrn
+MEDIA		+= dsk
+MEDIA		+= nbi
+MEDIA		+= hd
+MEDIA		+= raw
+MEDIA		+= exe
+
+# Padding rules
+#
+PAD_rom		= $(PERL) $(PADIMG) --blksize=512 --byte=0xff
+PAD_mrom	= $(PAD_rom)
+PAD_pcirom	= $(PAD_rom)
+PAD_isarom	= $(PAD_rom)
+PAD_dsk		= $(PERL) $(PADIMG) --blksize=512
+PAD_hd		= $(PERL) $(PADIMG) --blksize=32768
+PAD_exe		= $(PERL) $(PADIMG) --blksize=512
+
+# Finalisation rules
+#
+FINALISE_rom	= $(PERL) $(FIXROM)
+FINALISE_mrom	= $(FINALISE_rom)
+FINALISE_pcirom	= $(FINALISE_rom)
+FINALISE_isarom	= $(FINALISE_rom)
+
+# Use $(ROMS) rather than $(DRIVERS) for "allroms", "allmroms", etc.
+#
+LIST_NAME_rom := ROMS
+LIST_NAME_mrom := ROMS
+LIST_NAME_pcirom := ROMS
+LIST_NAME_isarom := ROMS
+
+# Locations of isolinux files
+#
+SYSLINUX_DIR_LIST	:= \
+	/usr/lib/syslinux \
+	/usr/lib/syslinux/bios \
+	/usr/lib/syslinux/modules/bios \
+	/usr/share/syslinux \
+	/usr/share/syslinux/bios \
+	/usr/share/syslinux/modules/bios \
+	/usr/local/share/syslinux \
+	/usr/local/share/syslinux/bios \
+	/usr/local/share/syslinux/modules/bios \
+	/usr/lib/ISOLINUX
+ISOLINUX_BIN_LIST	:= \
+	$(ISOLINUX_BIN) \
+	$(patsubst %,%/isolinux.bin,$(SYSLINUX_DIR_LIST))
+LDLINUX_C32_LIST	:= \
+	$(LDLINUX_C32) \
+	$(patsubst %,%/ldlinux.c32,$(SYSLINUX_DIR_LIST))
+ISOLINUX_BIN	= $(firstword $(wildcard $(ISOLINUX_BIN_LIST)))
+LDLINUX_C32	= $(firstword $(wildcard $(LDLINUX_C32_LIST)))
+
+# rule to make a non-emulation ISO boot image
+NON_AUTO_MEDIA	+= iso
+%iso:	%lkrn util/geniso
+	$(QM)$(ECHO) "  [GENISO] $@"
+	$(Q)ISOLINUX_BIN=$(ISOLINUX_BIN) LDLINUX_C32=$(LDLINUX_C32) \
+	    VERSION="$(VERSION)" bash util/geniso -o $@ $<
+
+# rule to make a floppy emulation ISO boot image
+NON_AUTO_MEDIA	+= liso
+%liso:	%lkrn util/geniso
+	$(QM)$(ECHO) "  [GENISO] $@"
+	$(Q)VERSION="$(VERSION)" bash util/geniso -l -o $@ $<
+
+# rule to make a syslinux floppy image (mountable, bootable)
+NON_AUTO_MEDIA	+= sdsk
+%sdsk:	%lkrn util/gensdsk
+	$(QM)$(ECHO) "  [GENSDSK] $@"
+	$(Q)bash util/gensdsk $@ $<
+
+# rule to write disk images to /dev/fd0
+NON_AUTO_MEDIA	+= fd0
+%fd0 : %dsk
+	$(QM)$(ECHO) "  [DD] $@"
+	$(Q)dd if=$< bs=512 conv=sync of=/dev/fd0
+	$(Q)sync
+
+# Special target for building Master Boot Record binary
+$(BIN)/mbr.bin : $(BIN)/mbr.o
+	$(QM)$(ECHO) "  [LD] $@"
+	$(Q)$(LD) $(LDFLAGS) -o $@ --oformat binary -e 0 $<
+
+# rule to make a USB disk image
+$(BIN)/usbdisk.bin : $(BIN)/usbdisk.o
+	$(QM)$(ECHO) "  [LD] $@"
+	$(Q)$(LD) $(LDFLAGS) -o $@ --oformat binary -e 0 $<
+
+NON_AUTO_MEDIA	+= usb
+%usb: $(BIN)/usbdisk.bin %hd
+	$(QM)$(ECHO) "  [FINISH] $@"
+	$(Q)cat $^ > $@
+
+# Padded floppy image (e.g. for iLO)
+NON_AUTO_MEDIA += pdsk
+%pdsk : %dsk
+	$(Q)cp $< $@
+	$(Q)$(PADIMG) --blksize=1474560 $@

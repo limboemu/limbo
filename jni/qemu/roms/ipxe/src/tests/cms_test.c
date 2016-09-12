@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -1470,6 +1474,7 @@ struct self_test cms_test __self_test = {
 };
 
 /* Drag in algorithms required for tests */
+REQUIRING_SYMBOL ( cms_test );
 REQUIRE_OBJECT ( rsa );
 REQUIRE_OBJECT ( md5 );
 REQUIRE_OBJECT ( sha1 );

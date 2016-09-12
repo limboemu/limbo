@@ -105,6 +105,13 @@ DEF_HELPER_FLAGS_1(parity, TCG_CALL_NO_RWG_SE, i32, i32)
 /* float */
 DEF_HELPER_FLAGS_4(pack, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32)
 DEF_HELPER_1(unpack, i64, i32)
+DEF_HELPER_3(fadd, i32, env, i32, i32)
+DEF_HELPER_3(fsub, i32, env, i32, i32)
+DEF_HELPER_3(fmul, i32, env, i32, i32)
+DEF_HELPER_3(fdiv, i32, env, i32, i32)
+DEF_HELPER_3(fcmp, i32, env, i32, i32)
+DEF_HELPER_2(ftoi, i32, env, i32)
+DEF_HELPER_2(itof, i32, env, i32)
 /* dvinit */
 DEF_HELPER_3(dvinit_b_13, i64, env, i32, i32)
 DEF_HELPER_3(dvinit_b_131, i64, env, i32, i32)
@@ -113,10 +120,14 @@ DEF_HELPER_3(dvinit_h_131, i64, env, i32, i32)
 DEF_HELPER_FLAGS_2(dvadj, TCG_CALL_NO_RWG_SE, i64, i64, i32)
 DEF_HELPER_FLAGS_2(dvstep, TCG_CALL_NO_RWG_SE, i64, i64, i32)
 DEF_HELPER_FLAGS_2(dvstep_u, TCG_CALL_NO_RWG_SE, i64, i64, i32)
+DEF_HELPER_3(divide, i64, env, i32, i32)
+DEF_HELPER_3(divide_u, i64, env, i32, i32)
 /* mulh */
 DEF_HELPER_FLAGS_5(mul_h, TCG_CALL_NO_RWG_SE, i64, i32, i32, i32, i32, i32)
 DEF_HELPER_FLAGS_5(mulm_h, TCG_CALL_NO_RWG_SE, i64, i32, i32, i32, i32, i32)
 DEF_HELPER_FLAGS_5(mulr_h, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32, i32)
+/* crc32 */
+DEF_HELPER_FLAGS_2(crc32, TCG_CALL_NO_RWG_SE, i32, i32, i32)
 /* CSA */
 DEF_HELPER_2(call, void, env, i32)
 DEF_HELPER_1(ret, void, env)
@@ -128,6 +139,7 @@ DEF_HELPER_2(lducx, void, env, i32)
 DEF_HELPER_2(stlcx, void, env, i32)
 DEF_HELPER_2(stucx, void, env, i32)
 DEF_HELPER_1(svlcx, void, env)
+DEF_HELPER_1(svucx, void, env)
 DEF_HELPER_1(rslcx, void, env)
 /* Address mode helper */
 DEF_HELPER_1(br_update, i32, i32)
@@ -135,3 +147,5 @@ DEF_HELPER_2(circ_update, i32, i32, i32)
 /* PSW cache helper */
 DEF_HELPER_2(psw_write, void, env, i32)
 DEF_HELPER_1(psw_read, i32, env)
+/* Exceptions */
+DEF_HELPER_3(raise_exception_sync, noreturn, env, i32, i32)

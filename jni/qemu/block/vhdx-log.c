@@ -17,9 +17,13 @@
  * See the COPYING.LIB file in the top-level directory.
  *
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "block/block_int.h"
+#include "qemu/error-report.h"
 #include "qemu/module.h"
+#include "qemu/bswap.h"
 #include "block/vhdx.h"
 
 
@@ -190,7 +194,8 @@ static int vhdx_log_write_sectors(BlockDriverState *bs, VHDXLogEntries *log,
             /* full */
             break;
         }
-        ret = bdrv_pwrite(bs->file, offset, buffer_tmp, VHDX_LOG_SECTOR_SIZE);
+        ret = bdrv_pwrite(bs->file, offset, buffer_tmp,
+                          VHDX_LOG_SECTOR_SIZE);
         if (ret < 0) {
             goto exit;
         }
@@ -352,7 +357,7 @@ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
     }
 
     desc_sectors = vhdx_compute_desc_sectors(hdr.descriptor_count);
-    desc_entries = qemu_try_blockalign(bs->file,
+    desc_entries = qemu_try_blockalign(bs->file->bs,
                                        desc_sectors * VHDX_LOG_SECTOR_SIZE);
     if (desc_entries == NULL) {
         ret = -ENOMEM;
@@ -508,7 +513,7 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
         /* if the log shows a FlushedFileOffset larger than our current file
          * size, then that means the file has been truncated / corrupted, and
          * we must refused to open it / use it */
-        if (hdr_tmp.flushed_file_offset > bdrv_getlength(bs->file)) {
+        if (hdr_tmp.flushed_file_offset > bdrv_getlength(bs->file->bs)) {
             ret = -EINVAL;
             goto exit;
         }
@@ -538,12 +543,12 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
                 goto exit;
             }
         }
-        if (bdrv_getlength(bs->file) < desc_entries->hdr.last_file_offset) {
+        if (bdrv_getlength(bs->file->bs) < desc_entries->hdr.last_file_offset) {
             new_file_size = desc_entries->hdr.last_file_offset;
             if (new_file_size % (1024*1024)) {
                 /* round up to nearest 1MB boundary */
                 new_file_size = ((new_file_size >> 20) + 1) << 20;
-                bdrv_truncate(bs->file, new_file_size);
+                bdrv_truncate(bs->file->bs, new_file_size);
             }
         }
         qemu_vfree(desc_entries);
@@ -782,12 +787,13 @@ int vhdx_parse_log(BlockDriverState *bs, BDRVVHDXState *s, bool *flushed,
     if (logs.valid) {
         if (bs->read_only) {
             ret = -EPERM;
-            error_setg_errno(errp, EPERM,
-                             "VHDX image file '%s' opened read-only, but "
-                             "contains a log that needs to be replayed.  To "
-                             "replay the log, execute:\n qemu-img check -r "
-                             "all '%s'",
-                             bs->filename, bs->filename);
+            error_setg(errp,
+                       "VHDX image file '%s' opened read-only, but "
+                       "contains a log that needs to be replayed",
+                       bs->filename);
+            error_append_hint(errp,  "To replay the log, run:\n"
+                              "qemu-img check -r all '%s'\n",
+                              bs->filename);
             goto exit;
         }
         /* now flush the log */
@@ -907,8 +913,8 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
                 .sequence_number     = s->log.sequence,
                 .descriptor_count    = sectors,
                 .reserved            = 0,
-                .flushed_file_offset = bdrv_getlength(bs->file),
-                .last_file_offset    = bdrv_getlength(bs->file),
+                .flushed_file_offset = bdrv_getlength(bs->file->bs),
+                .last_file_offset    = bdrv_getlength(bs->file->bs),
               };
 
     new_hdr.log_guid = header->log_guid;

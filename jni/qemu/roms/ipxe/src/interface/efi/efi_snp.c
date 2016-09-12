@@ -25,21 +25,58 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <assert.h>
 #include <byteswap.h>
 #include <ipxe/netdevice.h>
+#include <ipxe/vlan.h>
 #include <ipxe/iobuf.h>
 #include <ipxe/in.h>
 #include <ipxe/version.h>
+#include <ipxe/console.h>
 #include <ipxe/efi/efi.h>
 #include <ipxe/efi/efi_driver.h>
 #include <ipxe/efi/efi_strings.h>
 #include <ipxe/efi/efi_utils.h>
+#include <ipxe/efi/efi_watchdog.h>
 #include <ipxe/efi/efi_snp.h>
 #include <usr/autoboot.h>
+#include <config/general.h>
 
 /** List of SNP devices */
 static LIST_HEAD ( efi_snp_devices );
 
 /** Network devices are currently claimed for use by iPXE */
 static int efi_snp_claimed;
+
+/* Downgrade user experience if configured to do so
+ *
+ * The default UEFI user experience for network boot is somewhat
+ * excremental: only TFTP is available as a download protocol, and if
+ * anything goes wrong the user will be shown just a dot on an
+ * otherwise blank screen.  (Some programmer was clearly determined to
+ * win a bet that they could outshine Apple at producing uninformative
+ * error messages.)
+ *
+ * For comparison, the default iPXE user experience provides the
+ * option to use protocols designed more recently than 1980 (such as
+ * HTTP and iSCSI), and if anything goes wrong the the user will be
+ * shown one of over 1200 different error messages, complete with a
+ * link to a wiki page describing that specific error.
+ *
+ * We default to upgrading the user experience to match that available
+ * in a "legacy" BIOS environment, by installing our own instance of
+ * EFI_LOAD_FILE_PROTOCOL.
+ *
+ * Note that unfortunately we can't sensibly provide the choice of
+ * both options to the user in the same build, because the UEFI boot
+ * menu ignores the multitude of ways in which a network device handle
+ * can be described and opaquely labels both menu entries as just "EFI
+ * Network".
+ */
+#ifdef EFI_DOWNGRADE_UX
+static EFI_GUID dummy_load_file_protocol_guid = {
+	0x6f6c7323, 0x2077, 0x7523,
+	{ 0x6e, 0x68, 0x65, 0x6c, 0x70, 0x66, 0x75, 0x6c }
+};
+#define efi_load_file_protocol_guid dummy_load_file_protocol_guid
+#endif
 
 /**
  * Set EFI SNP mode state
@@ -98,28 +135,43 @@ static void efi_snp_set_mode ( struct efi_snp_device *snpdev ) {
 }
 
 /**
+ * Flush transmit ring and receive queue
+ *
+ * @v snpdev		SNP device
+ */
+static void efi_snp_flush ( struct efi_snp_device *snpdev ) {
+	struct io_buffer *iobuf;
+	struct io_buffer *tmp;
+
+	/* Reset transmit completion ring */
+	snpdev->tx_prod = 0;
+	snpdev->tx_cons = 0;
+
+	/* Discard any queued receive buffers */
+	list_for_each_entry_safe ( iobuf, tmp, &snpdev->rx, list ) {
+		list_del ( &iobuf->list );
+		free_iob ( iobuf );
+	}
+}
+
+/**
  * Poll net device and count received packets
  *
  * @v snpdev		SNP device
  */
 static void efi_snp_poll ( struct efi_snp_device *snpdev ) {
+	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
 	struct io_buffer *iobuf;
-	unsigned int before = 0;
-	unsigned int after = 0;
-	unsigned int arrived;
 
-	/* We have to report packet arrivals, and this is the easiest
-	 * way to fake it.
-	 */
-	list_for_each_entry ( iobuf, &snpdev->netdev->rx_queue, list )
-		before++;
+	/* Poll network device */
 	netdev_poll ( snpdev->netdev );
-	list_for_each_entry ( iobuf, &snpdev->netdev->rx_queue, list )
-		after++;
-	arrived = ( after - before );
 
-	snpdev->rx_count_interrupts += arrived;
-	snpdev->rx_count_events += arrived;
+	/* Retrieve any received packets */
+	while ( ( iobuf = netdev_rx_dequeue ( snpdev->netdev ) ) ) {
+		list_add_tail ( &iobuf->list, &snpdev->rx );
+		snpdev->interrupts |= EFI_SIMPLE_NETWORK_RECEIVE_INTERRUPT;
+		bs->SignalEvent ( &snpdev->snp.WaitForPacket );
+	}
 }
 
 /**
@@ -133,7 +185,7 @@ efi_snp_start ( EFI_SIMPLE_NETWORK_PROTOCOL *snp ) {
 	struct efi_snp_device *snpdev =
 		container_of ( snp, struct efi_snp_device, snp );
 
-	DBGC2 ( snpdev, "SNPDEV %p START\n", snpdev );
+	DBGC ( snpdev, "SNPDEV %p START\n", snpdev );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -155,7 +207,7 @@ efi_snp_stop ( EFI_SIMPLE_NETWORK_PROTOCOL *snp ) {
 	struct efi_snp_device *snpdev =
 		container_of ( snp, struct efi_snp_device, snp );
 
-	DBGC2 ( snpdev, "SNPDEV %p STOP\n", snpdev );
+	DBGC ( snpdev, "SNPDEV %p STOP\n", snpdev );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -163,6 +215,7 @@ efi_snp_stop ( EFI_SIMPLE_NETWORK_PROTOCOL *snp ) {
 
 	snpdev->started = 0;
 	efi_snp_set_state ( snpdev );
+
 	return 0;
 }
 
@@ -181,9 +234,9 @@ efi_snp_initialize ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
 		container_of ( snp, struct efi_snp_device, snp );
 	int rc;
 
-	DBGC2 ( snpdev, "SNPDEV %p INITIALIZE (%ld extra RX, %ld extra TX)\n",
-		snpdev, ( ( unsigned long ) extra_rx_bufsize ),
-		( ( unsigned long ) extra_tx_bufsize ) );
+	DBGC ( snpdev, "SNPDEV %p INITIALIZE (%ld extra RX, %ld extra TX)\n",
+	       snpdev, ( ( unsigned long ) extra_rx_bufsize ),
+	       ( ( unsigned long ) extra_tx_bufsize ) );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -212,8 +265,8 @@ efi_snp_reset ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN ext_verify ) {
 		container_of ( snp, struct efi_snp_device, snp );
 	int rc;
 
-	DBGC2 ( snpdev, "SNPDEV %p RESET (%s extended verification)\n",
-		snpdev, ( ext_verify ? "with" : "without" ) );
+	DBGC ( snpdev, "SNPDEV %p RESET (%s extended verification)\n",
+	       snpdev, ( ext_verify ? "with" : "without" ) );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -221,6 +274,7 @@ efi_snp_reset ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN ext_verify ) {
 
 	netdev_close ( snpdev->netdev );
 	efi_snp_set_state ( snpdev );
+	efi_snp_flush ( snpdev );
 
 	if ( ( rc = netdev_open ( snpdev->netdev ) ) != 0 ) {
 		DBGC ( snpdev, "SNPDEV %p could not reopen %s: %s\n",
@@ -243,7 +297,7 @@ efi_snp_shutdown ( EFI_SIMPLE_NETWORK_PROTOCOL *snp ) {
 	struct efi_snp_device *snpdev =
 		container_of ( snp, struct efi_snp_device, snp );
 
-	DBGC2 ( snpdev, "SNPDEV %p SHUTDOWN\n", snpdev );
+	DBGC ( snpdev, "SNPDEV %p SHUTDOWN\n", snpdev );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -251,6 +305,7 @@ efi_snp_shutdown ( EFI_SIMPLE_NETWORK_PROTOCOL *snp ) {
 
 	netdev_close ( snpdev->netdev );
 	efi_snp_set_state ( snpdev );
+	efi_snp_flush ( snpdev );
 
 	return 0;
 }
@@ -274,19 +329,21 @@ efi_snp_receive_filters ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, UINT32 enable,
 		container_of ( snp, struct efi_snp_device, snp );
 	unsigned int i;
 
-	DBGC2 ( snpdev, "SNPDEV %p RECEIVE_FILTERS %08x&~%08x%s %ld mcast\n",
-		snpdev, enable, disable, ( mcast_reset ? " reset" : "" ),
-		( ( unsigned long ) mcast_count ) );
+	DBGC ( snpdev, "SNPDEV %p RECEIVE_FILTERS %08x&~%08x%s %ld mcast\n",
+	       snpdev, enable, disable, ( mcast_reset ? " reset" : "" ),
+	       ( ( unsigned long ) mcast_count ) );
 	for ( i = 0 ; i < mcast_count ; i++ ) {
 		DBGC2_HDA ( snpdev, i, &mcast[i],
 			    snpdev->netdev->ll_protocol->ll_addr_len );
 	}
 
-	/* Fail if net device is currently claimed for use by iPXE */
-	if ( efi_snp_claimed )
-		return EFI_NOT_READY;
-
-	/* Lie through our teeth, otherwise MNP refuses to accept us */
+	/* Lie through our teeth, otherwise MNP refuses to accept us.
+	 *
+	 * Return success even if the SNP device is currently claimed
+	 * for use by iPXE, since otherwise Windows Deployment
+	 * Services refuses to attempt to receive further packets via
+	 * our EFI PXE Base Code protocol.
+	 */
 	return 0;
 }
 
@@ -305,8 +362,8 @@ efi_snp_station_address ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN reset,
 		container_of ( snp, struct efi_snp_device, snp );
 	struct ll_protocol *ll_protocol = snpdev->netdev->ll_protocol;
 
-	DBGC2 ( snpdev, "SNPDEV %p STATION_ADDRESS %s\n", snpdev,
-		( reset ? "reset" : ll_protocol->ntoa ( new ) ) );
+	DBGC ( snpdev, "SNPDEV %p STATION_ADDRESS %s\n", snpdev,
+	       ( reset ? "reset" : ll_protocol->ntoa ( new ) ) );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -342,8 +399,8 @@ efi_snp_statistics ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN reset,
 		container_of ( snp, struct efi_snp_device, snp );
 	EFI_NETWORK_STATISTICS stats_buf;
 
-	DBGC2 ( snpdev, "SNPDEV %p STATISTICS%s", snpdev,
-		( reset ? " reset" : "" ) );
+	DBGC ( snpdev, "SNPDEV %p STATISTICS%s", snpdev,
+	       ( reset ? " reset" : "" ) );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -395,7 +452,7 @@ efi_snp_mcast_ip_to_mac ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN ipv6,
 
 	ip_str = ( ipv6 ? "(IPv6)" /* FIXME when we have inet6_ntoa() */ :
 		   inet_ntoa ( *( ( struct in_addr * ) ip ) ) );
-	DBGC2 ( snpdev, "SNPDEV %p MCAST_IP_TO_MAC %s\n", snpdev, ip_str );
+	DBGC ( snpdev, "SNPDEV %p MCAST_IP_TO_MAC %s\n", snpdev, ip_str );
 
 	/* Fail if net device is currently claimed for use by iPXE */
 	if ( efi_snp_claimed )
@@ -428,9 +485,9 @@ efi_snp_nvdata ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN read,
 	struct efi_snp_device *snpdev =
 		container_of ( snp, struct efi_snp_device, snp );
 
-	DBGC2 ( snpdev, "SNPDEV %p NVDATA %s %lx+%lx\n", snpdev,
-		( read ? "read" : "write" ), ( ( unsigned long ) offset ),
-		( ( unsigned long ) len ) );
+	DBGC ( snpdev, "SNPDEV %p NVDATA %s %lx+%lx\n", snpdev,
+	       ( read ? "read" : "write" ), ( ( unsigned long ) offset ),
+	       ( ( unsigned long ) len ) );
 	if ( ! read )
 		DBGC2_HDA ( snpdev, offset, data, len );
 
@@ -446,20 +503,22 @@ efi_snp_nvdata ( EFI_SIMPLE_NETWORK_PROTOCOL *snp, BOOLEAN read,
  *
  * @v snp		SNP interface
  * @v interrupts	Interrupt status, or NULL
- * @v txbufs		Recycled transmit buffer address, or NULL
+ * @v txbuf		Recycled transmit buffer address, or NULL
  * @ret efirc		EFI status code
  */
 static EFI_STATUS EFIAPI
 efi_snp_get_status ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
-		     UINT32 *interrupts, VOID **txbufs ) {
+		     UINT32 *interrupts, VOID **txbuf ) {
 	struct efi_snp_device *snpdev =
 		container_of ( snp, struct efi_snp_device, snp );
 
 	DBGC2 ( snpdev, "SNPDEV %p GET_STATUS", snpdev );
 
 	/* Fail if net device is currently claimed for use by iPXE */
-	if ( efi_snp_claimed )
+	if ( efi_snp_claimed ) {
+		DBGC2 ( snpdev, "\n" );
 		return EFI_NOT_READY;
+	}
 
 	/* Poll the network device */
 	efi_snp_poll ( snpdev );
@@ -468,47 +527,19 @@ efi_snp_get_status ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
 	 * to detect TX completions.
 	 */
 	if ( interrupts ) {
-		*interrupts = 0;
-		/* Report TX completions once queue is empty; this
-		 * avoids having to add hooks in the net device layer.
-		 */
-		if ( snpdev->tx_count_interrupts &&
-		     list_empty ( &snpdev->netdev->tx_queue ) ) {
-			*interrupts |= EFI_SIMPLE_NETWORK_TRANSMIT_INTERRUPT;
-			snpdev->tx_count_interrupts--;
-		}
-		/* Report RX */
-		if ( snpdev->rx_count_interrupts ) {
-			*interrupts |= EFI_SIMPLE_NETWORK_RECEIVE_INTERRUPT;
-			snpdev->rx_count_interrupts--;
-		}
+		*interrupts = snpdev->interrupts;
 		DBGC2 ( snpdev, " INTS:%02x", *interrupts );
+		snpdev->interrupts = 0;
 	}
 
-	/* TX completions.  It would be possible to design a more
-	 * idiotic scheme for this, but it would be a challenge.
-	 * According to the UEFI header file, txbufs will be filled in
-	 * with a list of "recycled transmit buffers" (i.e. completed
-	 * TX buffers).  Observant readers may care to note that
-	 * *txbufs is a void pointer.  Precisely how a list of
-	 * completed transmit buffers is meant to be represented as an
-	 * array of voids is left as an exercise for the reader.
-	 *
-	 * The only users of this interface (MnpDxe/MnpIo.c and
-	 * PxeBcDxe/Bc.c within the EFI dev kit) both just poll until
-	 * seeing a non-NULL result return in txbufs.  This is valid
-	 * provided that they do not ever attempt to transmit more
-	 * than one packet concurrently (and that TX never times out).
-	 */
-	if ( txbufs ) {
-		if ( snpdev->tx_count_txbufs &&
-		     list_empty ( &snpdev->netdev->tx_queue ) ) {
-			*txbufs = "Which idiot designed this API?";
-			snpdev->tx_count_txbufs--;
+	/* TX completions */
+	if ( txbuf ) {
+		if ( snpdev->tx_prod != snpdev->tx_cons ) {
+			*txbuf = snpdev->tx[snpdev->tx_cons++ % EFI_SNP_NUM_TX];
 		} else {
-			*txbufs = NULL;
+			*txbuf = NULL;
 		}
-		DBGC2 ( snpdev, " TX:%s", ( *txbufs ? "some" : "none" ) );
+		DBGC2 ( snpdev, " TX:%p", *txbuf );
 	}
 
 	DBGC2 ( snpdev, "\n" );
@@ -537,6 +568,7 @@ efi_snp_transmit ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
 	struct ll_protocol *ll_protocol = snpdev->netdev->ll_protocol;
 	struct io_buffer *iobuf;
 	size_t payload_len;
+	unsigned int tx_fill;
 	int rc;
 
 	DBGC2 ( snpdev, "SNPDEV %p TRANSMIT %p+%lx", snpdev, data,
@@ -624,12 +656,27 @@ efi_snp_transmit ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
 		goto err_tx;
 	}
 
-	/* Record transmission as outstanding */
-	snpdev->tx_count_interrupts++;
-	snpdev->tx_count_txbufs++;
+	/* Record in transmit completion ring.  If we run out of
+	 * space, report the failure even though we have already
+	 * transmitted the packet.
+	 *
+	 * This allows us to report completions only for packets for
+	 * which we had reported successfully initiating transmission,
+	 * while continuing to support clients that never poll for
+	 * transmit completions.
+	 */
+	tx_fill = ( snpdev->tx_prod - snpdev->tx_cons );
+	if ( tx_fill >= EFI_SNP_NUM_TX ) {
+		DBGC ( snpdev, "SNPDEV %p TX completion ring full\n", snpdev );
+		rc = -ENOBUFS;
+		goto err_ring_full;
+	}
+	snpdev->tx[ snpdev->tx_prod++ % EFI_SNP_NUM_TX ] = data;
+	snpdev->interrupts |= EFI_SIMPLE_NETWORK_TRANSMIT_INTERRUPT;
 
 	return 0;
 
+ err_ring_full:
  err_tx:
  err_ll_push:
 	free_iob ( iobuf );
@@ -676,12 +723,13 @@ efi_snp_receive ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
 	efi_snp_poll ( snpdev );
 
 	/* Dequeue a packet, if one is available */
-	iobuf = netdev_rx_dequeue ( snpdev->netdev );
+	iobuf = list_first_entry ( &snpdev->rx, struct io_buffer, list );
 	if ( ! iobuf ) {
 		DBGC2 ( snpdev, "\n" );
 		rc = -EAGAIN;
 		goto out_no_packet;
 	}
+	list_del ( &iobuf->list );
 	DBGC2 ( snpdev, "+%zx\n", iob_len ( iobuf ) );
 
 	/* Return packet to caller */
@@ -721,9 +769,8 @@ efi_snp_receive ( EFI_SIMPLE_NETWORK_PROTOCOL *snp,
  * @v event		Event
  * @v context		Event context
  */
-static VOID EFIAPI efi_snp_wait_for_packet ( EFI_EVENT event,
+static VOID EFIAPI efi_snp_wait_for_packet ( EFI_EVENT event __unused,
 					     VOID *context ) {
-	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
 	struct efi_snp_device *snpdev = context;
 
 	DBGCP ( snpdev, "SNPDEV %p WAIT_FOR_PACKET\n", snpdev );
@@ -738,14 +785,6 @@ static VOID EFIAPI efi_snp_wait_for_packet ( EFI_EVENT event,
 
 	/* Poll the network device */
 	efi_snp_poll ( snpdev );
-
-	/* Fire event if packets have been received */
-	if ( snpdev->rx_count_events != 0 ) {
-		DBGC2 ( snpdev, "SNPDEV %p firing WaitForPacket event\n",
-			snpdev );
-		bs->SignalEvent ( event );
-		snpdev->rx_count_events--;
-	}
 }
 
 /** SNP interface */
@@ -764,6 +803,608 @@ static EFI_SIMPLE_NETWORK_PROTOCOL efi_snp_device_snp = {
 	.GetStatus	= efi_snp_get_status,
 	.Transmit	= efi_snp_transmit,
 	.Receive	= efi_snp_receive,
+};
+
+/******************************************************************************
+ *
+ * UNDI protocol
+ *
+ ******************************************************************************
+ */
+
+/** Union type for command parameter blocks */
+typedef union {
+	PXE_CPB_STATION_ADDRESS station_address;
+	PXE_CPB_FILL_HEADER fill_header;
+	PXE_CPB_FILL_HEADER_FRAGMENTED fill_header_fragmented;
+	PXE_CPB_TRANSMIT transmit;
+	PXE_CPB_RECEIVE receive;
+} PXE_CPB_ANY;
+
+/** Union type for data blocks */
+typedef union {
+	PXE_DB_GET_INIT_INFO get_init_info;
+	PXE_DB_STATION_ADDRESS station_address;
+	PXE_DB_GET_STATUS get_status;
+	PXE_DB_RECEIVE receive;
+} PXE_DB_ANY;
+
+/**
+ * Calculate UNDI byte checksum
+ *
+ * @v data		Data
+ * @v len		Length of data
+ * @ret sum		Checksum
+ */
+static uint8_t efi_undi_checksum ( void *data, size_t len ) {
+	uint8_t *bytes = data;
+	uint8_t sum = 0;
+
+	while ( len-- )
+		sum += *bytes++;
+	return sum;
+}
+
+/**
+ * Get UNDI SNP device interface number
+ *
+ * @v snpdev		SNP device
+ * @ret ifnum		UNDI interface number
+ */
+static unsigned int efi_undi_ifnum ( struct efi_snp_device *snpdev ) {
+
+	/* iPXE network device indexes are one-based (leaving zero
+	 * meaning "unspecified").  UNDI interface numbers are
+	 * zero-based.
+	 */
+	return ( snpdev->netdev->index - 1 );
+}
+
+/**
+ * Identify UNDI SNP device
+ *
+ * @v ifnum		Interface number
+ * @ret snpdev		SNP device, or NULL if not found
+ */
+static struct efi_snp_device * efi_undi_snpdev ( unsigned int ifnum ) {
+	struct efi_snp_device *snpdev;
+
+	list_for_each_entry ( snpdev, &efi_snp_devices, list ) {
+		if ( efi_undi_ifnum ( snpdev ) == ifnum )
+			return snpdev;
+	}
+	return NULL;
+}
+
+/**
+ * Convert EFI status code to UNDI status code
+ *
+ * @v efirc		EFI status code
+ * @ret statcode	UNDI status code
+ */
+static PXE_STATCODE efi_undi_statcode ( EFI_STATUS efirc ) {
+
+	switch ( efirc ) {
+	case EFI_INVALID_PARAMETER:	return PXE_STATCODE_INVALID_PARAMETER;
+	case EFI_UNSUPPORTED:		return PXE_STATCODE_UNSUPPORTED;
+	case EFI_OUT_OF_RESOURCES:	return PXE_STATCODE_BUFFER_FULL;
+	case EFI_PROTOCOL_ERROR:	return PXE_STATCODE_DEVICE_FAILURE;
+	case EFI_NOT_READY:		return PXE_STATCODE_NO_DATA;
+	default:
+		return PXE_STATCODE_INVALID_CDB;
+	}
+}
+
+/**
+ * Get state
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @ret efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_get_state ( struct efi_snp_device *snpdev,
+				       PXE_CDB *cdb ) {
+	EFI_SIMPLE_NETWORK_MODE *mode = &snpdev->mode;
+
+	DBGC ( snpdev, "UNDI %p GET STATE\n", snpdev );
+
+	/* Return current state */
+	if ( mode->State == EfiSimpleNetworkInitialized ) {
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATE_INITIALIZED;
+	} else if ( mode->State == EfiSimpleNetworkStarted ) {
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATE_STARTED;
+	} else {
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATE_STOPPED;
+	}
+
+	return 0;
+}
+
+/**
+ * Start
+ *
+ * @v snpdev		SNP device
+ * @ret efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_start ( struct efi_snp_device *snpdev ) {
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p START\n", snpdev );
+
+	/* Start SNP device */
+	if ( ( efirc = efi_snp_start ( &snpdev->snp ) ) != 0 )
+		return efirc;
+
+	return 0;
+}
+
+/**
+ * Stop
+ *
+ * @v snpdev		SNP device
+ * @ret efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_stop ( struct efi_snp_device *snpdev ) {
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p STOP\n", snpdev );
+
+	/* Stop SNP device */
+	if ( ( efirc = efi_snp_stop ( &snpdev->snp ) ) != 0 )
+		return efirc;
+
+	return 0;
+}
+
+/**
+ * Get initialisation information
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v db		Data block
+ * @ret efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_get_init_info ( struct efi_snp_device *snpdev,
+					   PXE_CDB *cdb,
+					   PXE_DB_GET_INIT_INFO *db ) {
+	struct net_device *netdev = snpdev->netdev;
+	struct ll_protocol *ll_protocol = netdev->ll_protocol;
+
+	DBGC ( snpdev, "UNDI %p GET INIT INFO\n", snpdev );
+
+	/* Populate structure */
+	memset ( db, 0, sizeof ( *db ) );
+	db->FrameDataLen = ( netdev->max_pkt_len - ll_protocol->ll_header_len );
+	db->MediaHeaderLen = ll_protocol->ll_header_len;
+	db->HWaddrLen = ll_protocol->ll_addr_len;
+	db->IFtype = ntohs ( ll_protocol->ll_proto );
+	cdb->StatFlags |= ( PXE_STATFLAGS_CABLE_DETECT_SUPPORTED |
+			    PXE_STATFLAGS_GET_STATUS_NO_MEDIA_SUPPORTED );
+
+	return 0;
+}
+
+/**
+ * Initialise
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_initialize ( struct efi_snp_device *snpdev,
+					PXE_CDB *cdb ) {
+	struct net_device *netdev = snpdev->netdev;
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p INITIALIZE\n", snpdev );
+
+	/* Reset SNP device */
+	if ( ( efirc = efi_snp_initialize ( &snpdev->snp, 0, 0 ) ) != 0 )
+		return efirc;
+
+	/* Report link state */
+	if ( ! netdev_link_ok ( netdev ) )
+		cdb->StatFlags |= PXE_STATFLAGS_INITIALIZED_NO_MEDIA;
+
+	return 0;
+}
+
+/**
+ * Reset
+ *
+ * @v snpdev		SNP device
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_reset ( struct efi_snp_device *snpdev ) {
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p RESET\n", snpdev );
+
+	/* Reset SNP device */
+	if ( ( efirc = efi_snp_reset ( &snpdev->snp, 0 ) ) != 0 )
+		return efirc;
+
+	return 0;
+}
+
+/**
+ * Shutdown
+ *
+ * @v snpdev		SNP device
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_shutdown ( struct efi_snp_device *snpdev ) {
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p SHUTDOWN\n", snpdev );
+
+	/* Reset SNP device */
+	if ( ( efirc = efi_snp_shutdown ( &snpdev->snp ) ) != 0 )
+		return efirc;
+
+	return 0;
+}
+
+/**
+ * Get/set receive filters
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_receive_filters ( struct efi_snp_device *snpdev,
+					     PXE_CDB *cdb ) {
+
+	DBGC ( snpdev, "UNDI %p RECEIVE FILTERS\n", snpdev );
+
+	/* Mark everything as supported */
+	cdb->StatFlags |= ( PXE_STATFLAGS_RECEIVE_FILTER_UNICAST |
+			    PXE_STATFLAGS_RECEIVE_FILTER_BROADCAST |
+			    PXE_STATFLAGS_RECEIVE_FILTER_PROMISCUOUS |
+			    PXE_STATFLAGS_RECEIVE_FILTER_ALL_MULTICAST );
+
+	return 0;
+}
+
+/**
+ * Get/set station address
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v cpb		Command parameter block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_station_address ( struct efi_snp_device *snpdev,
+					     PXE_CDB *cdb,
+					     PXE_CPB_STATION_ADDRESS *cpb,
+					     PXE_DB_STATION_ADDRESS *db ) {
+	struct net_device *netdev = snpdev->netdev;
+	struct ll_protocol *ll_protocol = netdev->ll_protocol;
+	void *mac;
+	int reset;
+	EFI_STATUS efirc;
+
+	DBGC ( snpdev, "UNDI %p STATION ADDRESS\n", snpdev );
+
+	/* Update address if applicable */
+	reset = ( cdb->OpFlags & PXE_OPFLAGS_STATION_ADDRESS_RESET );
+	mac = ( cpb ? &cpb->StationAddr : NULL );
+	if ( ( reset || mac ) &&
+	     ( ( efirc = efi_snp_station_address ( &snpdev->snp, reset,
+						   mac ) ) != 0 ) )
+		return efirc;
+
+	/* Fill in current addresses, if applicable */
+	if ( db ) {
+		memset ( db, 0, sizeof ( *db ) );
+		memcpy ( &db->StationAddr, netdev->ll_addr,
+			 ll_protocol->ll_addr_len );
+		memcpy ( &db->BroadcastAddr, netdev->ll_broadcast,
+			 ll_protocol->ll_addr_len );
+		memcpy ( &db->PermanentAddr, netdev->hw_addr,
+			 ll_protocol->hw_addr_len );
+	}
+
+	return 0;
+}
+
+/**
+ * Get interrupt status
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v db		Data block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_get_status ( struct efi_snp_device *snpdev,
+					PXE_CDB *cdb, PXE_DB_GET_STATUS *db ) {
+	UINT32 interrupts;
+	VOID *txbuf;
+	struct io_buffer *rxbuf;
+	EFI_STATUS efirc;
+
+	DBGC2 ( snpdev, "UNDI %p GET STATUS\n", snpdev );
+
+	/* Get status */
+	if ( ( efirc = efi_snp_get_status ( &snpdev->snp, &interrupts,
+					    &txbuf ) ) != 0 )
+		return efirc;
+
+	/* Report status */
+	memset ( db, 0, sizeof ( *db ) );
+	if ( interrupts & EFI_SIMPLE_NETWORK_RECEIVE_INTERRUPT )
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATUS_RECEIVE;
+	if ( interrupts & EFI_SIMPLE_NETWORK_TRANSMIT_INTERRUPT )
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATUS_TRANSMIT;
+	if ( txbuf ) {
+		db->TxBuffer[0] = ( ( intptr_t ) txbuf );
+	} else {
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATUS_NO_TXBUFS_WRITTEN;
+		/* The specification states clearly that UNDI drivers
+		 * should set TXBUF_QUEUE_EMPTY if all completed
+		 * buffer addresses are written into the returned data
+		 * block.  However, SnpDxe chooses to interpret
+		 * TXBUF_QUEUE_EMPTY as a synonym for
+		 * NO_TXBUFS_WRITTEN, thereby rendering it entirely
+		 * pointless.  Work around this UEFI stupidity, as per
+		 * usual.
+		 */
+		if ( snpdev->tx_prod == snpdev->tx_cons )
+			cdb->StatFlags |=
+				PXE_STATFLAGS_GET_STATUS_TXBUF_QUEUE_EMPTY;
+	}
+	rxbuf = list_first_entry ( &snpdev->rx, struct io_buffer, list );
+	if ( rxbuf )
+		db->RxFrameLen = iob_len ( rxbuf );
+	if ( ! netdev_link_ok ( snpdev->netdev ) )
+		cdb->StatFlags |= PXE_STATFLAGS_GET_STATUS_NO_MEDIA;
+
+	return 0;
+}
+
+/**
+ * Fill header
+ *
+ * @v snpdev		SNP device
+ * @v cdb		Command description block
+ * @v cpb		Command parameter block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_fill_header ( struct efi_snp_device *snpdev,
+					 PXE_CDB *cdb, PXE_CPB_ANY *cpb ) {
+	struct net_device *netdev = snpdev->netdev;
+	struct ll_protocol *ll_protocol = netdev->ll_protocol;
+	PXE_CPB_FILL_HEADER *whole = &cpb->fill_header;
+	PXE_CPB_FILL_HEADER_FRAGMENTED *fragged = &cpb->fill_header_fragmented;
+	VOID *data;
+	void *dest;
+	void *src;
+	uint16_t proto;
+	struct io_buffer iobuf;
+	int rc;
+
+	/* SnpDxe will (pointlessly) use PXE_CPB_FILL_HEADER_FRAGMENTED
+	 * even though we choose to explicitly not claim support for
+	 * fragments via PXE_ROMID_IMP_FRAG_SUPPORTED.
+	 */
+	if ( cdb->OpFlags & PXE_OPFLAGS_FILL_HEADER_FRAGMENTED ) {
+		data = ( ( void * ) ( intptr_t ) fragged->FragDesc[0].FragAddr);
+		dest = &fragged->DestAddr;
+		src = &fragged->SrcAddr;
+		proto = fragged->Protocol;
+	} else {
+		data = ( ( void * ) ( intptr_t ) whole->MediaHeader );
+		dest = &whole->DestAddr;
+		src = &whole->SrcAddr;
+		proto = whole->Protocol;
+	}
+
+	/* Construct link-layer header */
+	iob_populate ( &iobuf, data, 0, ll_protocol->ll_header_len );
+	iob_reserve ( &iobuf, ll_protocol->ll_header_len );
+	if ( ( rc = ll_protocol->push ( netdev, &iobuf, dest, src,
+					proto ) ) != 0 )
+		return EFIRC ( rc );
+
+	return 0;
+}
+
+/**
+ * Transmit
+ *
+ * @v snpdev		SNP device
+ * @v cpb		Command parameter block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_transmit ( struct efi_snp_device *snpdev,
+				      PXE_CPB_TRANSMIT *cpb ) {
+	VOID *data = ( ( void * ) ( intptr_t ) cpb->FrameAddr );
+	EFI_STATUS efirc;
+
+	DBGC2 ( snpdev, "UNDI %p TRANSMIT\n", snpdev );
+
+	/* Transmit packet */
+	if ( ( efirc = efi_snp_transmit ( &snpdev->snp, 0, cpb->DataLen,
+					  data, NULL, NULL, NULL ) ) != 0 )
+		return efirc;
+
+	return 0;
+}
+
+/**
+ * Receive
+ *
+ * @v snpdev		SNP device
+ * @v cpb		Command parameter block
+ * @v efirc		EFI status code
+ */
+static EFI_STATUS efi_undi_receive ( struct efi_snp_device *snpdev,
+				     PXE_CPB_RECEIVE *cpb,
+				     PXE_DB_RECEIVE *db ) {
+	struct net_device *netdev = snpdev->netdev;
+	struct ll_protocol *ll_protocol = netdev->ll_protocol;
+	VOID *data = ( ( void * ) ( intptr_t ) cpb->BufferAddr );
+	UINTN hdr_len;
+	UINTN len = cpb->BufferLen;
+	EFI_MAC_ADDRESS src;
+	EFI_MAC_ADDRESS dest;
+	UINT16 proto;
+	EFI_STATUS efirc;
+
+	DBGC2 ( snpdev, "UNDI %p RECEIVE\n", snpdev );
+
+	/* Receive packet */
+	if ( ( efirc = efi_snp_receive ( &snpdev->snp, &hdr_len, &len, data,
+					 &src, &dest, &proto ) ) != 0 )
+		return efirc;
+
+	/* Describe frame */
+	memset ( db, 0, sizeof ( *db ) );
+	memcpy ( &db->SrcAddr, &src, ll_protocol->ll_addr_len );
+	memcpy ( &db->DestAddr, &dest, ll_protocol->ll_addr_len );
+	db->FrameLen = len;
+	db->Protocol = proto;
+	db->MediaHeaderLen = ll_protocol->ll_header_len;
+	db->Type = PXE_FRAME_TYPE_PROMISCUOUS;
+
+	return 0;
+}
+
+/** UNDI entry point */
+static EFIAPI VOID efi_undi_issue ( UINT64 cdb_phys ) {
+	PXE_CDB *cdb = ( ( void * ) ( intptr_t ) cdb_phys );
+	PXE_CPB_ANY *cpb = ( ( void * ) ( intptr_t ) cdb->CPBaddr );
+	PXE_DB_ANY *db = ( ( void * ) ( intptr_t ) cdb->DBaddr );
+	struct efi_snp_device *snpdev;
+	EFI_STATUS efirc;
+
+	/* Identify device */
+	snpdev = efi_undi_snpdev ( cdb->IFnum );
+	if ( ! snpdev ) {
+		DBGC ( cdb, "UNDI invalid interface number %d\n", cdb->IFnum );
+		cdb->StatCode = PXE_STATCODE_INVALID_CDB;
+		cdb->StatFlags = PXE_STATFLAGS_COMMAND_FAILED;
+		return;
+	}
+
+	/* Fail if net device is currently claimed for use by iPXE */
+	if ( efi_snp_claimed ) {
+		cdb->StatCode = PXE_STATCODE_BUSY;
+		cdb->StatFlags = PXE_STATFLAGS_COMMAND_FAILED;
+		return;
+	}
+
+	/* Handle opcode */
+	cdb->StatCode = PXE_STATCODE_SUCCESS;
+	cdb->StatFlags = PXE_STATFLAGS_COMMAND_COMPLETE;
+	switch ( cdb->OpCode ) {
+
+	case PXE_OPCODE_GET_STATE:
+		efirc = efi_undi_get_state ( snpdev, cdb );
+		break;
+
+	case PXE_OPCODE_START:
+		efirc = efi_undi_start ( snpdev );
+		break;
+
+	case PXE_OPCODE_STOP:
+		efirc = efi_undi_stop ( snpdev );
+		break;
+
+	case PXE_OPCODE_GET_INIT_INFO:
+		efirc = efi_undi_get_init_info ( snpdev, cdb,
+						 &db->get_init_info );
+		break;
+
+	case PXE_OPCODE_INITIALIZE:
+		efirc = efi_undi_initialize ( snpdev, cdb );
+		break;
+
+	case PXE_OPCODE_RESET:
+		efirc = efi_undi_reset ( snpdev );
+		break;
+
+	case PXE_OPCODE_SHUTDOWN:
+		efirc = efi_undi_shutdown ( snpdev );
+		break;
+
+	case PXE_OPCODE_RECEIVE_FILTERS:
+		efirc = efi_undi_receive_filters ( snpdev, cdb );
+		break;
+
+	case PXE_OPCODE_STATION_ADDRESS:
+		efirc = efi_undi_station_address ( snpdev, cdb,
+						   &cpb->station_address,
+						   &db->station_address );
+		break;
+
+	case PXE_OPCODE_GET_STATUS:
+		efirc = efi_undi_get_status ( snpdev, cdb, &db->get_status );
+		break;
+
+	case PXE_OPCODE_FILL_HEADER:
+		efirc = efi_undi_fill_header ( snpdev, cdb, cpb );
+		break;
+
+	case PXE_OPCODE_TRANSMIT:
+		efirc = efi_undi_transmit ( snpdev, &cpb->transmit );
+		break;
+
+	case PXE_OPCODE_RECEIVE:
+		efirc = efi_undi_receive ( snpdev, &cpb->receive,
+					   &db->receive );
+		break;
+
+	default:
+		DBGC ( snpdev, "UNDI %p unsupported opcode %#04x\n",
+		       snpdev, cdb->OpCode );
+		efirc = EFI_UNSUPPORTED;
+		break;
+	}
+
+	/* Convert EFI status code to UNDI status code */
+	if ( efirc != 0 ) {
+		cdb->StatFlags &= ~PXE_STATFLAGS_STATUS_MASK;
+		cdb->StatFlags |= PXE_STATFLAGS_COMMAND_FAILED;
+		cdb->StatCode = efi_undi_statcode ( efirc );
+	}
+}
+
+/** UNDI interface
+ *
+ * Must be aligned on a 16-byte boundary, for no particularly good
+ * reason.
+ */
+static PXE_SW_UNDI efi_snp_undi __attribute__ (( aligned ( 16 ) )) = {
+	.Signature	= PXE_ROMID_SIGNATURE,
+	.Len		= sizeof ( efi_snp_undi ),
+	.Rev		= PXE_ROMID_REV,
+	.MajorVer	= PXE_ROMID_MAJORVER,
+	.MinorVer	= PXE_ROMID_MINORVER,
+	.Implementation	= ( PXE_ROMID_IMP_SW_VIRT_ADDR |
+			    PXE_ROMID_IMP_STATION_ADDR_SETTABLE |
+			    PXE_ROMID_IMP_PROMISCUOUS_MULTICAST_RX_SUPPORTED |
+			    PXE_ROMID_IMP_PROMISCUOUS_RX_SUPPORTED |
+			    PXE_ROMID_IMP_BROADCAST_RX_SUPPORTED |
+			    PXE_ROMID_IMP_TX_COMPLETE_INT_SUPPORTED |
+			    PXE_ROMID_IMP_PACKET_RX_INT_SUPPORTED ),
+	/* SnpDxe checks that BusCnt is non-zero.  It makes no further
+	 * use of BusCnt, and never looks as BusType[].  As with much
+	 * of the EDK2 code, this check seems to serve no purpose
+	 * whatsoever but must nonetheless be humoured.
+	 */
+	.BusCnt		= 1,
+	.BusType[0]	= PXE_BUSTYPE ( 'i', 'P', 'X', 'E' ),
+};
+
+/** Network Identification Interface (NII) */
+static EFI_NETWORK_INTERFACE_IDENTIFIER_PROTOCOL efi_snp_device_nii = {
+	.Revision	= EFI_NETWORK_INTERFACE_IDENTIFIER_PROTOCOL_REVISION,
+	.StringId	= "UNDI",
+	.Type		= EfiNetworkInterfaceUndi,
+	.MajorVer	= 3,
+	.MinorVer	= 1,
+	.Ipv6Supported	= TRUE, /* This is a raw packet interface, FFS! */
 };
 
 /******************************************************************************
@@ -837,6 +1478,7 @@ efi_snp_load_file ( EFI_LOAD_FILE_PROTOCOL *load_file,
 	struct efi_snp_device *snpdev =
 		container_of ( load_file, struct efi_snp_device, load_file );
 	struct net_device *netdev = snpdev->netdev;
+	int rc;
 
 	/* Fail unless this is a boot attempt */
 	if ( ! booting ) {
@@ -848,14 +1490,20 @@ efi_snp_load_file ( EFI_LOAD_FILE_PROTOCOL *load_file,
 	/* Claim network devices for use by iPXE */
 	efi_snp_claim();
 
+	/* Start watchdog holdoff timer */
+	efi_watchdog_start();
+
 	/* Boot from network device */
-	ipxe ( netdev );
+	if ( ( rc = ipxe ( netdev ) ) != 0 )
+		goto err_ipxe;
 
-	/* Release network devices for use via SNP */
+	/* Reset console */
+	console_reset();
+
+ err_ipxe:
+	efi_watchdog_stop();
 	efi_snp_release();
-
-	/* Assume boot process was aborted */
-	return EFI_ABORTED;
+	return EFIRC ( rc );
 }
 
 /** Load file protocol */
@@ -896,13 +1544,13 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 	EFI_BOOT_SERVICES *bs = efi_systab->BootServices;
 	struct efi_device *efidev;
 	struct efi_snp_device *snpdev;
-	union {
-		EFI_DEVICE_PATH_PROTOCOL *path;
-		void *interface;
-	} path;
 	EFI_DEVICE_PATH_PROTOCOL *path_end;
 	MAC_ADDR_DEVICE_PATH *macpath;
+	VLAN_DEVICE_PATH *vlanpath;
 	size_t path_prefix_len = 0;
+	unsigned int ifcnt;
+	unsigned int tag;
+	void *interface;
 	EFI_STATUS efirc;
 	int rc;
 
@@ -922,6 +1570,7 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 	}
 	snpdev->netdev = netdev_get ( netdev );
 	snpdev->efidev = efidev;
+	INIT_LIST_HEAD ( &snpdev->rx );
 
 	/* Sanity check */
 	if ( netdev->ll_protocol->ll_addr_len > sizeof ( EFI_MAC_ADDRESS ) ) {
@@ -949,10 +1598,17 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 	efi_snp_set_mode ( snpdev );
 
 	/* Populate the NII structure */
-	snpdev->nii.Revision =
-		EFI_NETWORK_INTERFACE_IDENTIFIER_PROTOCOL_REVISION;
-	strncpy ( snpdev->nii.StringId, "iPXE",
-		  sizeof ( snpdev->nii.StringId ) );
+	memcpy ( &snpdev->nii, &efi_snp_device_nii, sizeof ( snpdev->nii ) );
+	snpdev->nii.Id = ( ( intptr_t ) &efi_snp_undi );
+	snpdev->nii.IfNum = efi_undi_ifnum ( snpdev );
+	efi_snp_undi.EntryPoint = ( ( intptr_t ) efi_undi_issue );
+	ifcnt = ( ( efi_snp_undi.IFcntExt << 8 ) | efi_snp_undi.IFcnt );
+	if ( ifcnt < snpdev->nii.IfNum )
+		ifcnt = snpdev->nii.IfNum;
+	efi_snp_undi.IFcnt = ( ifcnt & 0xff );
+	efi_snp_undi.IFcntExt = ( ifcnt >> 8 );
+	efi_snp_undi.Fudge -= efi_undi_checksum ( &efi_snp_undi,
+						  sizeof ( efi_snp_undi ) );
 
 	/* Populate the component name structure */
 	efi_snprintf ( snpdev->driver_name,
@@ -978,40 +1634,36 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 				       sizeof ( snpdev->name[0] ) ),
 		       "%s", netdev->name );
 
-	/* Get the parent device path */
-	if ( ( efirc = bs->OpenProtocol ( efidev->device,
-					  &efi_device_path_protocol_guid,
-					  &path.interface, efi_image_handle,
-					  efidev->device,
-					  EFI_OPEN_PROTOCOL_GET_PROTOCOL ))!=0){
-		rc = -EEFI ( efirc );
-		DBGC ( snpdev, "SNPDEV %p cannot get %p %s device path: %s\n",
-		       snpdev, efidev->device,
-		       efi_handle_name ( efidev->device ), strerror ( rc ) );
-		goto err_open_device_path;
-	}
-
 	/* Allocate the new device path */
-	path_end = efi_devpath_end ( path.path );
-	path_prefix_len = ( ( ( void * ) path_end ) - ( ( void * ) path.path ));
+	path_prefix_len = efi_devpath_len ( efidev->path );
 	snpdev->path = zalloc ( path_prefix_len + sizeof ( *macpath ) +
-				sizeof ( *path_end ) );
+				sizeof ( *vlanpath ) + sizeof ( *path_end ) );
 	if ( ! snpdev->path ) {
 		rc = -ENOMEM;
 		goto err_alloc_device_path;
 	}
 
 	/* Populate the device path */
-	memcpy ( snpdev->path, path.path, path_prefix_len );
+	memcpy ( snpdev->path, efidev->path, path_prefix_len );
 	macpath = ( ( ( void * ) snpdev->path ) + path_prefix_len );
-	path_end = ( ( void * ) ( macpath + 1 ) );
 	memset ( macpath, 0, sizeof ( *macpath ) );
 	macpath->Header.Type = MESSAGING_DEVICE_PATH;
 	macpath->Header.SubType = MSG_MAC_ADDR_DP;
 	macpath->Header.Length[0] = sizeof ( *macpath );
 	memcpy ( &macpath->MacAddress, netdev->ll_addr,
-		 sizeof ( macpath->MacAddress ) );
+		 netdev->ll_protocol->ll_addr_len );
 	macpath->IfType = ntohs ( netdev->ll_protocol->ll_proto );
+	if ( ( tag = vlan_tag ( netdev ) ) ) {
+		vlanpath = ( ( ( void * ) macpath ) + sizeof ( *macpath ) );
+		memset ( vlanpath, 0, sizeof ( *vlanpath ) );
+		vlanpath->Header.Type = MESSAGING_DEVICE_PATH;
+		vlanpath->Header.SubType = MSG_VLAN_DP;
+		vlanpath->Header.Length[0] = sizeof ( *vlanpath );
+		vlanpath->VlanId = tag;
+		path_end = ( ( ( void * ) vlanpath ) + sizeof ( *vlanpath ) );
+	} else {
+		path_end = ( ( ( void * ) macpath ) + sizeof ( *macpath ) );
+	}
 	memset ( path_end, 0, sizeof ( *path_end ) );
 	path_end->Type = END_DEVICE_PATH_TYPE;
 	path_end->SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE;
@@ -1028,16 +1680,47 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 			&efi_load_file_protocol_guid, &snpdev->load_file,
 			NULL ) ) != 0 ) {
 		rc = -EEFI ( efirc );
-		DBGC ( snpdev, "SNPDEV %p could not install protocols: "
-		       "%s\n", snpdev, strerror ( rc ) );
+		DBGC ( snpdev, "SNPDEV %p could not install protocols: %s\n",
+		       snpdev, strerror ( rc ) );
 		goto err_install_protocol_interface;
+	}
+
+	/* SnpDxe will repeatedly start up and shut down our NII/UNDI
+	 * interface (in order to obtain the MAC address) before
+	 * discovering that it cannot install another SNP on the same
+	 * handle.  This causes the underlying network device to be
+	 * unexpectedly closed.
+	 *
+	 * Prevent this by opening our own NII (and NII31) protocol
+	 * instances to prevent SnpDxe from attempting to bind to
+	 * them.
+	 */
+	if ( ( efirc = bs->OpenProtocol ( snpdev->handle,
+					  &efi_nii_protocol_guid, &interface,
+					  efi_image_handle, snpdev->handle,
+					  ( EFI_OPEN_PROTOCOL_BY_DRIVER |
+					    EFI_OPEN_PROTOCOL_EXCLUSIVE )))!=0){
+		rc = -EEFI ( efirc );
+		DBGC ( snpdev, "SNPDEV %p could not open NII protocol: %s\n",
+		       snpdev, strerror ( rc ) );
+		goto err_open_nii;
+	}
+	if ( ( efirc = bs->OpenProtocol ( snpdev->handle,
+					  &efi_nii31_protocol_guid, &interface,
+					  efi_image_handle, snpdev->handle,
+					  ( EFI_OPEN_PROTOCOL_BY_DRIVER |
+					    EFI_OPEN_PROTOCOL_EXCLUSIVE )))!=0){
+		rc = -EEFI ( efirc );
+		DBGC ( snpdev, "SNPDEV %p could not open NII31 protocol: %s\n",
+		       snpdev, strerror ( rc ) );
+		goto err_open_nii31;
 	}
 
 	/* Add as child of EFI parent device */
 	if ( ( rc = efi_child_add ( efidev->device, snpdev->handle ) ) != 0 ) {
-		DBGC ( snpdev, "SNPDEV %p could not become child of %p %s: "
-		       "%s\n", snpdev, efidev->device,
-		       efi_handle_name ( efidev->device ), strerror ( rc ) );
+		DBGC ( snpdev, "SNPDEV %p could not become child of %s: %s\n",
+		       snpdev, efi_handle_name ( efidev->device ),
+		       strerror ( rc ) );
 		goto err_efi_child_add;
 	}
 
@@ -1058,15 +1741,21 @@ static int efi_snp_probe ( struct net_device *netdev ) {
 	bs->CloseProtocol ( efidev->device, &efi_device_path_protocol_guid,
 			    efi_image_handle, efidev->device );
 
-	DBGC ( snpdev, "SNPDEV %p installed for %s as device %p %s\n",
-	       snpdev, netdev->name, snpdev->handle,
-	       efi_handle_name ( snpdev->handle ) );
+	DBGC ( snpdev, "SNPDEV %p installed for %s as device %s\n",
+	       snpdev, netdev->name, efi_handle_name ( snpdev->handle ) );
 	return 0;
 
+	list_del ( &snpdev->list );
 	if ( snpdev->package_list )
 		efi_snp_hii_uninstall ( snpdev );
 	efi_child_del ( efidev->device, snpdev->handle );
  err_efi_child_add:
+	bs->CloseProtocol ( snpdev->handle, &efi_nii_protocol_guid,
+			    efi_image_handle, snpdev->handle );
+ err_open_nii:
+	bs->CloseProtocol ( snpdev->handle, &efi_nii31_protocol_guid,
+			    efi_image_handle, snpdev->handle );
+ err_open_nii31:
 	bs->UninstallMultipleProtocolInterfaces (
 			snpdev->handle,
 			&efi_simple_network_protocol_guid, &snpdev->snp,
@@ -1079,9 +1768,6 @@ static int efi_snp_probe ( struct net_device *netdev ) {
  err_install_protocol_interface:
 	free ( snpdev->path );
  err_alloc_device_path:
-	bs->CloseProtocol ( efidev->device, &efi_device_path_protocol_guid,
-			    efi_image_handle, efidev->device );
- err_open_device_path:
 	bs->CloseEvent ( snpdev->snp.WaitForPacket );
  err_create_event:
  err_ll_addr_len:
@@ -1134,10 +1820,14 @@ static void efi_snp_remove ( struct net_device *netdev ) {
 	}
 
 	/* Uninstall the SNP */
+	list_del ( &snpdev->list );
 	if ( snpdev->package_list )
 		efi_snp_hii_uninstall ( snpdev );
 	efi_child_del ( snpdev->efidev->device, snpdev->handle );
-	list_del ( &snpdev->list );
+	bs->CloseProtocol ( snpdev->handle, &efi_nii_protocol_guid,
+			    efi_image_handle, snpdev->handle );
+	bs->CloseProtocol ( snpdev->handle, &efi_nii31_protocol_guid,
+			    efi_image_handle, snpdev->handle );
 	bs->UninstallMultipleProtocolInterfaces (
 			snpdev->handle,
 			&efi_simple_network_protocol_guid, &snpdev->snp,
@@ -1193,15 +1883,16 @@ struct efi_snp_device * last_opened_snpdev ( void ) {
 }
 
 /**
- * Set SNP claimed/released state
+ * Add to SNP claimed/released count
  *
- * @v claimed		Network devices are claimed for use by iPXE
+ * @v delta		Claim count change
  */
-void efi_snp_set_claimed ( int claimed ) {
+void efi_snp_add_claim ( int delta ) {
 	struct efi_snp_device *snpdev;
 
 	/* Claim SNP devices */
-	efi_snp_claimed = claimed;
+	efi_snp_claimed += delta;
+	assert ( efi_snp_claimed >= 0 );
 
 	/* Update SNP mode state for each interface */
 	list_for_each_entry ( snpdev, &efi_snp_devices, list )

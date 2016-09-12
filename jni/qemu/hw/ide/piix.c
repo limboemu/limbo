@@ -23,15 +23,16 @@
  * THE SOFTWARE.
  */
 
-#include <hw/hw.h>
-#include <hw/i386/pc.h>
-#include <hw/pci/pci.h>
-#include <hw/isa/isa.h>
+#include "qemu/osdep.h"
+#include "hw/hw.h"
+#include "hw/i386/pc.h"
+#include "hw/pci/pci.h"
+#include "hw/isa/isa.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/dma.h"
 
-#include <hw/ide/pci.h>
+#include "hw/ide/pci.h"
 
 static uint64_t bmdma_read(void *opaque, hwaddr addr, unsigned size)
 {
@@ -169,6 +170,7 @@ int pci_piix3_xen_ide_unplug(DeviceState *dev)
     PCIIDEState *pci_ide;
     DriveInfo *di;
     int i;
+    IDEDevice *idedev;
 
     pci_ide = PCI_IDE(dev);
 
@@ -181,6 +183,13 @@ int pci_piix3_xen_ide_unplug(DeviceState *dev)
                 blk_detach_dev(blk, ds);
             }
             pci_ide->bus[di->bus].ifs[di->unit].blk = NULL;
+            if (!(i % 2)) {
+                idedev = pci_ide->bus[di->bus].master;
+            } else {
+                idedev = pci_ide->bus[di->bus].slave;
+            }
+            idedev->conf.blk = NULL;
+            monitor_remove_blk(blk);
             blk_unref(blk);
         }
     }
@@ -250,22 +259,10 @@ static const TypeInfo piix3_ide_info = {
     .class_init    = piix3_ide_class_init,
 };
 
-static void piix3_ide_xen_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-    PCIDeviceClass *k = PCI_DEVICE_CLASS(klass);
-
-    k->realize = pci_piix_ide_realize;
-    k->vendor_id = PCI_VENDOR_ID_INTEL;
-    k->device_id = PCI_DEVICE_ID_INTEL_82371SB_1;
-    k->class_id = PCI_CLASS_STORAGE_IDE;
-    set_bit(DEVICE_CATEGORY_STORAGE, dc->categories);
-}
-
 static const TypeInfo piix3_ide_xen_info = {
     .name          = "piix3-ide-xen",
     .parent        = TYPE_PCI_IDE,
-    .class_init    = piix3_ide_xen_class_init,
+    .class_init    = piix3_ide_class_init,
 };
 
 static void piix4_ide_class_init(ObjectClass *klass, void *data)

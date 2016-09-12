@@ -25,8 +25,14 @@ CONSTANT /hci-dev
 
 : usb-setup-hcidev ( num hci-dev -- )
     >r
-    10 config-l@ translate-my-address
-    3 not AND
+    10 config-l@ F AND case
+	0 OF 10 config-l@ translate-my-address ENDOF       \ 32-bit memory space
+	4 OF                                               \ 64-bit memory space
+	    14 config-l@ 20 lshift                         \ Read two bars
+	    10 config-l@ OR translate-my-address
+	ENDOF
+    ENDCASE
+    F not AND
     ( io-base ) r@ hcd>base !
     08 config-l@ 8 rshift  0000000F0 AND 4 rshift
     ( usb-type ) r@ hcd>type !

@@ -282,6 +282,41 @@ setup-puid
    THEN
 ;
 
+: phb-pci-walk-bridge ( -- )
+    phb-debug? IF ."   Calling pci-walk-bridge " pwd cr THEN
+
+    get-node child ?dup 0= IF EXIT THEN    \ get and check if we have children
+    0 to pci-device-slots                  \ reset slot array to unpoppulated
+    BEGIN
+        dup                                \ Continue as long as there are children
+    WHILE
+        dup set-node                       \ Set child node as current node
+        my-space pci-set-slot              \ set the slot bit
+        my-space pci-htype@                \ read HEADER-Type
+        7f and                             \ Mask bit 7 - multifunction device
+        CASE
+            0 OF my-space pci-device-setup ENDOF  \ | set up the device
+            1 OF my-space pci-bridge-setup ENDOF  \ | set up the bridge
+            dup OF my-space pci-htype@ pci-out ENDOF
+        ENDCASE
+        peer
+    REPEAT drop
+    get-parent set-node
+;
+
+\ Landing routing to probe the popuated device tree
+: phb-pci-probe-bus ( busnr -- )
+    drop phb-pci-walk-bridge
+;
+
+\ Stub routine, as qemu has enumerated, we already have the device
+\ properties set.
+: phb-pci-device-props ( addr -- )
+    dup pci-class-name device-name
+    dup pci-device-assigned-addresses-prop
+    drop
+;
+
 \ Scan the child nodes of the pci root node to assign bars, fixup
 \ properties etc.
 : phb-setup-children
@@ -289,7 +324,14 @@ setup-puid
    my-puid TO puid                  \ Set current puid
    phb-parse-ranges
    1 TO pci-hotplug-enabled
-   1 0 (probe-pci-host-bridge)
+   s" qemu,phb-enumerated" get-node get-property 0<> IF
+       1 0 (probe-pci-host-bridge)
+   ELSE
+       2drop
+       ['] phb-pci-probe-bus TO func-pci-probe-bus
+       ['] phb-pci-device-props TO func-pci-device-props
+       phb-pci-walk-bridge          \ PHB device tree is already populated.
+   THEN
    r> TO puid                       \ Restore previous puid
 ;
 phb-setup-children

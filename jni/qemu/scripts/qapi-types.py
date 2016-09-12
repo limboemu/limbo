@@ -2,353 +2,255 @@
 # QAPI types generator
 #
 # Copyright IBM, Corp. 2011
+# Copyright (c) 2013-2016 Red Hat Inc.
 #
 # Authors:
 #  Anthony Liguori <aliguori@us.ibm.com>
+#  Markus Armbruster <armbru@redhat.com>
 #
 # This work is licensed under the terms of the GNU GPL, version 2.
 # See the COPYING file in the top-level directory.
 
-from ordereddict import OrderedDict
 from qapi import *
-import sys
-import os
-import getopt
-import errno
 
-def generate_fwd_struct(name, members, builtin_type=False):
-    if builtin_type:
-        return mcgen('''
 
-typedef struct %(name)sList
-{
-    union {
-        %(type)s value;
-        uint64_t padding;
-    };
-    struct %(name)sList *next;
-} %(name)sList;
-''',
-                     type=c_type(name),
-                     name=name)
+# variants must be emitted before their container; track what has already
+# been output
+objects_seen = set()
 
+
+def gen_fwd_object_or_array(name):
     return mcgen('''
 
-typedef struct %(name)s %(name)s;
-
-typedef struct %(name)sList
-{
-    union {
-        %(name)s *value;
-        uint64_t padding;
-    };
-    struct %(name)sList *next;
-} %(name)sList;
+typedef struct %(c_name)s %(c_name)s;
 ''',
-                 name=name)
+                 c_name=c_name(name))
 
-def generate_fwd_enum_struct(name, members):
+
+def gen_array(name, element_type):
     return mcgen('''
-typedef struct %(name)sList
-{
-    union {
-        %(name)s value;
-        uint64_t padding;
-    };
-    struct %(name)sList *next;
-} %(name)sList;
-''',
-                 name=name)
 
-def generate_struct_fields(members):
+struct %(c_name)s {
+    %(c_name)s *next;
+    %(c_type)s value;
+};
+''',
+                 c_name=c_name(name), c_type=element_type.c_type())
+
+
+def gen_struct_members(members):
     ret = ''
-
-    for argname, argentry, optional, structured in parse_args(members):
-        if optional:
+    for memb in members:
+        if memb.optional:
             ret += mcgen('''
     bool has_%(c_name)s;
 ''',
-                         c_name=c_var(argname))
-        if structured:
-            push_indent()
-            ret += generate_struct({ "field": argname, "data": argentry})
-            pop_indent()
-        else:
-            ret += mcgen('''
+                         c_name=c_name(memb.name))
+        ret += mcgen('''
     %(c_type)s %(c_name)s;
 ''',
-                     c_type=c_type(argentry), c_name=c_var(argname))
-
+                     c_type=memb.type.c_type(), c_name=c_name(memb.name))
     return ret
 
-def generate_struct(expr):
 
-    structname = expr.get('type', "")
-    fieldname = expr.get('field', "")
-    members = expr['data']
-    base = expr.get('base')
+def gen_object(name, base, members, variants):
+    if name in objects_seen:
+        return ''
+    objects_seen.add(name)
 
-    ret = mcgen('''
-struct %(name)s
-{
+    ret = ''
+    if variants:
+        for v in variants.variants:
+            if isinstance(v.type, QAPISchemaObjectType):
+                ret += gen_object(v.type.name, v.type.base,
+                                  v.type.local_members, v.type.variants)
+
+    ret += mcgen('''
+
+struct %(c_name)s {
 ''',
-          name=structname)
+                 c_name=c_name(name))
 
     if base:
-        ret += generate_struct_fields({'base': base})
-
-    ret += generate_struct_fields(members)
-
-    # Make sure that all structs have at least one field; this avoids
-    # potential issues with attempting to malloc space for zero-length structs
-    # in C, and also incompatibility with C++ (where an empty struct is size 1).
-    if not base and not members:
+        if not base.is_implicit():
             ret += mcgen('''
-    char qapi_dummy_field_for_empty_struct;
+    /* Members inherited from %(c_name)s: */
+''',
+                         c_name=base.c_name())
+        ret += gen_struct_members(base.members)
+        if not base.is_implicit():
+            ret += mcgen('''
+    /* Own members: */
 ''')
+    ret += gen_struct_members(members)
 
-    if len(fieldname):
-        fieldname = " " + fieldname
-    ret += mcgen('''
-}%(field)s;
-''',
-            field=fieldname)
+    if variants:
+        ret += gen_variants(variants)
 
-    return ret
-
-def generate_enum_lookup(name, values):
-    ret = mcgen('''
-const char *%(name)s_lookup[] = {
-''',
-                         name=name)
-    i = 0
-    for value in values:
-        index = generate_enum_full_value(name, value)
+    # Make sure that all structs have at least one member; this avoids
+    # potential issues with attempting to malloc space for zero-length
+    # structs in C, and also incompatibility with C++ (where an empty
+    # struct is size 1).
+    if (not base or base.is_empty()) and not members and not variants:
         ret += mcgen('''
-    [%(index)s] = "%(value)s",
-''',
-                     index = index, value = value)
-
-    max_index = generate_enum_full_value(name, 'MAX')
-    ret += mcgen('''
-    [%(max_index)s] = NULL,
-};
-
-''',
-        max_index=max_index)
-    return ret
-
-def generate_enum(name, values):
-    lookup_decl = mcgen('''
-extern const char *%(name)s_lookup[];
-''',
-                name=name)
-
-    enum_decl = mcgen('''
-typedef enum %(name)s
-{
-''',
-                name=name)
-
-    # append automatically generated _MAX value
-    enum_values = values + [ 'MAX' ]
-
-    i = 0
-    for value in enum_values:
-        enum_full_value = generate_enum_full_value(name, value)
-        enum_decl += mcgen('''
-    %(enum_full_value)s = %(i)d,
-''',
-                     enum_full_value = enum_full_value,
-                     i=i)
-        i += 1
-
-    enum_decl += mcgen('''
-} %(name)s;
-''',
-                 name=name)
-
-    return lookup_decl + enum_decl
-
-def generate_anon_union_qtypes(expr):
-
-    name = expr['union']
-    members = expr['data']
-
-    ret = mcgen('''
-const int %(name)s_qtypes[QTYPE_MAX] = {
-''',
-    name=name)
-
-    for key in members:
-        qapi_type = members[key]
-        if builtin_type_qtypes.has_key(qapi_type):
-            qtype = builtin_type_qtypes[qapi_type]
-        elif find_struct(qapi_type):
-            qtype = "QTYPE_QDICT"
-        elif find_union(qapi_type):
-            qtype = "QTYPE_QDICT"
-        elif find_enum(qapi_type):
-            qtype = "QTYPE_QSTRING"
-        else:
-            assert False, "Invalid anonymous union member"
-
-        ret += mcgen('''
-    [ %(qtype)s ] = %(abbrev)s_KIND_%(enum)s,
-''',
-        qtype = qtype,
-        abbrev = de_camel_case(name).upper(),
-        enum = c_fun(de_camel_case(key),False).upper())
+    char qapi_dummy_for_empty_struct;
+''')
 
     ret += mcgen('''
 };
 ''')
+
     return ret
 
 
-def generate_union(expr):
+def gen_upcast(name, base):
+    # C makes const-correctness ugly.  We have to cast away const to let
+    # this function work for both const and non-const obj.
+    return mcgen('''
 
-    name = expr['union']
-    typeinfo = expr['data']
-
-    base = expr.get('base')
-    discriminator = expr.get('discriminator')
-
-    enum_define = discriminator_find_enum_define(expr)
-    if enum_define:
-        discriminator_type_name = enum_define['enum_name']
-    else:
-        discriminator_type_name = '%sKind' % (name)
-
-    ret = mcgen('''
-struct %(name)s
+static inline %(base)s *qapi_%(c_name)s_base(const %(c_name)s *obj)
 {
-    %(discriminator_type_name)s kind;
-    union {
-        void *data;
+    return (%(base)s *)obj;
+}
 ''',
-                name=name,
-                discriminator_type_name=discriminator_type_name)
+                 c_name=c_name(name), base=base.c_name())
 
-    for key in typeinfo:
+
+def gen_variants(variants):
+    ret = mcgen('''
+    union { /* union tag is @%(c_name)s */
+''',
+                c_name=c_name(variants.tag_member.name))
+
+    for var in variants.variants:
         ret += mcgen('''
         %(c_type)s %(c_name)s;
 ''',
-                     c_type=c_type(typeinfo[key]),
-                     c_name=c_fun(key))
+                     c_type=var.type.c_unboxed_type(),
+                     c_name=c_name(var.name))
 
     ret += mcgen('''
-    };
+    } u;
 ''')
-
-    if base:
-        base_fields = find_struct(base)['data']
-        if discriminator:
-            base_fields = base_fields.copy()
-            del base_fields[discriminator]
-        ret += generate_struct_fields(base_fields)
-    else:
-        assert not discriminator
-
-    ret += mcgen('''
-};
-''')
-    if discriminator == {}:
-        ret += mcgen('''
-extern const int %(name)s_qtypes[];
-''',
-            name=name)
-
 
     return ret
 
-def generate_type_cleanup_decl(name):
+
+def gen_type_cleanup_decl(name):
     ret = mcgen('''
-void qapi_free_%(type)s(%(c_type)s obj);
+
+void qapi_free_%(c_name)s(%(c_name)s *obj);
 ''',
-                c_type=c_type(name),type=name)
+                c_name=c_name(name))
     return ret
 
-def generate_type_cleanup(name):
+
+def gen_type_cleanup(name):
     ret = mcgen('''
 
-void qapi_free_%(type)s(%(c_type)s obj)
+void qapi_free_%(c_name)s(%(c_name)s *obj)
 {
-    QapiDeallocVisitor *md;
     Visitor *v;
 
     if (!obj) {
         return;
     }
 
-    md = qapi_dealloc_visitor_new();
-    v = qapi_dealloc_get_visitor(md);
-    visit_type_%(type)s(v, &obj, NULL, NULL);
-    qapi_dealloc_visitor_cleanup(md);
+    v = qapi_dealloc_visitor_new();
+    visit_type_%(c_name)s(v, NULL, &obj, NULL);
+    visit_free(v);
 }
 ''',
-                c_type=c_type(name),type=name)
+                c_name=c_name(name))
     return ret
 
 
-try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "chbp:i:o:",
-                                   ["source", "header", "builtins",
-                                    "prefix=", "input-file=", "output-dir="])
-except getopt.GetoptError, err:
-    print str(err)
-    sys.exit(1)
+class QAPISchemaGenTypeVisitor(QAPISchemaVisitor):
+    def __init__(self):
+        self.decl = None
+        self.defn = None
+        self._fwdecl = None
+        self._btin = None
 
-output_dir = ""
-input_file = ""
-prefix = ""
-c_file = 'qapi-types.c'
-h_file = 'qapi-types.h'
+    def visit_begin(self, schema):
+        # gen_object() is recursive, ensure it doesn't visit the empty type
+        objects_seen.add(schema.the_empty_object_type.name)
+        self.decl = ''
+        self.defn = ''
+        self._fwdecl = ''
+        self._btin = guardstart('QAPI_TYPES_BUILTIN')
 
-do_c = False
-do_h = False
+    def visit_end(self):
+        self.decl = self._fwdecl + self.decl
+        self._fwdecl = None
+        # To avoid header dependency hell, we always generate
+        # declarations for built-in types in our header files and
+        # simply guard them.  See also do_builtins (command line
+        # option -b).
+        self._btin += guardend('QAPI_TYPES_BUILTIN')
+        self.decl = self._btin + self.decl
+        self._btin = None
+
+    def _gen_type_cleanup(self, name):
+        self.decl += gen_type_cleanup_decl(name)
+        self.defn += gen_type_cleanup(name)
+
+    def visit_enum_type(self, name, info, values, prefix):
+        # Special case for our lone builtin enum type
+        # TODO use something cleaner than existence of info
+        if not info:
+            self._btin += gen_enum(name, values, prefix)
+            if do_builtins:
+                self.defn += gen_enum_lookup(name, values, prefix)
+        else:
+            self._fwdecl += gen_enum(name, values, prefix)
+            self.defn += gen_enum_lookup(name, values, prefix)
+
+    def visit_array_type(self, name, info, element_type):
+        if isinstance(element_type, QAPISchemaBuiltinType):
+            self._btin += gen_fwd_object_or_array(name)
+            self._btin += gen_array(name, element_type)
+            self._btin += gen_type_cleanup_decl(name)
+            if do_builtins:
+                self.defn += gen_type_cleanup(name)
+        else:
+            self._fwdecl += gen_fwd_object_or_array(name)
+            self.decl += gen_array(name, element_type)
+            self._gen_type_cleanup(name)
+
+    def visit_object_type(self, name, info, base, members, variants):
+        # Nothing to do for the special empty builtin
+        if name == 'q_empty':
+            return
+        self._fwdecl += gen_fwd_object_or_array(name)
+        self.decl += gen_object(name, base, members, variants)
+        if base and not base.is_implicit():
+            self.decl += gen_upcast(name, base)
+        # TODO Worth changing the visitor signature, so we could
+        # directly use rather than repeat type.is_implicit()?
+        if not name.startswith('q_'):
+            # implicit types won't be directly allocated/freed
+            self._gen_type_cleanup(name)
+
+    def visit_alternate_type(self, name, info, variants):
+        self._fwdecl += gen_fwd_object_or_array(name)
+        self.decl += gen_object(name, None, [variants.tag_member], variants)
+        self._gen_type_cleanup(name)
+
+# If you link code generated from multiple schemata, you want only one
+# instance of the code for built-in types.  Generate it only when
+# do_builtins, enabled by command line option -b.  See also
+# QAPISchemaGenTypeVisitor.visit_end().
 do_builtins = False
 
+(input_file, output_dir, do_c, do_h, prefix, opts) = \
+    parse_command_line("b", ["builtins"])
+
 for o, a in opts:
-    if o in ("-p", "--prefix"):
-        prefix = a
-    elif o in ("-i", "--input-file"):
-        input_file = a
-    elif o in ("-o", "--output-dir"):
-        output_dir = a + "/"
-    elif o in ("-c", "--source"):
-        do_c = True
-    elif o in ("-h", "--header"):
-        do_h = True
-    elif o in ("-b", "--builtins"):
+    if o in ("-b", "--builtins"):
         do_builtins = True
 
-if not do_c and not do_h:
-    do_c = True
-    do_h = True
-
-c_file = output_dir + prefix + c_file
-h_file = output_dir + prefix + h_file
-
-try:
-    os.makedirs(output_dir)
-except os.error, e:
-    if e.errno != errno.EEXIST:
-        raise
-
-def maybe_open(really, name, opt):
-    if really:
-        return open(name, opt)
-    else:
-        import StringIO
-        return StringIO.StringIO()
-
-fdef = maybe_open(do_c, c_file, 'w')
-fdecl = maybe_open(do_h, h_file, 'w')
-
-fdef.write(mcgen('''
-/* AUTOMATICALLY GENERATED, DO NOT MODIFY */
-
+c_comment = '''
 /*
  * deallocation functions for schema-defined QAPI types
  *
@@ -362,16 +264,8 @@ fdef.write(mcgen('''
  * See the COPYING.LIB file in the top-level directory.
  *
  */
-
-#include "qapi/dealloc-visitor.h"
-#include "%(prefix)sqapi-types.h"
-#include "%(prefix)sqapi-visit.h"
-
-''',             prefix=prefix))
-
-fdecl.write(mcgen('''
-/* AUTOMATICALLY GENERATED, DO NOT MODIFY */
-
+'''
+h_comment = '''
 /*
  * schema-defined QAPI types
  *
@@ -384,88 +278,24 @@ fdecl.write(mcgen('''
  * See the COPYING.LIB file in the top-level directory.
  *
  */
+'''
 
-#ifndef %(guard)s
-#define %(guard)s
+(fdef, fdecl) = open_output(output_dir, do_c, do_h, prefix,
+                            'qapi-types.c', 'qapi-types.h',
+                            c_comment, h_comment)
 
-#include <stdbool.h>
-#include <stdint.h>
-
+fdef.write(mcgen('''
+#include "qemu/osdep.h"
+#include "qapi/dealloc-visitor.h"
+#include "%(prefix)sqapi-types.h"
+#include "%(prefix)sqapi-visit.h"
 ''',
-                  guard=guardname(h_file)))
+                 prefix=prefix))
 
-exprs = parse_schema(input_file)
-exprs = filter(lambda expr: not expr.has_key('gen'), exprs)
+schema = QAPISchema(input_file)
+gen = QAPISchemaGenTypeVisitor()
+schema.visit(gen)
+fdef.write(gen.defn)
+fdecl.write(gen.decl)
 
-fdecl.write(guardstart("QAPI_TYPES_BUILTIN_STRUCT_DECL"))
-for typename in builtin_types:
-    fdecl.write(generate_fwd_struct(typename, None, builtin_type=True))
-fdecl.write(guardend("QAPI_TYPES_BUILTIN_STRUCT_DECL"))
-
-for expr in exprs:
-    ret = "\n"
-    if expr.has_key('type'):
-        ret += generate_fwd_struct(expr['type'], expr['data'])
-    elif expr.has_key('enum'):
-        ret += generate_enum(expr['enum'], expr['data']) + "\n"
-        ret += generate_fwd_enum_struct(expr['enum'], expr['data'])
-        fdef.write(generate_enum_lookup(expr['enum'], expr['data']))
-    elif expr.has_key('union'):
-        ret += generate_fwd_struct(expr['union'], expr['data']) + "\n"
-        enum_define = discriminator_find_enum_define(expr)
-        if not enum_define:
-            ret += generate_enum('%sKind' % expr['union'], expr['data'].keys())
-            fdef.write(generate_enum_lookup('%sKind' % expr['union'],
-                                            expr['data'].keys()))
-        if expr.get('discriminator') == {}:
-            fdef.write(generate_anon_union_qtypes(expr))
-    else:
-        continue
-    fdecl.write(ret)
-
-# to avoid header dependency hell, we always generate declarations
-# for built-in types in our header files and simply guard them
-fdecl.write(guardstart("QAPI_TYPES_BUILTIN_CLEANUP_DECL"))
-for typename in builtin_types:
-    fdecl.write(generate_type_cleanup_decl(typename + "List"))
-fdecl.write(guardend("QAPI_TYPES_BUILTIN_CLEANUP_DECL"))
-
-# ...this doesn't work for cases where we link in multiple objects that
-# have the functions defined, so we use -b option to provide control
-# over these cases
-if do_builtins:
-    fdef.write(guardstart("QAPI_TYPES_BUILTIN_CLEANUP_DEF"))
-    for typename in builtin_types:
-        fdef.write(generate_type_cleanup(typename + "List"))
-    fdef.write(guardend("QAPI_TYPES_BUILTIN_CLEANUP_DEF"))
-
-for expr in exprs:
-    ret = "\n"
-    if expr.has_key('type'):
-        ret += generate_struct(expr) + "\n"
-        ret += generate_type_cleanup_decl(expr['type'] + "List")
-        fdef.write(generate_type_cleanup(expr['type'] + "List") + "\n")
-        ret += generate_type_cleanup_decl(expr['type'])
-        fdef.write(generate_type_cleanup(expr['type']) + "\n")
-    elif expr.has_key('union'):
-        ret += generate_union(expr)
-        ret += generate_type_cleanup_decl(expr['union'] + "List")
-        fdef.write(generate_type_cleanup(expr['union'] + "List") + "\n")
-        ret += generate_type_cleanup_decl(expr['union'])
-        fdef.write(generate_type_cleanup(expr['union']) + "\n")
-    elif expr.has_key('enum'):
-        ret += generate_type_cleanup_decl(expr['enum'] + "List")
-        fdef.write(generate_type_cleanup(expr['enum'] + "List") + "\n")
-    else:
-        continue
-    fdecl.write(ret)
-
-fdecl.write('''
-#endif
-''')
-
-fdecl.flush()
-fdecl.close()
-
-fdef.flush()
-fdef.close()
+close_output(fdef, fdecl)

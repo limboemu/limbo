@@ -8,15 +8,33 @@
  *
  */
 
-#ifndef ARM_MISC_H
-#define ARM_MISC_H 1
+#ifndef HW_ARM_H
+#define HW_ARM_H
 
 #include "exec/memory.h"
+#include "target-arm/cpu-qom.h"
 #include "hw/irq.h"
+#include "qemu/notify.h"
+
+typedef enum {
+    ARM_ENDIANNESS_UNKNOWN = 0,
+    ARM_ENDIANNESS_LE,
+    ARM_ENDIANNESS_BE8,
+    ARM_ENDIANNESS_BE32,
+} arm_endianness;
 
 /* armv7m.c */
-qemu_irq *armv7m_init(MemoryRegion *system_memory, int mem_size, int num_irq,
+DeviceState *armv7m_init(MemoryRegion *system_memory, int mem_size, int num_irq,
                       const char *kernel_filename, const char *cpu_model);
+
+/*
+ * struct used as a parameter of the arm_load_kernel machine init
+ * done notifier
+ */
+typedef struct {
+    Notifier notifier; /* actual notifier */
+    ARMCPU *cpu; /* handle to the first cpu object */
+} ArmLoadKernelNotifier;
 
 /* arm_boot.c */
 struct arm_boot_info {
@@ -64,6 +82,8 @@ struct arm_boot_info {
      * the user it should implement this hook.
      */
     void (*modify_dtb)(const struct arm_boot_info *info, void *fdt);
+    /* machine init done notifier executing arm_load_dtb */
+    ArmLoadKernelNotifier load_kernel_notifier;
     /* Used internally by arm_boot.c */
     int is_linux;
     hwaddr initrd_start;
@@ -74,11 +94,50 @@ struct arm_boot_info {
      * -pflash. It also implies that fw_cfg_find() will succeed.
      */
     bool firmware_loaded;
+
+    /* Address at which board specific loader/setup code exists. If enabled,
+     * this code-blob will run before anything else. It must return to the
+     * caller via the link register. There is no stack set up. Enabled by
+     * defining write_board_setup, which is responsible for loading the blob
+     * to the specified address.
+     */
+    hwaddr board_setup_addr;
+    void (*write_board_setup)(ARMCPU *cpu,
+                              const struct arm_boot_info *info);
+
+    /* If set, the board specific loader/setup blob will be run from secure
+     * mode, regardless of secure_boot. The blob becomes responsible for
+     * changing to non-secure state if implementing a non-secure boot
+     */
+    bool secure_board_setup;
+
+    arm_endianness endianness;
 };
+
+/**
+ * arm_load_kernel - Loads memory with everything needed to boot
+ *
+ * @cpu: handle to the first CPU object
+ * @info: handle to the boot info struct
+ * Registers a machine init done notifier that copies to memory
+ * everything needed to boot, depending on machine and user options:
+ * kernel image, boot loaders, initrd, dtb. Also registers the CPU
+ * reset handler.
+ *
+ * In case the machine file supports the platform bus device and its
+ * dynamically instantiable sysbus devices, this function must be called
+ * before sysbus-fdt arm_register_platform_bus_fdt_creator. Indeed the
+ * machine init done notifiers are called in registration reverse order.
+ */
 void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info);
+
+/* Write a secure board setup routine with a dummy handler for SMCs */
+void arm_write_secure_board_setup_dummy_smc(ARMCPU *cpu,
+                                            const struct arm_boot_info *info,
+                                            hwaddr mvbar_addr);
 
 /* Multiplication factor to convert from system clock ticks to qemu timer
    ticks.  */
 extern int system_clock_scale;
 
-#endif /* !ARM_MISC_H */
+#endif /* HW_ARM_H */

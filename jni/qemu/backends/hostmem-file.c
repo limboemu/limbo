@@ -9,6 +9,8 @@
  * This work is licensed under the terms of the GNU GPL, version 2 or later.
  * See the COPYING file in the top-level directory.
  */
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "qemu-common.h"
 #include "sysemu/hostmem.h"
 #include "sysemu/sysemu.h"
@@ -43,18 +45,21 @@ file_backend_memory_alloc(HostMemoryBackend *backend, Error **errp)
         return;
     }
     if (!fb->mem_path) {
-        error_setg(errp, "mem_path property not set");
+        error_setg(errp, "mem-path property not set");
         return;
     }
 #ifndef CONFIG_LINUX
     error_setg(errp, "-mem-path not supported on this host");
 #else
     if (!memory_region_size(&backend->mr)) {
+        gchar *path;
         backend->force_prealloc = mem_prealloc;
+        path = object_get_canonical_path(OBJECT(backend));
         memory_region_init_ram_from_file(&backend->mr, OBJECT(backend),
-                                 object_get_canonical_path(OBJECT(backend)),
+                                 path,
                                  backend->size, fb->share,
                                  fb->mem_path, errp);
+        g_free(path);
     }
 #endif
 }
@@ -83,9 +88,7 @@ static void set_mem_path(Object *o, const char *str, Error **errp)
         error_setg(errp, "cannot change property value");
         return;
     }
-    if (fb->mem_path) {
-        g_free(fb->mem_path);
-    }
+    g_free(fb->mem_path);
     fb->mem_path = g_strdup(str);
 }
 
@@ -118,11 +121,19 @@ file_backend_instance_init(Object *o)
                             set_mem_path, NULL);
 }
 
+static void file_backend_instance_finalize(Object *o)
+{
+    HostMemoryBackendFile *fb = MEMORY_BACKEND_FILE(o);
+
+    g_free(fb->mem_path);
+}
+
 static const TypeInfo file_backend_info = {
     .name = TYPE_MEMORY_BACKEND_FILE,
     .parent = TYPE_MEMORY_BACKEND,
     .class_init = file_backend_class_init,
     .instance_init = file_backend_instance_init,
+    .instance_finalize = file_backend_instance_finalize,
     .instance_size = sizeof(HostMemoryBackendFile),
 };
 

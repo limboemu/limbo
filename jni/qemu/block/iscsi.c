@@ -2,7 +2,7 @@
  * QEMU Block driver for iSCSI images
  *
  * Copyright (c) 2010-2011 Ronnie Sahlberg <ronniesahlberg@gmail.com>
- * Copyright (c) 2012-2014 Peter Lieven <pl@kamp.de>
+ * Copyright (c) 2012-2016 Peter Lieven <pl@kamp.de>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
  * THE SOFTWARE.
  */
 
-#include "config-host.h"
+#include "qemu/osdep.h"
 
 #include <poll.h>
 #include <math.h>
@@ -38,13 +38,14 @@
 #include "qemu/iov.h"
 #include "sysemu/sysemu.h"
 #include "qmp-commands.h"
+#include "qapi/qmp/qstring.h"
+#include "crypto/secret.h"
 
 #include <iscsi/iscsi.h>
 #include <iscsi/scsi-lowlevel.h>
 
 #ifdef __linux__
 #include <scsi/sg.h>
-#include <block/scsi.h>
 #endif
 
 typedef struct IscsiLun {
@@ -57,16 +58,34 @@ typedef struct IscsiLun {
     int events;
     QEMUTimer *nop_timer;
     QEMUTimer *event_timer;
-    uint8_t lbpme;
-    uint8_t lbprz;
-    uint8_t has_write_same;
     struct scsi_inquiry_logical_block_provisioning lbp;
     struct scsi_inquiry_block_limits bl;
     unsigned char *zeroblock;
-    unsigned long *allocationmap;
+    /* The allocmap tracks which clusters (pages) on the iSCSI target are
+     * allocated and which are not. In case a target returns zeros for
+     * unallocated pages (iscsilun->lprz) we can directly return zeros instead
+     * of reading zeros over the wire if a read request falls within an
+     * unallocated block. As there are 3 possible states we need 2 bitmaps to
+     * track. allocmap_valid keeps track if QEMU's information about a page is
+     * valid. allocmap tracks if a page is allocated or not. In case QEMU has no
+     * valid information about a page the corresponding allocmap entry should be
+     * switched to unallocated as well to force a new lookup of the allocation
+     * status as lookups are generally skipped if a page is suspect to be
+     * allocated. If a iSCSI target is opened with cache.direct = on the
+     * allocmap_valid does not exist turning all cached information invalid so
+     * that a fresh lookup is made for any page even if allocmap entry returns
+     * it's unallocated. */
+    unsigned long *allocmap;
+    unsigned long *allocmap_valid;
+    long allocmap_size;
     int cluster_sectors;
     bool use_16_for_rw;
     bool write_protected;
+    bool lbpme;
+    bool lbprz;
+    bool dpofua;
+    bool has_write_same;
+    bool request_timed_out;
 } IscsiLun;
 
 typedef struct IscsiTask {
@@ -79,6 +98,7 @@ typedef struct IscsiTask {
     QEMUBH *bh;
     IscsiLun *iscsilun;
     QEMUTimer retry_timer;
+    int err_code;
 } IscsiTask;
 
 typedef struct IscsiAIOCB {
@@ -91,16 +111,18 @@ typedef struct IscsiAIOCB {
     int status;
     int64_t sector_num;
     int nb_sectors;
+    int ret;
 #ifdef __linux__
     sg_io_hdr_t *ioh;
 #endif
 } IscsiAIOCB;
 
-#define EVENT_INTERVAL 250
+/* libiscsi uses time_t so its enough to process events every second */
+#define EVENT_INTERVAL 1000
 #define NOP_INTERVAL 5000
 #define MAX_NOP_FAILURES 3
 #define ISCSI_CMD_RETRIES ARRAY_SIZE(iscsi_retry_times)
-static const unsigned iscsi_retry_times[] = {8, 32, 128, 512, 2048};
+static const unsigned iscsi_retry_times[] = {8, 32, 128, 512, 2048, 8192, 32768};
 
 /* this threshold is a trade-off knob to choose between
  * the potential additional overhead of an extra GET_LBA_STATUS request
@@ -146,7 +168,7 @@ static void iscsi_co_generic_bh_cb(void *opaque)
     struct IscsiTask *iTask = opaque;
     iTask->complete = 1;
     qemu_bh_delete(iTask->bh);
-    qemu_coroutine_enter(iTask->co, NULL);
+    qemu_coroutine_enter(iTask->co);
 }
 
 static void iscsi_retry_timer_expired(void *opaque)
@@ -154,13 +176,77 @@ static void iscsi_retry_timer_expired(void *opaque)
     struct IscsiTask *iTask = opaque;
     iTask->complete = 1;
     if (iTask->co) {
-        qemu_coroutine_enter(iTask->co, NULL);
+        qemu_coroutine_enter(iTask->co);
     }
 }
 
 static inline unsigned exp_random(double mean)
 {
     return -mean * log((double)rand() / RAND_MAX);
+}
+
+/* SCSI_SENSE_ASCQ_INVALID_FIELD_IN_PARAMETER_LIST was introduced in
+ * libiscsi 1.10.0, together with other constants we need.  Use it as
+ * a hint that we have to define them ourselves if needed, to keep the
+ * minimum required libiscsi version at 1.9.0.  We use an ASCQ macro for
+ * the test because SCSI_STATUS_* is an enum.
+ *
+ * To guard against future changes where SCSI_SENSE_ASCQ_* also becomes
+ * an enum, check against the LIBISCSI_API_VERSION macro, which was
+ * introduced in 1.11.0.  If it is present, there is no need to define
+ * anything.
+ */
+#if !defined(SCSI_SENSE_ASCQ_INVALID_FIELD_IN_PARAMETER_LIST) && \
+    !defined(LIBISCSI_API_VERSION)
+#define SCSI_STATUS_TASK_SET_FULL                          0x28
+#define SCSI_STATUS_TIMEOUT                                0x0f000002
+#define SCSI_SENSE_ASCQ_INVALID_FIELD_IN_PARAMETER_LIST    0x2600
+#define SCSI_SENSE_ASCQ_PARAMETER_LIST_LENGTH_ERROR        0x1a00
+#endif
+
+static int iscsi_translate_sense(struct scsi_sense *sense)
+{
+    int ret;
+
+    switch (sense->key) {
+    case SCSI_SENSE_NOT_READY:
+        return -EBUSY;
+    case SCSI_SENSE_DATA_PROTECTION:
+        return -EACCES;
+    case SCSI_SENSE_COMMAND_ABORTED:
+        return -ECANCELED;
+    case SCSI_SENSE_ILLEGAL_REQUEST:
+        /* Parse ASCQ */
+        break;
+    default:
+        return -EIO;
+    }
+    switch (sense->ascq) {
+    case SCSI_SENSE_ASCQ_PARAMETER_LIST_LENGTH_ERROR:
+    case SCSI_SENSE_ASCQ_INVALID_OPERATION_CODE:
+    case SCSI_SENSE_ASCQ_INVALID_FIELD_IN_CDB:
+    case SCSI_SENSE_ASCQ_INVALID_FIELD_IN_PARAMETER_LIST:
+        ret = -EINVAL;
+        break;
+    case SCSI_SENSE_ASCQ_LBA_OUT_OF_RANGE:
+        ret = -ENOSPC;
+        break;
+    case SCSI_SENSE_ASCQ_LOGICAL_UNIT_NOT_SUPPORTED:
+        ret = -ENOTSUP;
+        break;
+    case SCSI_SENSE_ASCQ_MEDIUM_NOT_PRESENT:
+    case SCSI_SENSE_ASCQ_MEDIUM_NOT_PRESENT_TRAY_CLOSED:
+    case SCSI_SENSE_ASCQ_MEDIUM_NOT_PRESENT_TRAY_OPEN:
+        ret = -ENOMEDIUM;
+        break;
+    case SCSI_SENSE_ASCQ_WRITE_PROTECTED:
+        ret = -EACCES;
+        break;
+    default:
+        ret = -EIO;
+        break;
+    }
+    return ret;
 }
 
 static void
@@ -183,10 +269,19 @@ iscsi_co_generic_cb(struct iscsi_context *iscsi, int status,
                 iTask->do_retry = 1;
                 goto out;
             }
-            if (status == SCSI_STATUS_BUSY) {
+            if (status == SCSI_STATUS_BUSY ||
+                status == SCSI_STATUS_TIMEOUT ||
+                status == SCSI_STATUS_TASK_SET_FULL) {
                 unsigned retry_time =
                     exp_random(iscsi_retry_times[iTask->retries - 1]);
-                error_report("iSCSI Busy (retry #%u in %u ms): %s",
+                if (status == SCSI_STATUS_TIMEOUT) {
+                    /* make sure the request is rescheduled AFTER the
+                     * reconnect is initiated */
+                    retry_time = EVENT_INTERVAL * 2;
+                    iTask->iscsilun->request_timed_out = true;
+                }
+                error_report("iSCSI Busy/TaskSetFull/TimeOut"
+                             " (retry #%u in %u ms): %s",
                              iTask->retries, retry_time,
                              iscsi_get_error(iscsi));
                 aio_timer_init(iTask->iscsilun->aio_context,
@@ -198,6 +293,7 @@ iscsi_co_generic_cb(struct iscsi_context *iscsi, int status,
                 return;
             }
         }
+        iTask->err_code = iscsi_translate_sense(&task->sense);
         error_report("iSCSI Failure: %s", iscsi_get_error(iscsi));
     }
 
@@ -261,27 +357,33 @@ iscsi_set_events(IscsiLun *iscsilun)
     int ev = iscsi_which_events(iscsi);
 
     if (ev != iscsilun->events) {
-        aio_set_fd_handler(iscsilun->aio_context,
-                           iscsi_get_fd(iscsi),
+        aio_set_fd_handler(iscsilun->aio_context, iscsi_get_fd(iscsi),
+                           false,
                            (ev & POLLIN) ? iscsi_process_read : NULL,
                            (ev & POLLOUT) ? iscsi_process_write : NULL,
                            iscsilun);
         iscsilun->events = ev;
     }
-
-    /* newer versions of libiscsi may return zero events. In this
-     * case start a timer to ensure we are able to return to service
-     * once this situation changes. */
-    if (!ev) {
-        timer_mod(iscsilun->event_timer,
-                  qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + EVENT_INTERVAL);
-    }
 }
 
-static void iscsi_timed_set_events(void *opaque)
+static void iscsi_timed_check_events(void *opaque)
 {
     IscsiLun *iscsilun = opaque;
+
+    /* check for timed out requests */
+    iscsi_service(iscsilun->iscsi, 0);
+
+    if (iscsilun->request_timed_out) {
+        iscsilun->request_timed_out = false;
+        iscsi_reconnect(iscsilun->iscsi);
+    }
+
+    /* newer versions of libiscsi may return zero events. Ensure we are able
+     * to return to service once this situation changes. */
     iscsi_set_events(iscsilun);
+
+    timer_mod(iscsilun->event_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + EVENT_INTERVAL);
 }
 
 static void
@@ -314,70 +416,178 @@ static int64_t sector_qemu2lun(int64_t sector, IscsiLun *iscsilun)
     return sector * BDRV_SECTOR_SIZE / iscsilun->block_size;
 }
 
-static bool is_request_lun_aligned(int64_t sector_num, int nb_sectors,
-                                      IscsiLun *iscsilun)
+static bool is_byte_request_lun_aligned(int64_t offset, int count,
+                                        IscsiLun *iscsilun)
 {
-    if ((sector_num * BDRV_SECTOR_SIZE) % iscsilun->block_size ||
-        (nb_sectors * BDRV_SECTOR_SIZE) % iscsilun->block_size) {
-            error_report("iSCSI misaligned request: "
-                         "iscsilun->block_size %u, sector_num %" PRIi64
-                         ", nb_sectors %d",
-                         iscsilun->block_size, sector_num, nb_sectors);
-            return 0;
+    if (offset % iscsilun->block_size || count % iscsilun->block_size) {
+        error_report("iSCSI misaligned request: "
+                     "iscsilun->block_size %u, offset %" PRIi64
+                     ", count %d",
+                     iscsilun->block_size, offset, count);
+        return false;
     }
-    return 1;
+    return true;
 }
 
-static unsigned long *iscsi_allocationmap_init(IscsiLun *iscsilun)
+static bool is_sector_request_lun_aligned(int64_t sector_num, int nb_sectors,
+                                          IscsiLun *iscsilun)
 {
-    return bitmap_try_new(DIV_ROUND_UP(sector_lun2qemu(iscsilun->num_blocks,
-                                                       iscsilun),
-                                       iscsilun->cluster_sectors));
+    assert(nb_sectors <= BDRV_REQUEST_MAX_SECTORS);
+    return is_byte_request_lun_aligned(sector_num << BDRV_SECTOR_BITS,
+                                       nb_sectors << BDRV_SECTOR_BITS,
+                                       iscsilun);
 }
 
-static void iscsi_allocationmap_set(IscsiLun *iscsilun, int64_t sector_num,
-                                    int nb_sectors)
+static void iscsi_allocmap_free(IscsiLun *iscsilun)
 {
-    if (iscsilun->allocationmap == NULL) {
+    g_free(iscsilun->allocmap);
+    g_free(iscsilun->allocmap_valid);
+    iscsilun->allocmap = NULL;
+    iscsilun->allocmap_valid = NULL;
+}
+
+
+static int iscsi_allocmap_init(IscsiLun *iscsilun, int open_flags)
+{
+    iscsi_allocmap_free(iscsilun);
+
+    iscsilun->allocmap_size =
+        DIV_ROUND_UP(sector_lun2qemu(iscsilun->num_blocks, iscsilun),
+                     iscsilun->cluster_sectors);
+
+    iscsilun->allocmap = bitmap_try_new(iscsilun->allocmap_size);
+    if (!iscsilun->allocmap) {
+        return -ENOMEM;
+    }
+
+    if (open_flags & BDRV_O_NOCACHE) {
+        /* in case that cache.direct = on all allocmap entries are
+         * treated as invalid to force a relookup of the block
+         * status on every read request */
+        return 0;
+    }
+
+    iscsilun->allocmap_valid = bitmap_try_new(iscsilun->allocmap_size);
+    if (!iscsilun->allocmap_valid) {
+        /* if we are under memory pressure free the allocmap as well */
+        iscsi_allocmap_free(iscsilun);
+        return -ENOMEM;
+    }
+
+    return 0;
+}
+
+static void
+iscsi_allocmap_update(IscsiLun *iscsilun, int64_t sector_num,
+                      int nb_sectors, bool allocated, bool valid)
+{
+    int64_t cl_num_expanded, nb_cls_expanded, cl_num_shrunk, nb_cls_shrunk;
+
+    if (iscsilun->allocmap == NULL) {
         return;
     }
-    bitmap_set(iscsilun->allocationmap,
-               sector_num / iscsilun->cluster_sectors,
-               DIV_ROUND_UP(nb_sectors, iscsilun->cluster_sectors));
-}
+    /* expand to entirely contain all affected clusters */
+    cl_num_expanded = sector_num / iscsilun->cluster_sectors;
+    nb_cls_expanded = DIV_ROUND_UP(sector_num + nb_sectors,
+                                   iscsilun->cluster_sectors) - cl_num_expanded;
+    /* shrink to touch only completely contained clusters */
+    cl_num_shrunk = DIV_ROUND_UP(sector_num, iscsilun->cluster_sectors);
+    nb_cls_shrunk = (sector_num + nb_sectors) / iscsilun->cluster_sectors
+                      - cl_num_shrunk;
+    if (allocated) {
+        bitmap_set(iscsilun->allocmap, cl_num_expanded, nb_cls_expanded);
+    } else {
+        bitmap_clear(iscsilun->allocmap, cl_num_shrunk, nb_cls_shrunk);
+    }
 
-static void iscsi_allocationmap_clear(IscsiLun *iscsilun, int64_t sector_num,
-                                      int nb_sectors)
-{
-    int64_t cluster_num, nb_clusters;
-    if (iscsilun->allocationmap == NULL) {
+    if (iscsilun->allocmap_valid == NULL) {
         return;
     }
-    cluster_num = DIV_ROUND_UP(sector_num, iscsilun->cluster_sectors);
-    nb_clusters = (sector_num + nb_sectors) / iscsilun->cluster_sectors
-                  - cluster_num;
-    if (nb_clusters > 0) {
-        bitmap_clear(iscsilun->allocationmap, cluster_num, nb_clusters);
+    if (valid) {
+        bitmap_set(iscsilun->allocmap_valid, cl_num_shrunk, nb_cls_shrunk);
+    } else {
+        bitmap_clear(iscsilun->allocmap_valid, cl_num_expanded,
+                     nb_cls_expanded);
     }
 }
 
-static int coroutine_fn iscsi_co_writev(BlockDriverState *bs,
-                                        int64_t sector_num, int nb_sectors,
-                                        QEMUIOVector *iov)
+static void
+iscsi_allocmap_set_allocated(IscsiLun *iscsilun, int64_t sector_num,
+                             int nb_sectors)
+{
+    iscsi_allocmap_update(iscsilun, sector_num, nb_sectors, true, true);
+}
+
+static void
+iscsi_allocmap_set_unallocated(IscsiLun *iscsilun, int64_t sector_num,
+                               int nb_sectors)
+{
+    /* Note: if cache.direct=on the fifth argument to iscsi_allocmap_update
+     * is ignored, so this will in effect be an iscsi_allocmap_set_invalid.
+     */
+    iscsi_allocmap_update(iscsilun, sector_num, nb_sectors, false, true);
+}
+
+static void iscsi_allocmap_set_invalid(IscsiLun *iscsilun, int64_t sector_num,
+                                       int nb_sectors)
+{
+    iscsi_allocmap_update(iscsilun, sector_num, nb_sectors, false, false);
+}
+
+static void iscsi_allocmap_invalidate(IscsiLun *iscsilun)
+{
+    if (iscsilun->allocmap) {
+        bitmap_zero(iscsilun->allocmap, iscsilun->allocmap_size);
+    }
+    if (iscsilun->allocmap_valid) {
+        bitmap_zero(iscsilun->allocmap_valid, iscsilun->allocmap_size);
+    }
+}
+
+static inline bool
+iscsi_allocmap_is_allocated(IscsiLun *iscsilun, int64_t sector_num,
+                            int nb_sectors)
+{
+    unsigned long size;
+    if (iscsilun->allocmap == NULL) {
+        return true;
+    }
+    size = DIV_ROUND_UP(sector_num + nb_sectors, iscsilun->cluster_sectors);
+    return !(find_next_bit(iscsilun->allocmap, size,
+                           sector_num / iscsilun->cluster_sectors) == size);
+}
+
+static inline bool iscsi_allocmap_is_valid(IscsiLun *iscsilun,
+                                           int64_t sector_num, int nb_sectors)
+{
+    unsigned long size;
+    if (iscsilun->allocmap_valid == NULL) {
+        return false;
+    }
+    size = DIV_ROUND_UP(sector_num + nb_sectors, iscsilun->cluster_sectors);
+    return (find_next_zero_bit(iscsilun->allocmap_valid, size,
+                               sector_num / iscsilun->cluster_sectors) == size);
+}
+
+static int coroutine_fn
+iscsi_co_writev_flags(BlockDriverState *bs, int64_t sector_num, int nb_sectors,
+                      QEMUIOVector *iov, int flags)
 {
     IscsiLun *iscsilun = bs->opaque;
     struct IscsiTask iTask;
     uint64_t lba;
     uint32_t num_sectors;
+    bool fua = flags & BDRV_REQ_FUA;
 
-    if (!is_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
+    if (fua) {
+        assert(iscsilun->dpofua);
+    }
+    if (!is_sector_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
         return -EINVAL;
     }
 
-    if (bs->bl.max_transfer_length && nb_sectors > bs->bl.max_transfer_length) {
-        error_report("iSCSI Error: Write of %d sectors exceeds max_xfer_len "
-                     "of %d sectors", nb_sectors, bs->bl.max_transfer_length);
-        return -EINVAL;
+    if (bs->bl.max_transfer) {
+        assert(nb_sectors << BDRV_SECTOR_BITS <= bs->bl.max_transfer);
     }
 
     lba = sector_qemu2lun(sector_num, iscsilun);
@@ -387,12 +597,12 @@ retry:
     if (iscsilun->use_16_for_rw) {
         iTask.task = iscsi_write16_task(iscsilun->iscsi, iscsilun->lun, lba,
                                         NULL, num_sectors * iscsilun->block_size,
-                                        iscsilun->block_size, 0, 0, 0, 0, 0,
+                                        iscsilun->block_size, 0, 0, fua, 0, 0,
                                         iscsi_co_generic_cb, &iTask);
     } else {
         iTask.task = iscsi_write10_task(iscsilun->iscsi, iscsilun->lun, lba,
                                         NULL, num_sectors * iscsilun->block_size,
-                                        iscsilun->block_size, 0, 0, 0, 0, 0,
+                                        iscsilun->block_size, 0, 0, fua, 0, 0,
                                         iscsi_co_generic_cb, &iTask);
     }
     if (iTask.task == NULL) {
@@ -416,30 +626,21 @@ retry:
     }
 
     if (iTask.status != SCSI_STATUS_GOOD) {
-        return -EIO;
+        iscsi_allocmap_set_invalid(iscsilun, sector_num, nb_sectors);
+        return iTask.err_code;
     }
 
-    iscsi_allocationmap_set(iscsilun, sector_num, nb_sectors);
+    iscsi_allocmap_set_allocated(iscsilun, sector_num, nb_sectors);
 
     return 0;
 }
 
 
-static bool iscsi_allocationmap_is_allocated(IscsiLun *iscsilun,
-                                             int64_t sector_num, int nb_sectors)
-{
-    unsigned long size;
-    if (iscsilun->allocationmap == NULL) {
-        return true;
-    }
-    size = DIV_ROUND_UP(sector_num + nb_sectors, iscsilun->cluster_sectors);
-    return !(find_next_bit(iscsilun->allocationmap, size,
-                           sector_num / iscsilun->cluster_sectors) == size);
-}
 
 static int64_t coroutine_fn iscsi_co_get_block_status(BlockDriverState *bs,
                                                   int64_t sector_num,
-                                                  int nb_sectors, int *pnum)
+                                                  int nb_sectors, int *pnum,
+                                                  BlockDriverState **file)
 {
     IscsiLun *iscsilun = bs->opaque;
     struct scsi_get_lba_status *lbas = NULL;
@@ -449,7 +650,7 @@ static int64_t coroutine_fn iscsi_co_get_block_status(BlockDriverState *bs,
 
     iscsi_co_init_iscsitask(iscsilun, &iTask);
 
-    if (!is_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
+    if (!is_sector_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
         ret = -EINVAL;
         goto out;
     }
@@ -460,7 +661,7 @@ static int64_t coroutine_fn iscsi_co_get_block_status(BlockDriverState *bs,
     *pnum = nb_sectors;
 
     /* LUN does not support logical block provisioning */
-    if (iscsilun->lbpme == 0) {
+    if (!iscsilun->lbpme) {
         goto out;
     }
 
@@ -519,9 +720,9 @@ retry:
     }
 
     if (ret & BDRV_BLOCK_ZERO) {
-        iscsi_allocationmap_clear(iscsilun, sector_num, *pnum);
+        iscsi_allocmap_set_unallocated(iscsilun, sector_num, *pnum);
     } else {
-        iscsi_allocationmap_set(iscsilun, sector_num, *pnum);
+        iscsi_allocmap_set_allocated(iscsilun, sector_num, *pnum);
     }
 
     if (*pnum > nb_sectors) {
@@ -530,6 +731,9 @@ retry:
 out:
     if (iTask.task != NULL) {
         scsi_free_scsi_task(iTask.task);
+    }
+    if (ret > 0 && ret & BDRV_BLOCK_OFFSET_VALID) {
+        *file = bs;
     }
     return ret;
 }
@@ -543,25 +747,40 @@ static int coroutine_fn iscsi_co_readv(BlockDriverState *bs,
     uint64_t lba;
     uint32_t num_sectors;
 
-    if (!is_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
+    if (!is_sector_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
         return -EINVAL;
     }
 
-    if (bs->bl.max_transfer_length && nb_sectors > bs->bl.max_transfer_length) {
-        error_report("iSCSI Error: Read of %d sectors exceeds max_xfer_len "
-                     "of %d sectors", nb_sectors, bs->bl.max_transfer_length);
-        return -EINVAL;
+    if (bs->bl.max_transfer) {
+        assert(nb_sectors << BDRV_SECTOR_BITS <= bs->bl.max_transfer);
     }
 
-    if (iscsilun->lbprz && nb_sectors >= ISCSI_CHECKALLOC_THRES &&
-        !iscsi_allocationmap_is_allocated(iscsilun, sector_num, nb_sectors)) {
-        int64_t ret;
+    /* if cache.direct is off and we have a valid entry in our allocation map
+     * we can skip checking the block status and directly return zeroes if
+     * the request falls within an unallocated area */
+    if (iscsi_allocmap_is_valid(iscsilun, sector_num, nb_sectors) &&
+        !iscsi_allocmap_is_allocated(iscsilun, sector_num, nb_sectors)) {
+            qemu_iovec_memset(iov, 0, 0x00, iov->size);
+            return 0;
+    }
+
+    if (nb_sectors >= ISCSI_CHECKALLOC_THRES &&
+        !iscsi_allocmap_is_valid(iscsilun, sector_num, nb_sectors) &&
+        !iscsi_allocmap_is_allocated(iscsilun, sector_num, nb_sectors)) {
         int pnum;
-        ret = iscsi_co_get_block_status(bs, sector_num, INT_MAX, &pnum);
+        BlockDriverState *file;
+        /* check the block status from the beginning of the cluster
+         * containing the start sector */
+        int64_t ret = iscsi_co_get_block_status(bs,
+                          sector_num - sector_num % iscsilun->cluster_sectors,
+                          BDRV_REQUEST_MAX_SECTORS, &pnum, &file);
         if (ret < 0) {
             return ret;
         }
-        if (ret & BDRV_BLOCK_ZERO && pnum >= nb_sectors) {
+        /* if the whole request falls into an unallocated area we can avoid
+         * to read and directly return zeroes instead */
+        if (ret & BDRV_BLOCK_ZERO &&
+            pnum >= nb_sectors + sector_num % iscsilun->cluster_sectors) {
             qemu_iovec_memset(iov, 0, 0x00, iov->size);
             return 0;
         }
@@ -605,7 +824,7 @@ retry:
     }
 
     if (iTask.status != SCSI_STATUS_GOOD) {
-        return -EIO;
+        return iTask.err_code;
     }
 
     return 0;
@@ -616,12 +835,7 @@ static int coroutine_fn iscsi_co_flush(BlockDriverState *bs)
     IscsiLun *iscsilun = bs->opaque;
     struct IscsiTask iTask;
 
-    if (bs->sg) {
-        return 0;
-    }
-
     iscsi_co_init_iscsitask(iscsilun, &iTask);
-
 retry:
     if (iscsi_synchronizecache10_task(iscsilun->iscsi, iscsilun->lun, 0, 0, 0,
                                       0, iscsi_co_generic_cb, &iTask) == NULL) {
@@ -644,7 +858,7 @@ retry:
     }
 
     if (iTask.status != SCSI_STATUS_GOOD) {
-        return -EIO;
+        return iTask.err_code;
     }
 
     return 0;
@@ -664,12 +878,13 @@ iscsi_aio_ioctl_cb(struct iscsi_context *iscsi, int status,
     if (status < 0) {
         error_report("Failed to ioctl(SG_IO) to iSCSI lun. %s",
                      iscsi_get_error(iscsi));
-        acb->status = -EIO;
+        acb->status = iscsi_translate_sense(&acb->task->sense);
     }
 
     acb->ioh->driver_status = 0;
     acb->ioh->host_status   = 0;
     acb->ioh->resid         = 0;
+    acb->ioh->status        = status;
 
 #define SG_ERR_DRIVER_SENSE    0x08
 
@@ -687,6 +902,38 @@ iscsi_aio_ioctl_cb(struct iscsi_context *iscsi, int status,
     iscsi_schedule_bh(acb);
 }
 
+static void iscsi_ioctl_bh_completion(void *opaque)
+{
+    IscsiAIOCB *acb = opaque;
+
+    qemu_bh_delete(acb->bh);
+    acb->common.cb(acb->common.opaque, acb->ret);
+    qemu_aio_unref(acb);
+}
+
+static void iscsi_ioctl_handle_emulated(IscsiAIOCB *acb, int req, void *buf)
+{
+    BlockDriverState *bs = acb->common.bs;
+    IscsiLun *iscsilun = bs->opaque;
+    int ret = 0;
+
+    switch (req) {
+    case SG_GET_VERSION_NUM:
+        *(int *)buf = 30000;
+        break;
+    case SG_GET_SCSI_ID:
+        ((struct sg_scsi_id *)buf)->scsi_type = iscsilun->type;
+        break;
+    default:
+        ret = -EINVAL;
+    }
+    assert(!acb->bh);
+    acb->bh = aio_bh_new(bdrv_get_aio_context(bs),
+                         iscsi_ioctl_bh_completion, acb);
+    acb->ret = ret;
+    qemu_bh_schedule(acb->bh);
+}
+
 static BlockAIOCB *iscsi_aio_ioctl(BlockDriverState *bs,
         unsigned long int req, void *buf,
         BlockCompletionFunc *cb, void *opaque)
@@ -696,8 +943,6 @@ static BlockAIOCB *iscsi_aio_ioctl(BlockDriverState *bs,
     struct iscsi_data data;
     IscsiAIOCB *acb;
 
-    assert(req == SG_IO);
-
     acb = qemu_aio_get(&iscsi_aiocb_info, bs, cb, opaque);
 
     acb->iscsilun = iscsilun;
@@ -705,6 +950,18 @@ static BlockAIOCB *iscsi_aio_ioctl(BlockDriverState *bs,
     acb->status      = -EINPROGRESS;
     acb->buf         = NULL;
     acb->ioh         = buf;
+
+    if (req != SG_IO) {
+        iscsi_ioctl_handle_emulated(acb, req, buf);
+        return &acb->common;
+    }
+
+    if (acb->ioh->cmd_len > SCSI_CDB_MAX_SIZE) {
+        error_report("iSCSI: ioctl error CDB exceeds max size (%d > %d)",
+                     acb->ioh->cmd_len, SCSI_CDB_MAX_SIZE);
+        qemu_aio_unref(acb);
+        return NULL;
+    }
 
     acb->task = malloc(sizeof(struct scsi_task));
     if (acb->task == NULL) {
@@ -770,38 +1027,6 @@ static BlockAIOCB *iscsi_aio_ioctl(BlockDriverState *bs,
     return &acb->common;
 }
 
-static void ioctl_cb(void *opaque, int status)
-{
-    int *p_status = opaque;
-    *p_status = status;
-}
-
-static int iscsi_ioctl(BlockDriverState *bs, unsigned long int req, void *buf)
-{
-    IscsiLun *iscsilun = bs->opaque;
-    int status;
-
-    switch (req) {
-    case SG_GET_VERSION_NUM:
-        *(int *)buf = 30000;
-        break;
-    case SG_GET_SCSI_ID:
-        ((struct sg_scsi_id *)buf)->scsi_type = iscsilun->type;
-        break;
-    case SG_IO:
-        status = -EINPROGRESS;
-        iscsi_aio_ioctl(bs, req, buf, ioctl_cb, &status);
-
-        while (status == -EINPROGRESS) {
-            aio_poll(iscsilun->aio_context, true);
-        }
-
-        return 0;
-    default:
-        return -1;
-    }
-    return 0;
-}
 #endif
 
 static int64_t
@@ -817,29 +1042,26 @@ iscsi_getlength(BlockDriverState *bs)
 }
 
 static int
-coroutine_fn iscsi_co_discard(BlockDriverState *bs, int64_t sector_num,
-                                   int nb_sectors)
+coroutine_fn iscsi_co_pdiscard(BlockDriverState *bs, int64_t offset, int count)
 {
     IscsiLun *iscsilun = bs->opaque;
     struct IscsiTask iTask;
     struct unmap_list list;
 
-    if (!is_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
-        return -EINVAL;
-    }
+    assert(is_byte_request_lun_aligned(offset, count, iscsilun));
 
     if (!iscsilun->lbp.lbpu) {
         /* UNMAP is not supported by the target */
         return 0;
     }
 
-    list.lba = sector_qemu2lun(sector_num, iscsilun);
-    list.num = sector_qemu2lun(nb_sectors, iscsilun);
+    list.lba = offset / iscsilun->block_size;
+    list.num = count / iscsilun->block_size;
 
     iscsi_co_init_iscsitask(iscsilun, &iTask);
 retry:
     if (iscsi_unmap_task(iscsilun->iscsi, iscsilun->lun, 0, 0, &list, 1,
-                     iscsi_co_generic_cb, &iTask) == NULL) {
+                         iscsi_co_generic_cb, &iTask) == NULL) {
         return -ENOMEM;
     }
 
@@ -866,17 +1088,18 @@ retry:
     }
 
     if (iTask.status != SCSI_STATUS_GOOD) {
-        return -EIO;
+        return iTask.err_code;
     }
 
-    iscsi_allocationmap_clear(iscsilun, sector_num, nb_sectors);
+    iscsi_allocmap_set_invalid(iscsilun, offset >> BDRV_SECTOR_BITS,
+                               count >> BDRV_SECTOR_BITS);
 
     return 0;
 }
 
 static int
-coroutine_fn iscsi_co_write_zeroes(BlockDriverState *bs, int64_t sector_num,
-                                   int nb_sectors, BdrvRequestFlags flags)
+coroutine_fn iscsi_co_pwrite_zeroes(BlockDriverState *bs, int64_t offset,
+                                    int count, BdrvRequestFlags flags)
 {
     IscsiLun *iscsilun = bs->opaque;
     struct IscsiTask iTask;
@@ -884,8 +1107,8 @@ coroutine_fn iscsi_co_write_zeroes(BlockDriverState *bs, int64_t sector_num,
     uint32_t nb_blocks;
     bool use_16_for_ws = iscsilun->use_16_for_rw;
 
-    if (!is_request_lun_aligned(sector_num, nb_sectors, iscsilun)) {
-        return -EINVAL;
+    if (!is_byte_request_lun_aligned(offset, count, iscsilun)) {
+        return -ENOTSUP;
     }
 
     if (flags & BDRV_REQ_MAY_UNMAP) {
@@ -906,8 +1129,8 @@ coroutine_fn iscsi_co_write_zeroes(BlockDriverState *bs, int64_t sector_num,
         return -ENOTSUP;
     }
 
-    lba = sector_qemu2lun(sector_num, iscsilun);
-    nb_blocks = sector_qemu2lun(nb_sectors, iscsilun);
+    lba = offset / iscsilun->block_size;
+    nb_blocks = count / iscsilun->block_size;
 
     if (iscsilun->zeroblock == NULL) {
         iscsilun->zeroblock = g_try_malloc0(iscsilun->block_size);
@@ -959,13 +1182,17 @@ retry:
     }
 
     if (iTask.status != SCSI_STATUS_GOOD) {
-        return -EIO;
+        iscsi_allocmap_set_invalid(iscsilun, offset >> BDRV_SECTOR_BITS,
+                                   count >> BDRV_SECTOR_BITS);
+        return iTask.err_code;
     }
 
     if (flags & BDRV_REQ_MAY_UNMAP) {
-        iscsi_allocationmap_clear(iscsilun, sector_num, nb_sectors);
+        iscsi_allocmap_set_invalid(iscsilun, offset >> BDRV_SECTOR_BITS,
+                                   count >> BDRV_SECTOR_BITS);
     } else {
-        iscsi_allocationmap_set(iscsilun, sector_num, nb_sectors);
+        iscsi_allocmap_set_allocated(iscsilun, offset >> BDRV_SECTOR_BITS,
+                                     count >> BDRV_SECTOR_BITS);
     }
 
     return 0;
@@ -978,6 +1205,8 @@ static void parse_chap(struct iscsi_context *iscsi, const char *target,
     QemuOpts *opts;
     const char *user = NULL;
     const char *password = NULL;
+    const char *secretid;
+    char *secret = NULL;
 
     list = qemu_find_opts("iscsi");
     if (!list) {
@@ -997,8 +1226,20 @@ static void parse_chap(struct iscsi_context *iscsi, const char *target,
         return;
     }
 
+    secretid = qemu_opt_get(opts, "password-secret");
     password = qemu_opt_get(opts, "password");
-    if (!password) {
+    if (secretid && password) {
+        error_setg(errp, "'password' and 'password-secret' properties are "
+                   "mutually exclusive");
+        return;
+    }
+    if (secretid) {
+        secret = qcrypto_secret_lookup_as_utf8(secretid, errp);
+        if (!secret) {
+            return;
+        }
+        password = secret;
+    } else if (!password) {
         error_setg(errp, "CHAP username specified but no password was given");
         return;
     }
@@ -1006,6 +1247,8 @@ static void parse_chap(struct iscsi_context *iscsi, const char *target,
     if (iscsi_set_initiator_username_pwd(iscsi, user, password)) {
         error_setg(errp, "Failed to set initiator username and password");
     }
+
+    g_free(secret);
 }
 
 static void parse_header_digest(struct iscsi_context *iscsi, const char *target,
@@ -1080,16 +1323,37 @@ static char *parse_initiator_name(const char *target)
     return iscsi_name;
 }
 
+static int parse_timeout(const char *target)
+{
+    QemuOptsList *list;
+    QemuOpts *opts;
+    const char *timeout;
+
+    list = qemu_find_opts("iscsi");
+    if (list) {
+        opts = qemu_opts_find(list, target);
+        if (!opts) {
+            opts = QTAILQ_FIRST(&list->head);
+        }
+        if (opts) {
+            timeout = qemu_opt_get(opts, "timeout");
+            if (timeout) {
+                return atoi(timeout);
+            }
+        }
+    }
+
+    return 0;
+}
+
 static void iscsi_nop_timed_event(void *opaque)
 {
     IscsiLun *iscsilun = opaque;
 
-    if (iscsi_get_nops_in_flight(iscsilun->iscsi) > MAX_NOP_FAILURES) {
+    if (iscsi_get_nops_in_flight(iscsilun->iscsi) >= MAX_NOP_FAILURES) {
         error_report("iSCSI: NOP timeout. Reconnecting...");
-        iscsi_reconnect(iscsilun->iscsi);
-    }
-
-    if (iscsi_nop_out_async(iscsilun->iscsi, NULL, NULL, 0, NULL) != 0) {
+        iscsilun->request_timed_out = true;
+    } else if (iscsi_nop_out_async(iscsilun->iscsi, NULL, NULL, 0, NULL) != 0) {
         error_report("iSCSI: failed to sent NOP-Out. Disabling NOP messages.");
         return;
     }
@@ -1121,12 +1385,17 @@ static void iscsi_readcapacity_sync(IscsiLun *iscsilun, Error **errp)
                 } else {
                     iscsilun->block_size = rc16->block_length;
                     iscsilun->num_blocks = rc16->returned_lba + 1;
-                    iscsilun->lbpme = rc16->lbpme;
-                    iscsilun->lbprz = rc16->lbprz;
+                    iscsilun->lbpme = !!rc16->lbpme;
+                    iscsilun->lbprz = !!rc16->lbprz;
                     iscsilun->use_16_for_rw = (rc16->returned_lba > 0xffffffff);
                 }
+                break;
             }
-            break;
+            if (task != NULL && task->status == SCSI_STATUS_CHECK_CONDITION
+                && task->sense.key == SCSI_SENSE_UNIT_ATTENTION) {
+                break;
+            }
+            /* Fall through and try READ CAPACITY(10) instead.  */
         case TYPE_ROM:
             task = iscsi_readcapacity10_sync(iscsilun->iscsi, iscsilun->lun, 0, 0);
             if (task != NULL && task->status == SCSI_STATUS_GOOD) {
@@ -1152,7 +1421,11 @@ static void iscsi_readcapacity_sync(IscsiLun *iscsilun, Error **errp)
              && retries-- > 0);
 
     if (task == NULL || task->status != SCSI_STATUS_GOOD) {
-        error_setg(errp, "iSCSI: failed to send readcapacity10 command.");
+        error_setg(errp, "iSCSI: failed to send readcapacity10/16 command");
+    } else if (!iscsilun->block_size ||
+               iscsilun->block_size % BDRV_SECTOR_SIZE) {
+        error_setg(errp, "iSCSI: the target returned an invalid "
+                   "block size of %d.", iscsilun->block_size);
     }
     if (task) {
         scsi_free_scsi_task(task);
@@ -1215,9 +1488,8 @@ static void iscsi_detach_aio_context(BlockDriverState *bs)
 {
     IscsiLun *iscsilun = bs->opaque;
 
-    aio_set_fd_handler(iscsilun->aio_context,
-                       iscsi_get_fd(iscsilun->iscsi),
-                       NULL, NULL, NULL);
+    aio_set_fd_handler(iscsilun->aio_context, iscsi_get_fd(iscsilun->iscsi),
+                       false, NULL, NULL, NULL);
     iscsilun->events = 0;
 
     if (iscsilun->nop_timer) {
@@ -1247,17 +1519,21 @@ static void iscsi_attach_aio_context(BlockDriverState *bs,
     timer_mod(iscsilun->nop_timer,
               qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + NOP_INTERVAL);
 
-    /* Prepare a timer for a delayed call to iscsi_set_events */
+    /* Set up a timer for periodic calls to iscsi_set_events and to
+     * scan for command timeout */
     iscsilun->event_timer = aio_timer_new(iscsilun->aio_context,
                                           QEMU_CLOCK_REALTIME, SCALE_MS,
-                                          iscsi_timed_set_events, iscsilun);
+                                          iscsi_timed_check_events, iscsilun);
+    timer_mod(iscsilun->event_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + EVENT_INTERVAL);
 }
 
-static bool iscsi_is_write_protected(IscsiLun *iscsilun)
+static void iscsi_modesense_sync(IscsiLun *iscsilun)
 {
     struct scsi_task *task;
     struct scsi_mode_sense *ms = NULL;
-    bool wrprotected = false;
+    iscsilun->write_protected = false;
+    iscsilun->dpofua = false;
 
     task = iscsi_modesense6_sync(iscsilun->iscsi, iscsilun->lun,
                                  1, SCSI_MODESENSE_PC_CURRENT,
@@ -1278,13 +1554,13 @@ static bool iscsi_is_write_protected(IscsiLun *iscsilun)
                      iscsi_get_error(iscsilun->iscsi));
         goto out;
     }
-    wrprotected = ms->device_specific_parameter & 0x80;
+    iscsilun->write_protected = ms->device_specific_parameter & 0x80;
+    iscsilun->dpofua          = ms->device_specific_parameter & 0x10;
 
 out:
     if (task) {
         scsi_free_scsi_task(task);
     }
-    return wrprotected;
 }
 
 /*
@@ -1304,14 +1580,7 @@ static int iscsi_open(BlockDriverState *bs, QDict *options, int flags,
     QemuOpts *opts;
     Error *local_err = NULL;
     const char *filename;
-    int i, ret = 0;
-
-    if ((BDRV_SECTOR_SIZE % 512) != 0) {
-        error_setg(errp, "iSCSI: Invalid BDRV_SECTOR_SIZE. "
-                   "BDRV_SECTOR_SIZE(%lld) is not a multiple "
-                   "of 512", BDRV_SECTOR_SIZE);
-        return -EINVAL;
-    }
+    int i, ret = 0, timeout = 0;
 
     opts = qemu_opts_create(&runtime_opts, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
@@ -1381,6 +1650,16 @@ static int iscsi_open(BlockDriverState *bs, QDict *options, int flags,
         goto out;
     }
 
+    /* timeout handling is broken in libiscsi before 1.15.0 */
+    timeout = parse_timeout(iscsi_url->target);
+#if defined(LIBISCSI_API_VERSION) && LIBISCSI_API_VERSION >= 20150621
+    iscsi_set_timeout(iscsi, timeout);
+#else
+    if (timeout) {
+        error_report("iSCSI: ignoring timeout value for libiscsi <1.15.0");
+    }
+#endif
+
     if (iscsi_full_connect_sync(iscsi, iscsi_url->portal, iscsi_url->lun) != 0) {
         error_setg(errp, "iSCSI: Failed to connect to LUN : %s",
             iscsi_get_error(iscsi));
@@ -1403,7 +1682,12 @@ static int iscsi_open(BlockDriverState *bs, QDict *options, int flags,
     scsi_free_scsi_task(task);
     task = NULL;
 
-    iscsilun->write_protected = iscsi_is_write_protected(iscsilun);
+    iscsi_modesense_sync(iscsilun);
+    if (iscsilun->dpofua) {
+        bs->supported_write_flags = BDRV_REQ_FUA;
+    }
+    bs->supported_zero_flags = BDRV_REQ_MAY_UNMAP;
+
     /* Check the write protect flag of the LUN if we want to write */
     if (iscsilun->type == TYPE_DISK && (flags & BDRV_O_RDWR) &&
         iscsilun->write_protected) {
@@ -1419,14 +1703,13 @@ static int iscsi_open(BlockDriverState *bs, QDict *options, int flags,
         goto out;
     }
     bs->total_sectors = sector_lun2qemu(iscsilun->num_blocks, iscsilun);
-    bs->request_alignment = iscsilun->block_size;
 
     /* We don't have any emulation for devices other than disks and CD-ROMs, so
      * this must be sg ioctl compatible. We force it to be sg, otherwise qemu
      * will try to read from the device to guess the image format.
      */
     if (iscsilun->type != TYPE_DISK && iscsilun->type != TYPE_ROM) {
-        bs->sg = 1;
+        bs->sg = true;
     }
 
     task = iscsi_do_inquiry(iscsilun->iscsi, iscsilun->lun, 1,
@@ -1481,11 +1764,8 @@ static int iscsi_open(BlockDriverState *bs, QDict *options, int flags,
         iscsilun->bl.opt_unmap_gran * iscsilun->block_size <= 16 * 1024 * 1024) {
         iscsilun->cluster_sectors = (iscsilun->bl.opt_unmap_gran *
                                      iscsilun->block_size) >> BDRV_SECTOR_BITS;
-        if (iscsilun->lbprz && !(bs->open_flags & BDRV_O_NOCACHE)) {
-            iscsilun->allocationmap = iscsi_allocationmap_init(iscsilun);
-            if (iscsilun->allocationmap == NULL) {
-                ret = -ENOMEM;
-            }
+        if (iscsilun->lbprz) {
+            ret = iscsi_allocmap_init(iscsilun, bs->open_flags);
         }
     }
 
@@ -1501,6 +1781,9 @@ out:
 
     if (ret) {
         if (iscsi != NULL) {
+            if (iscsi_is_logged_in(iscsi)) {
+                iscsi_logout_sync(iscsi);
+            }
             iscsi_destroy_context(iscsi);
         }
         memset(iscsilun, 0, sizeof(IscsiLun));
@@ -1514,15 +1797,13 @@ static void iscsi_close(BlockDriverState *bs)
     struct iscsi_context *iscsi = iscsilun->iscsi;
 
     iscsi_detach_aio_context(bs);
+    if (iscsi_is_logged_in(iscsi)) {
+        iscsi_logout_sync(iscsi);
+    }
     iscsi_destroy_context(iscsi);
     g_free(iscsilun->zeroblock);
-    g_free(iscsilun->allocationmap);
+    iscsi_allocmap_free(iscsilun);
     memset(iscsilun, 0, sizeof(IscsiLun));
-}
-
-static int sector_limits_lun2qemu(int64_t sector, IscsiLun *iscsilun)
-{
-    return MIN(sector_lun2qemu(sector, iscsilun), INT_MAX / 2 + 1);
 }
 
 static void iscsi_refresh_limits(BlockDriverState *bs, Error **errp)
@@ -1531,33 +1812,44 @@ static void iscsi_refresh_limits(BlockDriverState *bs, Error **errp)
      * iscsi_open(): iscsi targets don't change their limits. */
 
     IscsiLun *iscsilun = bs->opaque;
-    uint32_t max_xfer_len = iscsilun->use_16_for_rw ? 0xffffffff : 0xffff;
+    uint64_t max_xfer_len = iscsilun->use_16_for_rw ? 0xffffffff : 0xffff;
+
+    bs->bl.request_alignment = iscsilun->block_size;
 
     if (iscsilun->bl.max_xfer_len) {
         max_xfer_len = MIN(max_xfer_len, iscsilun->bl.max_xfer_len);
     }
 
-    bs->bl.max_transfer_length = sector_limits_lun2qemu(max_xfer_len, iscsilun);
+    if (max_xfer_len * iscsilun->block_size < INT_MAX) {
+        bs->bl.max_transfer = max_xfer_len * iscsilun->block_size;
+    }
 
     if (iscsilun->lbp.lbpu) {
-        if (iscsilun->bl.max_unmap < 0xffffffff) {
-            bs->bl.max_discard =
-                sector_limits_lun2qemu(iscsilun->bl.max_unmap, iscsilun);
+        if (iscsilun->bl.max_unmap < 0xffffffff / iscsilun->block_size) {
+            bs->bl.max_pdiscard =
+                iscsilun->bl.max_unmap * iscsilun->block_size;
         }
-        bs->bl.discard_alignment =
-            sector_limits_lun2qemu(iscsilun->bl.opt_unmap_gran, iscsilun);
+        bs->bl.pdiscard_alignment =
+            iscsilun->bl.opt_unmap_gran * iscsilun->block_size;
+    } else {
+        bs->bl.pdiscard_alignment = iscsilun->block_size;
     }
 
-    if (iscsilun->bl.max_ws_len < 0xffffffff) {
-        bs->bl.max_write_zeroes =
-            sector_limits_lun2qemu(iscsilun->bl.max_ws_len, iscsilun);
+    if (iscsilun->bl.max_ws_len < 0xffffffff / iscsilun->block_size) {
+        bs->bl.max_pwrite_zeroes =
+            iscsilun->bl.max_ws_len * iscsilun->block_size;
     }
     if (iscsilun->lbp.lbpws) {
-        bs->bl.write_zeroes_alignment =
-            sector_limits_lun2qemu(iscsilun->bl.opt_unmap_gran, iscsilun);
+        bs->bl.pwrite_zeroes_alignment =
+            iscsilun->bl.opt_unmap_gran * iscsilun->block_size;
+    } else {
+        bs->bl.pwrite_zeroes_alignment = iscsilun->block_size;
     }
-    bs->bl.opt_transfer_length =
-        sector_limits_lun2qemu(iscsilun->bl.opt_xfer_len, iscsilun);
+    if (iscsilun->bl.opt_xfer_len &&
+        iscsilun->bl.opt_xfer_len < INT_MAX / iscsilun->block_size) {
+        bs->bl.opt_transfer = pow2floor(iscsilun->bl.opt_xfer_len *
+                                        iscsilun->block_size);
+    }
 }
 
 /* Note that this will not re-establish a connection with an iSCSI target - it
@@ -1572,6 +1864,16 @@ static int iscsi_reopen_prepare(BDRVReopenState *state,
         return -EACCES;
     }
     return 0;
+}
+
+static void iscsi_reopen_commit(BDRVReopenState *reopen_state)
+{
+    IscsiLun *iscsilun = reopen_state->bs->opaque;
+
+    /* the cache.direct status might have changed */
+    if (iscsilun->allocmap != NULL) {
+        iscsi_allocmap_init(iscsilun, reopen_state->flags);
+    }
 }
 
 static int iscsi_truncate(BlockDriverState *bs, int64_t offset)
@@ -1593,9 +1895,8 @@ static int iscsi_truncate(BlockDriverState *bs, int64_t offset)
         return -EINVAL;
     }
 
-    if (iscsilun->allocationmap != NULL) {
-        g_free(iscsilun->allocationmap);
-        iscsilun->allocationmap = iscsi_allocationmap_init(iscsilun);
+    if (iscsilun->allocmap != NULL) {
+        iscsi_allocmap_init(iscsilun, bs->open_flags);
     }
 
     return 0;
@@ -1649,10 +1950,17 @@ out:
 static int iscsi_get_info(BlockDriverState *bs, BlockDriverInfo *bdi)
 {
     IscsiLun *iscsilun = bs->opaque;
-    bdi->unallocated_blocks_are_zero = !!iscsilun->lbprz;
+    bdi->unallocated_blocks_are_zero = iscsilun->lbprz;
     bdi->can_write_zeroes_with_unmap = iscsilun->lbprz && iscsilun->lbp.lbpws;
     bdi->cluster_size = iscsilun->cluster_sectors * BDRV_SECTOR_SIZE;
     return 0;
+}
+
+static void iscsi_invalidate_cache(BlockDriverState *bs,
+                                   Error **errp)
+{
+    IscsiLun *iscsilun = bs->opaque;
+    iscsi_allocmap_invalidate(iscsilun);
 }
 
 static QemuOptsList iscsi_create_opts = {
@@ -1678,7 +1986,9 @@ static BlockDriver bdrv_iscsi = {
     .bdrv_close      = iscsi_close,
     .bdrv_create     = iscsi_create,
     .create_opts     = &iscsi_create_opts,
-    .bdrv_reopen_prepare  = iscsi_reopen_prepare,
+    .bdrv_reopen_prepare   = iscsi_reopen_prepare,
+    .bdrv_reopen_commit    = iscsi_reopen_commit,
+    .bdrv_invalidate_cache = iscsi_invalidate_cache,
 
     .bdrv_getlength  = iscsi_getlength,
     .bdrv_get_info   = iscsi_get_info,
@@ -1686,14 +1996,13 @@ static BlockDriver bdrv_iscsi = {
     .bdrv_refresh_limits = iscsi_refresh_limits,
 
     .bdrv_co_get_block_status = iscsi_co_get_block_status,
-    .bdrv_co_discard      = iscsi_co_discard,
-    .bdrv_co_write_zeroes = iscsi_co_write_zeroes,
+    .bdrv_co_pdiscard      = iscsi_co_pdiscard,
+    .bdrv_co_pwrite_zeroes = iscsi_co_pwrite_zeroes,
     .bdrv_co_readv         = iscsi_co_readv,
-    .bdrv_co_writev        = iscsi_co_writev,
+    .bdrv_co_writev_flags  = iscsi_co_writev_flags,
     .bdrv_co_flush_to_disk = iscsi_co_flush,
 
 #ifdef __linux__
-    .bdrv_ioctl       = iscsi_ioctl,
     .bdrv_aio_ioctl   = iscsi_aio_ioctl,
 #endif
 
@@ -1714,6 +2023,11 @@ static QemuOptsList qemu_iscsi_opts = {
             .type = QEMU_OPT_STRING,
             .help = "password for CHAP authentication to target",
         },{
+            .name = "password-secret",
+            .type = QEMU_OPT_STRING,
+            .help = "ID of the secret providing password for CHAP "
+                    "authentication to target",
+        },{
             .name = "header-digest",
             .type = QEMU_OPT_STRING,
             .help = "HeaderDigest setting. "
@@ -1722,6 +2036,10 @@ static QemuOptsList qemu_iscsi_opts = {
             .name = "initiator-name",
             .type = QEMU_OPT_STRING,
             .help = "Initiator iqn name to use when connecting",
+        },{
+            .name = "timeout",
+            .type = QEMU_OPT_NUMBER,
+            .help = "Request timeout in seconds (default 0 = no timeout)",
         },
         { /* end of list */ }
     },

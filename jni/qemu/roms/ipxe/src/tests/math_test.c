@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /** @file
  *
@@ -33,6 +37,26 @@ FILE_LICENCE ( GPL2_OR_LATER );
 #include <assert.h>
 #include <ipxe/test.h>
 #include <ipxe/isqrt.h>
+
+/**
+ * Force a call to the non-constant implementation of ffsl()
+ *
+ * @v value		Value
+ * @ret lsb		Least significant bit set in value (LSB=1), or zero
+ */
+__attribute__ (( noinline )) int ffsl_var ( long value ) {
+	return ffsl ( value );
+}
+
+/**
+ * Force a call to the non-constant implementation of ffsll()
+ *
+ * @v value		Value
+ * @ret lsb		Least significant bit set in value (LSB=1), or zero
+ */
+__attribute__ (( noinline )) int ffsll_var ( long long value ) {
+	return ffsll ( value );
+}
 
 /**
  * Force a call to the non-constant implementation of flsl()
@@ -173,6 +197,44 @@ __attribute__ (( noinline )) int64_t s64mod_var ( int64_t dividend,
 }
 
 /**
+ * Report a ffsl() test result
+ *
+ * @v value		Value
+ * @v lsb		Expected LSB
+ * @v file		Test code file
+ * @v line		Test code line
+ */
+static inline __attribute__ (( always_inline )) void
+ffsl_okx ( long value, int lsb, const char *file, unsigned int line ) {
+
+	/* Verify as a constant (requires to be inlined) */
+	okx ( ffsl ( value ) == lsb, file, line );
+
+	/* Verify as a non-constant */
+	okx ( ffsl_var ( value ) == lsb, file, line );
+}
+#define ffsl_ok( value, lsb ) ffsl_okx ( value, lsb, __FILE__, __LINE__ )
+
+/**
+ * Report a ffsll() test result
+ *
+ * @v value		Value
+ * @v lsb		Expected LSB
+ * @v file		Test code file
+ * @v line		Test code line
+ */
+static inline __attribute__ (( always_inline )) void
+ffsll_okx ( long long value, int lsb, const char *file, unsigned int line ) {
+
+	/* Verify as a constant (requires to be inlined) */
+	okx ( ffsll ( value ) == lsb, file, line );
+
+	/* Verify as a non-constant */
+	okx ( ffsll_var ( value ) == lsb, file, line );
+}
+#define ffsll_ok( value, lsb ) ffsll_okx ( value, lsb, __FILE__, __LINE__ )
+
+/**
  * Report a flsl() test result
  *
  * @v value		Value
@@ -269,6 +331,22 @@ static void s64divmod_okx ( int64_t dividend, int64_t divisor,
  *
  */
 static void math_test_exec ( void ) {
+
+	/* Test ffsl() */
+	ffsl_ok ( 0, 0 );
+	ffsl_ok ( 1, 1 );
+	ffsl_ok ( 255, 1 );
+	ffsl_ok ( 256, 9 );
+	ffsl_ok ( 257, 1 );
+	ffsl_ok ( 0x54850596, 2 );
+	ffsl_ok ( 0x80000000, 32 );
+
+	/* Test ffsll() */
+	ffsll_ok ( 0, 0 );
+	ffsll_ok ( 1, 1 );
+	ffsll_ok ( 0x6d63623330ULL, 5 );
+	ffsll_ok ( 0x80000000UL, 32 );
+	ffsll_ok ( 0x8000000000000000ULL, 64 );
 
 	/* Test flsl() */
 	flsl_ok ( 0, 0 );

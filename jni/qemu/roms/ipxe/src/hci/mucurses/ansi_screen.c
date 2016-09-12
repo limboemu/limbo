@@ -3,7 +3,7 @@
 #include <ipxe/ansicol.h>
 #include <ipxe/console.h>
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 static void ansiscr_reset(struct _curses_screen *scr) __nonnull;
 static void ansiscr_movetoyx(struct _curses_screen *scr,

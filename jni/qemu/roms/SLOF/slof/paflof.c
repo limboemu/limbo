@@ -19,6 +19,7 @@
 #undef unix
 
 #include "paflof.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -42,6 +43,9 @@ unsigned long epapr_ima_size;		// ePAPR initially mapped area size
 unsigned char hash_table[HASHSIZE*CELLSIZE];
 
 #include ISTR(TARG,c)
+
+static int did_stackwarning;
+extern char the_system_stack[];
 
 // the actual engine
 long engine(int mode, long param_1, long param_2)
@@ -82,6 +86,11 @@ long engine(int mode, long param_1, long param_2)
 		// return-address for "evaluate" personality
 		dummy.a = &&over;
 		c_return[1].a = &dummy;
+	}
+
+	if ((char *)&ip < the_system_stack && !did_stackwarning) {
+		puts("ERROR: stack overflow in engine()!");
+		did_stackwarning = 1;
 	}
 
 	if (mode & ENGINE_MODE_PARAM_2) {

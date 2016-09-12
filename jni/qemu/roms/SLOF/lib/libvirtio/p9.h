@@ -33,7 +33,7 @@
 #define P9_PARTIAL_WALK			1
 
 typedef int (*p9_transact_t)(void *opaque, uint8_t *tx, int tx_size,
-		uint8_t *rx, int *rx_size);
+		uint8_t *rx, uint32_t *rx_size);
 
 typedef struct {
 	uint32_t message_size;

@@ -17,10 +17,11 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/pci/pci.h"
 #include "qemu/event_notifier.h"
-#include "qemu/osdep.h"
+#include "sysemu/kvm.h"
 
 typedef struct PCITestDevHdr {
     uint8_t test;
@@ -239,6 +240,7 @@ static void pci_testdev_realize(PCIDevice *pci_dev, Error **errp)
     uint8_t *pci_conf;
     char *name;
     int r, i;
+    bool fastmmio = kvm_ioeventfd_any_length_enabled();
 
     pci_conf = pci_dev->config;
 
@@ -261,8 +263,12 @@ static void pci_testdev_realize(PCIDevice *pci_dev, Error **errp)
         memcpy(test->hdr->name, name, strlen(name) + 1);
         g_free(name);
         test->hdr->offset = cpu_to_le32(IOTEST_SIZE(i) + i * IOTEST_ACCESS_WIDTH);
-        test->size = IOTEST_ACCESS_WIDTH;
         test->match_data = strcmp(IOTEST_TEST(i), "wildcard-eventfd");
+        if (fastmmio && IOTEST_IS_MEM(i) && !test->match_data) {
+            test->size = 0;
+        } else {
+            test->size = IOTEST_ACCESS_WIDTH;
+        }
         test->hdr->test = i;
         test->hdr->data = test->match_data ? IOTEST_DATAMATCH : IOTEST_NOMATCH;
         test->hdr->width = IOTEST_ACCESS_WIDTH;

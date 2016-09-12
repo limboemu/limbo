@@ -23,6 +23,10 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "qemu-common.h"
+#include "cpu.h"
 #include "hw/sysbus.h"
 #include "hw/hw.h"
 #include "hw/sh4/sh.h"
@@ -127,7 +131,7 @@ static void r2d_fpga_irq_set(void *opaque, int n, int level)
     update_irl(fpga);
 }
 
-static uint32_t r2d_fpga_read(void *opaque, hwaddr addr)
+static uint64_t r2d_fpga_read(void *opaque, hwaddr addr, unsigned int size)
 {
     r2d_fpga_t *s = opaque;
 
@@ -146,7 +150,7 @@ static uint32_t r2d_fpga_read(void *opaque, hwaddr addr)
 }
 
 static void
-r2d_fpga_write(void *opaque, hwaddr addr, uint32_t value)
+r2d_fpga_write(void *opaque, hwaddr addr, uint64_t value, unsigned int size)
 {
     r2d_fpga_t *s = opaque;
 
@@ -170,10 +174,10 @@ r2d_fpga_write(void *opaque, hwaddr addr, uint32_t value)
 }
 
 static const MemoryRegionOps r2d_fpga_ops = {
-    .old_mmio = {
-        .read = { r2d_fpga_read, r2d_fpga_read, NULL, },
-        .write = { r2d_fpga_write, r2d_fpga_write, NULL, },
-    },
+    .read = r2d_fpga_read,
+    .write = r2d_fpga_write,
+    .impl.min_access_size = 2,
+    .impl.max_access_size = 2,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
@@ -255,7 +259,7 @@ static void r2d_init(MachineState *machine)
     qemu_register_reset(main_cpu_reset, reset_info);
 
     /* Allocate memory space */
-    memory_region_init_ram(sdram, NULL, "r2d.sdram", SDRAM_SIZE, &error_abort);
+    memory_region_init_ram(sdram, NULL, "r2d.sdram", SDRAM_SIZE, &error_fatal);
     vmstate_register_ram_global(sdram);
     memory_region_add_subregion(address_space_mem, SDRAM_BASE, sdram);
     /* Register peripherals */
@@ -318,8 +322,10 @@ static void r2d_init(MachineState *machine)
         }
 
         /* initialization which should be done by firmware */
-        stl_phys(&address_space_memory, SH7750_BCR1, 1<<3); /* cs3 SDRAM */
-        stw_phys(&address_space_memory, SH7750_BCR2, 3<<(3*2)); /* cs3 32bit */
+        address_space_stl(&address_space_memory, SH7750_BCR1, 1 << 3,
+                          MEMTXATTRS_UNSPECIFIED, NULL); /* cs3 SDRAM */
+        address_space_stw(&address_space_memory, SH7750_BCR2, 3 << (3 * 2),
+                          MEMTXATTRS_UNSPECIFIED, NULL); /* cs3 32bit */
         reset_info->vector = (SDRAM_BASE + LINUX_LOAD_OFFSET) | 0xa0000000; /* Start from P2 area */
     }
 
@@ -336,9 +342,9 @@ static void r2d_init(MachineState *machine)
         }
 
         /* initialization which should be done by firmware */
-        boot_params.loader_type = 1;
-        boot_params.initrd_start = INITRD_LOAD_OFFSET;
-        boot_params.initrd_size = initrd_size;
+        boot_params.loader_type = tswap32(1);
+        boot_params.initrd_start = tswap32(INITRD_LOAD_OFFSET);
+        boot_params.initrd_size = tswap32(initrd_size);
     }
 
     if (kernel_cmdline) {
@@ -352,15 +358,10 @@ static void r2d_init(MachineState *machine)
                        SDRAM_BASE + BOOT_PARAMS_OFFSET);
 }
 
-static QEMUMachine r2d_machine = {
-    .name = "r2d",
-    .desc = "r2d-plus board",
-    .init = r2d_init,
-};
-
-static void r2d_machine_init(void)
+static void r2d_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&r2d_machine);
+    mc->desc = "r2d-plus board";
+    mc->init = r2d_init;
 }
 
-machine_init(r2d_machine_init);
+DEFINE_MACHINE("r2d", r2d_machine_init)

@@ -383,8 +383,6 @@ int usb_hid_exit(void *vdev)
 	return true;
 }
 
-#define usb_get_intf_class(x) ((x & 0x00FF0000) >> 16)
-
 int usb_msc_init(void *vdev)
 {
 	struct usb_dev *dev;
@@ -420,7 +418,7 @@ int usb_msc_exit(void *vdev)
 	return true;
 }
 
-static int usb_msc_reset(struct usb_dev *dev)
+int usb_msc_reset(struct usb_dev *dev)
 {
 	struct usb_dev_req req;
 
@@ -477,7 +475,7 @@ static int usb_handle_device(struct usb_dev *dev, struct usb_dev_config_descr *c
 		case DESCR_TYPE_HUB:
 			break;
 		default:
-			printf("ptr %p desc_type %d\n", ptr, desc_type);
+			dprintf("ptr %p desc_type %d\n", ptr, desc_type);
 		}
 		ptr += desc_len;
 		len -= desc_len;
@@ -485,7 +483,7 @@ static int usb_handle_device(struct usb_dev *dev, struct usb_dev_config_descr *c
 	return true;
 }
 
-int setup_new_device(struct usb_dev *dev, unsigned int port)
+int usb_setup_new_device(struct usb_dev *dev, unsigned int port)
 {
 	struct usb_dev_descr descr;
 	struct usb_dev_config_descr cfg;
@@ -551,35 +549,6 @@ int setup_new_device(struct usb_dev *dev, unsigned int port)
 
 	if (!usb_handle_device(dev, &cfg, data, len))
 		goto fail_mem_free;
-
-	switch (usb_get_intf_class(dev->class)) {
-	case 3:
-		dprintf("HID found %06X\n", dev->class);
-		slof_usb_handle(dev);
-		break;
-	case 8:
-		dprintf("MASS STORAGE found %d %06X\n", dev->intf_num,
-			dev->class);
-		if ((dev->class & 0x50) != 0x50) { /* Bulk-only supported */
-			printf("Device not supported %06X\n", dev->class);
-			goto fail_mem_free;
-		}
-
-		if (!usb_msc_reset(dev)) {
-			printf("%s: bulk reset failed\n", __func__);
-			goto fail_mem_free;
-		}
-		SLOF_msleep(100);
-		slof_usb_handle(dev);
-		break;
-	case 9:
-		dprintf("HUB found\n");
-		slof_usb_handle(dev);
-		break;
-	default:
-		printf("USB Interface class -%x- Not supported\n", dev->class);
-		break;
-	}
 
 	SLOF_dma_free(data, len);
 	return true;

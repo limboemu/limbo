@@ -16,12 +16,14 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include "config.h"
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "disas/disas.h"
+#include "exec/exec-all.h"
 #include "tcg.h"
 #include "qemu/bitops.h"
 #include "exec/cpu_ldst.h"
+#include "translate-all.h"
 
 #undef EAX
 #undef ECX
@@ -32,50 +34,20 @@
 #undef ESI
 #undef EDI
 #undef EIP
-#include <signal.h>
 #ifdef __linux__
 #include <sys/ucontext.h>
 #endif
 
-#define DEBUG_SIGNAL
-
-static void exception_action(CPUState *cpu)
-{
-#if defined(TARGET_I386)
-    X86CPU *x86_cpu = X86_CPU(cpu);
-    CPUX86State *env1 = &x86_cpu->env;
-
-    raise_exception_err(env1, cpu->exception_index, env1->error_code);
-#else
-    cpu_loop_exit(cpu);
-#endif
-}
+//#define DEBUG_SIGNAL
 
 /* exit the current TB from a signal handler. The host registers are
    restored in a state compatible with the CPU emulator
  */
-void cpu_resume_from_signal(CPUState *cpu, void *puc)
+static void cpu_exit_tb_from_sighandler(CPUState *cpu, sigset_t *old_set)
 {
-#ifdef __linux__
-    struct ucontext *uc = puc;
-#elif defined(__OpenBSD__)
-    struct sigcontext *uc = puc;
-#endif
-
-    if (puc) {
-        /* XXX: use siglongjmp ? */
-#ifdef __linux__
-#ifdef __ia64
-        sigprocmask(SIG_SETMASK, (sigset_t *)&uc->uc_sigmask, NULL);
-#else
-        sigprocmask(SIG_SETMASK, &uc->uc_sigmask, NULL);
-#endif
-#elif defined(__OpenBSD__)
-        sigprocmask(SIG_SETMASK, &uc->sc_mask, NULL);
-#endif
-    }
-    cpu->exception_index = -1;
-    siglongjmp(cpu->jmp_env, 1);
+    /* XXX: use siglongjmp ? */
+    sigprocmask(SIG_SETMASK, old_set, NULL);
+    cpu_loop_exit_noexc(cpu);
 }
 
 /* 'pc' is the host PC at which the exception was raised. 'address' is
@@ -83,21 +55,39 @@ void cpu_resume_from_signal(CPUState *cpu, void *puc)
    write caused the exception and otherwise 0'. 'old_set' is the
    signal set which should be restored */
 static inline int handle_cpu_signal(uintptr_t pc, unsigned long address,
-                                    int is_write, sigset_t *old_set,
-                                    void *puc)
+                                    int is_write, sigset_t *old_set)
 {
     CPUState *cpu;
     CPUClass *cc;
     int ret;
 
 #if defined(DEBUG_SIGNAL)
-    qemu_printf("qemu: SIGSEGV pc=0x%08lx address=%08lx w=%d oldset=0x%08lx\n",
-                pc, address, is_write, *(unsigned long *)old_set);
+    printf("qemu: SIGSEGV pc=0x%08lx address=%08lx w=%d oldset=0x%08lx\n",
+           pc, address, is_write, *(unsigned long *)old_set);
 #endif
     /* XXX: locking issue */
-    if (is_write && h2g_valid(address)
-        && page_unprotect(h2g(address), pc, puc)) {
-        return 1;
+    if (is_write && h2g_valid(address)) {
+        switch (page_unprotect(h2g(address), pc)) {
+        case 0:
+            /* Fault not caused by a page marked unwritable to protect
+             * cached translations, must be the guest binary's problem
+             */
+            break;
+        case 1:
+            /* Fault caused by protection of cached translation; TBs
+             * invalidated, so resume execution
+             */
+            return 1;
+        case 2:
+            /* Fault caused by protection of cached translation, and the
+             * currently executing TB was modified and must be exited
+             * immediately.
+             */
+            cpu_exit_tb_from_sighandler(current_cpu, old_set);
+            g_assert_not_reached();
+        default:
+            g_assert_not_reached();
+        }
     }
 
     /* Convert forcefully to guest address space, invalid addresses
@@ -118,10 +108,8 @@ static inline int handle_cpu_signal(uintptr_t pc, unsigned long address,
     /* now we have a real cpu fault */
     cpu_restore_state(cpu, pc);
 
-    /* we restore the process signal mask as the sigreturn should
-       do it (XXX: use sigsetjmp) */
     sigprocmask(SIG_SETMASK, old_set, NULL);
-    exception_action(cpu);
+    cpu_loop_exit(cpu);
 
     /* never comes here */
     return 1;
@@ -129,14 +117,7 @@ static inline int handle_cpu_signal(uintptr_t pc, unsigned long address,
 
 #if defined(__i386__)
 
-#if defined(__APPLE__)
-#include <sys/ucontext.h>
-
-#define EIP_sig(context)  (*((unsigned long *)&(context)->uc_mcontext->ss.eip))
-#define TRAP_sig(context)    ((context)->uc_mcontext->es.trapno)
-#define ERROR_sig(context)   ((context)->uc_mcontext->es.err)
-#define MASK_sig(context)    ((context)->uc_sigmask)
-#elif defined(__NetBSD__)
+#if defined(__NetBSD__)
 #include <ucontext.h>
 
 #define EIP_sig(context)     ((context)->uc_mcontext.__gregs[_REG_EIP])
@@ -187,7 +168,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
                              trapno == 0xe ?
                              (ERROR_sig(uc) >> 1) & 1 : 0,
-                             &MASK_sig(uc), puc);
+                             &MASK_sig(uc));
 }
 
 #elif defined(__x86_64__)
@@ -233,7 +214,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
                              TRAP_sig(uc) == 0xe ?
                              (ERROR_sig(uc) >> 1) & 1 : 0,
-                             &MASK_sig(uc), puc);
+                             &MASK_sig(uc));
 }
 
 #elif defined(_ARCH_PPC)
@@ -286,44 +267,6 @@ int cpu_signal_handler(int host_signum, void *pinfo,
 #define TRAP_sig(context)              ((context)->uc_mcontext.mc_exc)
 #endif /* __FreeBSD__|| __FreeBSD_kernel__ */
 
-#ifdef __APPLE__
-#include <sys/ucontext.h>
-typedef struct ucontext SIGCONTEXT;
-/* All Registers access - only for local access */
-#define REG_sig(reg_name, context)              \
-    ((context)->uc_mcontext->ss.reg_name)
-#define FLOATREG_sig(reg_name, context)         \
-    ((context)->uc_mcontext->fs.reg_name)
-#define EXCEPREG_sig(reg_name, context)         \
-    ((context)->uc_mcontext->es.reg_name)
-#define VECREG_sig(reg_name, context)           \
-    ((context)->uc_mcontext->vs.reg_name)
-/* Gpr Registers access */
-#define GPR_sig(reg_num, context)              REG_sig(r##reg_num, context)
-/* Program counter */
-#define IAR_sig(context)                       REG_sig(srr0, context)
-/* Machine State Register (Supervisor) */
-#define MSR_sig(context)                       REG_sig(srr1, context)
-#define CTR_sig(context)                       REG_sig(ctr, context)
-/* Link register */
-#define XER_sig(context)                       REG_sig(xer, context)
-/* User's integer exception register */
-#define LR_sig(context)                        REG_sig(lr, context)
-/* Condition register */
-#define CR_sig(context)                        REG_sig(cr, context)
-/* Float Registers access */
-#define FLOAT_sig(reg_num, context)             \
-    FLOATREG_sig(fpregs[reg_num], context)
-#define FPSCR_sig(context)                      \
-    ((double)FLOATREG_sig(fpscr, context))
-/* Exception Registers access */
-/* Fault registers for coredump */
-#define DAR_sig(context)                       EXCEPREG_sig(dar, context)
-#define DSISR_sig(context)                     EXCEPREG_sig(dsisr, context)
-/* number of powerpc exception taken */
-#define TRAP_sig(context)                      EXCEPREG_sig(exception, context)
-#endif /* __APPLE__ */
-
 int cpu_signal_handler(int host_signum, void *pinfo,
                        void *puc)
 {
@@ -349,7 +292,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     }
 #endif
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
+                             is_write, &uc->uc_sigmask);
 }
 
 #elif defined(__alpha__)
@@ -380,7 +323,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     }
 
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
+                             is_write, &uc->uc_sigmask);
 }
 #elif defined(__sparc__)
 
@@ -440,7 +383,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
         }
     }
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, sigmask, NULL);
+                             is_write, sigmask);
 }
 
 #elif defined(__arm__)
@@ -475,7 +418,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     is_write = extract32(uc->uc_mcontext.error_code, 11, 1);
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
                              is_write,
-                             &uc->uc_sigmask, puc);
+                             &uc->uc_sigmask);
 }
 
 #elif defined(__aarch64__)
@@ -503,25 +446,7 @@ int cpu_signal_handler(int host_signum, void *pinfo, void *puc)
                 || (insn & 0x3a400000) == 0x28000000); /* C3.3.7,14-16 */
 
     return handle_cpu_signal(pc, (uintptr_t)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
-}
-
-#elif defined(__mc68000)
-
-int cpu_signal_handler(int host_signum, void *pinfo,
-                       void *puc)
-{
-    siginfo_t *info = pinfo;
-    struct ucontext *uc = puc;
-    unsigned long pc;
-    int is_write;
-
-    pc = uc->uc_mcontext.gregs[16];
-    /* XXX: compute is_write */
-    is_write = 0;
-    return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write,
-                             &uc->uc_sigmask, puc);
+                             is_write, &uc->uc_sigmask);
 }
 
 #elif defined(__ia64)
@@ -556,7 +481,7 @@ int cpu_signal_handler(int host_signum, void *pinfo, void *puc)
     }
     return handle_cpu_signal(ip, (unsigned long)info->si_addr,
                              is_write,
-                             (sigset_t *)&uc->uc_sigmask, puc);
+                             (sigset_t *)&uc->uc_sigmask);
 }
 
 #elif defined(__s390__)
@@ -609,7 +534,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
         break;
     }
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
+                             is_write, &uc->uc_sigmask);
 }
 
 #elif defined(__mips__)
@@ -625,49 +550,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     /* XXX: compute is_write */
     is_write = 0;
     return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
-}
-
-#elif defined(__hppa__)
-
-int cpu_signal_handler(int host_signum, void *pinfo,
-                       void *puc)
-{
-    siginfo_t *info = pinfo;
-    struct ucontext *uc = puc;
-    unsigned long pc = uc->uc_mcontext.sc_iaoq[0];
-    uint32_t insn = *(uint32_t *)pc;
-    int is_write = 0;
-
-    /* XXX: need kernel patch to get write flag faster.  */
-    switch (insn >> 26) {
-    case 0x1a: /* STW */
-    case 0x19: /* STH */
-    case 0x18: /* STB */
-    case 0x1b: /* STWM */
-        is_write = 1;
-        break;
-
-    case 0x09: /* CSTWX, FSTWX, FSTWS */
-    case 0x0b: /* CSTDX, FSTDX, FSTDS */
-        /* Distinguish from coprocessor load ... */
-        is_write = (insn >> 9) & 1;
-        break;
-
-    case 0x03:
-        switch ((insn >> 6) & 15) {
-        case 0xa: /* STWS */
-        case 0x9: /* STHS */
-        case 0x8: /* STBS */
-        case 0xe: /* STWAS */
-        case 0xc: /* STBYS */
-            is_write = 1;
-        }
-        break;
-    }
-
-    return handle_cpu_signal(pc, (unsigned long)info->si_addr,
-                             is_write, &uc->uc_sigmask, puc);
+                             is_write, &uc->uc_sigmask);
 }
 
 #else

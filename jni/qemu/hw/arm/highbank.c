@@ -17,24 +17,37 @@
  *
  */
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
 #include "hw/sysbus.h"
 #include "hw/arm/arm.h"
 #include "hw/devices.h"
 #include "hw/loader.h"
 #include "net/net.h"
+#include "sysemu/kvm.h"
 #include "sysemu/sysemu.h"
 #include "hw/boards.h"
 #include "sysemu/block-backend.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
+#include "hw/char/pl011.h"
 
 #define SMP_BOOT_ADDR           0x100
 #define SMP_BOOT_REG            0x40
 #define MPCORE_PERIPHBASE       0xfff10000
 
+#define MVBAR_ADDR              0x200
+#define BOARD_SETUP_ADDR        (MVBAR_ADDR + 8 * sizeof(uint32_t))
+
 #define NIRQ_GIC                160
 
 /* Board init.  */
+
+static void hb_write_board_setup(ARMCPU *cpu,
+                                 const struct arm_boot_info *info)
+{
+    arm_write_secure_board_setup_dummy_smc(cpu, info, MVBAR_ADDR);
+}
 
 static void hb_write_secondary(ARMCPU *cpu, const struct arm_boot_info *info)
 {
@@ -69,11 +82,17 @@ static void hb_reset_secondary(ARMCPU *cpu, const struct arm_boot_info *info)
 
     switch (info->nb_cpus) {
     case 4:
-        stl_phys_notdirty(&address_space_memory, SMP_BOOT_REG + 0x30, 0);
+        address_space_stl_notdirty(&address_space_memory,
+                                   SMP_BOOT_REG + 0x30, 0,
+                                   MEMTXATTRS_UNSPECIFIED, NULL);
     case 3:
-        stl_phys_notdirty(&address_space_memory, SMP_BOOT_REG + 0x20, 0);
+        address_space_stl_notdirty(&address_space_memory,
+                                   SMP_BOOT_REG + 0x20, 0,
+                                   MEMTXATTRS_UNSPECIFIED, NULL);
     case 2:
-        stl_phys_notdirty(&address_space_memory, SMP_BOOT_REG + 0x10, 0);
+        address_space_stl_notdirty(&address_space_memory,
+                                   SMP_BOOT_REG + 0x10, 0,
+                                   MEMTXATTRS_UNSPECIFIED, NULL);
         env->regs[15] = SMP_BOOT_ADDR;
         break;
     default:
@@ -150,23 +169,20 @@ static void highbank_regs_reset(DeviceState *dev)
     s->regs[0x43] = 0x05F40121;
 }
 
-static int highbank_regs_init(SysBusDevice *dev)
+static void highbank_regs_init(Object *obj)
 {
-    HighbankRegsState *s = HIGHBANK_REGISTERS(dev);
+    HighbankRegsState *s = HIGHBANK_REGISTERS(obj);
+    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
 
-    memory_region_init_io(&s->iomem, OBJECT(s), &hb_mem_ops, s->regs,
+    memory_region_init_io(&s->iomem, obj, &hb_mem_ops, s->regs,
                           "highbank_regs", 0x1000);
     sysbus_init_mmio(dev, &s->iomem);
-
-    return 0;
 }
 
 static void highbank_regs_class_init(ObjectClass *klass, void *data)
 {
-    SysBusDeviceClass *sbc = SYS_BUS_DEVICE_CLASS(klass);
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    sbc->init = highbank_regs_init;
     dc->desc = "Calxeda Highbank registers";
     dc->vmsd = &vmstate_highbank_regs;
     dc->reset = highbank_regs_reset;
@@ -176,6 +192,7 @@ static const TypeInfo highbank_regs_info = {
     .name          = TYPE_HIGHBANK_REGISTERS,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(HighbankRegsState),
+    .instance_init = highbank_regs_init,
     .class_init    = highbank_regs_class_init,
 };
 
@@ -211,58 +228,45 @@ static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
     qemu_irq pic[128];
     int n;
     qemu_irq cpu_irq[4];
+    qemu_irq cpu_fiq[4];
     MemoryRegion *sysram;
     MemoryRegion *dram;
     MemoryRegion *sysmem;
     char *sysboot_filename;
 
-    if (!cpu_model) {
-        switch (machine_id) {
-        case CALXEDA_HIGHBANK:
-            cpu_model = "cortex-a9";
-            break;
-        case CALXEDA_MIDWAY:
-            cpu_model = "cortex-a15";
-            break;
-        }
+    switch (machine_id) {
+    case CALXEDA_HIGHBANK:
+        cpu_model = "cortex-a9";
+        break;
+    case CALXEDA_MIDWAY:
+        cpu_model = "cortex-a15";
+        break;
     }
 
     for (n = 0; n < smp_cpus; n++) {
         ObjectClass *oc = cpu_class_by_name(TYPE_ARM_CPU, cpu_model);
         Object *cpuobj;
         ARMCPU *cpu;
-        Error *err = NULL;
-
-        if (!oc) {
-            error_report("Unable to find CPU definition");
-            exit(1);
-        }
 
         cpuobj = object_new(object_class_get_name(oc));
         cpu = ARM_CPU(cpuobj);
 
-        /* By default A9 and A15 CPUs have EL3 enabled.  This board does not
-         * currently support EL3 so the CPU EL3 property is disabled before
-         * realization.
-         */
-        if (object_property_find(cpuobj, "has_el3", NULL)) {
-            object_property_set_bool(cpuobj, false, "has_el3", &err);
-            if (err) {
-                error_report_err(err);
-                exit(1);
-            }
+        object_property_set_int(cpuobj, QEMU_PSCI_CONDUIT_SMC,
+                                "psci-conduit", &error_abort);
+
+        if (n) {
+            /* Secondary CPUs start in PSCI powered-down state */
+            object_property_set_bool(cpuobj, true,
+                                     "start-powered-off", &error_abort);
         }
 
         if (object_property_find(cpuobj, "reset-cbar", NULL)) {
             object_property_set_int(cpuobj, MPCORE_PERIPHBASE,
                                     "reset-cbar", &error_abort);
         }
-        object_property_set_bool(cpuobj, true, "realized", &err);
-        if (err) {
-            error_report_err(err);
-            exit(1);
-        }
+        object_property_set_bool(cpuobj, true, "realized", &error_fatal);
         cpu_irq[n] = qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ);
+        cpu_fiq[n] = qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_FIQ);
     }
 
     sysmem = get_system_memory();
@@ -273,17 +277,19 @@ static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
 
     sysram = g_new(MemoryRegion, 1);
     memory_region_init_ram(sysram, NULL, "highbank.sysram", 0x8000,
-                           &error_abort);
+                           &error_fatal);
     memory_region_add_subregion(sysmem, 0xfff88000, sysram);
     if (bios_name != NULL) {
         sysboot_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
         if (sysboot_filename != NULL) {
             if (load_image_targphys(sysboot_filename, 0xfff88000, 0x8000) < 0) {
-                hw_error("Unable to load %s\n", bios_name);
+                error_report("Unable to load %s", bios_name);
+                exit(1);
             }
             g_free(sysboot_filename);
         } else {
-           hw_error("Unable to find %s\n", bios_name);
+            error_report("Unable to find %s", bios_name);
+            exit(1);
         }
     }
 
@@ -307,6 +313,7 @@ static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
     sysbus_mmio_map(busdev, 0, MPCORE_PERIPHBASE);
     for (n = 0; n < smp_cpus; n++) {
         sysbus_connect_irq(busdev, n, cpu_irq[n]);
+        sysbus_connect_irq(busdev, n + smp_cpus, cpu_fiq[n]);
     }
 
     for (n = 0; n < 128; n++) {
@@ -320,7 +327,7 @@ static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
     busdev = SYS_BUS_DEVICE(dev);
     sysbus_mmio_map(busdev, 0, 0xfff34000);
     sysbus_connect_irq(busdev, 0, pic[18]);
-    sysbus_create_simple("pl011", 0xfff36000, pic[20]);
+    pl011_create(0xfff36000, pic[20], serial_hds[0]);
 
     dev = qdev_create(NULL, "highbank-regs");
     qdev_init_nofail(dev);
@@ -369,6 +376,16 @@ static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
     highbank_binfo.loader_start = 0;
     highbank_binfo.write_secondary_boot = hb_write_secondary;
     highbank_binfo.secondary_cpu_reset_hook = hb_reset_secondary;
+    if (!kvm_enabled()) {
+        highbank_binfo.board_setup_addr = BOARD_SETUP_ADDR;
+        highbank_binfo.write_board_setup = hb_write_board_setup;
+        highbank_binfo.secure_board_setup = true;
+    } else {
+        error_report("WARNING: cannot load built-in Monitor support "
+                     "if KVM is enabled. Some guests (such as Linux) "
+                     "may not boot.");
+    }
+
     arm_load_kernel(ARM_CPU(first_cpu), &highbank_binfo);
 }
 
@@ -382,26 +399,42 @@ static void midway_init(MachineState *machine)
     calxeda_init(machine, CALXEDA_MIDWAY);
 }
 
-static QEMUMachine highbank_machine = {
-    .name = "highbank",
-    .desc = "Calxeda Highbank (ECX-1000)",
-    .init = highbank_init,
-    .block_default_type = IF_SCSI,
-    .max_cpus = 4,
+static void highbank_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Calxeda Highbank (ECX-1000)";
+    mc->init = highbank_init;
+    mc->block_default_type = IF_SCSI;
+    mc->max_cpus = 4;
+}
+
+static const TypeInfo highbank_type = {
+    .name = MACHINE_TYPE_NAME("highbank"),
+    .parent = TYPE_MACHINE,
+    .class_init = highbank_class_init,
 };
 
-static QEMUMachine midway_machine = {
-    .name = "midway",
-    .desc = "Calxeda Midway (ECX-2000)",
-    .init = midway_init,
-    .block_default_type = IF_SCSI,
-    .max_cpus = 4,
+static void midway_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Calxeda Midway (ECX-2000)";
+    mc->init = midway_init;
+    mc->block_default_type = IF_SCSI;
+    mc->max_cpus = 4;
+}
+
+static const TypeInfo midway_type = {
+    .name = MACHINE_TYPE_NAME("midway"),
+    .parent = TYPE_MACHINE,
+    .class_init = midway_class_init,
 };
 
 static void calxeda_machines_init(void)
 {
-    qemu_register_machine(&highbank_machine);
-    qemu_register_machine(&midway_machine);
+    type_register_static(&highbank_type);
+    type_register_static(&midway_type);
 }
 
-machine_init(calxeda_machines_init);
+type_init(calxeda_machines_init)

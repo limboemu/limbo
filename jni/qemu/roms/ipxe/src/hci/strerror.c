@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ipxe/errortab.h>
+#include <config/branding.h>
 
 /** @file
  *
@@ -18,7 +19,7 @@
  *
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 /**
  * Find error description
@@ -74,7 +75,7 @@ static struct errortab * find_closest_error ( int errno ) {
  * call to strerror().
  *
  */
-const char * strerror ( int errno ) {
+char * strerror ( int errno ) {
 	static char errbuf[64];
 	struct errortab *errortab;
 
@@ -88,11 +89,11 @@ const char * strerror ( int errno ) {
 	/* Construct the error message */
 	if ( errortab ) {
 		snprintf ( errbuf, sizeof ( errbuf ),
-			   "%s (http://ipxe.org/%08x)",
+			   "%s (" PRODUCT_ERROR_URI ")",
 			   errortab->text, errno );
 	} else {
 		snprintf ( errbuf, sizeof ( errbuf ),
-			   "Error %#08x (http://ipxe.org/%08x)",
+			   "Error %#08x (" PRODUCT_ERROR_URI ")",
 			   errno, errno );
 	}
 

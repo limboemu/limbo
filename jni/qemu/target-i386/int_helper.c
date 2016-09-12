@@ -17,7 +17,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
+#include "exec/exec-all.h"
 #include "qemu/host-utils.h"
 #include "exec/helper-proto.h"
 
@@ -48,11 +50,11 @@ void helper_divb_AL(CPUX86State *env, target_ulong t0)
     num = (env->regs[R_EAX] & 0xffff);
     den = (t0 & 0xff);
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     if (q > 0xff) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q &= 0xff;
     r = (num % den) & 0xff;
@@ -66,11 +68,11 @@ void helper_idivb_AL(CPUX86State *env, target_ulong t0)
     num = (int16_t)env->regs[R_EAX];
     den = (int8_t)t0;
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     if (q != (int8_t)q) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q &= 0xff;
     r = (num % den) & 0xff;
@@ -84,11 +86,11 @@ void helper_divw_AX(CPUX86State *env, target_ulong t0)
     num = (env->regs[R_EAX] & 0xffff) | ((env->regs[R_EDX] & 0xffff) << 16);
     den = (t0 & 0xffff);
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     if (q > 0xffff) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q &= 0xffff;
     r = (num % den) & 0xffff;
@@ -103,11 +105,11 @@ void helper_idivw_AX(CPUX86State *env, target_ulong t0)
     num = (env->regs[R_EAX] & 0xffff) | ((env->regs[R_EDX] & 0xffff) << 16);
     den = (int16_t)t0;
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     if (q != (int16_t)q) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q &= 0xffff;
     r = (num % den) & 0xffff;
@@ -123,12 +125,12 @@ void helper_divl_EAX(CPUX86State *env, target_ulong t0)
     num = ((uint32_t)env->regs[R_EAX]) | ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
     den = t0;
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     r = (num % den);
     if (q > 0xffffffff) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     env->regs[R_EAX] = (uint32_t)q;
     env->regs[R_EDX] = (uint32_t)r;
@@ -142,12 +144,12 @@ void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
     num = ((uint32_t)env->regs[R_EAX]) | ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
     den = t0;
     if (den == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     q = (num / den);
     r = (num % den);
     if (q != (int32_t)q) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     env->regs[R_EAX] = (uint32_t)q;
     env->regs[R_EDX] = (uint32_t)r;
@@ -379,12 +381,12 @@ void helper_divq_EAX(CPUX86State *env, target_ulong t0)
     uint64_t r0, r1;
 
     if (t0 == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     r0 = env->regs[R_EAX];
     r1 = env->regs[R_EDX];
     if (div64(&r0, &r1, t0)) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     env->regs[R_EAX] = r0;
     env->regs[R_EDX] = r1;
@@ -395,12 +397,12 @@ void helper_idivq_EAX(CPUX86State *env, target_ulong t0)
     uint64_t r0, r1;
 
     if (t0 == 0) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     r0 = env->regs[R_EAX];
     r1 = env->regs[R_EDX];
     if (idiv64(&r0, &r1, t0)) {
-        raise_exception(env, EXCP00_DIVZ);
+        raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
     env->regs[R_EAX] = r0;
     env->regs[R_EDX] = r1;
@@ -469,3 +471,13 @@ target_ulong helper_pext(target_ulong src, target_ulong mask)
 #include "shift_helper_template.h"
 #undef SHIFT
 #endif
+
+/* Test that BIT is enabled in CR4.  If not, raise an illegal opcode
+   exception.  This reduces the requirements for rare CR4 bits being
+   mapped into HFLAGS.  */
+void helper_cr4_testbit(CPUX86State *env, uint32_t bit)
+{
+    if (unlikely((env->cr[4] & bit) == 0)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+}

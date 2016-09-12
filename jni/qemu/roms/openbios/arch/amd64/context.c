@@ -97,14 +97,15 @@ init_context(uint8_t *stack, uint32_t stack_size, int num_params)
 /* Switch to another context. */
 struct context *switch_to(struct context *ctx)
 {
-    struct context *save, *ret;
+    volatile struct context *save;
+    struct context *ret;
 
     debug("switching to new context:\n");
     save = __context;
     __context = ctx;
     asm ("pushl %cs; call __switch_context");
     ret = __context;
-    __context = save;
+    __context = (struct context *)save;
     return ret;
 }
 

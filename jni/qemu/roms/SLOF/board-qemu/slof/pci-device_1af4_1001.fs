@@ -22,13 +22,4 @@ pci-io-enable
 
 s" virtio-block.fs" included
 
-\ Allocate memory for virtio queue:
-virtiodev 0 virtio-get-qsize virtio-vring-size
-1000 CLAIM VALUE queue-addr
-
-\ Write queue address into device:
-queue-addr c rshift
-virtiodev vd>base @ 8 +
-rl!-le
-
 pci-device-disable

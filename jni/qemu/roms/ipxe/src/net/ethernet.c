@@ -15,9 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
+ *
+ * You can also choose to distribute this program under the terms of
+ * the Unmodified Binary Distribution Licence (as given in the file
+ * COPYING.UBDL), provided that you have satisfied its requirements.
  */
 
-FILE_LICENCE ( GPL2_OR_LATER );
+FILE_LICENCE ( GPL2_OR_LATER_OR_UBDL );
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -41,6 +45,24 @@ FILE_LICENCE ( GPL2_OR_LATER );
 
 /** Ethernet broadcast MAC address */
 uint8_t eth_broadcast[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+/**
+ * Check if Ethernet packet has an 802.3 LLC header
+ *
+ * @v ethhdr		Ethernet header
+ * @ret is_llc		Packet has 802.3 LLC header
+ */
+static inline int eth_is_llc_packet ( struct ethhdr *ethhdr ) {
+	uint8_t len_msb;
+
+	/* Check if the protocol field contains a value short enough
+	 * to be a frame length.  The slightly convoluted form of the
+	 * comparison is designed to reduce to a single x86
+	 * instruction.
+	 */
+	len_msb = *( ( uint8_t * ) &ethhdr->h_protocol );
+	return ( len_msb < 0x06 );
+}
 
 /**
  * Add Ethernet link-layer header
@@ -80,9 +102,14 @@ int eth_pull ( struct net_device *netdev __unused, struct io_buffer *iobuf,
 	       const void **ll_dest, const void **ll_source,
 	       uint16_t *net_proto, unsigned int *flags ) {
 	struct ethhdr *ethhdr = iobuf->data;
+	uint16_t *llc_proto;
 
-	/* Sanity check */
-	if ( iob_len ( iobuf ) < sizeof ( *ethhdr ) ) {
+	/* Sanity check.  While in theory we could receive a one-byte
+	 * packet, this will never happen in practice and performing
+	 * the combined length check here avoids the need for an
+	 * additional comparison if we detect an LLC frame.
+	 */
+	if ( iob_len ( iobuf ) < ( sizeof ( *ethhdr ) + sizeof ( *llc_proto ))){
 		DBG ( "Ethernet packet too short (%zd bytes)\n",
 		      iob_len ( iobuf ) );
 		return -EINVAL;
@@ -99,6 +126,17 @@ int eth_pull ( struct net_device *netdev __unused, struct io_buffer *iobuf,
 		     LL_MULTICAST : 0 ) |
 		   ( is_broadcast_ether_addr ( ethhdr->h_dest ) ?
 		     LL_BROADCAST : 0 ) );
+
+	/* If this is an LLC frame (with a length in place of the
+	 * protocol field), then use the next two bytes (which happen
+	 * to be the LLC DSAP and SSAP) as the protocol.  This allows
+	 * for minimal-overhead support for receiving (rare) LLC
+	 * frames, without requiring a full LLC protocol layer.
+	 */
+	if ( eth_is_llc_packet ( ethhdr ) ) {
+		llc_proto = ( &ethhdr->h_protocol + 1 );
+		*net_proto = *llc_proto;
+	}
 
 	return 0;
 }
@@ -235,5 +273,8 @@ struct net_device * alloc_etherdev ( size_t priv_size ) {
 	return netdev;
 }
 
-/* Drag in Ethernet slow protocols */
-REQUIRE_OBJECT ( eth_slow );
+/* Drag in objects via ethernet_protocol */
+REQUIRING_SYMBOL ( ethernet_protocol );
+
+/* Drag in Ethernet configuration */
+REQUIRE_OBJECT ( config_ethernet );

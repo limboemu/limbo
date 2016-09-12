@@ -11,20 +11,12 @@
  *
  */
 
-#include <inttypes.h>
+#include "qemu/osdep.h"
 
 #include "qemu-common.h"
 #include "qapi/qmp-event.h"
 #include "qapi/qmp/qstring.h"
 #include "qapi/qmp/qjson.h"
-
-#ifdef _WIN32
-#include "sysemu/os-win32.h"
-#endif
-
-#ifdef CONFIG_POSIX
-#include "sysemu/os-posix.h"
-#endif
 
 static QMPEventFuncEmit qmp_emit;
 

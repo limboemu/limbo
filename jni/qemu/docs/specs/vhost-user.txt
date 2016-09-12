@@ -37,6 +37,8 @@ consists of 3 header fields and a payload:
  * Flags: 32-bit bit field:
    - Lower 2 bits are the version (currently 0x01)
    - Bit 2 is the reply flag - needs to be sent on each reply from the slave
+   - Bit 3 is the need_reply flag - see VHOST_USER_PROTOCOL_F_REPLY_ACK for
+     details.
  * Size - 32-bit size of the payload
 
 
@@ -87,6 +89,14 @@ Depending on the request type, payload can be:
    User address: a 64-bit user address
    mmap offset: 64-bit offset where region starts in the mapped memory
 
+* Log description
+   ---------------------------
+   | log size | log offset |
+   ---------------------------
+   log size: size of area used for logging
+   log offset: offset from start of supplied file descriptor
+       where logging starts (i.e. where guest address 0 would be logged)
+
 In QEMU the vhost-user message is implemented with the following struct:
 
 typedef struct VhostUserMsg {
@@ -98,6 +108,7 @@ typedef struct VhostUserMsg {
         struct vhost_vring_state state;
         struct vhost_vring_addr addr;
         VhostUserMemory memory;
+        VhostUserLog log;
     };
 } QEMU_PACKED VhostUserMsg;
 
@@ -113,12 +124,17 @@ message replies. Most of the requests don't require replies. Here is a list of
 the ones that do:
 
  * VHOST_GET_FEATURES
+ * VHOST_GET_PROTOCOL_FEATURES
  * VHOST_GET_VRING_BASE
+ * VHOST_SET_LOG_BASE (if VHOST_USER_PROTOCOL_F_LOG_SHMFD)
+
+[ Also see the section on REPLY_ACK protocol extension. ]
 
 There are several messages that the master sends with file descriptors passed
 in the ancillary data:
 
  * VHOST_SET_MEM_TABLE
+ * VHOST_SET_LOG_BASE (if VHOST_USER_PROTOCOL_F_LOG_SHMFD)
  * VHOST_SET_LOG_FD
  * VHOST_SET_VRING_KICK
  * VHOST_SET_VRING_CALL
@@ -126,6 +142,123 @@ in the ancillary data:
 
 If Master is unable to send the full message or receives a wrong reply it will
 close the connection. An optional reconnection mechanism can be implemented.
+
+Any protocol extensions are gated by protocol feature bits,
+which allows full backwards compatibility on both master
+and slave.
+As older slaves don't support negotiating protocol features,
+a feature bit was dedicated for this purpose:
+#define VHOST_USER_F_PROTOCOL_FEATURES 30
+
+Starting and stopping rings
+----------------------
+Client must only process each ring when it is started.
+
+Client must only pass data between the ring and the
+backend, when the ring is enabled.
+
+If ring is started but disabled, client must process the
+ring without talking to the backend.
+
+For example, for a networking device, in the disabled state
+client must not supply any new RX packets, but must process
+and discard any TX packets.
+
+If VHOST_USER_F_PROTOCOL_FEATURES has not been negotiated, the ring is initialized
+in an enabled state.
+
+If VHOST_USER_F_PROTOCOL_FEATURES has been negotiated, the ring is initialized
+in a disabled state. Client must not pass data to/from the backend until ring is enabled by
+VHOST_USER_SET_VRING_ENABLE with parameter 1, or after it has been disabled by
+VHOST_USER_SET_VRING_ENABLE with parameter 0.
+
+Each ring is initialized in a stopped state, client must not process it until
+ring is started, or after it has been stopped.
+
+Client must start ring upon receiving a kick (that is, detecting that file
+descriptor is readable) on the descriptor specified by
+VHOST_USER_SET_VRING_KICK, and stop ring upon receiving
+VHOST_USER_GET_VRING_BASE.
+
+While processing the rings (whether they are enabled or not), client must
+support changing some configuration aspects on the fly.
+
+Multiple queue support
+----------------------
+
+Multiple queue is treated as a protocol extension, hence the slave has to
+implement protocol features first. The multiple queues feature is supported
+only when the protocol feature VHOST_USER_PROTOCOL_F_MQ (bit 0) is set.
+
+The max number of queues the slave supports can be queried with message
+VHOST_USER_GET_PROTOCOL_FEATURES. Master should stop when the number of
+requested queues is bigger than that.
+
+As all queues share one connection, the master uses a unique index for each
+queue in the sent message to identify a specified queue. One queue pair
+is enabled initially. More queues are enabled dynamically, by sending
+message VHOST_USER_SET_VRING_ENABLE.
+
+Migration
+---------
+
+During live migration, the master may need to track the modifications
+the slave makes to the memory mapped regions. The client should mark
+the dirty pages in a log. Once it complies to this logging, it may
+declare the VHOST_F_LOG_ALL vhost feature.
+
+To start/stop logging of data/used ring writes, server may send messages
+VHOST_USER_SET_FEATURES with VHOST_F_LOG_ALL and VHOST_USER_SET_VRING_ADDR with
+VHOST_VRING_F_LOG in ring's flags set to 1/0, respectively.
+
+All the modifications to memory pointed by vring "descriptor" should
+be marked. Modifications to "used" vring should be marked if
+VHOST_VRING_F_LOG is part of ring's flags.
+
+Dirty pages are of size:
+#define VHOST_LOG_PAGE 0x1000
+
+The log memory fd is provided in the ancillary data of
+VHOST_USER_SET_LOG_BASE message when the slave has
+VHOST_USER_PROTOCOL_F_LOG_SHMFD protocol feature.
+
+The size of the log is supplied as part of VhostUserMsg
+which should be large enough to cover all known guest
+addresses. Log starts at the supplied offset in the
+supplied file descriptor.
+The log covers from address 0 to the maximum of guest
+regions. In pseudo-code, to mark page at "addr" as dirty:
+
+page = addr / VHOST_LOG_PAGE
+log[page / 8] |= 1 << page % 8
+
+Where addr is the guest physical address.
+
+Use atomic operations, as the log may be concurrently manipulated.
+
+Note that when logging modifications to the used ring (when VHOST_VRING_F_LOG
+is set for this ring), log_guest_addr should be used to calculate the log
+offset: the write to first byte of the used ring is logged at this offset from
+log start. Also note that this value might be outside the legal guest physical
+address range (i.e. does not have to be covered by the VhostUserMemory table),
+but the bit offset of the last byte of the ring must fall within
+the size supplied by VhostUserLog.
+
+VHOST_USER_SET_LOG_FD is an optional message with an eventfd in
+ancillary data, it may be used to inform the master that the log has
+been modified.
+
+Once the source has finished migration, rings will be stopped by
+the source. No further update must be done before rings are
+restarted.
+
+Protocol features
+-----------------
+
+#define VHOST_USER_PROTOCOL_F_MQ             0
+#define VHOST_USER_PROTOCOL_F_LOG_SHMFD      1
+#define VHOST_USER_PROTOCOL_F_RARP           2
+#define VHOST_USER_PROTOCOL_F_REPLY_ACK      3
 
 Message types
 -------------
@@ -138,6 +271,8 @@ Message types
       Slave payload: u64
 
       Get from the underlying vhost implementation the features bitmask.
+      Feature bit VHOST_USER_F_PROTOCOL_FEATURES signals slave support for
+      VHOST_USER_GET_PROTOCOL_FEATURES and VHOST_USER_SET_PROTOCOL_FEATURES.
 
  * VHOST_USER_SET_FEATURES
 
@@ -146,6 +281,33 @@ Message types
       Master payload: u64
 
       Enable features in the underlying vhost implementation using a bitmask.
+      Feature bit VHOST_USER_F_PROTOCOL_FEATURES signals slave support for
+      VHOST_USER_GET_PROTOCOL_FEATURES and VHOST_USER_SET_PROTOCOL_FEATURES.
+
+ * VHOST_USER_GET_PROTOCOL_FEATURES
+
+      Id: 15
+      Equivalent ioctl: VHOST_GET_FEATURES
+      Master payload: N/A
+      Slave payload: u64
+
+      Get the protocol feature bitmask from the underlying vhost implementation.
+      Only legal if feature bit VHOST_USER_F_PROTOCOL_FEATURES is present in
+      VHOST_USER_GET_FEATURES.
+      Note: slave that reported VHOST_USER_F_PROTOCOL_FEATURES must support
+      this message even before VHOST_USER_SET_FEATURES was called.
+
+ * VHOST_USER_SET_PROTOCOL_FEATURES
+
+      Id: 16
+      Ioctl: VHOST_SET_FEATURES
+      Master payload: u64
+
+      Enable protocol features in the underlying vhost implementation.
+      Only legal if feature bit VHOST_USER_F_PROTOCOL_FEATURES is present in
+      VHOST_USER_GET_FEATURES.
+      Note: slave that reported VHOST_USER_F_PROTOCOL_FEATURES must support
+      this message even before VHOST_USER_SET_FEATURES was called.
 
  * VHOST_USER_SET_OWNER
 
@@ -160,11 +322,13 @@ Message types
  * VHOST_USER_RESET_OWNER
 
       Id: 4
-      Equivalent ioctl: VHOST_RESET_OWNER
       Master payload: N/A
 
-      Issued when a new connection is about to be closed. The Master will no
-      longer own this connection (and will usually close it).
+      This is no longer used. Used to be sent to request disabling
+      all rings, but some clients interpreted it to also discard
+      connection state (this interpretation would lead to bugs).
+      It is recommended that clients either ignore this message,
+      or use it to disable all rings.
 
  * VHOST_USER_SET_MEM_TABLE
 
@@ -182,8 +346,14 @@ Message types
       Id: 6
       Equivalent ioctl: VHOST_SET_LOG_BASE
       Master payload: u64
+      Slave payload: N/A
 
-      Sets the logging base address.
+      Sets logging shared memory space.
+      When slave has VHOST_USER_PROTOCOL_F_LOG_SHMFD protocol
+      feature, the log memory fd is provided in the ancillary data of
+      VHOST_USER_SET_LOG_BASE message, the size and offset of shared
+      memory area provided in the message.
+
 
  * VHOST_USER_SET_LOG_FD
 
@@ -199,7 +369,7 @@ Message types
       Equivalent ioctl: VHOST_SET_VRING_NUM
       Master payload: vring state description
 
-      Sets the number of vrings for this owner.
+      Set the size of the queue.
 
  * VHOST_USER_SET_VRING_ADDR
 
@@ -264,3 +434,59 @@ Message types
       Bits (0-7) of the payload contain the vring index. Bit 8 is the
       invalid FD flag. This flag is set when there is no file descriptor
       in the ancillary data.
+
+ * VHOST_USER_GET_QUEUE_NUM
+
+      Id: 17
+      Equivalent ioctl: N/A
+      Master payload: N/A
+      Slave payload: u64
+
+      Query how many queues the backend supports. This request should be
+      sent only when VHOST_USER_PROTOCOL_F_MQ is set in queried protocol
+      features by VHOST_USER_GET_PROTOCOL_FEATURES.
+
+ * VHOST_USER_SET_VRING_ENABLE
+
+      Id: 18
+      Equivalent ioctl: N/A
+      Master payload: vring state description
+
+      Signal slave to enable or disable corresponding vring.
+      This request should be sent only when VHOST_USER_F_PROTOCOL_FEATURES
+      has been negotiated.
+
+ * VHOST_USER_SEND_RARP
+
+      Id: 19
+      Equivalent ioctl: N/A
+      Master payload: u64
+
+      Ask vhost user backend to broadcast a fake RARP to notify the migration
+      is terminated for guest that does not support GUEST_ANNOUNCE.
+      Only legal if feature bit VHOST_USER_F_PROTOCOL_FEATURES is present in
+      VHOST_USER_GET_FEATURES and protocol feature bit VHOST_USER_PROTOCOL_F_RARP
+      is present in VHOST_USER_GET_PROTOCOL_FEATURES.
+      The first 6 bytes of the payload contain the mac address of the guest to
+      allow the vhost user backend to construct and broadcast the fake RARP.
+
+VHOST_USER_PROTOCOL_F_REPLY_ACK:
+-------------------------------
+The original vhost-user specification only demands replies for certain
+commands. This differs from the vhost protocol implementation where commands
+are sent over an ioctl() call and block until the client has completed.
+
+With this protocol extension negotiated, the sender (QEMU) can set the
+"need_reply" [Bit 3] flag to any command. This indicates that
+the client MUST respond with a Payload VhostUserMsg indicating success or
+failure. The payload should be set to zero on success or non-zero on failure,
+unless the message already has an explicit reply body.
+
+The response payload gives QEMU a deterministic indication of the result
+of the command. Today, QEMU is expected to terminate the main vhost-user
+loop upon receiving such errors. In future, qemu could be taught to be more
+resilient for selective requests.
+
+For the message types that already solicit a reply from the client, the
+presence of VHOST_USER_PROTOCOL_F_REPLY_ACK or need_reply bit being set brings
+no behavioural change. (See the 'Communication' section for details.)
