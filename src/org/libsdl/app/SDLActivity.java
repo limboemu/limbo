@@ -705,10 +705,10 @@ public class SDLActivity extends AppCompatActivity {
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteShortBuffer(short[] buffer) {
-		Log.d(TAG, "audioWriteShortBuffer start: " + buffer.length);
+		//Log.d(TAG, "audioWriteShortBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
-			Log.d(TAG, "Wrote to audioWriteShortBuffer: " + result);
+			//Log.d(TAG, "Wrote to audioWriteShortBuffer: " + result);
 			if (result > 0) {
 				i += result;
 			} else if (result == 0) {
@@ -716,21 +716,21 @@ public class SDLActivity extends AppCompatActivity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
-					Log.e(TAG, "SDL: Audio Short interrupted: " + e);
+					//Log.e(TAG, "SDL: Audio Short interrupted: " + e);
 				}
 			} else {
-				Log.w(TAG, "SDL audio: error return from write(short)");
+				//Log.w(TAG, "SDL audio: error return from write(short)");
 				return;
 			}
 		}
-		Log.d(TAG, "audioWriteShortBuffer end");
+		//Log.d(TAG, "audioWriteShortBuffer end");
 	}
 
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteByteBuffer(byte[] buffer) {
-		Log.d(TAG, "audioWriteByteBuffer start: " + buffer.length);
+		//Log.d(TAG, "audioWriteByteBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
 			if (result > 0) {
@@ -740,14 +740,14 @@ public class SDLActivity extends AppCompatActivity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
-					Log.e(TAG, "SDL: Audio Byte interrupted: " + e);
+//					Log.e(TAG, "SDL: Audio Byte interrupted: " + e);
 				}
 			} else {
-				Log.w(TAG, "SDL audio: error return from write(byte)");
+//				Log.w(TAG, "SDL audio: error return from write(byte)");
 				return;
 			}
 		}
-		Log.d(TAG, "audioWriteByteBuffer end");
+//		Log.d(TAG, "audioWriteByteBuffer end");
 	}
 
 	/**

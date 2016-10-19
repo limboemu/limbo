@@ -445,8 +445,8 @@ public class SDLSurface extends GLSurfaceView
 
 		@Override
 		public void onLongPress(MotionEvent event) {
-			Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y=" + event.getX() + "," + event.getY() + " P="
-					+ event.getPressure());
+			//Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y=" + event.getX() + "," + event.getY() + " P="
+//					+ event.getPressure());
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 			if (v.hasVibrator()) {
@@ -506,21 +506,21 @@ public class SDLSurface extends GLSurfaceView
 		// TODO Auto-generated method stub
 		Thread t = new Thread(new Runnable() {
 			public void run() {
-				Log.d("SDL", "Mouse Double Click");
+//				Log.d("SDL", "Mouse Double Click");
 				for (int i = 0; i < 2; i++) {
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0,
 							0);
 					try {
 						Thread.sleep(50);
 					} catch (InterruptedException ex) {
-						Log.v("doubletap", "Could not sleep");
+//						Log.v("doubletap", "Could not sleep");
 					}
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0,
 							0);
 					try {
 						Thread.sleep(50);
 					} catch (InterruptedException ex) {
-						Log.v("doubletap", "Could not sleep");
+//						Log.v("doubletap", "Could not sleep");
 					}
 				}
 			}
@@ -608,7 +608,7 @@ public class SDLSurface extends GLSurfaceView
 			old_y = y;
 
 		} else if (event.getAction() == event.ACTION_UP) {
-			Log.d("SDL", "onTouch Up");
+//			Log.d("SDL", "onTouch Up");
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
 			mouseUp = true;
 		}

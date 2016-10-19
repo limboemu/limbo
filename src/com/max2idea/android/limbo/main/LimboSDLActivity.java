@@ -139,12 +139,12 @@ public class LimboSDLActivity extends SDLActivity {
 		// TODO Auto-generated method stub
 		Thread t = new Thread(new Runnable() {
 			public void run() {
-				Log.d("SDL", "Mouse Single Click");
+//				Log.d("SDL", "Mouse Single Click");
 				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException ex) {
-					Log.v("singletap", "Could not sleep");
+//					Log.v("singletap", "Could not sleep");
 				}
 				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
 			}
@@ -1479,7 +1479,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	public void onBackPressed() {
-		Log.d(TAG, "Pressed Back");
+		//Log.d(TAG, "Pressed Back");
 
 		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
