@@ -194,9 +194,19 @@ int qemu_open(const char *name, int flags, ...)
     }
 
 #ifdef O_CLOEXEC
+#ifdef __LIMBO__
+    if (strncmp(name, "/content/", 9) == 0) {
+    	ret = android_openm(name, flags | O_CLOEXEC, mode);
+    }else
+#endif //__LIMBO__
     ret = open(name, flags | O_CLOEXEC, mode);
 #else
-    ret = open(name, flags, mode);
+#ifdef __LIMBO__
+    if (strncmp(name, "/content/", 9) == 0) {
+    	ret = android_openm(name, flags, mode);
+    }else
+#endif //__LIMBO__
+	ret = open(name, flags, mode);
     if (ret >= 0) {
         qemu_set_cloexec(ret);
     }
@@ -221,7 +231,11 @@ int qemu_close(int fd)
     if (fdset_id != -1) {
         int ret;
 
+#ifdef __LIMBO__
+        ret = android_close(fd);
+#else
         ret = close(fd);
+#endif //__LIMBO__
         if (ret == 0) {
             monitor_fdset_dup_fd_remove(fd);
         }
@@ -229,7 +243,12 @@ int qemu_close(int fd)
         return ret;
     }
 
+
+#ifdef __LIMBO__
+    return android_close(fd);
+#else
     return close(fd);
+#endif //__LIMBO__
 }
 
 /*

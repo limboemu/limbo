@@ -14,6 +14,7 @@
 #include "monitor/monitor.h"
 #include "qemu/error-report.h"
 
+#ifndef __ANDROID__
 /*
  * Print to current monitor if we have one, else to stderr.
  * TODO should return int, so callers can calculate width, but that
@@ -51,6 +52,7 @@ void error_printf_unless_qmp(const char *fmt, ...)
         va_end(ap);
     }
 }
+#endif //__ANDROID__
 
 static Location std_loc = {
     .kind = LOC_NONE
@@ -166,6 +168,7 @@ const char *error_get_progname(void)
 /*
  * Print current location to current monitor if we have one, else to stderr.
  */
+#ifndef __ANDROID__
 static void error_print_loc(void)
 {
     const char *sep = "";
@@ -196,8 +199,10 @@ static void error_print_loc(void)
         error_printf("%s", sep);
     }
 }
+#endif
 
 bool enable_timestamp_msg;
+#ifndef __ANDROID__
 /*
  * Print an error message to current monitor if we have one, else to stderr.
  * Format arguments like vsprintf().  The resulting message should be
@@ -237,3 +242,4 @@ void error_report(const char *fmt, ...)
     error_vreport(fmt, ap);
     va_end(ap);
 }
+#endif //__ANDROID__

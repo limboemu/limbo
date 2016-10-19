@@ -20,6 +20,10 @@
 
 /* GLIB version compatibility flags */
 #if !GLIB_CHECK_VERSION(2, 26, 0)
+#ifdef __LIMBO__
+//LIMBO: Already defined in Limbo glib version
+#undef G_TIME_SPAN_SECOND
+#endif //__LIMBO__
 #define G_TIME_SPAN_SECOND              (G_GINT64_CONSTANT(1000000))
 #endif
 
@@ -48,6 +52,7 @@ static inline gint64 qemu_g_get_monotonic_time(void)
 gint g_poll_fixed(GPollFD *fds, guint nfds, gint timeout);
 #endif
 
+#ifndef __LIMBO__
 #if !GLIB_CHECK_VERSION(2, 30, 0)
 /* Not a 100% compatible implementation, but good enough for most
  * cases. Placeholders are only supported at the end of the
@@ -67,6 +72,7 @@ static inline gchar *qemu_g_dir_make_tmp(gchar const *tmpl, GError **error)
 }
 #define g_dir_make_tmp(tmpl, error) qemu_g_dir_make_tmp(tmpl, error)
 #endif /* glib 2.30 */
+#endif
 
 #if !GLIB_CHECK_VERSION(2, 31, 0)
 /* before glib-2.31, GMutex and GCond was dynamic-only (there was a separate

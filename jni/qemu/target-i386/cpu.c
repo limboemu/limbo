@@ -1656,7 +1656,8 @@ static void report_unavailable_features(FeatureWord w, uint32_t mask)
     for (i = 0; i < 32; ++i) {
         if ((1UL << i) & mask) {
             const char *reg = get_register_name_32(f->cpuid_reg);
-            assert(reg);
+            //XXX: Limbo: Disabling this check for now
+            //assert(reg);
             fprintf(stderr, "warning: %s doesn't support requested feature: "
                 "CPUID.%02XH:%s%s%s [bit %d]\n",
                 kvm_enabled() ? "host" : "TCG",

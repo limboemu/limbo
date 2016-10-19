@@ -55,8 +55,18 @@ expand-objs = $(strip $(sort $(filter %.o,$1)) \
                   $(foreach o,$(filter %.mo,$1),$($o-objs)) \
                   $(filter-out %.o %.mo,$1))
 
+#Limbo: This might not be needed in future versions of Android NDK
+# Replace all cygdrive paths to actual paths
+QEMU_INCLUDES_ALT=$(subst /cygdrive/c,c:,$(QEMU_INCLUDES))
+QEMU_CFLAGS_ALT=$(subst /cygdrive/c,c:,$(QEMU_CFLAGS))
+QEMU_CXXFLAGS_ALT=$(subst /cygdrive/c,c:,$(QEMU_CXXFLAGS))
+QEMU_CXXFLAGS_ALT:=$(subst /cygdrive/d,d:,$(QEMU_CXXFLAGS_ALT))
+QEMU_CXXFLAGS_ALT:=$(subst -std=gnu99,-std=c++11 -U__STRICT_ANSI__ -include cstdlib,$(QEMU_CXXFLAGS_ALT))
+QEMU_DGFLAGS_ALT=$(subst /cygdrive/d,d:,$(QEMU_DGFLAGS))
+CFLAGS_ALT=$(subst /cygdrive/d,d:,$(CFLAGS))
+CFLAGS_CXX_ALT=$(subst gnu99,c++11,$(CFLAGS_ALT))
 %.o: %.c
-	$(call quiet-command,$(CC) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  CC    $(TARGET_DIR)$@")
+	$(call quiet-command,$(CC) $(QEMU_INCLUDES_ALT) $(QEMU_CFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) $(subst /cygdrive/c,c:,$($@-cflags)) -c -o $@ $(subst /cygdrive/c,c:,$<),"  CC    $(TARGET_DIR)$@")
 %.o: %.rc
 	$(call quiet-command,$(WINDRES) -I. -o $@ $<,"  RC    $(TARGET_DIR)$@")
 
@@ -69,16 +79,16 @@ LINK = $(call quiet-command, $(LINKPROG) $(QEMU_CFLAGS) $(CFLAGS) $(LDFLAGS) -o 
        $(version-obj-y) $(call extract-libs,$1) $(LIBS),"  LINK  $(TARGET_DIR)$@")
 
 %.o: %.S
-	$(call quiet-command,$(CCAS) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) -c -o $@ $<,"  CCAS  $(TARGET_DIR)$@")
+	$(call quiet-command,$(CCAS) $(QEMU_INCLUDES_ALT) $(QEMU_CFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) -c -o $@ $<,"  CCAS  $(TARGET_DIR)$@")
 
 %.o: %.cc
-	$(call quiet-command,$(CXX) $(QEMU_INCLUDES) $(QEMU_CXXFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  CXX   $(TARGET_DIR)$@")
+	$(call quiet-command,$(CXX) $(QEMU_INCLUDES_ALT) $(QEMU_CXXFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) $($@-cflags) -c -o $@ $<,"  CXX   $(TARGET_DIR)$@")
 
 %.o: %.cpp
-	$(call quiet-command,$(CXX) $(QEMU_INCLUDES) $(QEMU_CXXFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  CXX   $(TARGET_DIR)$@")
+	$(call quiet-command,$(CXX) $(QEMU_INCLUDES_ALT) $(QEMU_CXXFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) $($@-cflags) -c -o $@ $<,"  CXX   $(TARGET_DIR)$@")
 
 %.o: %.m
-	$(call quiet-command,$(OBJCC) $(QEMU_INCLUDES) $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) -c -o $@ $<,"  OBJC  $(TARGET_DIR)$@")
+	$(call quiet-command,$(OBJCC) $(QEMU_INCLUDES_ALT) $(QEMU_CFLAGS_ALT) $(QEMU_DGFLAGS_ALT) $(CFLAGS_ALT) $($@-cflags) -c -o $@ $<,"  OBJC  $(TARGET_DIR)$@")
 
 %.o: %.dtrace
 	$(call quiet-command,dtrace -o $@ -G -s $<, "  GEN   $(TARGET_DIR)$@")
@@ -280,19 +290,19 @@ endef
 # Unnest through a faked source directory structure:
 #
 #     SRC_PATH
-#        ├── water
-#        │   └── Makefile.objs──────────────────┐
-#        │       │ hot += steam.o               │
-#        │       │ cold += ice.mo               │
-#        │       │ ice.mo-libs := -licemaker    │
-#        │       │ ice.mo-objs := ice1.o ice2.o │
-#        │       └──────────────────────────────┘
-#        │
-#        └── season
-#            └── Makefile.objs──────┐
-#                │ hot += summer.o  │
-#                │ cold += winter.o │
-#                └──────────────────┘
+#        â”œâ”€â”€ water
+#        â”‚   â””â”€â”€ Makefile.objsâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”�
+#        â”‚       â”‚ hot += steam.o               â”‚
+#        â”‚       â”‚ cold += ice.mo               â”‚
+#        â”‚       â”‚ ice.mo-libs := -licemaker    â”‚
+#        â”‚       â”‚ ice.mo-objs := ice1.o ice2.o â”‚
+#        â”‚       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+#        â”‚
+#        â””â”€â”€ season
+#            â””â”€â”€ Makefile.objsâ”€â”€â”€â”€â”€â”€â”�
+#                â”‚ hot += summer.o  â”‚
+#                â”‚ cold += winter.o â”‚
+#                â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 #
 # In the end, the result will be:
 #

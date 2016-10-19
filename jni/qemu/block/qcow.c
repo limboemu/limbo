@@ -247,12 +247,14 @@ static int qcow_open(BlockDriverState *bs, QDict *options, int flags,
         bs->backing_file[len] = '\0';
     }
 
+#ifndef __LIMBO__
+//XXX: Limbo: Disabling this limitation for now since we need it for Pausing the VM
     /* Disable migration when qcow images are used */
     error_setg(&s->migration_blocker, "The qcow format used by node '%s' "
                "does not support live migration",
                bdrv_get_device_or_node_name(bs));
     migrate_add_blocker(s->migration_blocker);
-
+#endif //__LIMBO__
     qemu_co_mutex_init(&s->lock);
     return 0;
 

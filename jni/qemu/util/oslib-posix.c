@@ -37,7 +37,10 @@
 #include "qapi/error.h"
 #include "qemu/sockets.h"
 #include <libgen.h>
+#if !defined(__ANDROID__) | defined(__ANDROID_HAS_SIGNAL__)
+//LIMBO: This is not needed for ANDROID 21 NDK and above
 #include <sys/signal.h>
+#endif //__ANDROID__
 #include "qemu/cutils.h"
 
 #ifdef CONFIG_LINUX
@@ -52,7 +55,7 @@
 
 int qemu_get_thread_id(void)
 {
-#if defined(__linux__)
+#if defined(__linux__) & ( !defined(__ANDROID__) | defined(__ANDROID_HAS_SYS_GETTID__) )
     return syscall(SYS_gettid);
 #else
     return getpid();
@@ -192,7 +195,7 @@ int qemu_utimens(const char *path, const struct timespec *times)
     struct timeval tv[2], tv_now;
     struct stat st;
     int i;
-#ifdef CONFIG_UTIMENSAT
+#if CONFIG_UTIMENSAT & ( !defined (__ANDROID__) | defined (__ANDROID__HAS_UTIMENSAT__) )
     int ret;
 
     ret = utimensat(AT_FDCWD, path, times, AT_SYMLINK_NOFOLLOW);

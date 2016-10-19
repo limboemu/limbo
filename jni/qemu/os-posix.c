@@ -308,6 +308,7 @@ int qemu_create_pidfile(const char *filename)
     if (fd == -1) {
         return -1;
     }
+#ifndef __ANDROID__
     if (lockf(fd, F_TLOCK, 0) == -1) {
         close(fd);
         return -1;
@@ -317,6 +318,7 @@ int qemu_create_pidfile(const char *filename)
         close(fd);
         return -1;
     }
+#endif // __ANDROID__
 
     /* keep pidfile open & locked forever */
     return 0;
@@ -331,10 +333,11 @@ int os_mlock(void)
 {
     int ret = 0;
 
+#ifndef __ANDROID__
     ret = mlockall(MCL_CURRENT | MCL_FUTURE);
     if (ret < 0) {
         perror("mlockall");
     }
-
+#endif //__ANDROID__
     return ret;
 }

@@ -78,6 +78,9 @@ typedef struct array_t {
     unsigned int size,next,item_size;
 } array_t;
 
+#ifdef __LIMBO__
+int size_clusters = 0;
+#endif //__LIMBO__
 static inline void array_init(array_t* array,unsigned int item_size)
 {
     array->pointer = NULL;
@@ -1192,6 +1195,8 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
     //    assert(is_consistent(s));
     qemu_co_mutex_init(&s->lock);
 
+#ifndef __LIMBO__
+//XXX: Limbo: Disabling this limitation for now since we need it for Pausing the VM
     /* Disable migration when vvfat is used rw */
     if (s->qcow) {
         error_setg(&s->migration_blocker,
@@ -1200,6 +1205,7 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
                    bdrv_get_device_or_node_name(bs));
         migrate_add_blocker(s->migration_blocker);
     }
+#endif // __LIMBO__
 
     ret = 0;
 fail:
@@ -2896,7 +2902,14 @@ DLOG(fprintf(stderr, "Write to qcow backend: %d + %d\n", (int)sector_num, nb_sec
 
     for (i = sector2cluster(s, sector_num);
 	    i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
+	    
+#ifdef __LIMBO__
+   	//FIXME: Limbo: For some reason the sector_num is lesser than the fake_sectors
+  	// for now we add this check but we should fix this in the future
+	if (i >= 0 && i < size_clusters)
+#else	    
 	if (i >= 0)
+#endif //__LIMBO__	
 	    s->used_clusters[i] |= USED_ALLOCATED;
 
 DLOG(checkpoint());
@@ -2986,6 +2999,9 @@ static int enable_write_target(BlockDriverState *bs, Error **errp)
     QemuOpts *opts = NULL;
     int ret;
     int size = sector2cluster(s, s->sector_count);
+#ifdef __LIMBO__
+    size_clusters = size;
+#endif //__LIMBO__
     QDict *options;
 
     s->used_clusters = calloc(size, 1);

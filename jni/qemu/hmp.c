@@ -1523,6 +1523,97 @@ typedef struct HMPMigrationStatus
     bool is_block_migration;
 } HMPMigrationStatus;
 
+#ifdef __LIMBO__
+int migration_status = 0;
+int get_migration_status (){
+	return migration_status;
+}
+
+static void limbo_migrate_status_cb(void *opaque)
+{
+    HMPMigrationStatus *status = opaque;
+    MigrationInfo *info;
+
+    info = qmp_query_migrate(NULL);
+    if (!info->has_status || info->status == MIGRATION_STATUS_ACTIVE ||
+        info->status == MIGRATION_STATUS_SETUP) {
+        if (info->has_disk) {
+            int progress;
+
+            if (info->disk->remaining) {
+                progress = info->disk->transferred * 100 / info->disk->total;
+            } else {
+                progress = 100;
+            }
+            LOGI("Completed progress=%d", progress);
+        }else
+        	LOGI("No status info");
+        LOGI("timer_mod\n");
+        timer_mod(status->timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 1000);
+    } else {
+        if (status->is_block_migration) {
+            LOGI("End");
+        }
+        if (info->has_error_desc) {
+            error_report("%s", info->error_desc);
+        }
+        timer_del(status->timer);
+        g_free(status);
+        LOGI("Migration DONE");
+        migration_status = 2;
+    }
+
+    qapi_free_MigrationInfo(info);
+
+}
+int limbo_migrate(const char * uri, char * error)
+{
+    bool detach = 0;
+    bool blk = 0;
+    bool inc = 0;
+    Error *err = NULL;
+
+    LOGI("Starting migration: %s", uri);
+
+    if(migration_status == 1){
+    	LOGE("Another migration is in progress");
+    	return -1;
+    }
+
+    migration_status = 1;
+
+    LOGI("Stopping VM");
+    //Stop the VM
+    qmp_stop(NULL);
+
+    LOGI("Starting QMP migration");
+    //Migrate
+    qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
+    if (err) {
+    	strcpy(error,error_get_pretty(err));
+    	LOGE("migrate: %s\n", error_get_pretty(err));
+        error_report_err(err);
+        migration_status = -1;
+        qmp_cont(NULL);
+        return -1;
+    }
+
+    LOGI("Checking detach");
+    //Set status cb
+    if (!detach) {
+    	LOGI("Migration is detached starting status and timer");
+        HMPMigrationStatus *status;
+        status = g_malloc0(sizeof(*status));
+        status->is_block_migration = blk || inc;
+        status->timer = timer_new_ms(QEMU_CLOCK_REALTIME, limbo_migrate_status_cb,
+                                          status);
+        timer_mod(status->timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+    }
+    LOGI("Migration end");
+    return 0;
+}
+#endif //__LIMBO__
+
 static void hmp_migrate_status_cb(void *opaque)
 {
     HMPMigrationStatus *status = opaque;
@@ -1555,6 +1646,10 @@ static void hmp_migrate_status_cb(void *opaque)
         monitor_resume(status->mon);
         timer_del(status->timer);
         g_free(status);
+#ifdef __LIMBO__
+        LOGI("Migration DONE");
+        migration_status = 2;
+#endif //__LIMBO__
     }
 
     qapi_free_MigrationInfo(info);
@@ -1568,9 +1663,16 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
     const char *uri = qdict_get_str(qdict, "uri");
     Error *err = NULL;
 
+#ifdef __LIMBO__
+    migration_status = 1;
+#endif //__LIMBO__
+
     qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
     if (err) {
         error_report_err(err);
+#ifdef __LIMBO__
+    	migration_status = -1;
+#endif //__LIMBO__
         return;
     }
 
@@ -1580,6 +1682,9 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
         if (monitor_suspend(mon) < 0) {
             monitor_printf(mon, "terminal does not allow synchronous "
                            "migration, continuing detached\n");
+#ifdef __LIMBO__
+            migration_status = -1;
+#endif //__LIMBO__
             return;
         }
 

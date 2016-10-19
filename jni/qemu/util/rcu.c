@@ -341,7 +341,7 @@ void rcu_after_fork(void)
 
 static void __attribute__((__constructor__)) rcu_init(void)
 {
-#ifdef CONFIG_POSIX
+#if defined( CONFIG_POSIX ) & ( !defined ( __ANDROID__ ) | defined ( __ANDROID__HAS_PTHREAD_ATFORK_ ) )
     pthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_unlock);
 #endif
     rcu_init_complete();

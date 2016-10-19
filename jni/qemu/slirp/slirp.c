@@ -122,6 +122,10 @@ static void winsock_cleanup(void)
 
 #else
 
+#ifdef __LIMBO__
+extern char * limbo_base_dir;
+#endif
+
 static int get_dns_addr_cached(void *pdns_addr, void *cached_addr,
                                socklen_t addrlen,
                                struct stat *cached_stat, u_int *cached_time)
@@ -132,7 +136,19 @@ static int get_dns_addr_cached(void *pdns_addr, void *cached_addr,
         return 0;
     }
     old_stat = *cached_stat;
+#ifdef __ANDROID__
+    char limbo_resolv_file[256];
+    if(limbo_base_dir != NULL){
+    	strcpy(limbo_resolv_file, limbo_base_dir);
+    } else
+    	strcpy(limbo_resolv_file, "/mnt/sdcard/limbo");
+    strcat(limbo_resolv_file, "/etc/resolv.conf");
+    LOGD("Checking cached DNS file: %s", limbo_resolv_file);
+    if (stat(limbo_resolv_file, cached_stat) != 0) {
+    	LOGE("Could not check DNS file: %s", limbo_resolv_file);
+#else
     if (stat("/etc/resolv.conf", cached_stat) != 0) {
+#endif // __ANDROID__
         return -1;
     }
     if (cached_stat->st_dev == old_stat.st_dev
@@ -156,7 +172,21 @@ static int get_dns_addr_resolv_conf(int af, void *pdns_addr, void *cached_addr,
     void *tmp_addr = alloca(addrlen);
     unsigned if_index;
 
+#ifdef __ANDROID__
+    char limbo_resolv_file [256] ;
+    if(limbo_base_dir != NULL){
+    	strcpy(limbo_resolv_file, limbo_base_dir);
+    } else
+    	strcpy(limbo_resolv_file, "/mnt/sdcard/limbo/");
+
+    strcat(limbo_resolv_file, "/etc/resolv.conf");
+    LOGD("Checking DNS file: %s", limbo_resolv_file);
+    f = fopen(limbo_resolv_file, "r");
+    if(!f)
+    	LOGE("Could not open DNS file: %s", limbo_resolv_file);
+#else
     f = fopen("/etc/resolv.conf", "r");
+#endif
     if (!f)
         return -1;
 

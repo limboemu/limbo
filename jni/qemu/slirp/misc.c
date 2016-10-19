@@ -144,8 +144,11 @@ fork_exec(struct socket *so, const char *ex, int do_pty)
 		dup2(s, 0);
 		dup2(s, 1);
 		dup2(s, 2);
+#ifndef __NDK11_FUNC_MISSING__
+//XXX: Limbo: Function missing from Android NDK
 		for (s = getdtablesize() - 1; s >= 3; s--)
 		   close(s);
+#endif //__NDK11_FUNC_MISSING__
 
 		i = 0;
 		bptr = g_strdup(ex); /* No need to free() this */

@@ -125,6 +125,10 @@ int main(int argc, char **argv)
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
+#ifdef __LIMBO__
+char * limbo_base_dir;
+#endif
+
 static const char *data_dir[16];
 static int data_dir_idx;
 const char *bios_name = NULL;
@@ -3353,6 +3357,10 @@ int main(int argc, char **argv, char **envp)
                 if (is_help_option(optarg)) {
                     list_data_dirs = true;
                 } else if (data_dir_idx < ARRAY_SIZE(data_dir)) {
+#ifdef __LIMBO__
+                	limbo_base_dir = strdup(optarg);
+                	LOGD("Storing limbo_base_dir=%s", limbo_base_dir);
+#endif // __LIMBO__
                     data_dir[data_dir_idx++] = optarg;
                 }
                 break;
@@ -4619,3 +4627,25 @@ int main(int argc, char **argv, char **envp)
 
     return 0;
 }
+
+#ifdef __LIMBO__
+
+void stop_vm(int no_reboot_vm) {
+    if (no_reboot_vm) {
+        shutdown_requested = 1;
+    } else {
+        reset_requested = 1;
+    }
+    cpu_stop_current();
+    qemu_notify_event();
+}
+int qemu_start(int argc, char **argv) {
+    return main(argc, argv, NULL);
+}
+
+int get_state(void) {
+    return runstate_is_running();
+}
+
+
+#endif //__LIMBO__

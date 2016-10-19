@@ -47,7 +47,12 @@
 #include "qemu/cutils.h"
 
 #define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
+#ifdef __LIMBO__
+//LIMBO: we can override the refresh rate for VNC here
+#define VNC_REFRESH_INTERVAL_INC  30
+#else
 #define VNC_REFRESH_INTERVAL_INC  50
+#endif //__LIMBO__
 #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
 static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
 static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };

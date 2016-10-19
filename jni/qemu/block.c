@@ -53,6 +53,10 @@
 #include <windows.h>
 #endif
 
+#if __LIMBO__
+extern char * limbo_base_dir;
+#endif //__LIMBO__
+
 #define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
 
 static QTAILQ_HEAD(, BlockDriverState) graph_bdrv_states =
@@ -421,7 +425,19 @@ int get_tmp_filename(char *filename, int size)
     const char *tmpdir;
     tmpdir = getenv("TMPDIR");
     if (!tmpdir) {
+#ifdef __LIMBO__
+    	char limboTmpDir[256];
+    	if(limbo_base_dir!=NULL){
+    		strcpy(limboTmpDir, limbo_base_dir); //Get it from the -L option
+    		strcat(limboTmpDir, "/tmp");
+    		tmpdir = limboTmpDir;
+    	} else
+    		tmpdir = "/mnt/sdcard/limbo/tmp"; //else try a hardcoded path
+
+    	LOGD("Setting up temp dir: %s", tmpdir);
+#else
         tmpdir = "/var/tmp";
+#endif // __LIMBO__
     }
     if (snprintf(filename, size, "%s/vl.XXXXXX", tmpdir) >= size) {
         return -EOVERFLOW;

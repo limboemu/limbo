@@ -360,6 +360,10 @@ void monitor_vprintf(Monitor *mon, const char *fmt, va_list ap)
 {
     char *buf;
 
+#ifdef __ANDROID__
+    __android_log_vprint(ANDROID_LOG_VERBOSE, "monitor", fmt, ap);
+#endif
+    
     if (!mon)
         return;
 
@@ -1805,6 +1809,12 @@ int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
 {
     mon_fd_t *monfd;
 
+#ifdef __LIMBO__
+    //LIMBO: We treat the fdname send by VNC as an actual fd
+    int fd_tmp = atoi(fdname);
+    if(fd_tmp  > 0)
+    	return fd_tmp;
+#endif //__LIMBO__
     QLIST_FOREACH(monfd, &mon->fds, next) {
         int fd;
 

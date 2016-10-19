@@ -65,7 +65,9 @@
 #else
 #ifdef __linux__
 #include <linux/ppdev.h>
+#if !defined ( __ANDROID__ ) | defined ( __ANDROID_HAS_PARPORT__ )
 #include <linux/parport.h>
+#endif //__ANDROID__
 #endif
 #ifdef __sun__
 #include <sys/ethernet.h>
@@ -1745,6 +1747,10 @@ static int pp_ioctl(CharDriverState *chr, int cmd, void *arg)
             return -ENOTSUP;
         break;
     case CHR_IOCTL_PP_EPP_READ_ADDR:
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_EPP|IEEE1284_ADDR not supported\n", __func__);
+    	return -EIO;
+#else
 	if (pp_hw_mode(drv, IEEE1284_MODE_EPP|IEEE1284_ADDR)) {
 	    struct ParallelIOArg *parg = arg;
 	    int n = read(fd, parg->buffer, parg->count);
@@ -1752,8 +1758,12 @@ static int pp_ioctl(CharDriverState *chr, int cmd, void *arg)
 		return -EIO;
 	    }
 	}
+#endif //__ANDROID__
         break;
     case CHR_IOCTL_PP_EPP_READ:
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_EPP|IEEE1284_ADDR not supported\n", __func__);
+#else
 	if (pp_hw_mode(drv, IEEE1284_MODE_EPP)) {
 	    struct ParallelIOArg *parg = arg;
 	    int n = read(fd, parg->buffer, parg->count);
@@ -1761,8 +1771,12 @@ static int pp_ioctl(CharDriverState *chr, int cmd, void *arg)
 		return -EIO;
 	    }
 	}
+#endif // __ANDROID__
         break;
     case CHR_IOCTL_PP_EPP_WRITE_ADDR:
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_EPP|IEEE1284_ADDR not supported\n", __func__);
+#else
 	if (pp_hw_mode(drv, IEEE1284_MODE_EPP|IEEE1284_ADDR)) {
 	    struct ParallelIOArg *parg = arg;
 	    int n = write(fd, parg->buffer, parg->count);
@@ -1770,8 +1784,12 @@ static int pp_ioctl(CharDriverState *chr, int cmd, void *arg)
 		return -EIO;
 	    }
 	}
+#endif // __ANDROID__
         break;
     case CHR_IOCTL_PP_EPP_WRITE:
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_EPP|IEEE1284_ADDR not supported\n", __func__);
+#else
 	if (pp_hw_mode(drv, IEEE1284_MODE_EPP)) {
 	    struct ParallelIOArg *parg = arg;
 	    int n = write(fd, parg->buffer, parg->count);
@@ -1779,6 +1797,7 @@ static int pp_ioctl(CharDriverState *chr, int cmd, void *arg)
 		return -EIO;
 	    }
 	}
+#endif // __ANDROID__
         break;
     default:
         return -ENOTSUP;
@@ -1790,8 +1809,11 @@ static void pp_close(CharDriverState *chr)
 {
     ParallelCharDriver *drv = chr->opaque;
     int fd = drv->fd;
-
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_COMPAT not supported\n", __func__);
+#else
     pp_hw_mode(drv, IEEE1284_MODE_COMPAT);
+#endif // __ANDROID__
     ioctl(fd, PPRELEASE);
     close(fd);
     g_free(drv);
@@ -1823,7 +1845,11 @@ static CharDriverState *qemu_chr_open_pp_fd(int fd,
     chr->chr_close = pp_close;
 
     drv->fd = fd;
+#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
+    	printf("%s: Mode IEEE1284_MODE_COMPAT not supported\n", __func__);
+#else
     drv->mode = IEEE1284_MODE_COMPAT;
+#endif
 
     return chr;
 }

@@ -975,6 +975,10 @@ static bool should_send_vmdesc(void)
     return !machine->suppress_vmdesc && !in_postcopy;
 }
 
+#ifdef __LIMBO__
+extern int migration_status;
+#endif //__LIMBO__
+
 /*
  * Calls the save_live_complete_postcopy methods
  * causing the last few pages to be sent immediately and doing any associated
@@ -1012,6 +1016,12 @@ void qemu_savevm_state_complete_postcopy(QEMUFile *f)
 
     qemu_put_byte(f, QEMU_VM_EOF);
     qemu_fflush(f);
+
+#ifdef __LIMBO__
+    LOGI("Migration complete");
+    migration_status = 2;
+#endif
+
 }
 
 void qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only)
@@ -1100,6 +1110,11 @@ void qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only)
     qjson_destroy(vmdesc);
 
     qemu_fflush(f);
+
+#ifdef __LIMBO__
+    LOGI("Migration complete");
+    migration_status = 2;
+#endif
 }
 
 /* Give an estimate of the amount left to be transferred,
@@ -1958,7 +1973,24 @@ int qemu_loadvm_state(QEMUFile *f)
     return ret;
 }
 
+#ifdef __LIMBO__
+//LIMBO: Snapshots are deprecated
+int saving_state = 0;
+
+int get_save_state(){
+	return saving_state;
+}
+#endif // __LIMBO__
+
+#ifdef __LIMBO__
+//FIXME: this function currently is running via a JNI thread and cannot resume the vm right after
+void limbo_savevm(char * limbo_snapshot_name){
+	hmp_savevm(NULL, NULL, 1, limbo_snapshot_name);
+}
+void hmp_savevm(Monitor *mon, const QDict *qdict, int limbo, const char * limbo_snapshot_name)
+#else
 void hmp_savevm(Monitor *mon, const QDict *qdict)
+#endif //__LIMBO__
 {
     BlockDriverState *bs, *bs1;
     QEMUSnapshotInfo sn1, *sn = &sn1, old_sn1, *old_sn = &old_sn1;
@@ -1968,7 +2000,16 @@ void hmp_savevm(Monitor *mon, const QDict *qdict)
     uint64_t vm_state_size;
     qemu_timeval tv;
     struct tm tm;
+#ifndef __LIMBO__
     const char *name = qdict_get_try_str(qdict, "name");
+#else
+    const char *name;
+    saving_state = 1;
+    if(limbo == 1) {
+    	name = limbo_snapshot_name;
+    } else
+       	name= qdict_get_try_str(qdict, "name");
+#endif
     Error *local_err = NULL;
     AioContext *aio_context;
 
@@ -2051,6 +2092,10 @@ void hmp_savevm(Monitor *mon, const QDict *qdict)
     if (saved_vm_running) {
         vm_start();
     }
+
+#ifdef __LIMBO__
+    saving_state = 0;
+#endif
 }
 
 void qmp_xen_save_devices_state(const char *filename, Error **errp)

@@ -118,6 +118,13 @@ static void do_sdl_resize(int width, int height, int bpp)
         flags |= SDL_NOFRAME;
 
     tmp_screen = SDL_SetVideoMode(width, height, bpp, flags);
+
+#ifdef __LIMBO__
+   	//TODO: Need to send the resolution to Java
+    Android_JNI_SetSDLResolution(width, height);
+#endif //__LIMBO__
+
+
     if (!real_screen) {
         if (!tmp_screen) {
             fprintf(stderr, "Could not open SDL display (%dx%dx%d): %s\n",
@@ -521,6 +528,26 @@ static void sdl_scale(int width, int height)
     scaling_active = 1;
 }
 
+#ifdef __LIMBO__
+//XXX: Limbo: Deprecated
+void sdl_scale1(int width, int height)
+{
+    int bpp = real_screen->format->BitsPerPixel;
+
+    if (bpp != 16 && bpp != 32) {
+        bpp = 32;
+    }
+    do_sdl_resize(width, height, bpp);
+    scaling_active = 1;
+
+	graphic_hw_invalidate(NULL);
+	graphic_hw_update(NULL);
+}
+
+extern void AndroidGetWindowSize(int *width, int *height);
+
+
+#endif //__LIMBO__
 static void toggle_full_screen(void)
 {
     int width = surface_width(surface);
@@ -551,7 +578,99 @@ static void toggle_full_screen(void)
     graphic_hw_invalidate(NULL);
     graphic_hw_update(NULL);
 }
+#ifdef __LIMBO__
+//XXX: Limbo: This is deprecated we use SDL 2.0
+void toggle_full_screen1(){
+	toggle_full_screen();
+}
 
+void limbo_console_handle_key(SDL_Event *ev) {
+	/* '1' to '9' keys */ //MK hack
+	/* Reset the modifiers sent to the current console */
+	LOGV("Keycode Pressed '1-9' from Monitor console\n");
+	reset_keys();
+	console_select(ev->key.keysym.sym - 49);
+	gui_keysym = 1;
+	if (gui_fullscreen) {
+		LOGV("Found fullscreen breaking...\n");
+		return;
+	}
+	if (!qemu_console_is_graphic(NULL)) {
+		/* release grab if going to a text console */
+		LOGV("Found text console releasing grab...\n");
+		if (gui_grab) {
+			LOGV("Found grab, grab ending...\n");
+			sdl_grab_end();
+		} else if (absolute_enabled) {
+			LOGV("Found absolute_enabled, show cursor...\n");
+			sdl_show_cursor();
+		}
+	} else if (absolute_enabled) {
+		LOGV("Found absolute_enabled, hiding cursor and grabing mouse...\n");
+		sdl_hide_cursor();
+		absolute_mouse_grab();
+	}
+	return ;
+}
+
+void limbo_stretch_screen(SDL_Event *ev) {
+	LOGV("Keycode Pressed '6' Fit to Screen\n");
+	int width;
+	int height;
+	AndroidGetWindowSize(&width, &height);
+	LOGV("Found no fullscreen, Fit To Screen: %dx%d \n", width, height);
+	sdl_scale(width, height);
+	graphic_hw_invalidate(NULL);
+	graphic_hw_update(NULL);
+	reset_keys();
+	gui_keysym = 1;
+}
+
+void limbo_fit_screen(SDL_Event *ev) {
+	LOGV("Keycode Pressed '5' Fit to Screen\n");
+
+	int width;
+	int height;
+	AndroidGetWindowSize(&width, &height);
+	LOGV("Got Android window size=%dx%d", width, height);
+//	LOGV("Got VM  resolution=%dx%d", ds_get_width(ds), ds_get_height(ds));
+//	float aspectRatio = (float) ds_get_height(ds) / (float) ds_get_width(ds);
+
+	LOGV("Got VM  resolution=%dx%d", real_screen->w, real_screen->h);
+	if(real_screen->w <= 0 || real_screen->h <= 0){
+		LOGE("Error: resolution=%dx%d", real_screen->w, real_screen->h);
+		return;
+	}
+	float aspectRatio = (float) real_screen->h / (float) real_screen->w;
+	LOGV("Got aspectRatio=%f", aspectRatio);
+	int new_width = (int) (height / aspectRatio);
+	if(new_width > width) {
+		LOGV("Width is overrun, modifying height");
+		new_width = width;
+		height = width * aspectRatio;
+	}
+	LOGV("Found no fullscreen, Fit To Screen: %dx%d \n", new_width, height);
+	sdl_scale(new_width, height);
+	graphic_hw_invalidate(NULL);
+	graphic_hw_update(NULL);
+	reset_keys();
+	gui_keysym = 1;
+
+}
+
+void limbo_zoom(int keycode) {
+	int width = MAX(real_screen->w + (keycode == 25 ? 50 : -50),
+			160);
+	int height = (surface_height(surface) * width) /
+	surface_width(surface);
+	sdl_scale(width, height);
+	graphic_hw_invalidate(NULL);
+	graphic_hw_update(NULL);
+	reset_keys();
+	gui_keysym = 1;
+}
+
+#endif // __LIMBO__
 static void handle_keydown(SDL_Event *ev)
 {
     int mod_state;
@@ -570,19 +689,37 @@ static void handle_keydown(SDL_Event *ev)
     if (gui_key_modifier_pressed) {
         keycode = sdl_keyevent_to_keycode(&ev->key);
         switch (keycode) {
+#ifdef __LIMBO__
+        case 1: /* 'f' key on US keyboard */
+#else
         case 0x21: /* 'f' key on US keyboard */
+#endif //__LIMBO__
             toggle_full_screen();
             gui_keysym = 1;
             break;
+#ifdef __LIMBO__
+  		case 16: /* 'u' key on US keyboard */
+#else
         case 0x16: /* 'u' key on US keyboard */
+#endif // __LIMBO__
             if (scaling_active) {
                 scaling_active = 0;
                 sdl_switch(dcl, NULL);
                 graphic_hw_invalidate(NULL);
                 graphic_hw_update(NULL);
+#ifdef __LIMBO__
+				reset_keys();
+#endif // __LIMBO__
             }
             gui_keysym = 1;
             break;
+#ifdef __LIMBO__
+ case 22 ... 23: /* '1' to '9' keys */
+    /* Reset the modifiers sent to the current console */
+            reset_keys();
+            console_select(keycode - 0x02);
+            gui_keysym = 1;
+#else
         case 0x02 ... 0x0a: /* '1' to '9' keys */
             /* Reset the modifiers sent to the current console */
             reset_keys();
@@ -591,6 +728,7 @@ static void handle_keydown(SDL_Event *ev)
             if (gui_fullscreen) {
                 break;
             }
+#endif // __LIMBO__
             if (!qemu_console_is_graphic(NULL)) {
                 /* release grab if going to a text console */
                 if (gui_grab) {
@@ -603,6 +741,11 @@ static void handle_keydown(SDL_Event *ev)
                 absolute_mouse_grab();
             }
             break;
+#ifdef __LIMBO__
+        case 24: /* '4' Zoom In */
+        case 25: /* '3' Zoom Out*/
+			limbo_zoom(keycode);
+#else
         case 0x1b: /* '+' */
         case 0x35: /* '-' */
             if (!gui_fullscreen) {
@@ -616,6 +759,17 @@ static void handle_keydown(SDL_Event *ev)
                 graphic_hw_update(NULL);
                 gui_keysym = 1;
             }
+#endif //__LIMBO__
+
+#ifdef __LIMBO__
+            break;
+        case 26: /* Fit to Screen */
+        	limbo_fit_screen(ev);
+            break;
+        case 27: /* Stretch to Screen */
+        	limbo_stretch_screen(ev);
+        	break;
+#endif //__LIMBO__
         default:
             break;
         }
@@ -648,6 +802,11 @@ static void handle_keydown(SDL_Event *ev)
             case SDLK_PAGEDOWN:
                 keysym = QEMU_KEY_CTRL_PAGEDOWN;
                 break;
+#ifdef __LIMBO__
+            case 49: 
+				limbo_console_handle_key(ev);
+                break;
+#endif //__LIMBO__
             default:
                 break;
             }
@@ -965,8 +1124,9 @@ void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
 
     if (!full_screen) {
         setenv("SDL_VIDEO_ALLOW_SCREENSAVER", "1", 0);
-    }
+    }2
 #ifdef __linux__
+#ifndef __ANDROID__
     /* on Linux, SDL may use fbcon|directfb|svgalib when run without
      * accessible $DISPLAY to open X11 window.  This is often the case
      * when qemu is run using sudo.  But in this case, and when actually
@@ -977,6 +1137,7 @@ void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
      * Maybe it's a good idea to fix this in SDL instead.
      */
     setenv("SDL_VIDEODRIVER", "x11", 0);
+#endif // __ANDROID__
 #endif
 
     /* Enable normal up/down events for Caps-Lock and Num-Lock keys.

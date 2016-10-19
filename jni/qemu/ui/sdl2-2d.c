@@ -66,7 +66,14 @@ void sdl2_2d_update(DisplayChangeListener *dcl,
 
     SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
                       surface_stride(surf));
+#if defined( __ANDROID__) && defined (__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
+	//Android OPENGL ES needs full screen redraw
+    SDL_SetRenderDrawColor( scon->real_renderer, 0, 0, 0, 255 );
+    SDL_RenderClear( scon->real_renderer );
+    SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
+#else
     SDL_RenderCopy(scon->real_renderer, scon->texture, &rect, &rect);
+#endif //__ANDROID__
     SDL_RenderPresent(scon->real_renderer);
 }
 
@@ -127,6 +134,11 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
                                       surface_width(new_surface),
                                       surface_height(new_surface));
     sdl2_2d_redraw(scon);
+
+#ifdef __LIMBO__
+   	//TODO: Need to send the resolution to Java
+    Android_JNI_SetSDLResolution(surface_width(new_surface), surface_height(new_surface));
+#endif //__ANDROID__
 }
 
 void sdl2_2d_refresh(DisplayChangeListener *dcl)

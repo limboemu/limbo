@@ -88,7 +88,8 @@ $(call set-vpath, $(SRC_PATH))
 
 LIBS+=-lz $(LIBS_TOOLS)
 
-HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
+#Limbo: No bridge helpers
+#HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
 
 ifdef BUILD_DOCS
 DOCS=qemu-doc.html qemu-tech.html qemu.1 qemu-img.1 qemu-nbd.8 qemu-ga.8
@@ -161,9 +162,10 @@ dummy := $(call unnest-vars,, \
                 common-obj-y \
                 common-obj-m)
 
-ifneq ($(wildcard config-host.mak),)
-include $(SRC_PATH)/tests/Makefile.include
-endif
+#Limbo: No tests
+#ifneq ($(wildcard config-host.mak),)
+#include $(SRC_PATH)/tests/Makefile.include
+#endif
 
 all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
 
@@ -231,7 +233,8 @@ romsubdir-%:
 
 ALL_SUBDIRS=$(TARGET_DIRS) $(patsubst %,pc-bios/%, $(ROMS))
 
-recurse-all: $(SUBDIR_RULES) $(ROMSUBDIR_RULES)
+#Limbo: No optional roms build for now
+recurse-all: $(SUBDIR_RULES) #$(ROMSUBDIR_RULES)
 
 $(BUILD_DIR)/version.o: $(SRC_PATH)/version.rc config-host.h | $(BUILD_DIR)/version.lo
 	$(call quiet-command,$(WINDRES) -I$(BUILD_DIR) -o $@ $<,"  RC    version.o")
@@ -668,4 +671,5 @@ endif
 # Dependencies in Makefile.objs files come from our recursive subdir rules
 -include $(wildcard *.d tests/*.d)
 
-include $(SRC_PATH)/tests/docker/Makefile.include
+#Limbo: No tests 
+#include $(SRC_PATH)/tests/docker/Makefile.include

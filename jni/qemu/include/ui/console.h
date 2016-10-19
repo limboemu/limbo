@@ -27,7 +27,12 @@
 #define QEMU_CAPS_LOCK_LED   (1 << 2)
 
 /* in ms */
+#ifdef __LIMBO__
+//LIMBO: we can override the refresh rate for SDL here
 #define GUI_REFRESH_INTERVAL_DEFAULT    30
+#else
+#define GUI_REFRESH_INTERVAL_DEFAULT    30
+#endif
 #define GUI_REFRESH_INTERVAL_IDLE     3000
 
 /* Color number is match to standard vga palette */

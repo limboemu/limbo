@@ -990,6 +990,16 @@ static inline int64_t cpu_get_host_ticks(void)
     ofs = cc >> 32;
     return cur - ofs;
 }
+#elif defined(__ANDROID__)
+//Limbo: Using a monotonically increased value (as below) doesn't work
+// well for older devices
+// conventiently we get a good value from the clock
+// though there should be a better way to do it on ARM (assembly?)
+static inline int64_t cpu_get_host_ticks(void)
+{
+	return get_clock();
+
+}
 
 #else
 /* The host CPU doesn't have an easily accessible cycle counter.

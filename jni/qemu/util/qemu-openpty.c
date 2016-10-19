@@ -110,16 +110,22 @@ static void cfmakeraw (struct termios *termios_p)
 
 int qemu_openpty_raw(int *aslave, char *pty_name)
 {
+#ifndef __ANDROID__
     int amaster;
     struct termios tty;
+#endif
 #if defined(__OpenBSD__) || defined(__DragonFly__)
     char pty_buf[PATH_MAX];
 #define q_ptsname(x) pty_buf
+#elif defined(__ANDROID__)
 #else
     char *pty_buf = NULL;
 #define q_ptsname(x) ptsname(x)
 #endif
 
+#ifdef __ANDROID__
+    return -1;
+#else
     if (openpty(&amaster, aslave, pty_buf, NULL, NULL) < 0) {
         return -1;
     }
@@ -134,4 +140,5 @@ int qemu_openpty_raw(int *aslave, char *pty_name)
     }
 
     return amaster;
+#endif //__ANDROID__
 }

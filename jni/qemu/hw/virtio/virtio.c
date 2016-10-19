@@ -497,9 +497,10 @@ static void virtqueue_map_iovec(struct iovec *sg, hwaddr *addr,
      * of asserting here.
      * When we do, we might be able to re-enable NDEBUG below.
      */
-#ifdef NDEBUG
-#error building with NDEBUG is not supported
-#endif
+//XXX: Limbo: For now we disable this compilation check
+//#ifdef NDEBUG
+//#error building with NDEBUG is not supported
+//#endif
     assert(*num_sg <= max_size);
 
     for (i = 0; i < *num_sg; i++) {
