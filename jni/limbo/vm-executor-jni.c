@@ -53,6 +53,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
 	return JNI_VERSION_1_2;
 }
 
+
+
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_togglefullscreen(
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
@@ -178,52 +180,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_vncchan
 	qmp_change_vnc_password(vnc_passwd_str, err);
 
 	sprintf(res_msg, "VNC Password Changed");
-	LOGV(res_msg);
-
-	return (*env)->NewStringUTF(env, res_msg);
-}
-
-JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_dnschangeaddr(
-		JNIEnv* env, jobject thiz) {
-	char res_msg[MSG_BUFSIZE + 1] = { 0 };
-
-	jclass c = (*env)->GetObjectClass(env, thiz);
-	jfieldID fid = (*env)->GetFieldID(env, c, "dns_addr", "Ljava/lang/String;");
-	jstring jdns_addr = (*env)->GetObjectField(env, thiz, fid);
-	const char * dns_addr_str = NULL;
-	if (jdns_addr != NULL)
-		dns_addr_str = (*env)->GetStringUTFChars(env, jdns_addr, 0);
-
-	fid = (*env)->GetFieldID(env, c, "libqemu", "Ljava/lang/String;");
-	jstring jlib_path = (*env)->GetObjectField(env, thiz, fid);
-	const char * lib_path_str = NULL;
-	if (jlib_path != NULL)
-		lib_path_str = (*env)->GetStringUTFChars(env, jlib_path, 0);
-
-	typedef void (*set_dns_addr_str_t)();
-	dlerror();
-	//LOAD LIB
-	if (handle == NULL) {
-		loadLib(lib_path_str);
-	}
-
-	if (!handle) {
-		sprintf(res_msg, "%s: Error opening lib: %s :%s", __func__,
-				lib_path_str, dlerror());
-		LOGV(res_msg);
-		return (*env)->NewStringUTF(env, res_msg);
-	}
-	dlerror();
-	set_dns_addr_str_t set_dns_addr_str = (set_dns_addr_str_t) dlsym(handle,
-			"set_dns_addr_str");
-	const char *dlsym_error = dlerror();
-	if (dlsym_error) {
-		LOGE("Cannot load symbol 'set_dns_addr_str': %s\n", dlsym_error);
-		return (*env)->NewStringUTF(env, res_msg);
-	}
-
-	set_dns_addr_str(dns_addr_str);
-
 	LOGV(res_msg);
 
 	return (*env)->NewStringUTF(env, res_msg);
@@ -547,12 +503,14 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		sd_img_path_str = (*env)->GetStringUTFChars(env, jsd_img_path, 0);
 	LOGV("SD= %s", sd_img_path_str);
 
-	fid = (*env)->GetFieldID(env, c, "shared_folder_path", "Ljava/lang/String;");
-		jstring jshared_folder_path = (*env)->GetObjectField(env, thiz, fid);
-		const char * shared_folder_path_str = NULL;
-		if (jshared_folder_path != NULL)
-			shared_folder_path_str = (*env)->GetStringUTFChars(env, jshared_folder_path, 0);
-		LOGV("Shared Folder= %s", shared_folder_path_str);
+	fid = (*env)->GetFieldID(env, c, "shared_folder_path",
+			"Ljava/lang/String;");
+	jstring jshared_folder_path = (*env)->GetObjectField(env, thiz, fid);
+	const char * shared_folder_path_str = NULL;
+	if (jshared_folder_path != NULL)
+		shared_folder_path_str = (*env)->GetStringUTFChars(env,
+				jshared_folder_path, 0);
+	LOGV("Shared Folder= %s", shared_folder_path_str);
 
 	fid = (*env)->GetFieldID(env, c, "shared_folder_readonly", "I");
 	int shared_folder_readonly = (*env)->GetIntField(env, thiz, fid);
@@ -568,6 +526,18 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	const char * net_str = NULL;
 	if (jnet != NULL)
 		net_str = (*env)->GetStringUTFChars(env, jnet, 0);
+
+	fid = (*env)->GetFieldID(env, c, "hostfwd", "Ljava/lang/String;");
+	jstring jhostfwd = (*env)->GetObjectField(env, thiz, fid);
+	const char * hostfwd_str = NULL;
+	if (jhostfwd != NULL)
+		hostfwd_str = (*env)->GetStringUTFChars(env, jhostfwd, 0);
+
+	fid = (*env)->GetFieldID(env, c, "guestfwd", "Ljava/lang/String;");
+	jstring jguestfwd = (*env)->GetObjectField(env, thiz, fid);
+	const char * guestfwd_str = NULL;
+	if (jguestfwd != NULL)
+		guestfwd_str = (*env)->GetStringUTFChars(env, jguestfwd, 0);
 
 	fid = (*env)->GetFieldID(env, c, "nic_driver", "Ljava/lang/String;");
 	jstring jnic_driver = (*env)->GetObjectField(env, thiz, fid);
@@ -638,12 +608,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	const char * base_dir_str = NULL;
 	if (jbase_dir != NULL)
 		base_dir_str = (*env)->GetStringUTFChars(env, jbase_dir, 0);
-
-	fid = (*env)->GetFieldID(env, c, "dns_addr", "Ljava/lang/String;");
-	jstring jdns_addr = (*env)->GetObjectField(env, thiz, fid);
-	const char * dns_addr_str = NULL;
-	if (jdns_addr != NULL)
-		dns_addr_str = (*env)->GetStringUTFChars(env, jdns_addr, 0);
 
 	fid = (*env)->GetFieldID(env, c, "kernel", "Ljava/lang/String;");
 	jstring jkernel = (*env)->GetObjectField(env, thiz, fid);
@@ -785,12 +749,11 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (shared_folder_path_str != NULL) { //We use hdd to mount any virtual fat drives
 		strcpy(argv[param++], "-drive"); //empty
 		strcpy(argv[param], "index=3,media=disk,file=fat:");
-		if(!shared_folder_readonly){
+		if (!shared_folder_readonly) {
 			strcat(argv[param], "rw:");
 		}
 		strcat(argv[param++], shared_folder_path_str);
 	}
-
 
 	if (vga_type_str != NULL) {
 		LOGV("Adding vga: %s", vga_type_str);
@@ -809,6 +772,14 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], "-net");
 		if (strcmp(net_str, "user") == 0) {
 			strcpy(argv[param], net_str);
+			if (hostfwd_str != NULL) {
+				strcat(argv[param], ",");
+				strcat(argv[param], hostfwd_str); // example forward ssh: "hostfwd=tcp::2222-:22"
+			}
+			if (guestfwd_str != NULL) {
+				strcat(argv[param], ",");
+				strcat(argv[param], guestfwd_str);
+			}
 		} else if (strcmp(net_str, "tap") == 0) {
 			strcpy(argv[param], "tap,vlan=0,ifname=tap0,script=no");
 		} else if (strcmp(net_str, "none") == 0) {
@@ -817,14 +788,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 			LOGV("Unknown iface: %s", net_str);
 			strcpy(argv[param], "none");
 		}
-		//FIXME: NOT WORKING setting DNS workaround below
-//        LOGV("DNS=%s",dns_addr_str);
-//        if(dns_addr_str!=NULL){
-//        	strcat(argv[param], ",dns=");
-//        	strcat(argv[param], dns_addr_str);
-//        }
 		param++;
-
 	}
 
 	if (nic_driver_str != NULL) {
@@ -946,7 +910,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	} else {
 		//SDL needs explicit keyboard layout
 		LOGV("Disabling VNC server, using SDL instead");
-		if(keyboard_layout == NULL){
+		if (keyboard_layout == NULL) {
 			strcpy(argv[param++], "-k");
 			strcpy(argv[param++], "en-us");
 		}
@@ -985,9 +949,11 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		gint argc_extra_params;
 		gchar **argv_extra_params;
 		GError *error;
-		gboolean extra_params_res = g_shell_parse_argv (extra_params_str, &argc_extra_params, &argv_extra_params, &error);
-		LOGD("Parsed args for extra_params: %d : %d", extra_params_res, argc_extra_params);
-		for(int i=0; i < argc_extra_params; i++){
+		gboolean extra_params_res = g_shell_parse_argv(extra_params_str,
+				&argc_extra_params, &argv_extra_params, &error);
+		LOGD("Parsed args for extra_params: %d : %d", extra_params_res,
+				argc_extra_params);
+		for (int i = 0; i < argc_extra_params; i++) {
 			LOGD("Copy args for extra_params: %s", argv_extra_params[i]);
 			strcpy(argv[param++], argv_extra_params[i]);
 		}
@@ -1029,19 +995,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		return (*env)->NewStringUTF(env, res_msg);
 	}
 
-	//FIXME: below option should use the QMP Client instead from java
-	//Set DNS Workaround
-	typedef void (*set_dns_addr_str_t)();
-	dlerror();
-	set_dns_addr_str_t set_dns_addr_str = (set_dns_addr_str_t) dlsym(handle,
-			"set_dns_addr_str");
-	const char *dlsym_error2 = dlerror();
-	if (dlsym_error2) {
-		LOGE("Cannot load symbol 'set_dns_addr_str': %s\n", dlsym_error2);
-		return (*env)->NewStringUTF(env, res_msg);
-	}
-	set_dns_addr_str(dns_addr_str);
-
 	//setup jni env in qemu
 	typedef void (*set_jni_t)();
 	dlerror();
@@ -1049,7 +1002,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	const char *dlsym_error3 = dlerror();
 	if (dlsym_error3) {
 		LOGE("Cannot load symbol 'set_jni': %s\n", dlsym_error3);
-		return (*env)->NewStringUTF(env, res_msg);
+		exit(-1);
 	}
 	set_jni(env, thiz, c);
 

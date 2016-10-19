@@ -25,12 +25,15 @@ LOCAL_C_INCLUDES :=			\
 LOCAL_STATIC_LIBRARIES := spice png glib-2.0
 
 LOCAL_LDLIBS :=				\
-	-ldl -llog
+	-ldl -llog 
 
 #LIMBO
-LOCAL_CFLAGS += $(ARCH_CFLAGS)
-LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
+#LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -std=c++11 -U__STRICT_ANSI__
+LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS) 
 LOCAL_STATIC_LIBRARIES += liblimbocompat
 LOCAL_ARM_MODE := $(ARM_MODE)
+
+APP_STL                 := stlport_static
 
 include $(BUILD_SHARED_LIBRARY)

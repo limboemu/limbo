@@ -60,6 +60,8 @@ public class VMExecutor {
 	private String bootdevice = null;
 	// net
 	private String net_cfg = "None";
+	private String hostfwd = null;
+	private String guestfwd = null;
 	private int nic_num = 1;
 	private String vga_type = "std";
 	private String hd_cache = "default";
@@ -141,15 +143,22 @@ public class VMExecutor {
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86_64";
-			this.machine_type = "pc";
+			if(machine.machine_type == null)
+				this.machine_type = "pc";
+			else
+				this.machine_type = machine.machine_type;
 		} else if (machine.arch.endsWith("x86")) {
 			this.cpu = machine.cpu;
 			// x86_64 can run 32bit as well as no need for the extra lib
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86";
-			this.machine_type = "pc";
+			if(machine.machine_type == null)
+				this.machine_type = "pc";
+			else
+				this.machine_type = machine.machine_type;
 		}
+		
 
 		if (machine.cd_iso_path == null || machine.cd_iso_path.equals("None")) {
 			this.cd_iso_path = null;
@@ -223,6 +232,11 @@ public class VMExecutor {
 		} else if (machine.net_cfg.equals("User")) {
 			this.net_cfg = "user";
 			this.nic_driver = machine.nic_driver;
+			this.guestfwd = machine.guestfwd;
+			if(machine.hostfwd!=null && !machine.hostfwd.equals(""))
+				this.hostfwd = machine.hostfwd;
+			else
+				this.hostfwd = null;
 		} else if (machine.net_cfg.equals("TAP")) {
 			this.net_cfg = "tap";
 			this.nic_driver = machine.nic_driver;
@@ -511,5 +525,6 @@ public class VMExecutor {
 		}
 
 	}
+
 
 }

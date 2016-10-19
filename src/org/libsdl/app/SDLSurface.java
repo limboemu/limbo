@@ -1,6 +1,7 @@
 package org.libsdl.app;
 
 import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboSDLActivity;
 import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.app.Activity;
@@ -41,7 +42,6 @@ public class SDLSurface extends GLSurfaceView
 
 	// Keep track of the surface size to normalize touch events
 	protected static float mWidth, mHeight;
-	
 
 	// Limbo Specific
 	public boolean once = false;
@@ -58,7 +58,7 @@ public class SDLSurface extends GLSurfaceView
 		super(activity);
 		this.activity = activity;
 
-//		getHolder().setFormat(PixelFormat.RGBA_8888);
+		// getHolder().setFormat(PixelFormat.RGBA_8888);
 		getHolder().addCallback(this);
 		reSize();
 		// getHolder().setType(SurfaceHolder.SURFACE_TYPE_HARDWARE);
@@ -90,6 +90,7 @@ public class SDLSurface extends GLSurfaceView
 	}
 
 	public static boolean initialized = false;
+
 	//
 	public void reSize() {
 		// TODO Auto-generated method stub
@@ -106,20 +107,16 @@ public class SDLSurface extends GLSurfaceView
 			height = display.getHeight();
 		}
 
-	
-		
-		
 		float currentRatio = (float) width / height;
-		if(this.getHeight() != 0)
+		if (this.getHeight() != 0)
 			currentRatio = (float) this.getWidth() / this.getHeight();
-		
-		
+
 		if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-			if(!initialized){
-				getHolder().setFixedSize(width, (int) (height / 2) );
-			}else
-			getHolder().setFixedSize(width, (int) (width / currentRatio) );
+			if (!initialized) {
+				getHolder().setFixedSize(width, (int) (height / 2));
+			} else
+				getHolder().setFixedSize(width, (int) (width / currentRatio));
 		} else if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			if (Config.enableSDLAlwaysFullscreen)
@@ -218,7 +215,7 @@ public class SDLSurface extends GLSurfaceView
 		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB) {
 			Log.v("Limbo", "Surface Hardware Acceleration: " + this.isHardwareAccelerated());
 		}
-		
+
 		mWidth = width;
 		mHeight = height;
 		SDLActivity.onNativeResize(width, height, sdlFormat, mDisplay.getRefreshRate());
@@ -337,12 +334,12 @@ public class SDLSurface extends GLSurfaceView
 			return true;
 		} else if (event.getAction() == KeyEvent.ACTION_UP) {
 			// Log.v("SDL", "key up: " + keyCode);
-//			try {
-//				Thread.sleep(2000);
-//			} catch (InterruptedException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
+			// try {
+			// Thread.sleep(2000);
+			// } catch (InterruptedException e) {
+			// // TODO Auto-generated catch block
+			// e.printStackTrace();
+			// }
 			if (!handleMissingKeys(keyCode, event.getAction()))
 				SDLActivity.onNativeKeyUp(keyCode);
 			return true;
@@ -385,8 +382,12 @@ public class SDLSurface extends GLSurfaceView
 
 	}
 
-	@Override
 	public boolean onTouchEvent(MotionEvent event) {
+		return false;
+	}
+	
+	
+	public boolean onTouchEventProcess(MotionEvent event) {
 		// Log.v("onTouchEvent",
 		// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
 		// + event.getY() + " P=" + event.getPressure());
@@ -395,8 +396,8 @@ public class SDLSurface extends GLSurfaceView
 			return true;
 
 		if (!firstTouch) {
-
-			SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+			Log.d("SDL", "First Touch");
+			SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
 			firstTouch = true;
 		}
@@ -415,6 +416,7 @@ public class SDLSurface extends GLSurfaceView
 	public boolean rightClick(final MotionEvent e) {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
+				Log.d("SDL", "Mouse Right Click");
 				SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, e.getX(),
 						e.getY(), e.getPressure());
 				try {
@@ -443,15 +445,14 @@ public class SDLSurface extends GLSurfaceView
 
 		@Override
 		public void onLongPress(MotionEvent event) {
-			// Log.v("onLongPress",
-			// "Action=" + event.getAction() + ", X,Y=" + event.getX()
-			// + "," + event.getY() + " P=" + event.getPressure());
+			Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y=" + event.getX() + "," + event.getY() + " P="
+					+ event.getPressure());
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 			if (v.hasVibrator()) {
-				
-//				AudioAttributes attributes = 
-//				v.vibrate(100, attributes);
+
+				// AudioAttributes attributes =
+				// v.vibrate(100, attributes);
 				v.vibrate(100);
 			}
 		}
@@ -471,7 +472,7 @@ public class SDLSurface extends GLSurfaceView
 				// Log.v("onSingleTapConfirmed", "Action=" + action + ", X,Y=" +
 				// x
 				// + "," + y + " P=" + p);
-				SDLActivityCommon.singleClick(event, i);
+				LimboSDLActivity.singleClick(event, i);
 
 			}
 			return true;
@@ -505,18 +506,19 @@ public class SDLSurface extends GLSurfaceView
 		// TODO Auto-generated method stub
 		Thread t = new Thread(new Runnable() {
 			public void run() {
+				Log.d("SDL", "Mouse Double Click");
 				for (int i = 0; i < 2; i++) {
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0,
 							0);
 					try {
-						Thread.sleep(100);
+						Thread.sleep(50);
 					} catch (InterruptedException ex) {
 						Log.v("doubletap", "Could not sleep");
 					}
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0,
 							0);
 					try {
-						Thread.sleep(100);
+						Thread.sleep(50);
 					} catch (InterruptedException ex) {
 						Log.v("doubletap", "Could not sleep");
 					}
@@ -571,33 +573,42 @@ public class SDLSurface extends GLSurfaceView
 		}
 	}
 
-	// Touch events
 	public boolean onTouch(View v, MotionEvent event) {
+		return false;
+	}
+	
+	// Touch events
+	public boolean onTouchProcess(View v, MotionEvent event) {
 		// Log.v("onTouch",
 		// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
 		// + event.getY() + " P=" + event.getPressure());
+		int action = event.getAction();
+		float x = event.getX(0);
+		float y = event.getY(0);
+		float p = event.getPressure(0);
+		
 		if (event.getAction() == MotionEvent.ACTION_MOVE) {
 
 			// for (int i = 0; i < event.getPointerCount(); i++) {
-			int action = event.getAction();
-			float x = event.getX(0);
-			float y = event.getY(0);
-			float p = event.getPressure(0);
+			
 
 			if (mouseUp) {
 				old_x = x;
 				old_y = y;
 				mouseUp = false;
 			}
-			if (action == MotionEvent.ACTION_MOVE)
+			if (action == MotionEvent.ACTION_MOVE) {
+				//Log.d("SDL", "onTouch Moving by=" + action + ", X,Y=" + (x - old_x) + "," + (y - old_y) + " P=" + p);
 				SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_MOVE,
 						(x - old_x) * sensitivity_mult, (y - old_y) * sensitivity_mult, p);
-//			 Log.v("onTouch", "Moving by=" + action + ", X,Y=" + (x - old_x) + "," + (y - old_y) + " P=" + p);
+				
+			}
 			// save current
 			old_x = x;
 			old_y = y;
 
 		} else if (event.getAction() == event.ACTION_UP) {
+			Log.d("SDL", "onTouch Up");
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
 			mouseUp = true;
 		}

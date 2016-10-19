@@ -87,6 +87,11 @@ public class Machine {
 	public String shared_folder;
 	public int shared_folder_mode;
 
+	public String guestfwd;
+	public String hostfwd;
+
+	public String ui;
+	
 	public static boolean enableCDROM;
 	public static boolean enableFDA;
 	public static boolean enableFDB;

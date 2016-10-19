@@ -78,7 +78,7 @@ class ZoomScaling extends AbstractScaling {
 			scaling = (float)4.0;
 			activity.zoomer.setIsZoomInEnabled(false);
 		}
-		activity.zoomer.setIsZoomOutEnabled(true);
+		activity.zoomer.setIsZoomOutEnabled(false); //disable Zoomer
 		matrix.postScale(scaling, scaling);
 		//Log.v(TAG,String.format("before set matrix scrollx = %d scrolly = %d", activity.vncCanvas.getScrollX(), activity.vncCanvas.getScrollY()));
 		activity.vncCanvas.setImageMatrix(matrix);

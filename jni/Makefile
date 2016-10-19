@@ -2,8 +2,8 @@
 
 include android-config.mak
 	
-ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build -j $(BUILD_THREADS) NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
-ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build.cmd -j $(BUILD_THREADS) NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build.cmd clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 ndkcleanobj=rm -rf $(NDK_PROJECT_PATH)/obj/
 
 prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
@@ -12,7 +12,7 @@ prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
 	&& dos2unix $(LIMBO_JNI_ROOT)/qemu/dtc/scripts/* \
 	&& chmod u+x -R $(LIMBO_JNI_ROOT)/qemu/scripts
 
-ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb
+ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb.cmd
 
 CREATE_OBJDIR=mkdir -p $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/
 CREATE_LIBSDIR=mkdir -p $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/
@@ -21,7 +21,8 @@ DEL_LIBSDIR=rm -rf $(NDK_PROJECT_PATH)/libs/armeabi \
 	../libs/x86 ../libs/mips \   
 INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 	../libs/$(APP_ABI_DIR)/
-REMOVE_GDB=rm ../libs/$(APP_ABI_DIR)/gdb.setup; rm ../libs/$(APP_ABI_DIR)/gdbserver;
+REMOVE_GDBSETUP=rm ../libs/$(APP_ABI_DIR)/gdb.setup
+REMOVE_GDBSERVER=rm ../libs/$(APP_ABI_DIR)/gdbserver
   
 #RENAME_TUNCTL=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/tunctl \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
@@ -38,7 +39,9 @@ COPY_GDB_SETUP_LIBS_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup
 COPY_GDB_SETUP_OBJ_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/obj/local/armeabi/gdb.setup
 APPEND_GDB_CMD_EXTRA=cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
-	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
+	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup; \
+	cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
+	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup;
 	
 ifneq ($(NDK_DEBUG),1)
 	STRIP_LIBS=$(STRIP) --strip-unneeded  $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
@@ -62,7 +65,7 @@ ndkclean:
 	$(ndkcleanobj) 
 	
 qemu:
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) BUILD_THREADS=$(BUILD_THREADS)
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) BUILD_THREADS=$(BUILD_THREADS) V=$(V)
 	
 #limbo: ndk config qemu
 #	$(MAKE) -f $(LIMBO_JNI_ROOT)/limbo.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
@@ -91,7 +94,8 @@ release:
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
 	$(STRIP_LIBS)
-	$(REMOVE_GDB)
+	-$(REMOVE_GDBSETUP)
+	-$(REMOVE_GDBSERVER)
 	
 ndk-gdb:
 	-echo $(APP_ABI)

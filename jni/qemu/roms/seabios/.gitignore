@@ -2,3 +2,4 @@ out
 *.pyc
 .config
 .config.old
+/config.mak

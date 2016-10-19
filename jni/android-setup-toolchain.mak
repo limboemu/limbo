@@ -21,7 +21,16 @@ else ifeq ($(APP_ABI),x86)
     TOOLCHAIN_PREFIX = i686-linux-android-
     TARGET_ARCH=x86
     APP_ABI_DIR=$(APP_ABI)
+else ifeq ($(APP_ABI),x86_64)
+    EABI = x86_64-$(NDK_TOOLCHAIN_VERSION)
+    TOOLCHAIN_PREFIX = x86_64-linux-android-
+    TARGET_ARCH=x86_64
+    APP_ABI_DIR=$(APP_ABI)
 endif
+
+
+# Since we need ndk 11 and above we need to fix some missing calls 
+USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
 TOOLCHAIN_DIR = $(NDK_ROOT)/toolchains/$(EABI)/prebuilt/$(NDK_ENV)
 TOOLCHAIN_PREFIX := $(TOOLCHAIN_DIR)/bin/$(TOOLCHAIN_PREFIX)
@@ -51,12 +60,29 @@ COMPATMACROS = $(LIMBO_JNI_ROOT_INC)/compat/limbo_compat_macros.h
 COMPATANDROID = $(LIMBO_JNI_ROOT_INC)/compat/limbo_compat.h
 
 # These compatibility functions should be forcebly included from the static compat library
-$INCLUDE_FUNCS = -u set_jni
+INCLUDE_FUNCS = -u set_jni
 
 USR_LIB = \
--L$(TOOLCHAIN_DIR)//lib
+-L$(TOOLCHAIN_DIR)/lib
 
-ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) 
+ifeq ($(USE_NDK_PLATFORM21),true)
+USE_PLATFORM21_FLAGS = -D__ANDROID_HAS_SIGNAL__ \
+	-D__ANDROID_HAS_FS_IOC__ \
+	-D__ANDROID_HAS_SYS_GETTID__ \
+	-D__ANDROID_HAS_PARPORT__ \
+	-D__ANDROID_HAS_IEEE__ \
+	-D__ANDROID_HAS_STATVFS__ \
+	-D__ANDROID__HAS_PTHREAD_ATFORK_
+endif
+	
+ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) $(USE_PLATFORM21_FLAGS) 
+
+# Needed for some c++ source code for ARM disas
+STL_INCLUDE := -I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/include \
+-I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(APP_ABI_DIR)/include \
+-I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/include/backward
+
+STL_LIB := $(NDK_ROOT_INC)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(APP_ABI_DIR)/libgnustl_static.a 
 
 # logging macros
 ARCH_CFLAGS := $(ARCH_CFLAGS)
@@ -68,6 +94,7 @@ SYSTEM_INCLUDE = \
     -I$(LIMBO_JNI_ROOT_INC)/qemu/linux-headers \
     -I$(TOOLCHAIN_DIR_INC)/$(EABI)/include \
     -I$(NDK_INCLUDE) \
+    $(STL_INCLUDE) \
     -include $(LOGUTILS) \
     -include $(FIXUTILS_MEM) \
     -include $(COMPATUTILS_FD) \

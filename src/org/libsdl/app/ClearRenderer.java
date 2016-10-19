@@ -6,7 +6,7 @@ import javax.microedition.khronos.opengles.GL10;
 import android.opengl.GLSurfaceView;
 import android.util.Log;
 
-class ClearRenderer implements GLSurfaceView.Renderer {
+public class ClearRenderer implements GLSurfaceView.Renderer {
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
 		// Do nothing special.
 		Log.v("onSurfaceCreated", "...");

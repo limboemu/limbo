@@ -6,6 +6,12 @@
     android:keepScreenOn="true"
     android:orientation="vertical" >
 
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary" />
+
     <LinearLayout
         android:id="@+id/scroll_layout"
         android:layout_width="match_parent"
@@ -43,13 +49,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="Load VM: "
+                        android:text="Load Machine: "
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/machineval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -82,6 +90,8 @@
                         android:id="@+id/snapshotval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -106,13 +116,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="GUI: "
+                        android:text="User Interface: "
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/uival"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -227,13 +239,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="Arch:"
+                        android:text="Architecture:"
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/archtypeval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -258,13 +272,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="Machine:"
+                        android:text="Machine Type:"
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/machinetypeval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -296,6 +312,8 @@
                         android:id="@+id/cpuval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -320,6 +338,8 @@
                         android:id="@+id/cpunumval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -344,6 +364,8 @@
                         android:id="@+id/rammemval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -398,6 +420,8 @@
                         android:id="@+id/hdimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -436,6 +460,8 @@
                         android:id="@+id/hdbimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -474,6 +500,8 @@
                         android:id="@+id/hdcimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -512,6 +540,8 @@
                         android:id="@+id/hddimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -550,6 +580,8 @@
                         android:id="@+id/sharedfolderval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -605,7 +637,9 @@
                         android:id="@+id/cdromimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
                         android:ellipsize="start"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -644,6 +678,8 @@
                         android:id="@+id/floppyimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -682,6 +718,8 @@
                         android:id="@+id/floppybimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -720,6 +758,8 @@
                         android:id="@+id/sdcardimgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -760,13 +800,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="VGA Configuration: "
+                        android:text="VGA Display: "
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/vgacfgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -791,13 +833,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="Sound Card Configuration: "
+                        android:text="Sound Card: "
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/soundcfgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -822,13 +866,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
-                        android:text="Network Configuration: "
+                        android:text="Network: "
                         android:textSize="15dip" />
 
                     <Spinner
                         android:id="@+id/netcfgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -860,6 +906,7 @@
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -892,8 +939,36 @@
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
                         android:enabled="false"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text="8.8.8.8"
+                        android:textSize="15dip" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/hostfwdl"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:orientation="horizontal" >
+
+                    <TextView
+                        android:id="@+id/hostfwdStr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:text="Host Forward: "
+                        android:textSize="15dip" />
+
+                    <EditText
+                        android:id="@+id/hostfwdval"
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:enabled="false"
+                        android:gravity="right"
+                        android:hint="hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport{,hostfwd=...}"
+                        android:singleLine="true"
+                        android:text=""
                         android:textSize="15dip" />
                 </LinearLayout>
 
@@ -941,6 +1016,8 @@
                         android:id="@+id/bootfromval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -972,6 +1049,8 @@
                         android:id="@+id/kernelval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -1003,6 +1082,8 @@
                         android:id="@+id/initrdval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -1027,6 +1108,7 @@
                         android:id="@+id/appendval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:gravity="right"
                         android:hint="ie: root=/dev/sda1"
                         android:singleLine="true"
                         android:text=""
@@ -1053,6 +1135,8 @@
                         android:id="@+id/hdcachecfgval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -1162,28 +1246,25 @@
                                 android:gravity="right|center_vertical" />
                         </LinearLayout>
 
-                        <!-- Not needed for qemu 2.3.0 + -->
-
                         <LinearLayout
-                            android:id="@+id/enableMultiThread"
+                            android:id="@+id/enablekvml"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:layout_gravity="right|center_vertical"
                             android:gravity="right|center_vertical"
-                            android:orientation="horizontal"
-                            android:visibility="gone" >
+                            android:orientation="horizontal" >
 
                             <TextView
-                                android:id="@+id/enableMultiThreadStr"
+                                android:id="@+id/enablekvmstr"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="right|center_vertical"
                                 android:gravity="right|center_vertical"
-                                android:text="Multithread AIO (WARNING!)"
+                                android:text="Enable KVM"
                                 android:textSize="15dip" />
 
                             <CheckBox
-                                android:id="@+id/enableMultiThreadval"
+                                android:id="@+id/enablekvmval"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="right|center_vertical"
@@ -1249,7 +1330,7 @@
                         </LinearLayout>
 
                         <LinearLayout
-                            android:id="@+id/enablekvml"
+                            android:id="@+id/showtoolbarl"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:layout_gravity="right|center_vertical"
@@ -1257,16 +1338,41 @@
                             android:orientation="horizontal" >
 
                             <TextView
-                                android:id="@+id/enablekvmstr"
+                                android:id="@+id/showtoolbarStr"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="right|center_vertical"
                                 android:gravity="right|center_vertical"
-                                android:text="Enable KVM"
+                                android:text="Show Toolbar"
                                 android:textSize="15dip" />
 
                             <CheckBox
-                                android:id="@+id/enablekvmval"
+                                android:id="@+id/showtoolbarval"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="right|center_vertical"
+                                android:gravity="right|center_vertical" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/fullscreenl"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="right|center_vertical"
+                            android:gravity="right|center_vertical"
+                            android:orientation="horizontal" >
+
+                            <TextView
+                                android:id="@+id/fullscreenstr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="right|center_vertical"
+                                android:gravity="right|center_vertical"
+                                android:text="Fullscreen"
+                                android:textSize="15dip" />
+
+                            <CheckBox
+                                android:id="@+id/fullscreenval"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="right|center_vertical"
@@ -1296,6 +1402,8 @@
                         android:id="@+id/orientationval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />
@@ -1322,6 +1430,8 @@
                         android:id="@+id/keyboardval"
                         android:layout_width="fill_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="right"
                         android:singleLine="true"
                         android:text=""
                         android:textSize="15dip" />

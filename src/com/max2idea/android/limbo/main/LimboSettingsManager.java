@@ -54,17 +54,17 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.commit();
 	}
 
-	static String getLastUI(Activity activity) {
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getString("ui",  Config.defaultUI);
-	}
-
-	public static void setLastUI(Activity activity, String ui) {
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		SharedPreferences.Editor edit = prefs.edit();
-		edit.putString("ui", ui);
-		edit.commit();
-	}
+//	static String getLastUI(Activity activity) {
+//		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+//		return prefs.getString("ui",  Config.defaultUI);
+//	}
+//
+//	public static void setLastUI(Activity activity, String ui) {
+//		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+//		SharedPreferences.Editor edit = prefs.edit();
+//		edit.putString("ui", ui);
+//		edit.commit();
+//	}
 
 	public static int getOrientationSetting(Activity activity) {
 
@@ -124,6 +124,33 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.commit();
 		// UIUtils.log("Setting First time: ");
 	}
+	
+	public static boolean getAlwaysShowMenuToolbar(Activity activity) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		return prefs.getBoolean("AlwaysShowMenuToolbar", false);
+	}
+
+	public static void setAlwaysShowMenuToolbar(Activity activity, boolean flag) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putBoolean("AlwaysShowMenuToolbar", flag);
+		edit.commit();
+		// UIUtils.log("Setting First time: ");
+	}
+	
+	public static boolean getFullscreen(Activity activity) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		return prefs.getBoolean("ShowFullscreen", false);
+	}
+
+	public static void setFullscreen(Activity activity, boolean flag) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putBoolean("ShowFullscreen", flag);
+		edit.commit();
+		// UIUtils.log("Setting First time: ");
+	}
+	
 	static boolean getEnableKVM(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		return prefs.getBoolean("EnableKVM", false);

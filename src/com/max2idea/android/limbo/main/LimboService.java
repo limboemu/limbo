@@ -1,5 +1,9 @@
 package com.max2idea.android.limbo.main;
 
+import java.util.ArrayList;
+
+import org.libsdl.app.SDLActivity;
+
 import com.limbo.emu.main.LimboEmuActivity;
 import com.limbo.emu.main.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
@@ -10,8 +14,11 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.os.BaseBundle;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -51,7 +58,7 @@ public class LimboService extends Service {
 			
 			Log.v(TAG, "Starting the VM");
 			executor.loadNativeLibs();
-			
+						
 			Thread t = new Thread(new Runnable() {
 				public void run() {
 					String res = executor.start();
@@ -91,6 +98,17 @@ public class LimboService extends Service {
 	public void onCreate() {
 		Log.d(TAG, "debug: Creating " + TAG);
 
+		setupWifiLock();
+		
+		
+		service = this;
+		
+	}
+
+	
+	
+	private void setupWifiLock() {
+
 		mWifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
 				.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF,
 						"WAKELOCK_KEY");
@@ -103,9 +121,7 @@ public class LimboService extends Service {
 		mWakeLock.setReferenceCounted(false);
 
 		mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-
-		service = this;
-		
+	
 	}
 
 	public static void stopService() {

@@ -84,11 +84,11 @@ public class Config {
 	public static final boolean enable_SDL_libs = true; //Enable always if you build QEMU with SDL Support
 	public static final boolean enable_SPICE_menu = false;
 	public static final boolean enable_SPICE = false;
-	public static final boolean enable_sound_menu = false; //Option for GUI
-	public static final boolean enable_sound_libs = false; //Enable always if you build QEMU with Audio Support
-	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_KVM = true; //Enable if you build with KVM support
-	public static final boolean disableTitleBar = true;
+	public static final boolean enable_sound_menu = true; //Option for GUI
+	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
+	public static final boolean enable_ARM = true; //Enable if you build QEMU with Arm softmmu
+	public static final boolean enable_KVM = false; //Enable if you build with KVM support
+	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
 	public static boolean enableSDLAlwaysFullscreen = true;
@@ -102,6 +102,7 @@ public class Config {
 	public static String sharedFolder = basefiledir + "shared";
 	public static String tmpFolder = basefiledir + "tmp"; // Do not modify
 	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
+	public static boolean enableOpenSL; //us
 	
 	public static final String machinedir = basefiledir + "machines/";
 	public static final boolean enableHDCache = false;
@@ -127,6 +128,7 @@ public class Config {
 	
 	//Keyboard Layout
 	public static String defaultKeyboardLayout = "en-us";
+	
 	//FIXME: disable for now 
 	public static final boolean enableKeyboardLayoutOption = true; 
 	
@@ -138,7 +140,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = false;
+	public static final boolean debug = true;
 	public static final DebugMode debugMode = DebugMode.X86_64;
 	
 	

@@ -1,4 +1,6 @@
-<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".LimboSDLActivity" >
 
     <item
         android:id="@+id/itemKeyboard"
@@ -9,13 +11,13 @@
         android:icon="@drawable/mouse"
         android:title="@string/center_mouse"/>
     <item
-        android:id="@+id/itemSaveState"
-        android:icon="@drawable/savestate"
-        android:title="@string/save_state"/>
-    <item
         android:id="@+id/itemDrives"
         android:icon="@drawable/drives"
         android:title="@string/drives"/>
+    <item
+        android:id="@+id/itemSaveState"
+        android:icon="@drawable/savestate"
+        android:title="@string/save_state"/>
     <item
         android:id="@+id/itemHelp"
         android:icon="@drawable/help"

@@ -17,7 +17,7 @@
 
 int close_fd(int fd) {
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&fd_lock);
 
 	JNIEnv *env;
 	jmethodID methodID;
@@ -41,12 +41,12 @@ int close_fd(int fd) {
 	res = (int) jres;
 
 	(*jvm)->DetachCurrentThread(jvm);
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&fd_lock);
 	return res;
 
 }
 int get_fd(const char * filepath) {
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&fd_lock);
 	int fd = -1;
 
 	JNIEnv *env;
@@ -75,7 +75,7 @@ int get_fd(const char * filepath) {
 	(*env)->DeleteLocalRef(env, jfilepath);
 
 	(*jvm)->DetachCurrentThread(jvm);
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&fd_lock);
 	LOGI("Done get_fd: %d, %s", fd, filepath);
 	return fd;
 }

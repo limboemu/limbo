@@ -71,7 +71,7 @@ DISPLAY = --disable-curses --disable-cocoa --disable-gtk
 VNC +=  --enable-vnc
 #VNC += --enable-vnc-jpeg --enable-vnc-png
 VNC += --disable-vnc-jpeg --disable-vnc-png
-VNC += --disable-vnc-ws --disable-vnc-sasl --disable-vnc-tls 
+VNC += --disable-vnc-sasl
 
 
 #VNC THREAD (DONT USE FOR 2.3.0+)
@@ -83,8 +83,7 @@ VNC += --disable-vnc-ws --disable-vnc-sasl --disable-vnc-tls
 #INCLUDE_ENC += -I$(LIMBO_JNI_ROOT_INC)/png -I$(LIMBO_JNI_ROOT_INC)/jpeg
 
 #SMART CARD
-#SMARTCARD =	--disable-smartcard --disable-smartcard-nss
-SMARTCARD =	--disable-smartcard-nss
+SMARTCARD =	--disable-smartcard
 
 #FDT
 #FDT =	--disable-fdt
@@ -97,7 +96,7 @@ FDT_INC = -I$(LIMBO_JNI_ROOT_INC)/qemu/dtc/libfdt
 #For 2.3.0
 #Misc
 MISC = --disable-tools --disable-libusb --disable-libnfs --disable-tpm 
-MISC +=  --disable-qom-cast-debug --disable-guest-base
+MISC +=  --disable-qom-cast-debug
 MISC += --disable-libnfs --disable-libiscsi --disable-docs
 MISC += --disable-rdma --disable-brlapi --disable-curl --disable-uuid
 MISC += --disable-vde --disable-netmap --disable-cap-ng --disable-zlib-test
@@ -105,8 +104,8 @@ MISC += --disable-attr --disable-guest-agent --disable-pie
 MISC += --disable-rbd --disable-xfsctl  --disable-lzo  --disable-snappy 
 MISC += --disable-seccomp --disable-bzip2 --disable-glusterfs 
 MISC += --disable-archipelago --disable-vte --disable-libssh2 --disable-vhdx
-MISC += --disable-quorum
 MISC += --disable-opengl
+MISC += --disable-blobs
 
 #NUMA
 NUMA = --disable-numa
@@ -162,7 +161,9 @@ else ifeq ($(APP_ABI), armeabi-v7a)
 else ifeq ($(APP_ABI), armeabi-v7a-hard)
     QEMU_HOST_CPU = arm
 else ifeq ($(APP_ABI), x86)
-    QEMU_HOST_CPU = i686   
+    QEMU_HOST_CPU = i686
+else ifeq ($(APP_ABI), x86_64)
+    QEMU_HOST_CPU = x86_64
 endif
 
 config:
@@ -198,7 +199,6 @@ config:
 	$(AUDIO) \
 	$(COROUTINE_POOL) \
 	$(MISC) \
-	--android --less-warnings \
 	--cross-prefix=$(TOOLCHAIN_PREFIX) \
 	--extra-cflags=\
 	"\

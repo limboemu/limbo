@@ -630,13 +630,21 @@ SDL_RunAudio(void *devicep)
         }
 
         /* !!! FIXME: this should be LockDevice. */
+#ifdef __ANDROID__
+        SDL_LockAudioDevice(device);
+#else
         SDL_LockMutex(device->mixer_lock);
+#endif
         if (device->paused) {
             SDL_memset(stream, silence, stream_len);
         } else {
             (*fill) (udata, stream, stream_len);
         }
+#ifdef __ANDROID__
+        SDL_UnlockAudioDevice(device);
+#else
         SDL_UnlockMutex(device->mixer_lock);
+#endif
 
         /* Convert the audio if necessary */
         if (device->enabled && device->convert.needed) {

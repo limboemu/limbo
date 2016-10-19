@@ -39,10 +39,13 @@ public class QmpClient {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
-			out.close();
+			if (out != null)
+				out.close();
 			try {
-				in.close();
-				pingSocket.close();
+				if (in != null)
+					in.close();
+				if (pingSocket != null)
+					pingSocket.close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -55,7 +58,7 @@ public class QmpClient {
 
 	private static void sendRequest(PrintWriter out, String request) {
 		// TODO Auto-generated method stub
-		Log.i(TAG, "QMP request" + request);
+		Log.i(TAG, "HMP request" + request);
 		out.println(request);
 	}
 
@@ -66,7 +69,7 @@ public class QmpClient {
 		do {
 			line = in.readLine();
 			if (line != null) {
-				Log.i(TAG, "QMP response: " + line);
+				Log.i(TAG, "HMP response: " + line);
 				JSONObject object = new JSONObject(line);
 				try {
 					String returnStr = object.getString("return");
@@ -86,14 +89,16 @@ public class QmpClient {
 
 	public static String migrate(boolean block, boolean inc, String uri) {
 		// TODO Auto-generated method stub
-		//XXX: Detach should not be used in QMP according to docs
-//		return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach + ",\"blk\":" + block + ",\"inc\":" + inc
-//				+ ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";
-		
-		//its better not to use block (full disk copy) cause its slow (though safer)
+		// XXX: Detach should not be used via HMP according to docs
+		// return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach
+		// + ",\"blk\":" + block + ",\"inc\":" + inc
+		// + ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";
+
+		// its better not to use block (full disk copy) cause its slow (though
+		// safer)
 		// see qmp-commands.hx for more info
-		return "{\"execute\":\"migrate\",\"arguments\":{\"blk\":" + block + ",\"inc\":" + inc
-				+ ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";
+		return "{\"execute\":\"migrate\",\"arguments\":{\"blk\":" + block + ",\"inc\":" + inc + ",\"uri\":\"" + uri
+				+ "\"},\"id\":\"limbo\"}";
 
 	}
 
@@ -101,5 +106,9 @@ public class QmpClient {
 		return "{ \"execute\": \"stop\" }";
 
 	}
-	
+
+	public static String cont() {
+		return "{ \"execute\": \"cont\" }";
+
+	}
 }

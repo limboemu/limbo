@@ -97,5 +97,6 @@
     <string name="right_click">Mouse Right Click</string>
     <string name="help">Help</string>
     <string name="drives">Drives</string>
+    <string name="volume">Volume</string>
 
 </resources>

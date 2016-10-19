@@ -115,3 +115,5 @@ tags
 TAGS
 docker-src.*
 *~
+/qemu-version.h.tmp
+/qemu-version.h

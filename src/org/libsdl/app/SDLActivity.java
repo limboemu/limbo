@@ -28,6 +28,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
 import android.util.Log;
 import android.util.SparseArray;
@@ -52,12 +53,18 @@ import android.widget.TextView;
 /**
  * SDL Activity
  */
-public class SDLActivity extends Activity {
+public class SDLActivity extends AppCompatActivity {
 	private static final String TAG = "SDL";
 
 	// Keep track of the paused state
 	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus;
 	public static boolean mExitCalledFromJava;
+
+	public static native void createEngine();
+
+	public static native void createBufferQueueAudioPlayer(int sampleRate, int samplesPerBuf);
+
+	public static native void shutdown();
 
 	/**
 	 * If shared libraries (e.g. SDL or the native application) could not be
@@ -115,33 +122,43 @@ public class SDLActivity extends Activity {
 	// public static float width_mult = (float) 1.0;
 	// public static float height_mult = (float) 1.0;
 
+	private static int maxBufferSize;
+
+	private static int bufferSize;
+
+	private static Thread audioThread;
+
+	private static int buffersSize;
+
 	public static void setSDLResolution(int width, int height) {
 
 		vm_width = width;
 		vm_height = height;
 
-		
-//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//			@Override
-//			public void run() {
-//				int newWidth = mSurface.getWidth();
-//				int newHeight = mSurface.getHeight();
-//				if(mSingleton.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
-//					//Adjust the Height
-//					newHeight = (int) ((float) newWidth * vm_height / (float) vm_width); 
-//				} else if(mSingleton.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE){
-//					//Adjust the Width
-//					newWidth = (int) ((float) newHeight * vm_width / (float) vm_height);
-//					
-//					//TODO: If it's not fullscreen we might want to adjust the height instead so the surface align on top
-//					 
-//				}
-//				
-//				Log.v("setSDLResolution", "Resizing Surface to " + newWidth + "x" + newHeight);
-//				mSurface.getHolder().setFixedSize(newWidth, newHeight);
-//			}
-//		}, 0);
-		
+		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// int newWidth = mSurface.getWidth();
+		// int newHeight = mSurface.getHeight();
+		// if(mSingleton.getResources().getConfiguration().orientation ==
+		// Configuration.ORIENTATION_PORTRAIT){
+		// //Adjust the Height
+		// newHeight = (int) ((float) newWidth * vm_height / (float) vm_width);
+		// } else if(mSingleton.getResources().getConfiguration().orientation ==
+		// Configuration.ORIENTATION_LANDSCAPE){
+		// //Adjust the Width
+		// newWidth = (int) ((float) newHeight * vm_width / (float) vm_height);
+		//
+		// //TODO: If it's not fullscreen we might want to adjust the height
+		// instead so the surface align on top
+		//
+		// }
+		//
+		// Log.v("setSDLResolution", "Resizing Surface to " + newWidth + "x" +
+		// newHeight);
+		// mSurface.getHolder().setFixedSize(newWidth, newHeight);
+		// }
+		// }, 0);
 
 	}
 
@@ -344,12 +361,15 @@ public class SDLActivity extends Activity {
 		int keyCode = event.getKeyCode();
 		// Ignore certain special keys so they're handled by Android
 		if (
-//				keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP|| 
-				keyCode == KeyEvent.KEYCODE_CAMERA || keyCode == 168
+		// keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode ==
+		// KeyEvent.KEYCODE_VOLUME_UP||
+		keyCode == KeyEvent.KEYCODE_CAMERA || keyCode == 168
 				|| /* API 11: KeyEvent.KEYCODE_ZOOM_IN */
 				keyCode == 169 /* API 11: KeyEvent.KEYCODE_ZOOM_OUT */
 		) {
 			return false;
+		}else if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN){
+			this.onBackPressed();
 		}
 		return super.dispatchKeyEvent(event);
 	}
@@ -641,6 +661,8 @@ public class SDLActivity extends Activity {
 		// latency already
 		desiredFrames = Math.max(desiredFrames,
 				(AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioFormat) + frameSize - 1) / frameSize);
+		// desiredFrames =2048;
+		// desiredFrames *= 10;
 
 		if (mAudioTrack == null) {
 			mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, channelConfig, audioFormat,
@@ -658,7 +680,7 @@ public class SDLActivity extends Activity {
 				mAudioTrack = null;
 				return -1;
 			}
-
+			setVolume(volume);
 			mAudioTrack.play();
 		}
 
@@ -670,12 +692,23 @@ public class SDLActivity extends Activity {
 		return 0;
 	}
 
+	public static float volume = (float) 0.3;
+	public static void setVolume(float volume) {
+		
+		mAudioTrack.setVolume(volume);
+	}
+
+	static ArrayList<short[]> audioShortBuffer = new ArrayList<short[]>();
+	static Object audioLock = new Object();
+
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteShortBuffer(short[] buffer) {
+		Log.d(TAG, "audioWriteShortBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
+			Log.d(TAG, "Wrote to audioWriteShortBuffer: " + result);
 			if (result > 0) {
 				i += result;
 			} else if (result == 0) {
@@ -683,18 +716,21 @@ public class SDLActivity extends Activity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
+					Log.e(TAG, "SDL: Audio Short interrupted: " + e);
 				}
 			} else {
 				Log.w(TAG, "SDL audio: error return from write(short)");
 				return;
 			}
 		}
+		Log.d(TAG, "audioWriteShortBuffer end");
 	}
 
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteByteBuffer(byte[] buffer) {
+		Log.d(TAG, "audioWriteByteBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
 			if (result > 0) {
@@ -704,22 +740,26 @@ public class SDLActivity extends Activity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
+					Log.e(TAG, "SDL: Audio Byte interrupted: " + e);
 				}
 			} else {
 				Log.w(TAG, "SDL audio: error return from write(byte)");
 				return;
 			}
 		}
+		Log.d(TAG, "audioWriteByteBuffer end");
 	}
 
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioQuit() {
+		Log.d(TAG, "audioQuit start");
 		if (mAudioTrack != null) {
 			mAudioTrack.stop();
 			mAudioTrack = null;
 		}
+		Log.d(TAG, "audioQuit end");
 	}
 
 	// Input
@@ -1051,7 +1091,6 @@ public class SDLActivity extends Activity {
 		return dialog;
 	}
 
-
 }
 
 /**
@@ -1364,6 +1403,7 @@ class SDLJoystickHandler_API12 extends SDLJoystickHandler {
 		}
 		return true;
 	}
+
 }
 
 class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
@@ -1388,13 +1428,14 @@ class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
 			case MotionEvent.ACTION_SCROLL:
 				x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0);
 				y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0);
+				Log.d("SDL", "Mouse Scroll: " + x + "," + y);
 				SDLActivity.onNativeMouse(0, action, x, y);
 				return true;
 
 			case MotionEvent.ACTION_HOVER_MOVE:
 				x = event.getX(0);
 				y = event.getY(0);
-
+				Log.d("SDL", "Mouse Hover: " + x + "," + y);
 				SDLActivity.onNativeMouse(0, action, x, y);
 				return true;
 

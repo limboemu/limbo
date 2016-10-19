@@ -38,7 +38,7 @@ import java.util.Iterator;
  */
 public class MachineOpenHelper extends SQLiteOpenHelper {
 
-	private static final int DATABASE_VERSION = 12;
+	private static final int DATABASE_VERSION = 14;
 	private static final String DATABASE_NAME = "LIMBO";
 	private static final String MACHINE_TABLE_NAME = "machines";
 	// COlumns
@@ -64,6 +64,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String SHARED_FOLDER_MODE = "SHARED_FOLDER_MODE";
 	public static final String BOOT_CONFIG = "BOOT_CONFIG";
 	public static final String NET_CONFIG = "NETCONFIG";
+	public static final String HOSTFWD = "HOSTFWD";
+	public static final String GUESTFWD = "GUESTFWD";
 	public static final String NIC_CONFIG = "NICCONFIG";
 	public static final String VGA = "VGA";
 	public static final String SOUNDCARD_CONFIG = "SOUNDCARD";
@@ -76,7 +78,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String LASTUPDATED = "LAST_UPDATED";
 	public static final String PAUSED = "PAUSED";
 	public static final String EXTRA_PARAMS = "EXTRA_PARAMS";
-	
+	public static final String UI = "UI";
+
 	// Create DDL
 	private static final String MACHINE_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS " + MACHINE_TABLE_NAME + " ("
 			+ MACHINE_NAME + " TEXT , " + SNAPSHOT_NAME + " TEXT , " + CPU + " TEXT, " + ARCH + " TEXT, " + MEMORY
@@ -86,11 +89,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			+ " INTEGER, " + DISABLE_HPET + " INTEGER, " + ENABLE_USBMOUSE + " INTEGER, " + STATUS + " TEXT, "
 			+ LASTUPDATED + " DATE, " + KERNEL + " INTEGER, " + INITRD + " TEXT, " + APPEND + " TEXT, " + CPUNUM
 			+ " INTEGER, " + MACHINE_TYPE + " TEXT, " + DISABLE_FD_BOOT_CHK + " INTEGER, " + SD + " TEXT, " + PAUSED
-			+ " INTEGER, " 
-			+ SHARED_FOLDER + " TEXT, "
-			+ SHARED_FOLDER_MODE + " INTEGER, "
-			+ EXTRA_PARAMS + " TEXT "
-			+ ");";
+			+ " INTEGER, " + SHARED_FOLDER + " TEXT, " + SHARED_FOLDER_MODE + " INTEGER, " + EXTRA_PARAMS + " TEXT, "
+			+ HOSTFWD + " TEXT, " + GUESTFWD + " TEXT, " + UI + " TEXT " + ");";
 
 	private final Activity activity;
 	private String TAG = "MachineOpenHelper";
@@ -160,6 +160,19 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.EXTRA_PARAMS + " TEXT;");
 
 		}
+
+		if (newVersion >= 13 && oldVersion <= 12) {
+
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.HOSTFWD + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.GUESTFWD + " TEXT;");
+
+		}
+
+		if (newVersion >= 14 && oldVersion <= 13) {
+
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.UI + " TEXT;");
+
+		}
 	}
 
 	public synchronized int insertMachine(Machine myMachine) {
@@ -198,6 +211,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		stateValues.put(this.MACHINE_TYPE, myMachine.machine_type);
 		stateValues.put(this.ARCH, myMachine.arch);
 		stateValues.put(this.EXTRA_PARAMS, myMachine.extra_params);
+		stateValues.put(this.HOSTFWD, myMachine.hostfwd);
+		stateValues.put(this.GUESTFWD, myMachine.guestfwd);
+		stateValues.put(this.UI, myMachine.ui);
 
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		Date date = new Date();
@@ -259,7 +275,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		int rows = -1;
 		SQLiteDatabase db = this.getWritableDatabase();
 
-		//Log.v("DB", "Update Machine: " + myMachine.machinename + " column: " + colname + "=" + value);
+		// Log.v("DB", "Update Machine: " + myMachine.machinename + " column: "
+		// + colname + "=" + value);
 		ContentValues stateValues = new ContentValues();
 		stateValues.put(colname, value);
 
@@ -281,18 +298,23 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	}
 
 	public Machine getMachine(String machine, String snapshot) {
-		String qry = "select " + this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , "
-				+ this.FDA + " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , "
-				+ this.HDD + " , " + this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , "
-				+ this.SOUNDCARD_CONFIG + " , " + this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , "
-				+ this.DISABLE_HPET + " , " + this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , "
-				+ this.BOOT_CONFIG + " , " + this.KERNEL + " , " + this.INITRD + " , " + this.APPEND + " , "
-				+ this.CPUNUM + " , " + this.MACHINE_TYPE + " , " + this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , "
-				+ this.PAUSED + " , " + this.SD + " , " + this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , "
-				+ this.EXTRA_PARAMS
-				+ " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS + " in ( "
-				+ Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " " + " ) " + " and " + this.MACHINE_NAME + "=\""
-				+ machine + "\"" + " and " + this.SNAPSHOT_NAME + "=\"" + snapshot + "\"" + ";";
+		String qry = "select "
+				// Columns
+				+ this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , " + this.FDA
+				+ " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , " + this.HDD + " , "
+				+ this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , " + this.SOUNDCARD_CONFIG + " , "
+				+ this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , " + this.DISABLE_HPET + " , "
+				+ this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , " + this.BOOT_CONFIG + " , " + this.KERNEL
+				+ " , " + this.INITRD + " , " + this.APPEND + " , " + this.CPUNUM + " , " + this.MACHINE_TYPE + " , "
+				+ this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , " + this.PAUSED + " , " + this.SD + " , "
+				+ this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , " + this.EXTRA_PARAMS + " , "
+				+ this.HOSTFWD + " , " + this.GUESTFWD + " , " + this.UI
+				// Table
+				+ " from " + this.MACHINE_TABLE_NAME
+				// Criteria
+				+ " where " + this.STATUS + " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " "
+				+ " ) " + " and " + this.MACHINE_NAME + "=\"" + machine + "\"" + " and " + this.SNAPSHOT_NAME + "=\""
+				+ snapshot + "\"" + ";";
 
 		Machine myMachine = null;
 		SQLiteDatabase db = this.getReadableDatabase();
@@ -332,6 +354,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			String sharedFolder = cur.getString(29);
 			int sharedFolderMode = cur.getInt(30);
 			String extraParams = cur.getString(31);
+			String hostfwd = cur.getString(32);
+			String guestfwd = cur.getString(33);
+			String ui = cur.getString(34);
 
 			// Log.v("DB", "Got Machine: " + machinename);
 			// Log.v("DB", "Got cpu: " + cpu);
@@ -339,7 +364,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			myMachine.cpu = cpu;
 			myMachine.memory = mem;
 			myMachine.cd_iso_path = cdrom;
-			if(cdrom!=null)
+			if (cdrom != null)
 				myMachine.enableCDROM = true;
 
 			// HDD
@@ -351,24 +376,26 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			// Shared Folder
 			myMachine.shared_folder = sharedFolder;
 			myMachine.shared_folder_mode = sharedFolderMode;
-			
+
 			// FDA
 			myMachine.fda_img_path = fda;
-			if(fda!=null)
+			if (fda != null)
 				myMachine.enableFDA = true;
-			
+
 			myMachine.fdb_img_path = fdb;
-			if(fdb!=null)
+			if (fdb != null)
 				myMachine.enableFDB = true;
-			
-			//SD
+
+			// SD
 			myMachine.sd_img_path = sd;
-			if(sd!=null)
+			if (sd != null)
 				myMachine.enableSD = true;
-			
+
 			myMachine.vga_type = vga;
 			myMachine.soundcard = snd;
 			myMachine.net_cfg = net;
+			myMachine.hostfwd = hostfwd;
+			myMachine.guestfwd = guestfwd;
 			myMachine.nic_driver = nic;
 			myMachine.disableacpi = acpi;
 			myMachine.disablehpet = hpet;
@@ -385,8 +412,10 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			myMachine.arch = arch;
 
 			myMachine.paused = paused;
-			
+
 			myMachine.extra_params = extraParams;
+
+			myMachine.ui = ui;
 
 			break;
 		}
@@ -461,13 +490,18 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	}
 
 	public String exportMachines() {
-		String qry = "select " + this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , "
-				+ this.FDA + " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , "
-				+ this.HDD + " , " + this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , "
-				+ this.SOUNDCARD_CONFIG + " , " + this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , "
-				+ this.DISABLE_HPET + " , " + this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , "
-				+ this.BOOT_CONFIG + " , " + this.KERNEL + " , " + this.INITRD + " , " + this.APPEND + " , "
-				+ this.CPUNUM + " , " + this.MACHINE_TYPE + " , " + this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH
+		String qry = "select " 
+				//Columns
+				+ this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , " + this.FDA
+				+ " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , " + this.HDD + " , "
+				+ this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , " + this.SOUNDCARD_CONFIG + " , "
+				+ this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , " + this.DISABLE_HPET + " , "
+				+ this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , " + this.BOOT_CONFIG + " , " + this.KERNEL
+				+ " , " + this.INITRD + " , " + this.APPEND + " , " + this.CPUNUM + " , " + this.MACHINE_TYPE + " , "
+				+ this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , " + this.PAUSED + " , " + this.SD + " , "
+				+ this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , " + this.EXTRA_PARAMS + " , "
+				+ this.HOSTFWD + " , " + this.GUESTFWD + " , " + this.UI
+				// Table
 				+ " from " + this.MACHINE_TABLE_NAME + "; ";
 
 		String arrStr = "";
