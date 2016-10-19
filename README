@@ -6,7 +6,7 @@ Limbo PC Emulator (QEMU x86) for Android
 
 Limbo is a QEMU-based emulator for Android. It currently supports PC emulation 
 for Intel x86 architecture.
-For more information visit:
+For more information, instructions, guides, known issues, and downloads visit:
 https://github.com/limboemu/limbo
     
 
@@ -15,8 +15,8 @@ https://github.com/limboemu/limbo
 2. Requirements:
 
     Android SDK
-    Android NDK r8+ (Recommended: 10e + GCC 4.9)
-    Eclipse + Eclipse Android plugin or Netbeans + Android plugin
+    Android NDK r12+ (Recommended: 13 + GCC 4.9)
+    Eclipse + Eclipse Android plugin
     An Android device (most stock/custom roms should be compatible)
     Cygwin (if you compile for Windows)
     flex, bison, libtool (optional)
@@ -36,7 +36,7 @@ https://github.com/limboemu/limbo
     b. Configure your PATH variable add the NDK Directory so makefile can find ndk-build
     Examples:
     For bash:
-    export PATH=$PATH:/home/dev/tools/android/android-ndk-r10e
+    export PATH=$PATH:/home/dev/tools/android/android-ndk-r13
     
     c. For linux/MacOSX make sure the configure script under ..../qemu/configure is executable 
     chmod u+x qemu/configure 
@@ -57,13 +57,13 @@ https://github.com/limboemu/limbo
         > cd /home/youraccount/.../limbo-android/jni
         
          
-	If you build on Windows platform make sure you update the android-config.mak file with:
-    NDK_ROOT = /cygdrive/d/pathtoyourproject (the NDK_ROOT needs to start with = /cygdrive/)
+	If you build on Windows platform make sure you update the android-config.mak file:
+    NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+	NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
     
-    a. Build the static and shared libraries :
-    	i.   > make clean
-        ii.  > make config
-        iii. > make release
+    a. Build the static and shared libraries:
+        i.  > make config
+        ii. > make release
         	
     b. Build the Android APK (Limbo.apk) from Eclipse or Netbeans.
     		 
@@ -84,9 +84,8 @@ https://github.com/limboemu/limbo
     
     d. For ARMv7 phones (hard floating point):
         i. Update android-config.mak and include file android-generic-armv7a-hard.mak
-        ii.  > make clean
-        iii. > make config
-        iv.  > make release
+        ii. > make config
+        iii.  > make release
 
     e. For x86 phones:
         i. Update android-config.mak and include file android-ndkr8-x86.mak 
@@ -114,12 +113,15 @@ https://github.com/limboemu/limbo
     	
 ===============================================================================
 7. Run
-	a. Installing a full Qwerty keyboard for Android (ie Hacker's keyboard 
-		from the Google Android store) is recommended 
+	a. Installing a full Qwerty keyboard for Android like Hacker's keyboard 
+		from the Google Android store. Make sure you use Transparent theme 
+		and Direct Draw found under Theme settings.
 	b. Start the Limbo app and choose CPU, Memory (~8-64MB),etc..
 	c. Choose a bootable disk image(s) for CDRom, Floppy, and a HDD image
 	d. Start the virtual machine.
-    e. Have fun!
+	e. For more instructions and guides visit: 
+		https://github.com/limboemu/limbo
+    f. Have fun!
     	
 ===============================================================================
 8. License

@@ -3,7 +3,7 @@
     package="com.limbo.emu.main"
     android:installLocation="auto"
     android:versionCode="240"
-    android:versionName="2.4.0alpha" >
+    android:versionName="2.4.0 Alpha" >
 
     <uses-sdk
         android:minSdkVersion="14"

@@ -1,4 +1,18 @@
 <br>
+Limbo v2.4.0 Alpha<br>
+- Rebase with QEMU 2.7.0<br>
+- New UI with removable toolbar<br> 
+- Added Host forward option<br> 
+- Fixed issues with reseting values on UI<br> 
+- Fixed issue with VNC panning (disabled)<br> 
+- Fixed issue with sound for SDL<br> 
+- Fixed issue with orientation for SDL<br> 
+- Fixed issue with cpu naming<br> 
+- Additional UI validation<br> 
+- Minimum Requirements: Android OS 14<br> 
+<br>
+
+<br>
 Limbo v2.2.3<br>
 -Fixed lib loading issue for Jellybean<br> 
 <br>

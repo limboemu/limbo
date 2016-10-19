@@ -86,7 +86,7 @@ public class Config {
 	public static final boolean enable_SPICE = false;
 	public static final boolean enable_sound_menu = true; //Option for GUI
 	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
-	public static final boolean enable_ARM = true; //Enable if you build QEMU with Arm softmmu
+	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
 	public static final boolean enable_KVM = false; //Enable if you build with KVM support
 	
 	public static final boolean enable_qemu_fullScreen = true;
@@ -102,7 +102,7 @@ public class Config {
 	public static String sharedFolder = basefiledir + "shared";
 	public static String tmpFolder = basefiledir + "tmp"; // Do not modify
 	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
-	public static boolean enableOpenSL; //us
+	public static boolean enableOpenSL; //future enhancement
 	
 	public static final String machinedir = basefiledir + "machines/";
 	public static final boolean enableHDCache = false;
@@ -140,7 +140,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = true;
+	public static final boolean debug = false;
 	public static final DebugMode debugMode = DebugMode.X86_64;
 	
 	
