@@ -5602,7 +5602,14 @@ if test "$linux" = "yes" ; then
   esac
     # For non-KVM architectures we will not have asm headers
     if [ -e "$source_path/linux-headers/asm-$linux_arch" ]; then
-      symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm
+    	#symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm
+    	case "$OSTYPE" in
+			cygwin*) rm -rf "$source_path/linux-headers/asm" \
+				&& cygstart --action=runas cmd /c \
+				mklink /d "`cygpath -w \"$source_path/linux-headers/asm"`" "`cygpath \
+				-w \"$source_path/linux-headers/asm-$linux_arch"`" ;;		
+			*) symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm ;;
+		esac
     fi
 fi
 
