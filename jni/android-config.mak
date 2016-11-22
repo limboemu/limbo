@@ -9,7 +9,7 @@ LIMBO_JNI_ROOT_INC := C:/users/dev/limbo/limbo-android/jni
 
 # Enable KVM (NOT Tested)
 # Note: KVM headers are available only for android-21 platform and above
-USE_KVM ?= false
+USE_KVM ?= true
 
 # If you want to use SDL (not working for Hard-float device config, see below)
 USE_SDL ?= true
@@ -25,22 +25,27 @@ USE_SDL_AUDIO ?= true
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
 # We use at least android-19 since it ensures that older android libc versions (from 12 to 19) that use "signal" differently will work
 # Note: Android Emulator with version lesser than 12 might be failing because of sigsetjmp. This is a known issue, you should use a real device instead.  
-APP_PLATFORM = android-14
+APP_PLATFORM = android-21
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # If you use platform-21 and above
-USE_NDK_PLATFORM21 ?= false
+USE_NDK_PLATFORM21 ?= true
 
 # Faster Builds with multiple threads
-BUILD_THREADS=4
+BUILD_THREADS=8
 
 ####### Windows/Cygwin SECTION END
 # If you use Windows to build
 
+# ndk 13b for x86
+NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
+NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
+NDK_ENV = windows
+
 # ndk 13 for 64bit
-NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-NDK_ENV = windows-x86_64
+#NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+#NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+#NDK_ENV = windows-x86_64
 
 # ndk 12
 #NDK_ROOT = C:/tools/bin/android-ndk-r12b-windows-x86/android-ndk-r12b
@@ -93,7 +98,7 @@ NDK_ENV = windows-x86_64
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 # ARMv7 Generic soft float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
@@ -107,7 +112,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.
 
 ######### x86
 # x86 Phones (ie Zenfone)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # x86 Phones Debug No optimization (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
