@@ -9,7 +9,7 @@ LIMBO_JNI_ROOT_INC := C:/users/dev/limbo/limbo-android/jni
 
 # Enable KVM (NOT Tested)
 # Note: KVM headers are available only for android-21 platform and above
-USE_KVM ?= true
+USE_KVM ?= false
 
 # If you want to use SDL (not working for Hard-float device config, see below)
 USE_SDL ?= true
@@ -26,11 +26,11 @@ USE_SDL_AUDIO ?= true
 # Note 1: Building for Android ARM requires ndk13 and android-14
 # Note 2: Building for Android x86 requires ndk13b and android-17
 # Note 3: Building for Android x86 w/ KVM support requires ndk13b and android-21 
-APP_PLATFORM = android-21
+APP_PLATFORM = android-17
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 # If you use platform-21 and above
-USE_NDK_PLATFORM21 ?= true
+USE_NDK_PLATFORM21 ?= false
 
 # Faster Builds with multiple threads
 BUILD_THREADS=8

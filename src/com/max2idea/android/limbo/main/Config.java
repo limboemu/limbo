@@ -87,7 +87,7 @@ public class Config {
 	public static final boolean enable_sound_menu = true; //Option for GUI
 	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
 	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_KVM = true; //Enable if you build with KVM support
+	public static final boolean enable_KVM = false; //Enable if you build with KVM support
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
