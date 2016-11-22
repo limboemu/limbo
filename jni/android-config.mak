@@ -23,8 +23,9 @@ USE_SDL_AUDIO ?= true
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
-# We use at least android-19 since it ensures that older android libc versions (from 12 to 19) that use "signal" differently will work
-# Note: Android Emulator with version lesser than 12 might be failing because of sigsetjmp. This is a known issue, you should use a real device instead.  
+# Note 1: Building for Android ARM requires ndk13 and android-14
+# Note 2: Building for Android x86 requires ndk13b and android-17
+# Note 3: Building for Android x86 w/ KVM support requires ndk13b and android-21 
 APP_PLATFORM = android-21
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
