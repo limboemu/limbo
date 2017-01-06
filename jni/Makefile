@@ -1,9 +1,17 @@
 .PHONY: createdirs ndk qemu limbo
 
 include android-config.mak
+
+ifeq ($(NDK_ENV), windows)
+	NDK_BUILD = ndk_build.cmd
+else ifeq ($(NDK_ENV), windows-x86_64)
+	NDK_BUILD = ndk_build.cmd
+else
+	NDK_BUILD = ndk_build
+endif	
 	
-ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build.cmd -j $(BUILD_THREADS) NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
-ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build.cmd clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkbuild=cd $(NDK_PROJECT_PATH) && $(NDK_BUILD) -j $(BUILD_THREADS) NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+ndkclean=cd $(NDK_PROJECT_PATH) && $(NDK_BUILD) clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 ndkcleanobj=rm -rf $(NDK_PROJECT_PATH)/obj/
 
 prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
@@ -12,7 +20,14 @@ prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
 	&& dos2unix $(LIMBO_JNI_ROOT)/qemu/dtc/scripts/* \
 	&& chmod u+x -R $(LIMBO_JNI_ROOT)/qemu/scripts
 
-ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb.cmd
+ifeq ($(NDK_ENV), windows)
+	ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb.cmd
+else ifeq ($(NDK_ENV), windows-x86_64)
+	ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb.cmd
+else
+	ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb
+endif	
+
 
 CREATE_OBJDIR=mkdir -p $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/
 CREATE_LIBSDIR=mkdir -p $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/
