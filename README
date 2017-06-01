@@ -39,19 +39,22 @@ https://github.com/limboemu/limbo
     export PATH=$PATH:/home/dev/tools/android/android-ndk-r13
     
     c. Get QEMU version
-    Get QEMU version 2.9.0 from:
-	http://download.qemu-project.org/qemu-2.9.0.tar.xz
-    extract and place contents in directory ../limbo-android/jni/qemu
+    Get QEMU version 2.9.0 and extract somewhere outside of Limbo directories (important!):
+    cd /cygdrive/c/temp/
+	wget http://download.qemu-project.org/qemu-2.9.0.tar.xz
+    tar -xJf qemu-2.9.0.tar.xz
     	
     d. Apply QEMU patch for Limbo:
-	copy patch qemu-2.9.0.patch from ../limbo-android/jni/qemu-patches to ../limbo-android/jni/qemu
-	apply patch using> git apply qemu-2.9.0.patch
+	cp /cygdrive/c/users/youraccount/.../limbo-android/jni/qemu-patches/qemu-2.9.0.patch /cygdrive/c/temp/qemu-2.9.0/
+	cd /cygdrive/c/temp/qemu-2.9.0
+	git apply qemu-2.9.0.patch
+	mv /cygdrive/c/temp/qemu-2.9.0/* /cygdrive/c/users/youraccount/.../limbo-android/jni/qemu/
 
-    e. For linux/MacOSX make sure the configure script under ..../qemu/configure is executable 
+    e. For linux/MacOSX make sure the configure script under .../qemu/configure is executable 
     chmod u+x qemu/configure 
     
-    f. install libfdt source code with:
-    cd jni/qemu/
+    f. If you need libfdt source code install it with:
+    cd qemu/
     git submodule update --init dtc
     
     g. fix script permissions, run:
@@ -110,8 +113,10 @@ https://github.com/limboemu/limbo
         iii. > make config
         iv.  > make release
    
-    f. If you want to build the ARM Emulator update android-qemu-config.mak file with:
-    TARGET_LIST = arm-softmmu    
+    f. If you want to build the ARM,MIPS,PowerPC Emulator update android-qemu-config.mak file with:
+    TARGET_LIST = arm-softmmu
+    TARGET_LIST = mips-softmmu
+	TARGET_LIST = ppc-softmmu
     
     h. To clean up type:
     	> make clean
