@@ -747,6 +747,20 @@ index bf17b42..fea70c7 100644
      fd = open(rom->path, O_RDONLY | O_BINARY);
      if (fd == -1) {
          fprintf(stderr, "Could not open option rom '%s': %s\n",
+diff --git a/hw/scsi/mptsas.c b/hw/scsi/mptsas.c
+index 765ab53..4b6dea9 100644
+--- a/hw/scsi/mptsas.c
++++ b/hw/scsi/mptsas.c
+@@ -1239,7 +1239,8 @@ static void *mptsas_load_request(QEMUFile *f, SCSIRequest *sreq)
+      * When we do, we might be able to re-enable NDEBUG below.
+      */
+ #ifdef NDEBUG
+-#error building with NDEBUG is not supported
++//Limbo:
++//#error building with NDEBUG is not supported
+ #endif
+     assert(n >= 0);
+ 
 diff --git a/hw/usb/dev-mtp.c b/hw/usb/dev-mtp.c
 index 94c2e94..6ea08ce 100644
 --- a/hw/usb/dev-mtp.c
@@ -1181,6 +1195,28 @@ index c6ddb7d..7a91cfd 100644
  
      /* keep pidfile open & locked forever */
      return 0;
+diff --git a/roms/u-boot/tools/buildman/buildman b/roms/u-boot/tools/buildman/buildman
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/roms/u-boot/tools/buildman/buildman b/roms/u-boot/tools/buildman/buildman
+new file mode 120000
+index 0000000..e4fba2d
+--- /dev/null
++++ b/roms/u-boot/tools/buildman/buildman
+@@ -0,0 +1 @@
++buildman.py
+\ No newline at end of file
+diff --git a/roms/u-boot/tools/patman/patman b/roms/u-boot/tools/patman/patman
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/roms/u-boot/tools/patman/patman b/roms/u-boot/tools/patman/patman
+new file mode 120000
+index 0000000..6cc3d7a
+--- /dev/null
++++ b/roms/u-boot/tools/patman/patman
+@@ -0,0 +1 @@
++patman.py
+\ No newline at end of file
 diff --git a/rules.mak b/rules.mak
 index 1c0eabb..4f258d0 100644
 --- a/rules.mak
