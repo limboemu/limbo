@@ -149,7 +149,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = true;
+	public static final boolean debug = false;
 	public static final DebugMode debugMode = DebugMode.X86_64;
 	
 	
