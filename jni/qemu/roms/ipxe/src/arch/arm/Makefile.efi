@@ -1,6 +1,0 @@
-# -*- makefile -*- : Force emacs to use Makefile mode
-
-# Include generic EFI Makefile
-#
-MAKEDEPS	+= Makefile.efi
-include Makefile.efi

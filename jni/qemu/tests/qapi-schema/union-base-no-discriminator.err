@@ -1,1 +1,0 @@
-tests/qapi-schema/union-base-no-discriminator.json:11: Simple union 'TestUnion' must not have a base

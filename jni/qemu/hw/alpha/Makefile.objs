@@ -1,1 +1,0 @@
-obj-y += dp264.o pci.o typhoon.o

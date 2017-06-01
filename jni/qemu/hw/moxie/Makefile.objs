@@ -1,2 +1,0 @@
-# moxie boards
-obj-y += moxiesim.o

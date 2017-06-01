@@ -1,9 +1,0 @@
-MlxDebugLogImpl()
-		{
-	DBGC((DEBUG),"");
-		}
-MlxInfoLogImpl()
-{
-	DBGC((INFO),"");
-			}
-}

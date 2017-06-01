@@ -1,5 +1,0 @@
-<build condition="IPF">
- <dictionary name="openbios-ia64" init="openbios" target="forth">
-  <object source="init.fs"/>
- </dictionary>
-</build>

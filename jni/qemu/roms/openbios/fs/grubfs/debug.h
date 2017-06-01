@@ -1,1 +1,0 @@
-/* for grub compatibility */

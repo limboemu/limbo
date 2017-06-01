@@ -1,1 +1,0 @@
-tests/qapi-schema/returns-whitelist.json:10: 'returns' for command 'no-way-this-will-get-whitelisted' cannot use built-in type 'int'

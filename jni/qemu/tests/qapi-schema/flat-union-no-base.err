@@ -1,1 +1,0 @@
-tests/qapi-schema/flat-union-no-base.json:9: Flat union 'TestUnion' must have a base

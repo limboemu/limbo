@@ -1,1 +1,0 @@
-tests/qapi-schema/union-unknown.json:2: Member 'unknown' of union 'Union' uses unknown type 'MissingType'

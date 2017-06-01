@@ -1,6 +1,0 @@
-# -*- makefile -*- : Force emacs to use Makefile mode
-
-# Include generic BIOS Makefile
-#
-MAKEDEPS	+= arch/x86/Makefile.pcbios
-include arch/x86/Makefile.pcbios

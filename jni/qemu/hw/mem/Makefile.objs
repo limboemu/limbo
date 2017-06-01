@@ -1,2 +1,0 @@
-common-obj-$(CONFIG_MEM_HOTPLUG) += pc-dimm.o
-common-obj-$(CONFIG_NVDIMM) += nvdimm.o

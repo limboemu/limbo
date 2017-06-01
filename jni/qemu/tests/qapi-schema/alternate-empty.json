@@ -1,2 +1,0 @@
-# alternates must list at least two types to be useful
-{ 'alternate': 'Alt', 'data': { 'i': 'int' } }

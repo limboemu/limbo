@@ -1,1 +1,0 @@
-tests/qapi-schema/args-name-clash.json:4: 'a_b' (parameter of oops) collides with 'a-b' (parameter of oops)
