@@ -5,7 +5,7 @@ Limbo v2.9.0 Alpha<br>
 - Fixed issue with fullscreen for SDL<br>
 - Fixed notifications<br>
 - Fix build under non-Windows environment (patch by paul70078 github)
-- Minimum Requirements: Android OS 14/17<br> 
+- Minimum Requirements: Android OS 17<br> 
 <br>
 
 <br>
