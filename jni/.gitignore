@@ -5,4 +5,16 @@
 /png/
 /sdl_latest/
 /android-spice-config.mak
-/qemu.2.3.0.patch
+
+#patches
+/qemu-patches/qemu-2.3.0.patch
+/qemu-patches/qemu-2.7.0.patch
+/qemu-patches/qemu-2.9.0-rc0.patch
+#/qemu-patches/qemu-2.9.0.patch
+/create-patch.sh
+
+/buildlog.txt
+/buildlogerr.txt
+
+#Don't check in just provide patches
+/qemu

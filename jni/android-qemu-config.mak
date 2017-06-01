@@ -4,7 +4,12 @@ include android-config.mak
 
 ####### x86 and ARM devices support
 #ARM is currently very slow
-#Possible Values=arm-softmmu,x86_64-softmmu
+#Possible Values=aarch64-softmmu,arm-softmmu,x86_64-softmmu,i386-softmmu,
+#  ppc-softmmu, ppc64-softmmu.mak,ppcemb-softmmu.mak,s390x-softmmu.mak,
+#  sh4-softmmu.mak, sh4eb-softmmu.mak, sparc-softmmu.mak, sparc64-softmmu.mak, xtensa-softmmu.mak,xtensaeb-softmmu.mak
+#  microblaze-softmmu,microblazeel-softmmu,mips-softmmu,mips64-softmmu.mak,mips64el-softmmu
+#  mipsel-softmmu, lm32-softmmu.mak, m68k-softmmu.mak, alpha-softmmu.mak, cris-softmmu.mak
+# QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu
 QEMU_TARGET_LIST = x86_64-softmmu
 
 #use coroutine
@@ -103,9 +108,15 @@ MISC += --disable-vde --disable-netmap --disable-cap-ng --disable-zlib-test
 MISC += --disable-attr --disable-guest-agent --disable-pie
 MISC += --disable-rbd --disable-xfsctl  --disable-lzo  --disable-snappy 
 MISC += --disable-seccomp --disable-bzip2 --disable-glusterfs 
-MISC += --disable-archipelago --disable-vte --disable-libssh2 --disable-vhdx
+MISC += --disable-vte --disable-libssh2 --disable-vhdx
 MISC += --disable-opengl
 MISC += --disable-blobs
+MISC += --disable-werror
+MISC += --disable-gnutls
+MISC += --disable-nettle
+
+#Trying nop doesn't work
+#MISC += --enable-trace-backends=nop
 
 #NUMA
 NUMA = --disable-numa

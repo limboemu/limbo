@@ -200,11 +200,13 @@ public class SDLActivity extends AppCompatActivity {
 		Log.v(TAG, "Model: " + android.os.Build.MODEL);
 		Log.v(TAG, "onCreate(): " + mSingleton);
 		super.onCreate(savedInstanceState);
-
+		
 		SDLActivity.initialize();
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 
+		setupVolume();
+		
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
 		try {
@@ -276,7 +278,6 @@ public class SDLActivity extends AppCompatActivity {
 		if (SDLActivity.mBrokenLibraries) {
 			return;
 		}
-
 		SDLActivity.handlePause();
 	}
 
@@ -484,6 +485,8 @@ public class SDLActivity extends AppCompatActivity {
 	// Handler for the messages
 	protected Handler commandHandler = new SDLCommandHandler();
 
+	protected static int maxVolume;
+
 	// Send a message from the SDLMain thread
 	protected boolean sendCommand(int command, Object data) {
 		Message msg = commandHandler.obtainMessage();
@@ -680,7 +683,7 @@ public class SDLActivity extends AppCompatActivity {
 				mAudioTrack = null;
 				return -1;
 			}
-			setVolume(volume);
+			
 			mAudioTrack.play();
 		}
 
@@ -692,10 +695,26 @@ public class SDLActivity extends AppCompatActivity {
 		return 0;
 	}
 
-	public static float volume = (float) 0.3;
-	public static void setVolume(float volume) {
+	public static AudioManager am;
+	protected static void setupVolume(){
+		if (am == null) {
+			 am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
+			 maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+		}
+	}
+	public static void setVolume(int volume) {
 		
-		mAudioTrack.setVolume(volume);
+		am.setStreamVolume(
+			    AudioManager.STREAM_MUSIC,
+			    volume,
+			    0);
+	}
+
+	protected static int getCurrentVolume() {
+		 
+		AudioManager am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
+		int volumeTmp = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+		return volumeTmp;
 	}
 
 	static ArrayList<short[]> audioShortBuffer = new ArrayList<short[]>();

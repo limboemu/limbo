@@ -104,6 +104,7 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
@@ -291,6 +292,22 @@ public class LimboActivity extends AppCompatActivity {
 							populateNetDevices("smc91c111");
 						}
 
+					} else if (currMachine.arch.equals("MIPS")) {
+
+						if (!machineLoaded) {
+							populateMachineType("malta");
+							populateCPUs("Default");
+							// populateNetDevices("smc91c111");
+						}
+
+					} else if (currMachine.arch.equals("PPC")) {
+
+						if (!machineLoaded) {
+							populateMachineType("Default");
+							populateCPUs("Default");
+							// populateNetDevices("smc91c111");
+						}
+
 					} else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
 
 						if (!machineLoaded) {
@@ -306,7 +323,8 @@ public class LimboActivity extends AppCompatActivity {
 				}
 
 				if (currMachine != null)
-					if (currMachine.arch.equals("ARM")) {
+					if (currMachine.arch.equals("ARM") || currMachine.arch.equals("MIPS")
+							|| currMachine.arch.equals("PPC")) {
 						mACPI.setEnabled(false);
 						mHPET.setEnabled(false);
 						mFDBOOTCHK.setEnabled(false);
@@ -1502,12 +1520,20 @@ public class LimboActivity extends AppCompatActivity {
 
 		// For debugging purposes
 		if (Config.debug) {
-			if (Config.debugMode == DebugMode.X86)
-				System.loadLibrary("qemu-system-i386");
-			else if (Config.debugMode == DebugMode.X86_64)
+			if (Config.debugMode == DebugMode.X86) {
+				try {
+					System.loadLibrary("qemu-system-i386");
+				} catch (Exception ex) {
+					System.loadLibrary("qemu-system-x86_64");
+				}
+			} else if (Config.debugMode == DebugMode.X86_64)
 				System.loadLibrary("qemu-system-x86_64");
 			else if (Config.debugMode == DebugMode.ARM)
 				System.loadLibrary("qemu-system-arm");
+			else if (Config.debugMode == DebugMode.MIPS)
+				System.loadLibrary("qemu-system-mips");
+			else if (Config.debugMode == DebugMode.PPC)
+				System.loadLibrary("qemu-system-ppc");
 		}
 
 		Toolbar tb = (Toolbar) findViewById(R.id.toolbar);
@@ -1588,7 +1614,7 @@ public class LimboActivity extends AppCompatActivity {
 		TextView stateView = new TextView(activity);
 		stateView.setText("There is a new version available with fixes and new features. Do you want to update?");
 		stateView.setId(201012014);
-		stateView.setPadding(5, 5, 5, 5);
+		stateView.setPadding(10, 10, 10, 10);
 		alertDialog.setView(stateView);
 
 		// alertDialog.setMessage(body);
@@ -1812,17 +1838,39 @@ public class LimboActivity extends AppCompatActivity {
 				machineDB.insertMachine(currMachine);
 
 				// default settings
-				machineDB.update(currMachine, MachineOpenHelper.ARCH, "x86");
-				machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "pc");
-				machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
-				machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
-				machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
-				machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, "ne2k_pci");
+				if (Config.enable_X86 || Config.enable_X86_64) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "x86");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "pc");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
+					machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, "ne2k_pci");
+				} else if (Config.enable_ARM) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "ARM");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "integratorcp");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "arm926");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
+					machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, "smc91c111");
+				} else if (Config.enable_MIPS) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "MIPS");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "malta");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
+				} else if (Config.enable_PPC) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "PPC");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
+				}
 
 				Toast.makeText(activity, "VM Created: " + machineValue, Toast.LENGTH_SHORT).show();
 				populateMachines();
 				setMachine(machineValue);
-				if (LimboActivity.currMachine != null && currMachine.cpu != null && currMachine.cpu.endsWith("(arm)")) {
+				if (LimboActivity.currMachine != null && currMachine.cpu != null && (currMachine.cpu.endsWith("(arm)")
+						|| currMachine.arch.startsWith("MIPS") || currMachine.arch.startsWith("PPC"))) {
 					mMachineType.setEnabled(true); // Disabled for now
 				}
 				enableNonRemovableDeviceOptions(true);
@@ -2205,7 +2253,7 @@ public class LimboActivity extends AppCompatActivity {
 		this.mVGAConfig.setEnabled(flag);
 
 		if (Config.enable_sound_menu || !flag)
-			if(currMachine!=null && currMachine.ui!=null && currMachine.ui.equals("SDL"))
+			if (currMachine != null && currMachine.ui != null && currMachine.ui.equals("SDL"))
 				this.mSoundCardConfig.setEnabled(flag);
 			else
 				this.mSoundCardConfig.setEnabled(false);
@@ -2229,7 +2277,9 @@ public class LimboActivity extends AppCompatActivity {
 		this.mSnapshot.setEnabled(flag);
 		this.mFDBOOTCHK.setEnabled(flag);
 		this.mDNS.setEnabled(flag);
-		this.mHOSTFWD.setEnabled(flag);
+
+		// XXX: we need to be able to change this when we resume
+		this.mHOSTFWD.setEnabled(true);
 
 		mHDAenable.setEnabled(flag);
 		mHDBenable.setEnabled(flag);
@@ -2293,6 +2343,20 @@ public class LimboActivity extends AppCompatActivity {
 
 	private ArrayAdapter<String> orientationAdapter;
 	private ArrayAdapter<String> keyboardAdapter;
+	private LinearLayout mCPUSectionDetails;
+	private TextView mCPUSectionHeader;
+	private LinearLayout mStorageSectionDetails;
+	private TextView mStorageSectionHeader;
+	private LinearLayout mUserInterfaceSectionDetails;
+	private TextView mUserInterfaceSectionHeader;
+	private LinearLayout mAdvancedSectionDetails;
+	private TextView mAdvancedSectionHeader;
+	private View mBootSectionHeader;
+	private LinearLayout mBootSectionDetails;
+	private LinearLayout mMiscStorageSectionDetails;
+	private TextView mMiscStorageSectionHeader;
+	private LinearLayout mRemovableStorageSectionDetails;
+	private TextView mRemovableStorageSectionHeader;
 
 	// Main event function
 	// Retrives values from saved preferences
@@ -2571,8 +2635,18 @@ public class LimboActivity extends AppCompatActivity {
 		t.start();
 	}
 
+	public void toggleVisibility(View view) {
+		if (view.getVisibility() == View.VISIBLE) {
+			view.setVisibility(View.GONE);
+		} else if (view.getVisibility() == View.GONE) {
+			view.setVisibility(View.VISIBLE);
+		}
+	}
+
 	// Setting up the UI
 	public void setupWidgets() {
+
+		setupSections();
 
 		this.mStatus = (ImageView) findViewById(R.id.statusVal);
 		this.mStatus.setImageResource(R.drawable.off);
@@ -2606,10 +2680,10 @@ public class LimboActivity extends AppCompatActivity {
 		// this.mMachineType.setEnabled(false);
 
 		View machineType = (View) findViewById(R.id.machinetypel);
-		if (Config.enable_ARM)
-			machineType.setVisibility(View.VISIBLE);
-		else
-			machineType.setVisibility(View.GONE);
+		// if (Config.enable_ARM || Config.enable_MIPS)
+		// machineType.setVisibility(View.VISIBLE);
+		// else
+		// machineType.setVisibility(View.GONE);
 
 		this.mCPUNum = (Spinner) findViewById(R.id.cpunumval);
 		this.mUI = (Spinner) findViewById(R.id.uival);
@@ -2706,6 +2780,74 @@ public class LimboActivity extends AppCompatActivity {
 
 		enableListeners();
 
+	}
+
+	private void setupSections() {
+		// TODO Auto-generated method stub
+		if (Config.collapseSections) {
+			mCPUSectionDetails = (LinearLayout) findViewById(R.id.cpusectionDetails);
+			mCPUSectionDetails.setVisibility(View.GONE);
+			mCPUSectionHeader = (TextView) findViewById(R.id.cpusectionStr);
+			mCPUSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mCPUSectionDetails);
+				}
+			});
+
+			mStorageSectionDetails = (LinearLayout) findViewById(R.id.storagesectionDetails);
+			mStorageSectionDetails.setVisibility(View.GONE);
+			mStorageSectionHeader = (TextView) findViewById(R.id.storagesectionStr);
+			mStorageSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mStorageSectionDetails);
+				}
+			});
+
+			mUserInterfaceSectionDetails = (LinearLayout) findViewById(R.id.userInterfaceDetails);
+			mUserInterfaceSectionDetails.setVisibility(View.GONE);
+			mUserInterfaceSectionHeader = (TextView) findViewById(R.id.userInterfaceSectionStr);
+			mUserInterfaceSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mUserInterfaceSectionDetails);
+				}
+			});
+
+			mRemovableStorageSectionDetails = (LinearLayout) findViewById(R.id.removableStoragesectionDetails);
+			mRemovableStorageSectionDetails.setVisibility(View.GONE);
+			mRemovableStorageSectionHeader = (TextView) findViewById(R.id.removableStoragesectionStr);
+			mRemovableStorageSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mRemovableStorageSectionDetails);
+				}
+			});
+
+			mMiscStorageSectionDetails = (LinearLayout) findViewById(R.id.miscsectionDetails);
+			mMiscStorageSectionDetails.setVisibility(View.GONE);
+			mMiscStorageSectionHeader = (TextView) findViewById(R.id.miscsectionStr);
+			mMiscStorageSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mMiscStorageSectionDetails);
+				}
+			});
+
+			mBootSectionDetails = (LinearLayout) findViewById(R.id.bootsectionDetails);
+			mBootSectionDetails.setVisibility(View.GONE);
+			mBootSectionHeader = (TextView) findViewById(R.id.bootsectionStr);
+			mBootSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mBootSectionDetails);
+				}
+			});
+
+			mAdvancedSectionDetails = (LinearLayout) findViewById(R.id.advancedSectionDetails);
+			mAdvancedSectionDetails.setVisibility(View.GONE);
+			mAdvancedSectionHeader = (TextView) findViewById(R.id.advancedSectionStr);
+			mAdvancedSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mAdvancedSectionDetails);
+				}
+			});
+		}
 	}
 
 	private void triggerUpdateSpinner(final Spinner spinner) {
@@ -2846,6 +2988,7 @@ public class LimboActivity extends AppCompatActivity {
 
 		RelativeLayout mLayout = new RelativeLayout(this);
 		mLayout.setId(12222);
+		mLayout.setPadding(10,10,10,10);
 
 		RelativeLayout.LayoutParams textViewParams = new RelativeLayout.LayoutParams(
 				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
@@ -2992,18 +3135,18 @@ public class LimboActivity extends AppCompatActivity {
 		this.enableNonRemovableDeviceOptions(true);
 		this.enableRemovableDeviceOptions(true);
 
-		if(currMachine.ui!=null && currMachine.ui.equals("SDL")){
+		if (currMachine.ui != null && currMachine.ui.equals("SDL")) {
 			mSoundCardConfig.setEnabled(true);
-		}else
+		} else
 			mSoundCardConfig.setEnabled(false);
-		
+
 		mMachine.setEnabled(false);
 
 		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 			@Override
 			public void run() {
 				Log.d(TAG, "loadMachine: setUserPressed true");
-				
+
 				if (currMachine.fda_img_path != null) {
 					mFDAenable.setChecked(true);
 				} else
@@ -3049,8 +3192,6 @@ public class LimboActivity extends AppCompatActivity {
 				} else
 					mSharedFolderenable.setChecked(false);
 
-				
-
 				if (currMachine.paused == 1) {
 					sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "PAUSED");
 					enableNonRemovableDeviceOptions(false);
@@ -3060,7 +3201,7 @@ public class LimboActivity extends AppCompatActivity {
 					enableNonRemovableDeviceOptions(true);
 					enableRemovableDeviceOptions(true);
 				}
-				
+
 				setUserPressed(true);
 				machineLoaded = false;
 				mMachine.setEnabled(true);
@@ -3076,12 +3217,13 @@ public class LimboActivity extends AppCompatActivity {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Machine Name");
-		EditText searchView = new EditText(activity);
-		searchView.setEnabled(true);
-		searchView.setVisibility(View.VISIBLE);
-		searchView.setId(201012010);
-		searchView.setSingleLine();
-		alertDialog.setView(searchView);
+		EditText vmNameTextView = new EditText(activity);
+		vmNameTextView.setPadding(10,10,10,10);
+		vmNameTextView.setEnabled(true);
+		vmNameTextView.setVisibility(View.VISIBLE);
+		vmNameTextView.setId(201012010);
+		vmNameTextView.setSingleLine();
+		alertDialog.setView(vmNameTextView);
 		final Handler handler = this.handler;
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
@@ -3110,6 +3252,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog.setTitle("Image Name");
 
 		RelativeLayout mLayout = new RelativeLayout(this);
+		mLayout.setPadding(10, 10, 10, 10);
 		mLayout.setId(12222);
 
 		EditText imageNameView = new EditText(activity);
@@ -3293,6 +3436,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Snapshot/State Name");
 		EditText searchView = new EditText(activity);
+		searchView.setPadding(10, 10, 10, 10);
 		searchView.setEnabled(true);
 		searchView.setVisibility(View.VISIBLE);
 		searchView.setId(201012010);
@@ -3545,7 +3689,7 @@ public class LimboActivity extends AppCompatActivity {
 				+ "Warning: VNC Connection is Unencrypted and not secure make sure you're on a private network!\n");
 
 		stateView.setId(201012555);
-		stateView.setPadding(5, 5, 5, 5);
+		stateView.setPadding(10, 10, 10, 10);
 		alertDialog.setView(stateView);
 
 		// alertDialog.setMessage(body);
@@ -4458,6 +4602,13 @@ public class LimboActivity extends AppCompatActivity {
 		arrARM.add("cortex-a9");
 		arrARM.add("cortex-a15");
 
+		// Mips cpus
+		ArrayList<String> arrMips = new ArrayList<String>();
+		arrMips.add("Default");
+
+		ArrayList<String> arrPpc = new ArrayList<String>();
+		arrPpc.add("Default");
+
 		// "arm1136 (arm)", "arm1136-r2 (arm)", "arm1176 (arm)",
 		// "arm11mpcore (arm)", "cortex-m3 (arm)", "cortex-a8 (arm)",
 		// "cortex-a8-r2 (arm)", "cortex-a9 (arm)", "cortex-a15 (arm)",
@@ -4477,6 +4628,10 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.addAll(arrX86_64);
 			} else if (currMachine.arch.equals("ARM")) {
 				arrList.addAll(arrARM);
+			} else if (currMachine.arch.equals("MIPS")) {
+				arrList.addAll(arrMips);
+			} else if (currMachine.arch.equals("PPC")) {
+				arrList.addAll(arrPpc);
 			}
 		} else {
 			arrList.addAll(arrX86);
@@ -4506,12 +4661,23 @@ public class LimboActivity extends AppCompatActivity {
 	private void populateArch() {
 		this.userPressedArch = false;
 
-		String[] arraySpinner = { "x86", "x64" };
+		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
+		if (Config.enable_X86)
+			arrList.add("x86");
+		if (Config.enable_X86_64)
+			arrList.add("x64");
+
 		if (Config.enable_ARM)
 			arrList.add("ARM");
+
+		if (Config.enable_MIPS)
+			arrList.add("MIPS");
+
+		if (Config.enable_PPC)
+			arrList.add("PPC");
 
 		archAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
 
@@ -4598,12 +4764,22 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.add("xilinx-zynq-a9 - Xilinx Zynq Platform Baseboard for Cortex-A9");
 				arrList.add("smdkc210 - Samsung SMDKC210 board (Exynos4210)");
 				arrList.add("virt - ARM Virtual Machine");
+			} else if (currMachine.arch.equals("MIPS")) {
+				arrList.add("malta");
+			} else if (currMachine.arch.equals("PPC")) {
+				arrList.add("Default");
+				arrList.add("mac99");
+				arrList.add("g3bw");
+				arrList.add("g3beige");
+				arrList.add("prep");
+
 			}
-		} else {
-			arrList.add("pc");
-			arrList.add("q35");
-			arrList.add("isapc");
 		}
+		// else {
+		// arrList.add("pc");
+		// arrList.add("q35");
+		// arrList.add("isapc");
+		// }
 
 		if (machineTypeAdapter == null) {
 			machineTypeAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
@@ -4968,7 +5144,7 @@ public class LimboActivity extends AppCompatActivity {
 			} else if (type.equals("sd")) {
 				this.mSD.getAdapter().getCount();
 			}
-			if(file!=null && !file.equals(""))
+			if (file != null && !file.equals(""))
 				favDB.insertFavURL(file, type);
 		}
 

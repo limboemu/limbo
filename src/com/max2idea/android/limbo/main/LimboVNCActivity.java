@@ -155,10 +155,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	public void onPause() {
+		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running in Background");
 		super.onPause();
 	}
 
 	public void onResume() {
+		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
 		super.onResume();
 	}
 
@@ -564,6 +566,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	private void resumeVMMonitor() {
+		if(LimboActivity.vmexecutor == null){
+			return;
+		}
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				if (LimboActivity.vmexecutor.paused == 1) {
@@ -747,7 +752,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		TextView stateView = new TextView(activity);
 		stateView.setText("This make take a while depending on the RAM size used");
 		stateView.setId(201012011);
-		stateView.setPadding(5, 5, 5, 5);
+		stateView.setPadding(10, 10, 10, 10);
 		alertDialog.setView(stateView);
 
 		// alertDialog.setMessage(body);

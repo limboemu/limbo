@@ -149,12 +149,33 @@ public class VMExecutor {
 				this.machine_type = machine.machine_type;
 		} else if (machine.arch.endsWith("x86")) {
 			this.cpu = machine.cpu;
-			// x86_64 can run 32bit as well as no need for the extra lib
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
+			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-i386.so";
+			File libFile = new File(libqemu);
+			if(!libFile.exists()){
+				this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";	
+			}
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86";
 			if(machine.machine_type == null)
 				this.machine_type = "pc";
+			else
+				this.machine_type = machine.machine_type;
+		} else if (machine.arch.endsWith("MIPS")) {
+			this.cpu = machine.cpu;
+			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-mips.so";
+			this.cpu = machine.cpu.split(" ")[0];
+			this.arch = "mips";
+			if(machine.machine_type == null)
+				this.machine_type = "malta";
+			else
+				this.machine_type = machine.machine_type;
+		} else if (machine.arch.endsWith("PPC")) {
+			this.cpu = machine.cpu;
+			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc.so";
+			this.cpu = machine.cpu.split(" ")[0];
+			this.arch = "ppc";
+			if(machine.machine_type == null)
+				this.machine_type = "Default";
 			else
 				this.machine_type = machine.machine_type;
 		}
@@ -270,7 +291,13 @@ public class VMExecutor {
 		// loadNativeLib(this., FileUtils.getDataDir() + "/lib");
 
 		if (!Config.debug) {
-			if (arch.equals("x86") || arch.equals("x86_64")) {
+			if (arch.equals("x86")) {
+				try {
+					System.loadLibrary("qemu-system-i386");
+				} catch (Exception ex){
+					System.loadLibrary("qemu-system-x86_64");
+				}
+			}if (arch.equals("x86_64")){
 				System.loadLibrary("qemu-system-x86_64");
 			} else if (arch.equals("arm")) {
 				System.loadLibrary("qemu-system-arm");

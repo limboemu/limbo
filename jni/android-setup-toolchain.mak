@@ -16,6 +16,11 @@ else ifeq ($(APP_ABI),armeabi-v7a-hard)
     TOOLCHAIN_PREFIX = arm-linux-androideabi-
     TARGET_ARCH=arm
     APP_ABI_DIR=armeabi-v7a
+else ifeq ($(APP_ABI),arm64-v8a)
+    EABI = aarch64-linux-android-$(NDK_TOOLCHAIN_VERSION)
+    TOOLCHAIN_PREFIX = aarch64-linux-android-
+    TARGET_ARCH=arm64
+    APP_ABI_DIR=$(APP_ABI)
 else ifeq ($(APP_ABI),x86)
     EABI = x86-$(NDK_TOOLCHAIN_VERSION)
     TOOLCHAIN_PREFIX = i686-linux-android-

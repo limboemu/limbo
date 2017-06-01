@@ -43,6 +43,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
@@ -139,12 +140,12 @@ public class LimboSDLActivity extends SDLActivity {
 		// TODO Auto-generated method stub
 		Thread t = new Thread(new Runnable() {
 			public void run() {
-//				Log.d("SDL", "Mouse Single Click");
+				// Log.d("SDL", "Mouse Single Click");
 				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException ex) {
-//					Log.v("singletap", "Could not sleep");
+					// Log.v("singletap", "Could not sleep");
 				}
 				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
 			}
@@ -780,7 +781,6 @@ public class LimboSDLActivity extends SDLActivity {
 			MenuItemCompat.setShowAsAction(menu.getItem(i), MenuItemCompat.SHOW_AS_ACTION_IF_ROOM);
 		}
 
-		
 		return true;
 
 	}
@@ -1037,7 +1037,11 @@ public class LimboSDLActivity extends SDLActivity {
 		// Log.v("SDL", "onCreate()");
 
 		UIUtils.setOrientation(this);
-		
+
+		if (LimboSettingsManager.getFullscreen(this))
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
 		super.onCreate(savedInstanceState);
 
 		Log.v("SDL", "Max Mem = " + Runtime.getRuntime().maxMemory());
@@ -1068,9 +1072,7 @@ public class LimboSDLActivity extends SDLActivity {
 		UIUtils.setupToolBar(this);
 
 		UIUtils.showHints(this);
-		
-		
-		
+
 		this.resumeVM();
 
 	}
@@ -1123,13 +1125,12 @@ public class LimboSDLActivity extends SDLActivity {
 		setScreenSize();
 	}
 
-	// // Events
-	// protected void onPause() {
-	// Log.v("SDL", "onPause()");
-	// SDLActivity.nativePause();
-	// super.onPause();
-	//
-	// }
+	protected void onPause() {
+		Log.v("SDL", "onPause()");
+		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Suspended");
+		super.onPause();
+
+	}
 
 	private void onKeyboard() {
 		InputMethodManager inputMgr = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -1137,7 +1138,6 @@ public class LimboSDLActivity extends SDLActivity {
 		inputMgr.showSoftInput(this.mSurface, InputMethodManager.SHOW_FORCED);
 	}
 
-	
 	public void onSelectMenuVol() {
 
 		final AlertDialog alertDialog;
@@ -1168,20 +1168,20 @@ public class LimboSDLActivity extends SDLActivity {
 		layout.setId(2346134);
 		layout.setPadding(10, 10, 10, 10);
 
-		RelativeLayout.LayoutParams volparams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
-				RelativeLayout.LayoutParams.MATCH_PARENT);
+		RelativeLayout.LayoutParams volparams = new RelativeLayout.LayoutParams(
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
 
 		SeekBar vol = new SeekBar(this);
-		vol.setMax(100);
-		if(mAudioTrack!=null)
-			vol.setProgress((int) (volume * 100));
+		vol.setMax(maxVolume);
+		int volume = getCurrentVolume();
+		vol.setProgress(volume);
 		vol.setLayoutParams(volparams);
 
 		((SeekBar) vol).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
 			public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-				if(mAudioTrack!=null)
-					setVolume((float) (progress / 100.00));
+				if (mAudioTrack != null)
+					setVolume(progress);
 			}
 
 			public void onStartTrackingTouch(SeekBar arg0) {
@@ -1202,6 +1202,8 @@ public class LimboSDLActivity extends SDLActivity {
 	protected void onResume() {
 		Log.v("SDL", "onResume()");
 		
+		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
+
 		// if (status == null || status.equals("") || status.equals("DONE"))
 		// SDLActivity.nativeResume();
 
@@ -1251,33 +1253,28 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	public void promptPause(final Activity activity) {
+		
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Pause VM");
 		TextView stateView = new TextView(activity);
 		stateView.setText("This make take a while depending on the RAM size used");
 		stateView.setId(201012011);
-		stateView.setPadding(5, 5, 5, 5);
+		stateView.setPadding(10, 10, 10, 10);
 		alertDialog.setView(stateView);
 
-		// alertDialog.setMessage(body);
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Pause", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-
-				// UIUtils.log("Searching...");
 				EditText a = (EditText) alertDialog.findViewById(201012010);
-
 				onPauseVM();
-
 				return;
 			}
 		});
 		alertDialog.show();
-
 	}
 
 	public void startSaveVMListener() {
-		this.stopTimeListener();
+		stopTimeListener();
 		timeQuit = false;
 		try {
 			Log.v("Listener", "Time Listener Started...");
@@ -1479,7 +1476,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	public void onBackPressed() {
-		//Log.d(TAG, "Pressed Back");
+		// Log.d(TAG, "Pressed Back");
 
 		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
@@ -1490,8 +1487,9 @@ public class LimboSDLActivity extends SDLActivity {
 				} else
 					bar.show();
 			}
-		} else
-			super.onBackPressed();
+		} else {
+			stopVM(false);
+		}
 
 	}
 }

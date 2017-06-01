@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
     android:installLocation="auto"
-    android:versionCode="240"
-    android:versionName="2.4.0 Alpha" >
+    android:versionCode="290"
+    android:versionName="2.9.0 arm-x86-alpha" >
 
     <uses-sdk
         android:minSdkVersion="17"
@@ -62,6 +62,7 @@
             class="com.max2idea.android.limbo.main.LimboSDLActivityToolbar"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
             android:label="@string/app_name"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.AppCompat.NoActionBar" >
             <intent-filter>
                 <action
@@ -79,6 +80,7 @@
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
             android:label="Limbo VNC client"
             android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustPan" >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" >

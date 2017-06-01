@@ -76,7 +76,7 @@ public class Config {
 	public static final String ACTION_START = "com.max2idea.android.limbo.action.STARTVM";
 
 	public static enum DebugMode {
-		X86, X86_64, ARM
+		X86, X86_64, ARM, MIPS, PPC
 	};
 
 	// GUI Options
@@ -86,8 +86,15 @@ public class Config {
 	public static final boolean enable_SPICE = false;
 	public static final boolean enable_sound_menu = true; //Option for GUI
 	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
+	
+	public static final boolean enable_X86 = true; //Enable if you build QEMU with Arm softmmu
+	public static final boolean enable_X86_64 = true; //Enable if you build QEMU with Arm softmmu
 	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_KVM = false; //Enable if you build with KVM support
+	public static final boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
+	public static final boolean enable_PPC = false; //Enable if you build QEMU with Mips softmmu
+	
+	//Enable if you build with KVM support
+	public static final boolean enable_KVM = false; 
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
@@ -128,6 +135,8 @@ public class Config {
 	
 	//Keyboard Layout
 	public static String defaultKeyboardLayout = "en-us";
+	public static boolean collapseSections;
+	
 	
 	//FIXME: disable for now 
 	public static final boolean enableKeyboardLayoutOption = true; 
@@ -140,7 +149,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = false;
+	public static final boolean debug = true;
 	public static final DebugMode debugMode = DebugMode.X86_64;
 	
 	

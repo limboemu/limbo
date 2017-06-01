@@ -6,12 +6,6 @@ ndkbuild=cd $(NDK_PROJECT_PATH) && ndk-build.cmd -j $(BUILD_THREADS) NDK_DEBUG=$
 ndkclean=cd $(NDK_PROJECT_PATH) && ndk-build.cmd clean NDK_DEBUG=$(NDK_DEBUG) V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 ndkcleanobj=rm -rf $(NDK_PROJECT_PATH)/obj/
 
-prepscripts=dos2unix $(LIMBO_JNI_ROOT)/qemu/configure \
-	&& chmod u+x $(LIMBO_JNI_ROOT)/qemu/configure \
-	&& dos2unix $(LIMBO_JNI_ROOT)/qemu/scripts/* \
-	&& dos2unix $(LIMBO_JNI_ROOT)/qemu/dtc/scripts/* \
-	&& chmod u+x -R $(LIMBO_JNI_ROOT)/qemu/scripts
-
 ndkgdb=cd $(NDK_PROJECT_PATH) && ndk-gdb.cmd
 
 CREATE_OBJDIR=mkdir -p $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/
@@ -71,12 +65,10 @@ qemu:
 #	$(MAKE) -f $(LIMBO_JNI_ROOT)/limbo.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 
 config-debug:
-	$(prepscripts)
 	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)
 	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak NDK_DEBUG=1 V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 	
 config:
-	$(prepscripts)
 	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
 	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak  V=$(V) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
 

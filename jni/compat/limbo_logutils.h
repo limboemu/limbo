@@ -67,6 +67,8 @@ extern "C" {
 #define error_printf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_vprintf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_printf_unless_qmp(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define error_vprintf_unless_qmp(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define error_vreport(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 #else // Suppress all logging activity
 //#error Suppressing
@@ -85,6 +87,8 @@ extern "C" {
 #define error_printf(...) ((void)0)
 #define error_vprintf(...) ((void)0)
 #define error_printf_unless_qmp(...) ((void)0)
+#define error_vprintf_unless_qmp(...) ((void)0)
+#define error_vreport(...) ((void)0)
 
 #endif //end DEBUG_OUTPUT
 

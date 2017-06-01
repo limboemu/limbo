@@ -878,8 +878,17 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	//    strcpy(argv[param++], "file=/sdcard/limbo/tmp/trace");
 	//    strcpy(argv[param++], "-nographic"); //DO NOT USE //      disable graphical output and redirect serial I/Os to console
 
+	int enablemttcg = 0;
+
 	if (enablekvm) {
 		strcpy(argv[param++], "-enable-kvm");
+	} else if (enablemttcg) {
+		strcpy(argv[param++], "-accel");
+		strcpy(argv[param], "tcg");
+		if(cpuNum > 1)
+			strcat(argv[param++], ",thread=multi");
+		else
+			strcat(argv[param++], ",thread=single");
 	}
 
 	if (enablevnc) {
@@ -929,9 +938,9 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	strcpy(argv[param++], "-M");
 	strcpy(argv[param++], machine_type_str);
 
-	LOGV("Setting tb memory");
-	strcpy(argv[param++], "-tb-size");
-	strcpy(argv[param++], "32M"); //Don't increase it crashes
+//	LOGV("Setting tb memory");
+//	strcpy(argv[param++], "-tb-size");
+//	strcpy(argv[param++], "32M"); //Don't increase it crashes
 
 	LOGV("Setting real time");
 	strcpy(argv[param++], "-realtime");

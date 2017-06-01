@@ -25,28 +25,30 @@ USE_SDL_AUDIO ?= true
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
 # Note 1: Building for Android ARM requires ndk13 and android-14
 # Note 2: Building for Android x86 requires ndk13b and android-17
-# Note 3: Building for Android x86 w/ KVM support requires ndk13b and android-21 
+# Note 3: Building for Android x86 w/ KVM support requires ndk13b and android-21
+# Note 4: Building for Android x86_64 requires ndk13b and android-21
+# Note 5: Building for Android x86_64 w/ KVM support requires ndk13b and android-21  
 APP_PLATFORM = android-17
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
-# If you use platform-21 and above
+# Set to true if you use platform-21 and above
 USE_NDK_PLATFORM21 ?= false
 
 # Faster Builds with multiple threads
-BUILD_THREADS=8
+BUILD_THREADS=4
 
 ####### Windows/Cygwin SECTION END
 # If you use Windows to build
 
 # ndk 13b for x86
-NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
-NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
-NDK_ENV = windows
+#NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
+#NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
+#NDK_ENV = windows
 
 # ndk 13 for 64bit
-#NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-#NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-#NDK_ENV = windows-x86_64
+NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+NDK_ENV = windows-x86_64
 
 # ndk 12
 #NDK_ROOT = C:/tools/bin/android-ndk-r12b-windows-x86/android-ndk-r12b
@@ -98,8 +100,9 @@ NDK_ENV = windows
 # Chooce ONLY ONE:
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
+
 # ARMv7 Generic soft float
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
@@ -113,12 +116,12 @@ NDK_ENV = windows
 
 ######### x86
 # x86 Phones (ie Zenfone)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # x86 Phones Debug No optimization (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
 
-######### x86_64 (glib fails to compile)
+######### x86_64 (glib fails to compile, glibconfig.h needs update)
 # x86_64 Phones (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86_64.mak
 
@@ -131,6 +134,11 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # ARMv7 Hard Float Generic Hard float No optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-hard-noopt.mak
+
+######### Armv8 64 bit (glib fails to compile, glibconfig.h needs update)
+
+# ARMv8 64 bit - Generic soft float
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv8-vfpv3d16.mak
 
 ################ No modifications below this line are necessary #####################
 include $(LIMBO_JNI_ROOT)/android-setup-toolchain.mak

@@ -1,0 +1,1638 @@
+diff --git a/Makefile b/Makefile
+index 6c359b2..23fa87a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -203,7 +203,8 @@ $(call set-vpath, $(SRC_PATH))
+ 
+ LIBS+=-lz $(LIBS_TOOLS)
+ 
+-HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
++#Limbo: No bridge helpers
++#HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
+ 
+ ifdef BUILD_DOCS
+ DOCS=qemu-doc.html qemu-doc.txt qemu.1 qemu-img.1 qemu-nbd.8 qemu-ga.8
+@@ -281,7 +282,8 @@ dummy := $(call unnest-vars,, \
+                 trace-obj-y)
+ 
+ ifneq ($(wildcard config-host.mak),)
+-include $(SRC_PATH)/tests/Makefile.include
++#Limbo: disable tests
++#include $(SRC_PATH)/tests/Makefile.include
+ endif
+ 
+ all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
+@@ -378,7 +380,8 @@ qemu-img$(EXESUF): qemu-img.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-o
+ qemu-nbd$(EXESUF): qemu-nbd.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+ qemu-io$(EXESUF): qemu-io.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+ 
+-qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
++#Limbo: No bridge helpers
++#qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
+ 
+ fsdev/virtfs-proxy-helper$(EXESUF): fsdev/virtfs-proxy-helper.o fsdev/9p-marshal.o fsdev/9p-iov-marshal.o $(COMMON_LDADDS)
+ fsdev/virtfs-proxy-helper$(EXESUF): LIBS += -lcap
+@@ -802,7 +805,8 @@ endif
+ # Dependencies in Makefile.objs files come from our recursive subdir rules
+ -include $(wildcard *.d tests/*.d)
+ 
+-include $(SRC_PATH)/tests/docker/Makefile.include
++#Limbo: disable tests
++#include $(SRC_PATH)/tests/docker/Makefile.include
+ 
+ .PHONY: help
+ help:
+diff --git a/Makefile.target b/Makefile.target
+index 7df2b8c..ba7c9c3 100644
+--- a/Makefile.target
++++ b/Makefile.target
+@@ -1,5 +1,8 @@
+ # -*- Mode: makefile -*-
+ 
++#Limbo: Get specific environment vars
++include $(LIMBO_JNI_ROOT)/android-config.mak
++
+ BUILD_DIR?=$(CURDIR)/..
+ 
+ include ../config-host.mak
+@@ -203,13 +206,84 @@ $(QEMU_PROG_BUILD): config-devices.mak
+ 
+ COMMON_LDADDS = $(trace-obj-y) ../libqemuutil.a ../libqemustub.a
+ 
++#Limbo: Don't build an executable but a lib
+ # build either PROG or PROGW
+-$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS)
+-	$(call LINK, $(filter-out %.mak, $^))
+-ifdef CONFIG_DARWIN
+-	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
+-	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
++#$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS)
++#	$(call LINK, $(filter-out %.mak, $^))
++#ifdef CONFIG_DARWIN
++#	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
++#	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
++#endif
++
++#### ANDROID SHARED LIB - START
++
++#$(warning COMMON_LDADDS=$(COMMON_LDADDS))
++
++# Need this only if we enable png/jpeg encoding for VNC
++#pnglib=../../../obj/local/$(APP_ABI)/libpng.a
++#jpeglib=../../../obj/local/$(APP_ABI)/libjpeg.a
++
++#spicelib=../../../obj/local/$(APP_ABI)/libspice.so
++
++ifeq ($(USE_SDL),true)
++sdllibs=../../../obj/local/$(APP_ABI)/libSDL2.so \
++	../../../obj/local/$(APP_ABI)/libSDL2_image.so
++endif
++ 
++ifeq ($(USE_SDL_AUDIO),true)
++	sdlaudiolibs=../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
+ endif
++ 
++
++glibs=../../../obj/local/$(APP_ABI)/libglib-2.0.so \
++	../../../obj/local/$(APP_ABI)/libgthread-2.0.so \
++	../../../obj/local/$(APP_ABI)/libgmodule-2.0.so \
++	../../../obj/local/$(APP_ABI)/libgobject-2.0.so
++
++#openssllib=../../../obj/local/$(APP_ABI)/libssl.so
++
++#cryptolib=../../../obj/local/$(APP_ABI)/libcrypto.so  
++
++pixmanlib=../../../obj/local/$(APP_ABI)/libpixman.so
++
++compatlib=../../../obj/local/$(APP_ABI)/liblimbocompat.a
++
++fdtlib=../../qemu/dtc/libfdt/libfdt.a
++
++$(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
++	echo "INCLUDE_FUNCS=$(INCLUDE_FUNCS)"
++	$(LNK)     \
++	-Wl,-soname,$(QEMU_PROG) \
++	-shared $(SYS_ROOT) \
++	-Wl,--no-undefined \
++	-Wl,-z,noexecstack  \
++	-Wl,--no-undefined \
++	-Wl,-z,relro -Wl,-z,now \
++	-Wl,--no-warn-mismatch \
++	$(sort $(all-obj-y)) \
++	$(COMMON_LDADDS) \
++	../libqemuutil.a ../libqemustub.a \
++	$(STL_LIB) \
++	$(compatlib) \
++	$(pnglib) \
++	$(jpeglib) \
++	$(spicelib) \
++	$(fixlib) \
++	$(fdtlib) \
++	$(GCC_STATIC) \
++	$(glibs) \
++	$(pixmanlib) \
++	$(iconvlib) \
++	$(sdllibs) \
++	$(sdlaudiolibs) \
++	$(USR_LIB) \
++	-llog $(LM) -lz -lstdc++ -lc -dl -lgcc \
++	$(LIMBO_LD_FLAGS) \
++    $(P_THREAD) \
++    $(INCLUDE_FUNCS) \
++	-o ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).so
++
++#### ANDROID SHARED LIB - END
+ 
+ gdbstub-xml.c: $(TARGET_XML_FILES) $(SRC_PATH)/scripts/feature_to_c.sh
+ 	$(call quiet-command,rm -f $@ && $(SHELL) $(SRC_PATH)/scripts/feature_to_c.sh $@ $(TARGET_XML_FILES),"GEN","$(TARGET_DIR)$@")
+diff --git a/audio/sdlaudio.c b/audio/sdlaudio.c
+index e8d91d2..bd4ea90 100644
+--- a/audio/sdlaudio.c
++++ b/audio/sdlaudio.c
+@@ -66,6 +66,7 @@ static struct SDLAudioState {
+ } glob_sdl;
+ typedef struct SDLAudioState SDLAudioState;
+ 
++#ifndef __LIMBO__
+ static void GCC_FMT_ATTR (1, 2) sdl_logerr (const char *fmt, ...)
+ {
+     va_list ap;
+@@ -76,7 +77,7 @@ static void GCC_FMT_ATTR (1, 2) sdl_logerr (const char *fmt, ...)
+ 
+     AUD_log (AUDIO_CAP, "Reason: %s\n", SDL_GetError ());
+ }
+-
++#endif //__LIMBO__
+ static int sdl_lock (SDLAudioState *s, const char *forfn)
+ {
+ #if USE_SEMAPHORE
+@@ -206,6 +207,7 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
+ {
+     int status;
+ #ifndef _WIN32
++#ifndef __ANDROID__
+     int err;
+     sigset_t new, old;
+ 
+@@ -221,6 +223,7 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
+         return -1;
+     }
+ #endif
++#endif // __ANDROID__
+ 
+     status = SDL_OpenAudio (req, obt);
+     if (status) {
+@@ -228,6 +231,7 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
+     }
+ 
+ #ifndef _WIN32
++#ifndef __ANDROID__
+     err = pthread_sigmask (SIG_SETMASK, &old, NULL);
+     if (err) {
+         dolog ("sdl_open: pthread_sigmask (restore) failed: %s\n",
+@@ -237,6 +241,7 @@ static int sdl_open (SDL_AudioSpec *req, SDL_AudioSpec *obt)
+         exit (EXIT_FAILURE);
+     }
+ #endif
++#endif // __ANDROID__
+     return status;
+ }
+ 
+diff --git a/block.c b/block.c
+index 1fbbb8d..dc69d38 100644
+--- a/block.c
++++ b/block.c
+@@ -56,6 +56,11 @@
+ #include <windows.h>
+ #endif
+ 
++//Limbo: define a var for the limbo dir
++#if __LIMBO__
++extern char * limbo_base_dir;
++#endif //__LIMBO__
++
+ #define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
+ 
+ static QTAILQ_HEAD(, BlockDriverState) graph_bdrv_states =
+@@ -447,7 +452,19 @@ int get_tmp_filename(char *filename, int size)
+     const char *tmpdir;
+     tmpdir = getenv("TMPDIR");
+     if (!tmpdir) {
++#ifdef __LIMBO__
++    	char limboTmpDir[256];
++    	if(limbo_base_dir!=NULL){
++    		strcpy(limboTmpDir, limbo_base_dir); //Get it from the -L option
++    		strcat(limboTmpDir, "/tmp");
++    		tmpdir = limboTmpDir;
++    	} else
++    		tmpdir = "/mnt/sdcard/limbo/tmp"; //else try a hardcoded path
++
++		LOGD("Setting up temp dir: %s", tmpdir);
++#else
+         tmpdir = "/var/tmp";
++#endif // __LIMBO__
+     }
+     if (snprintf(filename, size, "%s/vl.XXXXXX", tmpdir) >= size) {
+         return -EOVERFLOW;
+diff --git a/block/file-posix.c b/block/file-posix.c
+index 0c48968..91bf54a 100644
+--- a/block/file-posix.c
++++ b/block/file-posix.c
+@@ -1649,7 +1649,10 @@ static int raw_create(const char *filename, QemuOpts *opts, Error **errp)
+     }
+ 
+     if (nocow) {
+-#ifdef __linux__
++//Limbo: Flag not supported by Android
++//#ifdef __linux__
++#if defined ( __linux__ ) & ( !defined ( __ANDROID__) | defined (__ANDROID_HAS_FS_IOC__))
++
+         /* Set NOCOW flag to solve performance issue on fs like btrfs.
+          * This is an optimisation. The FS_IOC_SETFLAGS ioctl return value
+          * will be ignored since any failure of this operation should not
+diff --git a/block/qcow.c b/block/qcow.c
+index 9d6ac83..422fb63 100644
+--- a/block/qcow.c
++++ b/block/qcow.c
+@@ -255,6 +255,9 @@ static int qcow_open(BlockDriverState *bs, QDict *options, int flags,
+         bs->backing_file[len] = '\0';
+     }
+ 
++
++#ifndef __LIMBO__
++//XXX: Limbo: Disabling this limitation for now since we need it for Pausing the VM
+     /* Disable migration when qcow images are used */
+     error_setg(&s->migration_blocker, "The qcow format used by node '%s' "
+                "does not support live migration",
+@@ -265,7 +268,7 @@ static int qcow_open(BlockDriverState *bs, QDict *options, int flags,
+         error_free(s->migration_blocker);
+         goto fail;
+     }
+-
++#endif //__LIMBO__
+     qemu_co_mutex_init(&s->lock);
+     return 0;
+ 
+diff --git a/block/vvfat.c b/block/vvfat.c
+index af5153d..54893d6 100644
+--- a/block/vvfat.c
++++ b/block/vvfat.c
+@@ -78,6 +78,10 @@ typedef struct array_t {
+     unsigned int size,next,item_size;
+ } array_t;
+ 
++#ifdef __LIMBO__
++int size_clusters = 0;
++#endif //__LIMBO__
++
+ static inline void array_init(array_t* array,unsigned int item_size)
+ {
+     array->pointer = NULL;
+@@ -1185,6 +1189,8 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
+ 
+     s->sector_count = s->faked_sectors + s->sectors_per_cluster*s->cluster_count;
+ 
++#ifndef __LIMBO__
++//XXX: Limbo: Disabling this limitation for now since we need it for Pausing the VM
+     /* Disable migration when vvfat is used rw */
+     if (s->qcow) {
+         error_setg(&s->migration_blocker,
+@@ -1198,6 +1204,7 @@ static int vvfat_open(BlockDriverState *bs, QDict *options, int flags,
+             goto fail;
+         }
+     }
++#endif // __LIMBO__
+ 
+     if (s->first_sectors_number == 0x40) {
+         init_mbr(s, cyls, heads, secs);
+@@ -2916,7 +2923,13 @@ DLOG(fprintf(stderr, "Write to qcow backend: %d + %d\n", (int)sector_num, nb_sec
+ 
+     for (i = sector2cluster(s, sector_num);
+ 	    i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
++#ifdef __LIMBO__
++		//FIXME: Limbo: For some reason the sector_num is lesser than the fake_sectors
++		// for now we add this check but we should fix this in the future
++	if (i >= 0 && i < size_clusters)
++#else
+ 	if (i >= 0)
++#endif //__LIMBO__
+ 	    s->used_clusters[i] |= USED_ALLOCATED;
+ 
+ DLOG(checkpoint());
+@@ -3008,6 +3021,12 @@ static int enable_write_target(BlockDriverState *bs, Error **errp)
+     QemuOpts *opts = NULL;
+     int ret;
+     int size = sector2cluster(s, s->sector_count);
++
++    //Limbo:
++#ifdef __LIMBO__
++    size_clusters = size;
++#endif //__LIMBO__
++
+     QDict *options;
+ 
+     s->used_clusters = calloc(size, 1);
+diff --git a/chardev/char-parallel.c b/chardev/char-parallel.c
+index 3fa22ce..974ba6a 100644
+--- a/chardev/char-parallel.c
++++ b/chardev/char-parallel.c
+@@ -37,7 +37,9 @@
+ #else
+ #ifdef __linux__
+ #include <linux/ppdev.h>
++#if !defined ( __ANDROID__ ) | defined ( __ANDROID_HAS_PARPORT__ )
+ #include <linux/parport.h>
++#endif //__ANDROID__
+ #endif
+ #endif
+ 
+@@ -112,6 +114,11 @@ static int pp_ioctl(Chardev *chr, int cmd, void *arg)
+             return -ENOTSUP;
+         }
+         break;
++//Limbo
++#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
++        printf("%s: Mode IEEE1284_MODE_EPP|IEEE1284_ADDR not supported\n", __func__);
++        return -EIO;
++#else
+     case CHR_IOCTL_PP_EPP_READ_ADDR:
+         if (pp_hw_mode(drv, IEEE1284_MODE_EPP | IEEE1284_ADDR)) {
+             struct ParallelIOArg *parg = arg;
+@@ -148,6 +155,7 @@ static int pp_ioctl(Chardev *chr, int cmd, void *arg)
+             }
+         }
+         break;
++#endif // __ANDROID__
+     default:
+         return -ENOTSUP;
+     }
+@@ -168,7 +176,11 @@ static void qemu_chr_open_pp_fd(Chardev *chr,
+     }
+ 
+     drv->fd = fd;
++#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
++    printf("%s: Mode IEEE1284_MODE_COMPAT not supported\n", __func__);
++#else
+     drv->mode = IEEE1284_MODE_COMPAT;
++#endif // __ANDROID__
+ }
+ #endif /* __linux__ */
+ 
+@@ -288,7 +300,11 @@ static void char_parallel_finalize(Object *obj)
+     ParallelChardev *drv = PARALLEL_CHARDEV(chr);
+     int fd = drv->fd;
+ 
++#if defined ( __ANDROID__ ) & !defined ( __ANDROID_HAS_IEEE__ )
++    printf("%s: Mode IEEE1284_MODE_COMPAT not supported\n", __func__);
++#else
+     pp_hw_mode(drv, IEEE1284_MODE_COMPAT);
++#endif // __ANDROID__
+     ioctl(fd, PPRELEASE);
+     close(fd);
+     qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
+diff --git a/configure b/configure
+index be4d326..665fd2e 100644
+--- a/configure
++++ b/configure
+@@ -382,7 +382,10 @@ strip="${STRIP-${cross_prefix}strip}"
+ windres="${WINDRES-${cross_prefix}windres}"
+ pkg_config_exe="${PKG_CONFIG-${cross_prefix}pkg-config}"
+ query_pkg_config() {
+-    "${pkg_config_exe}" ${QEMU_PKG_CONFIG_FLAGS} "$@"
++	#Limbo: No need for it
++    #"${pkg_config_exe}" ${QEMU_PKG_CONFIG_FLAGS} "$@"
++    echo ""
++    
+ }
+ pkg_config=query_pkg_config
+ sdl_config="${SDL_CONFIG-${cross_prefix}sdl-config}"
+@@ -1831,7 +1834,9 @@ fi
+ # pkg-config probe
+ 
+ if ! has "$pkg_config_exe"; then
+-  error_exit "pkg-config binary '$pkg_config_exe' not found"
++  #Limbo
++  echo "Limbo: Ignoring pkg-config detection"
++  #error_exit "pkg-config binary '$pkg_config_exe' not found"
+ fi
+ 
+ ##########################################
+@@ -2601,9 +2606,11 @@ elif has ${sdl_config}; then
+   sdlversion=$($sdlconfig --version)
+ else
+   if test "$sdl" = "yes" ; then
+-    feature_not_found "sdl" "Install SDL devel"
++    #feature_not_found "sdl" "Install SDL devel"
++    echo "Limbo: SDL not found, Skipping"
+   fi
+-  sdl=no
++  #Limbo: Let us define SDL ourselves
++  #sdl=no
+ fi
+ if test -n "$cross_prefix" && test "$(basename "$sdlconfig")" = sdl-config; then
+   echo warning: using "\"$sdlconfig\"" to detect cross-compiled sdl >&2
+@@ -2638,14 +2645,17 @@ EOF
+       if compile_prog "$sdl_cflags" "$sdl_libs" ; then
+ 	:
+       else
+-        sdl=no
++        #sdl=no
++        echo "Limbo: Will define SDL ourselves later"
+       fi
+     fi # static link
+   else # sdl not found
+     if test "$sdl" = "yes" ; then
+-      feature_not_found "sdl" "Install SDL devel"
++      #feature_not_found "sdl" "Install SDL devel"
++      echo "Limbo: SDL not found, skipping"
+     fi
+-    sdl=no
++    #sdl=no
++    #Limbo: Let us define SDL ourselves
+   fi # sdl compile test
+ fi
+ 
+@@ -3098,7 +3108,8 @@ for i in $glib_modules; do
+         LIBS="$glib_libs $LIBS"
+         libs_qga="$glib_libs $libs_qga"
+     else
+-        error_exit "glib-$glib_req_ver $i is required to compile QEMU"
++        #error_exit "glib-$glib_req_ver $i is required to compile QEMU"
++        echo "Limbo: glib-$glib_req_ver $i is required to compile QEMU, Skipping"
+     fi
+ done
+ 
+@@ -4788,9 +4799,13 @@ if test "$gcov" = "yes" ; then
+   CFLAGS="-fprofile-arcs -ftest-coverage -g $CFLAGS"
+   LDFLAGS="-fprofile-arcs -ftest-coverage $LDFLAGS"
+ elif test "$fortify_source" = "yes" ; then
+-  CFLAGS="-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
++  #Limbo: Remove optimization
++  #CFLAGS="-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
++  CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
+ elif test "$debug" = "no"; then
+-  CFLAGS="-O2 $CFLAGS"
++  #Limbo: Remove optimization
++  #CFLAGS="-O2 $CFLAGS"
++  CFLAGS="$CFLAGS"
+ fi
+ 
+ ##########################################
+@@ -5889,6 +5904,13 @@ if test "$linux" = "yes" ; then
+     # For non-KVM architectures we will not have asm headers
+     if [ -e "$source_path/linux-headers/asm-$linux_arch" ]; then
+       symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm
++    	case "$OSTYPE" in
++			cygwin*) rm -rf "$source_path/linux-headers/asm" \
++				&& cygstart --action=runas cmd /c \
++				mklink /d "`cygpath -w \"$source_path/linux-headers/asm"`" "`cygpath \
++				-w \"$source_path/linux-headers/asm-$linux_arch"`" ;;		
++			*) symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm ;;
++		esac
+     fi
+ fi
+ 
+@@ -6174,9 +6196,10 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
+   ;;
+   arm)
+     disas_config "ARM"
+-    if test -n "${cxx}"; then
+-      disas_config "ARM_A64"
+-    fi
++    echo "Limbo: Disabling ${cxx} disas_config ARM_A64"
++#    if test -n "${cxx}"; then
++#      disas_config "ARM_A64"
++#    fi
+   ;;
+   cris)
+     disas_config "CRIS"
+diff --git a/hmp.c b/hmp.c
+index edb8970..b9092c8 100644
+--- a/hmp.c
++++ b/hmp.c
+@@ -1644,6 +1644,96 @@ typedef struct HMPMigrationStatus
+     bool is_block_migration;
+ } HMPMigrationStatus;
+ 
++#ifdef __LIMBO__
++int migration_status = 0;
++int get_migration_status (){
++	return migration_status;
++}
++
++static void limbo_migrate_status_cb(void *opaque)
++{
++    HMPMigrationStatus *status = opaque;
++    MigrationInfo *info;
++
++    info = qmp_query_migrate(NULL);
++    if (!info->has_status || info->status == MIGRATION_STATUS_ACTIVE ||
++        info->status == MIGRATION_STATUS_SETUP) {
++        if (info->has_disk) {
++            int progress;
++
++            if (info->disk->remaining) {
++                progress = info->disk->transferred * 100 / info->disk->total;
++            } else {
++                progress = 100;
++            }
++            LOGI("Completed progress=%d", progress);
++        }else
++        	LOGI("No status info");
++        LOGI("timer_mod\n");
++        timer_mod(status->timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 1000);
++    } else {
++        if (status->is_block_migration) {
++           LOGI("End");
++        }
++        if (info->has_error_desc) {
++            error_report("%s", info->error_desc);
++        }
++        timer_del(status->timer);
++        g_free(status);
++       LOGI("Migration DONE");
++        migration_status = 2;
++    }
++
++    qapi_free_MigrationInfo(info);
++
++}
++int limbo_migrate(const char * uri, char * error)
++{
++    bool detach = 0;
++    bool blk = 0;
++    bool inc = 0;
++    Error *err = NULL;
++
++    LOGI("Starting migration: %s", uri);
++    if(migration_status == 1){
++    	LOGE("Another migration is in progress");
++    	return -1;
++    }
++
++    migration_status = 1;
++
++    LOGI("Stopping VM");
++    //Stop the VM
++    qmp_stop(NULL);
++
++    LOGI("Starting QMP migration");
++    //Migrate
++    qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
++    if (err) {
++    	strcpy(error,error_get_pretty(err));
++    	LOGE("migrate: %s\n", error_get_pretty(err));
++        error_report_err(err);
++        migration_status = -1;
++        qmp_cont(NULL);
++        return -1;
++    }
++
++    LOGI("Checking detach");
++    //Set status cb
++    if (!detach) {
++    	LOGI("Migration is detached starting status and timer");
++        HMPMigrationStatus *status;
++        status = g_malloc0(sizeof(*status));
++        status->is_block_migration = blk || inc;
++       status->timer = timer_new_ms(QEMU_CLOCK_REALTIME, limbo_migrate_status_cb,
++                                          status);
++        timer_mod(status->timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
++    }
++   LOGI("Migration end");
++   return 0;
++}
++#endif //__LIMBO__
++
+ static void hmp_migrate_status_cb(void *opaque)
+ {
+     HMPMigrationStatus *status = opaque;
+@@ -1676,6 +1766,11 @@ static void hmp_migrate_status_cb(void *opaque)
+         monitor_resume(status->mon);
+         timer_del(status->timer);
+         g_free(status);
++
++#ifdef __LIMBO__
++        LOGI("Migration DONE");
++        migration_status = 2;
++#endif //__LIMBO__
+     }
+ 
+     qapi_free_MigrationInfo(info);
+@@ -1689,9 +1784,16 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
+     const char *uri = qdict_get_str(qdict, "uri");
+     Error *err = NULL;
+ 
++#ifdef __LIMBO__
++    migration_status = 1;
++#endif //__LIMBO__
++
+     qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
+     if (err) {
+         error_report_err(err);
++#ifdef __LIMBO__
++        migration_status = -1;
++#endif //__LIMBO__
+         return;
+     }
+ 
+@@ -1701,6 +1803,9 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
+         if (monitor_suspend(mon) < 0) {
+             monitor_printf(mon, "terminal does not allow synchronous "
+                            "migration, continuing detached\n");
++#ifdef __LIMBO__
++            migration_status = -1;
++#endif //__LIMBO__
+             return;
+         }
+ 
+diff --git a/hw/core/loader.c b/hw/core/loader.c
+index bf17b42..fea70c7 100644
+--- a/hw/core/loader.c
++++ b/hw/core/loader.c
+@@ -64,6 +64,12 @@ static int roms_loaded;
+ int get_image_size(const char *filename)
+ {
+     int fd, size;
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0)
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	else
++#endif //__LIMBO__
++
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0)
+         return -1;
+@@ -77,6 +83,11 @@ int get_image_size(const char *filename)
+ int load_image(const char *filename, uint8_t *addr)
+ {
+     int fd, size;
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0) {
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	} else
++#endif //__LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0)
+         return -1;
+@@ -103,6 +114,11 @@ ssize_t load_image_size(const char *filename, void *addr, size_t size)
+     int fd;
+     ssize_t actsize;
+ 
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0)
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	else
++#endif //__LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0) {
+         return -1;
+@@ -247,6 +263,11 @@ int load_aout(const char *filename, hwaddr addr, int max_sz,
+     struct exec e;
+     uint32_t magic;
+ 
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0)
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	else
++#endif //__LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0)
+         return -1;
+@@ -375,6 +396,11 @@ void load_elf_hdr(const char *filename, void *hdr, bool *is64, Error **errp)
+     }
+     e_ident = hdr;
+ 
++#ifdef __LIMBO__
++    if (strncmp(filename, "/content/", 9) == 0)
++    	fd = android_open(filename, O_RDONLY | O_BINARY);
++    else
++#endif //__LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0) {
+         error_setg_errno(errp, errno, "Failed to open file: %s", filename);
+@@ -451,6 +477,11 @@ int load_elf_ram(const char *filename,
+     int fd, data_order, target_data_order, must_swab, ret = ELF_LOAD_FAILED;
+     uint8_t e_ident[EI_NIDENT];
+ 
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0)
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	else
++#endif // __LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0) {
+         perror(filename);
+@@ -606,6 +637,11 @@ static int load_uboot_image(const char *filename, hwaddr *ep, hwaddr *loadaddr,
+     int ret = -1;
+     int do_uncompress = 0;
+ 
++#ifdef __LIMBO__
++	if (strncmp(filename, "/content/", 9) == 0)
++		fd = android_open(filename, O_RDONLY | O_BINARY);
++	else
++#endif //__LIMBO__
+     fd = open(filename, O_RDONLY | O_BINARY);
+     if (fd < 0)
+         return -1;
+@@ -904,6 +940,11 @@ int rom_add_file(const char *file, const char *fw_dir,
+         rom->path = g_strdup(file);
+     }
+ 
++#ifdef __LIMBO__
++	if (strncmp(rom->path, "/content/", 9) == 0)
++		fd = android_open(rom->path, O_RDONLY | O_BINARY);
++	else
++#endif //__LIMBO__
+     fd = open(rom->path, O_RDONLY | O_BINARY);
+     if (fd == -1) {
+         fprintf(stderr, "Could not open option rom '%s': %s\n",
+diff --git a/hw/usb/dev-mtp.c b/hw/usb/dev-mtp.c
+index 94c2e94..6ea08ce 100644
+--- a/hw/usb/dev-mtp.c
++++ b/hw/usb/dev-mtp.c
+@@ -14,7 +14,9 @@
+ #include <wchar.h>
+ #include <dirent.h>
+ 
++#if !defined ( __ANDROID__ ) | defined ( __ANDROID_HAS_STATVFS__ )
+ #include <sys/statvfs.h>
++#endif // __ANDROID__
+ #ifdef CONFIG_INOTIFY1
+ #include <sys/inotify.h>
+ #include "qemu/main-loop.h"
+@@ -847,7 +849,9 @@ static MTPData *usb_mtp_get_storage_ids(MTPState *s, MTPControl *c)
+ static MTPData *usb_mtp_get_storage_info(MTPState *s, MTPControl *c)
+ {
+     MTPData *d = usb_mtp_data_alloc(c);
++#if !defined ( __ANDROID__ ) | defined ( __ANDROID_HAS_STATVFS__ )
+     struct statvfs buf;
++
+     int rc;
+ 
+     trace_usb_mtp_op_get_storage_info(s->dev.addr);
+@@ -875,6 +879,7 @@ static MTPData *usb_mtp_get_storage_info(MTPState *s, MTPControl *c)
+ 
+     usb_mtp_add_str(d, s->desc);
+     usb_mtp_add_wstr(d, L"123456789abcdef");
++#endif //__ANDROID__
+     return d;
+ }
+ 
+diff --git a/hw/usb/hcd-ohci.c b/hw/usb/hcd-ohci.c
+index 3ada35e..589103a 100644
+--- a/hw/usb/hcd-ohci.c
++++ b/hw/usb/hcd-ohci.c
+@@ -936,42 +936,43 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
+     return 1;
+ }
+ 
+-#ifdef trace_event_get_state
+-static void ohci_td_pkt(const char *msg, const uint8_t *buf, size_t len)
+-{
+-    bool print16 = !!trace_event_get_state(TRACE_USB_OHCI_TD_PKT_SHORT);
+-    bool printall = !!trace_event_get_state(TRACE_USB_OHCI_TD_PKT_FULL);
+-    const int width = 16;
+-    int i;
+-    char tmp[3 * width + 1];
+-    char *p = tmp;
+-
+-    if (!printall && !print16) {
+-        return;
+-    }
+-
+-    for (i = 0; ; i++) {
+-        if (i && (!(i % width) || (i == len))) {
+-            if (!printall) {
+-                trace_usb_ohci_td_pkt_short(msg, tmp);
+-                break;
+-            }
+-            trace_usb_ohci_td_pkt_full(msg, tmp);
+-            p = tmp;
+-            *p = 0;
+-        }
+-        if (i == len) {
+-            break;
+-        }
+-
+-        p += sprintf(p, " %.2x", buf[i]);
+-    }
+-}
+-#else
++//Limbo: no trace
++//#ifdef trace_event_get_state
++//static void ohci_td_pkt(const char *msg, const uint8_t *buf, size_t len)
++//{
++//    bool print16 = !!trace_event_get_state(TRACE_USB_OHCI_TD_PKT_SHORT);
++//    bool printall = !!trace_event_get_state(TRACE_USB_OHCI_TD_PKT_FULL);
++//    const int width = 16;
++//    int i;
++//    char tmp[3 * width + 1];
++//    char *p = tmp;
++//
++//    if (!printall && !print16) {
++//        return;
++//    }
++//
++//    for (i = 0; ; i++) {
++//        if (i && (!(i % width) || (i == len))) {
++//            if (!printall) {
++//                trace_usb_ohci_td_pkt_short(msg, tmp);
++//                break;
++//            }
++//            trace_usb_ohci_td_pkt_full(msg, tmp);
++//            p = tmp;
++//            *p = 0;
++//        }
++//        if (i == len) {
++//            break;
++//        }
++//
++//        p += sprintf(p, " %.2x", buf[i]);
++//    }
++//}
++//#else
+ static void ohci_td_pkt(const char *msg, const uint8_t *buf, size_t len)
+ {
+ }
+-#endif
++//#endif
+ 
+ /* Service a transport descriptor.
+    Returns nonzero to terminate processing of this endpoint.  */
+diff --git a/hw/virtio/virtio.c b/hw/virtio/virtio.c
+index 03592c5..4ae2219 100644
+--- a/hw/virtio/virtio.c
++++ b/hw/virtio/virtio.c
+@@ -1028,7 +1028,8 @@ void *qemu_get_virtqueue_element(VirtIODevice *vdev, QEMUFile *f, size_t sz)
+      * When we do, we might be able to re-enable NDEBUG below.
+      */
+ #ifdef NDEBUG
+-#error building with NDEBUG is not supported
++//Limbo: no fail
++//#error building with NDEBUG is not supported
+ #endif
+     assert(ARRAY_SIZE(data.in_addr) >= data.in_num);
+     assert(ARRAY_SIZE(data.out_addr) >= data.out_num);
+diff --git a/include/glib-compat.h b/include/glib-compat.h
+index 863c8cf..73da184 100644
+--- a/include/glib-compat.h
++++ b/include/glib-compat.h
+@@ -20,7 +20,8 @@
+ 
+ /* GLIB version compatibility flags */
+ #if !GLIB_CHECK_VERSION(2, 26, 0)
+-#define G_TIME_SPAN_SECOND              (G_GINT64_CONSTANT(1000000))
++//Limbo: already defined
++//#define G_TIME_SPAN_SECOND              (G_GINT64_CONSTANT(1000000))
+ #endif
+ 
+ #if !GLIB_CHECK_VERSION(2, 28, 0)
+@@ -55,10 +56,11 @@ gint g_poll_fixed(GPollFD *fds, guint nfds, gint timeout);
+ static inline gchar *qemu_g_dir_make_tmp(gchar const *tmpl, GError **error)
+ {
+     gchar *path = g_build_filename(g_get_tmp_dir(), tmpl ?: ".XXXXXX", NULL);
+-
++#ifndef __ANDROID__
+     if (mkdtemp(path) != NULL) {
+         return path;
+     }
++#endif //__ANDROID__
+     /* Error occurred, clean up. */
+     g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
+                 "mkdtemp() failed");
+@@ -304,16 +306,17 @@ static inline void g_slist_free_full(GSList *list, GDestroyNotify free_func)
+ }
+ #endif
+ 
+-#if !GLIB_CHECK_VERSION(2, 26, 0)
+-static inline void g_source_set_name(GSource *source, const char *name)
+-{
+-    /* This is just a debugging aid, so leaving it a no-op */
+-}
+-static inline void g_source_set_name_by_id(guint tag, const char *name)
+-{
+-    /* This is just a debugging aid, so leaving it a no-op */
+-}
+-#endif
++//Limbo: already defined in our glib
++//#if !GLIB_CHECK_VERSION(2, 26, 0)
++//static inline void g_source_set_name(GSource *source, const char *name)
++//{
++//    /* This is just a debugging aid, so leaving it a no-op */
++//}
++//static inline void g_source_set_name_by_id(guint tag, const char *name)
++//{
++//    /* This is just a debugging aid, so leaving it a no-op */
++//}
++//#endif
+ 
+ #if !GLIB_CHECK_VERSION(2, 36, 0)
+ /* Always fail.  This will not include error_report output in the test log,
+@@ -322,9 +325,10 @@ static inline void g_source_set_name_by_id(guint tag, const char *name)
+ #define g_test_initialized() (0)
+ #endif
+ #if !GLIB_CHECK_VERSION(2, 38, 0)
+-#ifdef CONFIG_HAS_GLIB_SUBPROCESS_TESTS
+-#error schizophrenic detection of glib subprocess testing
+-#endif
++//Limbo: don't need this
++//#ifdef CONFIG_HAS_GLIB_SUBPROCESS_TESTS
++//#error schizophrenic detection of glib subprocess testing
++//#endif
+ #define g_test_subprocess() (0)
+ #endif
+ 
+diff --git a/include/qemu/error-report.h b/include/qemu/error-report.h
+index 3001865..92f4e67 100644
+--- a/include/qemu/error-report.h
++++ b/include/qemu/error-report.h
+@@ -30,13 +30,18 @@ void loc_set_none(void);
+ void loc_set_cmdline(char **argv, int idx, int cnt);
+ void loc_set_file(const char *fname, int lno);
+ 
++#if !defined (__LIMBO__)
+ void error_vprintf(const char *fmt, va_list ap) GCC_FMT_ATTR(1, 0);
+ void error_printf(const char *fmt, ...) GCC_FMT_ATTR(1, 2);
+ void error_vprintf_unless_qmp(const char *fmt, va_list ap) GCC_FMT_ATTR(1, 0);
+ void error_printf_unless_qmp(const char *fmt, ...) GCC_FMT_ATTR(1, 2);
++#endif //__LIMBO__
+ void error_set_progname(const char *argv0);
++#if !defined (__LIMBO__)
+ void error_vreport(const char *fmt, va_list ap) GCC_FMT_ATTR(1, 0);
+ void error_report(const char *fmt, ...) GCC_FMT_ATTR(1, 2);
++#endif //__LIMBO__
++
+ const char *error_get_progname(void);
+ extern bool enable_timestamp_msg;
+ 
+diff --git a/include/qemu/timer.h b/include/qemu/timer.h
+index 8a1eb74..7a5a188 100644
+--- a/include/qemu/timer.h
++++ b/include/qemu/timer.h
+@@ -1015,7 +1015,16 @@ static inline int64_t cpu_get_host_ticks(void)
+     ofs = cc >> 32;
+     return cur - ofs;
+ }
++#elif defined(__ANDROID__)
++//Limbo: Using a monotonically increased value (as below) doesn't work
++// well for older devices
++// conventiently we get a good value from the clock
++// though there should be a better way to do it on ARM (assembly?)
++static inline int64_t cpu_get_host_ticks(void)
++{
++	return get_clock();
+ 
++}
+ #else
+ /* The host CPU doesn't have an easily accessible cycle counter.
+    Just return a monotonically increasing value.  This will be
+diff --git a/include/sysemu/sysemu.h b/include/sysemu/sysemu.h
+index 576c7ce..23fec63 100644
+--- a/include/sysemu/sysemu.h
++++ b/include/sysemu/sysemu.h
+@@ -75,6 +75,7 @@ void qemu_remove_exit_notifier(Notifier *notify);
+ void qemu_add_machine_init_done_notifier(Notifier *notify);
+ void qemu_remove_machine_init_done_notifier(Notifier *notify);
+ 
++
+ void hmp_savevm(Monitor *mon, const QDict *qdict);
+ int save_vmstate(Monitor *mon, const char *name);
+ int load_vmstate(const char *name);
+diff --git a/include/ui/console.h b/include/ui/console.h
+index d759338..a579858 100644
+--- a/include/ui/console.h
++++ b/include/ui/console.h
+@@ -27,7 +27,12 @@
+ #define QEMU_CAPS_LOCK_LED   (1 << 2)
+ 
+ /* in ms */
++#ifdef __LIMBO__
++//LIMBO: we can override the refresh rate for SDL here
+ #define GUI_REFRESH_INTERVAL_DEFAULT    30
++#else
++#define GUI_REFRESH_INTERVAL_DEFAULT    30
++#endif // __LIMBO__
+ #define GUI_REFRESH_INTERVAL_IDLE     3000
+ 
+ /* Color number is match to standard vga palette */
+diff --git a/kvm-all.c b/kvm-all.c
+index 90b8573..1c94c5b 100644
+--- a/kvm-all.c
++++ b/kvm-all.c
+@@ -1937,7 +1937,11 @@ static void kvm_eat_signals(CPUState *cpu)
+     sigaddset(&waitset, SIG_IPI);
+ 
+     do {
++#if defined(__ANDROID__)
++    	__rt_sigtimedwait(&waitset, &siginfo, &ts, sizeof(waitset));
++#else
+         r = sigtimedwait(&waitset, &siginfo, &ts);
++#endif // __ANDROID__
+         if (r == -1 && !(errno == EAGAIN || errno == EINTR)) {
+             perror("sigtimedwait");
+             exit(1);
+diff --git a/migration/savevm.c b/migration/savevm.c
+index 3b19a4a..ab5267f 100644
+--- a/migration/savevm.c
++++ b/migration/savevm.c
+@@ -1066,6 +1066,10 @@ static bool should_send_vmdesc(void)
+     return !machine->suppress_vmdesc && !in_postcopy;
+ }
+ 
++#ifdef __LIMBO__
++extern int migration_status;
++#endif //__LIMBO__
++
+ /*
+  * Calls the save_live_complete_postcopy methods
+  * causing the last few pages to be sent immediately and doing any associated
+@@ -1103,6 +1107,11 @@ void qemu_savevm_state_complete_postcopy(QEMUFile *f)
+ 
+     qemu_put_byte(f, QEMU_VM_EOF);
+     qemu_fflush(f);
++
++#ifdef __LIMBO__
++    LOGI("Migration complete");
++	migration_status = 2;
++#endif
+ }
+ 
+ void qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only)
+@@ -1191,6 +1200,11 @@ void qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only)
+     qjson_destroy(vmdesc);
+ 
+     qemu_fflush(f);
++
++#ifdef __LIMBO__
++    LOGI("Migration complete");
++    migration_status = 2;
++#endif
+ }
+ 
+ /* Give an estimate of the amount left to be transferred,
+@@ -2071,6 +2085,21 @@ int qemu_loadvm_state(QEMUFile *f)
+     return ret;
+ }
+ 
++#ifdef __LIMBO__
++//LIMBO: Snapshots are deprecated
++int saving_state = 0;
++
++int get_save_state(){
++	return saving_state;
++}
++#endif // __LIMBO__
++
++#ifdef __LIMBO__
++//FIXME: this function currently is running via a JNI thread and cannot resume the vm right after
++void limbo_savevm(char * limbo_snapshot_name){
++	save_vmstate(NULL, limbo_snapshot_name);
++}
++#endif //__LIMBO__
+ int save_vmstate(Monitor *mon, const char *name)
+ {
+     BlockDriverState *bs, *bs1;
+@@ -2084,6 +2113,10 @@ int save_vmstate(Monitor *mon, const char *name)
+     Error *local_err = NULL;
+     AioContext *aio_context;
+ 
++#ifdef __LIMBO__
++    	saving_state = 1;
++#endif
++
+     if (!bdrv_all_can_snapshot(&bs)) {
+         monitor_printf(mon, "Device '%s' is writable but does not "
+                        "support snapshots.\n", bdrv_get_device_name(bs));
+@@ -2169,6 +2202,11 @@ int save_vmstate(Monitor *mon, const char *name)
+     if (saved_vm_running) {
+         vm_start();
+     }
++
++#ifdef __LIMBO__
++    saving_state = 0;
++#endif //__LIMBO__
++
+     return ret;
+ }
+ 
+diff --git a/monitor.c b/monitor.c
+index be282ec..dcab470 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -352,6 +352,10 @@ void monitor_vprintf(Monitor *mon, const char *fmt, va_list ap)
+ {
+     char *buf;
+ 
++#ifdef __ANDROID__
++    __android_log_vprint(ANDROID_LOG_VERBOSE, "monitor", fmt, ap);
++#endif
++
+     if (!mon)
+         return;
+ 
+@@ -1859,6 +1863,13 @@ int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
+ {
+     mon_fd_t *monfd;
+ 
++#ifdef __LIMBO__
++    //LIMBO: We treat the fdname send by VNC as an actual fd
++    int fd_tmp = atoi(fdname);
++    if(fd_tmp  > 0)
++    	return fd_tmp;
++#endif //__LIMBO__
++
+     QLIST_FOREACH(monfd, &mon->fds, next) {
+         int fd;
+ 
+@@ -3942,6 +3953,7 @@ static void monitor_readline_flush(void *opaque)
+  * TODO should return int, so callers can calculate width, but that
+  * requires surgery to monitor_vprintf().  Left for another day.
+  */
++#ifndef __ANDROID__
+ void error_vprintf(const char *fmt, va_list ap)
+ {
+     if (cur_mon && !monitor_cur_is_qmp()) {
+@@ -3959,6 +3971,7 @@ void error_vprintf_unless_qmp(const char *fmt, va_list ap)
+         vfprintf(stderr, fmt, ap);
+     }
+ }
++#endif //__ANDROID__
+ 
+ static void __attribute__((constructor)) monitor_lock_init(void)
+ {
+diff --git a/os-posix.c b/os-posix.c
+index c6ddb7d..7a91cfd 100644
+--- a/os-posix.c
++++ b/os-posix.c
+@@ -308,6 +308,7 @@ int qemu_create_pidfile(const char *filename)
+     if (fd == -1) {
+         return -1;
+     }
++#ifndef __ANDROID__
+     if (lockf(fd, F_TLOCK, 0) == -1) {
+         close(fd);
+         return -1;
+@@ -317,6 +318,7 @@ int qemu_create_pidfile(const char *filename)
+         close(fd);
+         return -1;
+     }
++#endif // __ANDROID__
+ 
+     /* keep pidfile open & locked forever */
+     return 0;
+diff --git a/rules.mak b/rules.mak
+index 1c0eabb..4f258d0 100644
+--- a/rules.mak
++++ b/rules.mak
+@@ -66,9 +66,19 @@ expand-objs = $(strip $(sort $(filter %.o,$1)) \
+                   $(filter-out %.o %.mo,$1))
+ 
+ %.o: %.c
+-	$(call quiet-command,$(CC) $(QEMU_LOCAL_INCLUDES) $(QEMU_INCLUDES) \
++#Limbo: replace with windows path for NDK
++#	$(call quiet-command,$(CC) $(QEMU_LOCAL_INCLUDES) $(QEMU_INCLUDES) \
+ 	       $(QEMU_CFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) \
+ 	       -c -o $@ $<,"CC","$(TARGET_DIR)$@")
++	$(call quiet-command,$(CC) \
++		$(subst /cygdrive/c,c:,$(QEMU_LOCAL_INCLUDES)) \
++		$(subst /cygdrive/c,c:,$(QEMU_INCLUDES)) \
++	    $(subst /cygdrive/c,c:,$(QEMU_CFLAGS)) \
++	    $(subst /cygdrive/c,c:,$(QEMU_DGFLAGS)) \
++	    $(subst /cygdrive/c,c:,$(CFLAGS)) \
++	    $(subst /cygdrive/c,c:,$($@-cflags)) \
++	       -c -o $@ $(subst /cygdrive/c,c:,$<),"CC","$(TARGET_DIR)$@")	       
++	       
+ %.o: %.rc
+ 	$(call quiet-command,$(WINDRES) -I. -o $@ $<,"RC","$(TARGET_DIR)$@")
+ 
+@@ -86,9 +96,19 @@ LINK = $(call quiet-command, $(LINKPROG) $(QEMU_CFLAGS) $(CFLAGS) $(LDFLAGS) -o
+ 	       -c -o $@ $<,"CCAS","$(TARGET_DIR)$@")
+ 
+ %.o: %.cc
+-	$(call quiet-command,$(CXX) $(QEMU_LOCAL_INCLUDES) $(QEMU_INCLUDES) \
++#Limbo: replace with windows path for NDK
++#	$(call quiet-command,$(CXX) $(QEMU_LOCAL_INCLUDES) $(QEMU_INCLUDES) \
+ 	       $(QEMU_CXXFLAGS) $(QEMU_DGFLAGS) $(CFLAGS) $($@-cflags) \
+ 	       -c -o $@ $<,"CXX","$(TARGET_DIR)$@")
++	$(call quiet-command,$(CXX) \
++		$(subst /cygdrive/c,c:,$(QEMU_LOCAL_INCLUDES)) \
++		$(subst /cygdrive/c,c:,$(QEMU_INCLUDES)) \
++	       $(subst /cygdrive/c,c:,$(QEMU_CXXFLAGS)) \
++	       $(subst /cygdrive/c,c:,$(QEMU_DGFLAGS)) \
++	       $(subst /cygdrive/c,c:,$(CFLAGS)) \
++	       -fpermissive \
++	       $(subst /cygdrive/c,c:,$($@-cflags)) \
++	       -c -o $@ $(subst /cygdrive/c,c:,$<),"CXX","$(TARGET_DIR)$@")
+ 
+ %.o: %.cpp
+ 	$(call quiet-command,$(CXX) $(QEMU_LOCAL_INCLUDES) $(QEMU_INCLUDES) \
+diff --git a/slirp/misc.c b/slirp/misc.c
+index 88e9d94..9b36e11 100644
+--- a/slirp/misc.c
++++ b/slirp/misc.c
+@@ -144,8 +144,11 @@ fork_exec(struct socket *so, const char *ex, int do_pty)
+ 		dup2(s, 0);
+ 		dup2(s, 1);
+ 		dup2(s, 2);
++#ifndef __NDK11_FUNC_MISSING__
++//XXX: Limbo: Function missing from Android NDK
+ 		for (s = getdtablesize() - 1; s >= 3; s--)
+ 		   close(s);
++#endif //__NDK11_FUNC_MISSING__
+ 
+ 		i = 0;
+ 		bptr = g_strdup(ex); /* No need to free() this */
+diff --git a/slirp/slirp.c b/slirp/slirp.c
+index 5a94b06..999691a 100644
+--- a/slirp/slirp.c
++++ b/slirp/slirp.c
+@@ -122,6 +122,10 @@ static void winsock_cleanup(void)
+ 
+ #else
+ 
++#ifdef __LIMBO__
++extern char * limbo_base_dir;
++#endif
++
+ static int get_dns_addr_cached(void *pdns_addr, void *cached_addr,
+                                socklen_t addrlen,
+                                struct stat *cached_stat, u_int *cached_time)
+@@ -132,7 +136,20 @@ static int get_dns_addr_cached(void *pdns_addr, void *cached_addr,
+         return 0;
+     }
+     old_stat = *cached_stat;
++//Limbo: using conf file
++#ifdef __ANDROID__
++	char limbo_resolv_file[256];
++	if(limbo_base_dir != NULL) {
++		strcpy(limbo_resolv_file, limbo_base_dir);
++	} else
++	strcpy(limbo_resolv_file, "/mnt/sdcard/limbo");
++	strcat(limbo_resolv_file, "/etc/resolv.conf");
++	LOGD("Checking cached DNS file: %s", limbo_resolv_file);
++	if (stat(limbo_resolv_file, cached_stat) != 0) {
++		LOGE("Could not check DNS file: %s", limbo_resolv_file);
++#else
+     if (stat("/etc/resolv.conf", cached_stat) != 0) {
++#endif // __ANDROID__
+         return -1;
+     }
+     if (cached_stat->st_dev == old_stat.st_dev
+@@ -156,7 +173,22 @@ static int get_dns_addr_resolv_conf(int af, void *pdns_addr, void *cached_addr,
+     void *tmp_addr = alloca(addrlen);
+     unsigned if_index;
+ 
++//Limbo: using conf file
++#ifdef __ANDROID__
++	char limbo_resolv_file [256];
++	if(limbo_base_dir != NULL) {
++		strcpy(limbo_resolv_file, limbo_base_dir);
++	} else
++	strcpy(limbo_resolv_file, "/mnt/sdcard/limbo/");
++
++	strcat(limbo_resolv_file, "/etc/resolv.conf");
++	LOGD("Checking DNS file: %s", limbo_resolv_file);
++	f = fopen(limbo_resolv_file, "r");
++	if(!f)
++	LOGE("Could not open DNS file: %s", limbo_resolv_file);
++#else
+     f = fopen("/etc/resolv.conf", "r");
++#endif //__ANDROID__
+     if (!f)
+         return -1;
+ 
+diff --git a/stubs/error-printf.c b/stubs/error-printf.c
+index ac6b92a..e951bc7 100644
+--- a/stubs/error-printf.c
++++ b/stubs/error-printf.c
+@@ -2,6 +2,7 @@
+ #include "qemu-common.h"
+ #include "qemu/error-report.h"
+ 
++#if !defined (__LIMBO__)
+ void error_vprintf(const char *fmt, va_list ap)
+ {
+     if (g_test_initialized() && !g_test_subprocess()) {
+@@ -17,3 +18,5 @@ void error_vprintf_unless_qmp(const char *fmt, va_list ap)
+ {
+     error_vprintf(fmt, ap);
+ }
++#endif //__LIMBO__
++
+diff --git a/ui/sdl2-2d.c b/ui/sdl2-2d.c
+index 8ab68d6..f8f765c 100644
+--- a/ui/sdl2-2d.c
++++ b/ui/sdl2-2d.c
+@@ -66,7 +66,14 @@ void sdl2_2d_update(DisplayChangeListener *dcl,
+ 
+     SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
+                       surface_stride(surf));
++#if defined( __ANDROID__) && defined (__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++	//Android OPENGL ES needs full screen redraw
++    SDL_SetRenderDrawColor( scon->real_renderer, 0, 0, 0, 255 );
++    SDL_RenderClear( scon->real_renderer );
++    SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
++#else
+     SDL_RenderCopy(scon->real_renderer, scon->texture, &rect, &rect);
++#endif //__ANDROID__
+     SDL_RenderPresent(scon->real_renderer);
+ }
+ 
+@@ -127,6 +134,11 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
+                                       surface_width(new_surface),
+                                       surface_height(new_surface));
+     sdl2_2d_redraw(scon);
++
++#ifdef __LIMBO__
++    //TODO: Need to send the resolution to Java
++    Android_JNI_SetSDLResolution(surface_width(new_surface), surface_height(new_surface));
++#endif //__ANDROID__
+ }
+ 
+ void sdl2_2d_refresh(DisplayChangeListener *dcl)
+diff --git a/ui/sdl2.c b/ui/sdl2.c
+index faf9bdf..bd8f4ca 100644
+--- a/ui/sdl2.c
++++ b/ui/sdl2.c
+@@ -90,10 +90,17 @@ void sdl2_window_create(struct sdl2_console *scon)
+                                          surface_width(scon->surface),
+                                          surface_height(scon->surface),
+                                          flags);
++#if defined(__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__)
++    //LIMBO: Need to force SOFTWARE rendering because some devices don't like it
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_SOFTWARE);
++#elif defined(__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_ACCELERATED);
++#else
+     scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
+     if (scon->opengl) {
+         scon->winctx = SDL_GL_GetCurrentContext();
+     }
++#endif //__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__
+     sdl_update_caption(scon);
+ }
+ 
+@@ -769,6 +776,7 @@ void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
+     }
+ 
+ #ifdef __linux__
++#ifndef __ANDROID__
+     /* on Linux, SDL may use fbcon|directfb|svgalib when run without
+      * accessible $DISPLAY to open X11 window.  This is often the case
+      * when qemu is run using sudo.  But in this case, and when actually
+@@ -779,6 +787,7 @@ void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
+      * Maybe it's a good idea to fix this in SDL instead.
+      */
+     setenv("SDL_VIDEODRIVER", "x11", 0);
++#endif // __ANDROID__
+ #endif
+ 
+     flags = SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE;
+diff --git a/ui/vnc.c b/ui/vnc.c
+index 349cfc9..7c87074 100644
+--- a/ui/vnc.c
++++ b/ui/vnc.c
+@@ -48,7 +48,12 @@
+ #include "io/dns-resolver.h"
+ 
+ #define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
++#ifdef __LIMBO__
++//LIMBO: we can override the refresh rate for VNC here
++#define VNC_REFRESH_INTERVAL_INC  30
++#else
+ #define VNC_REFRESH_INTERVAL_INC  50
++#endif //__LIMBO__
+ #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
+ static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
+ static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
+diff --git a/util/osdep.c b/util/osdep.c
+index 06fb1cf..f9c60e9 100644
+--- a/util/osdep.c
++++ b/util/osdep.c
+@@ -194,8 +194,18 @@ int qemu_open(const char *name, int flags, ...)
+     }
+ 
+ #ifdef O_CLOEXEC
++#ifdef __LIMBO__
++	if (strncmp(name, "/content/", 9) == 0) {
++		ret = android_openm(name, flags | O_CLOEXEC, mode);
++	} else
++#endif //__LIMBO__
+     ret = open(name, flags | O_CLOEXEC, mode);
+ #else
++#ifdef __LIMBO__
++	if (strncmp(name, "/content/", 9) == 0) {
++		ret = android_openm(name, flags, mode);
++	} else
++#endif //__LIMBO__
+     ret = open(name, flags, mode);
+     if (ret >= 0) {
+         qemu_set_cloexec(ret);
+@@ -221,15 +231,22 @@ int qemu_close(int fd)
+     if (fdset_id != -1) {
+         int ret;
+ 
++#ifdef __LIMBO__
++        ret = android_close(fd);
++#else
+         ret = close(fd);
++#endif //__LIMBO__
+         if (ret == 0) {
+             monitor_fdset_dup_fd_remove(fd);
+         }
+ 
+         return ret;
+     }
+-
++#ifdef __LIMBO__
++	android_close(fd);
++#else
+     return close(fd);
++#endif //__LIMBO__
+ }
+ 
+ /*
+diff --git a/util/oslib-posix.c b/util/oslib-posix.c
+index 4d9189e..84ccef0 100644
+--- a/util/oslib-posix.c
++++ b/util/oslib-posix.c
+@@ -36,9 +36,11 @@
+ #include "qapi/error.h"
+ #include "qemu/sockets.h"
+ #include <libgen.h>
++#if !defined(__ANDROID__) | defined(__ANDROID_HAS_SIGNAL__)
++//LIMBO: This is not needed for ANDROID 21 NDK and above
+ #include <sys/signal.h>
++#endif //__ANDROID__
+ #include "qemu/cutils.h"
+-
+ #ifdef CONFIG_LINUX
+ #include <sys/syscall.h>
+ #endif
+@@ -72,7 +74,9 @@ static bool memset_thread_failed;
+ 
+ int qemu_get_thread_id(void)
+ {
+-#if defined(__linux__)
++//Limbo: Not impl
++//#if defined(__linux__)
++#if defined(__linux__) & ( !defined(__ANDROID__) | defined(__ANDROID_HAS_SYS_GETTID__) )
+     return syscall(SYS_gettid);
+ #else
+     return getpid();
+diff --git a/util/qemu-error.c b/util/qemu-error.c
+index b331f8f..26119c2 100644
+--- a/util/qemu-error.c
++++ b/util/qemu-error.c
+@@ -14,6 +14,7 @@
+ #include "monitor/monitor.h"
+ #include "qemu/error-report.h"
+ 
++#if !defined (__LIMBO__)
+ void error_printf(const char *fmt, ...)
+ {
+     va_list ap;
+@@ -31,6 +32,8 @@ void error_printf_unless_qmp(const char *fmt, ...)
+     error_vprintf_unless_qmp(fmt, ap);
+     va_end(ap);
+ }
++#endif //__ANDROID__
++
+ 
+ static Location std_loc = {
+     .kind = LOC_NONE
+@@ -146,6 +149,7 @@ const char *error_get_progname(void)
+ /*
+  * Print current location to current monitor if we have one, else to stderr.
+  */
++#ifndef __ANDROID__
+ static void error_print_loc(void)
+ {
+     const char *sep = "";
+@@ -176,6 +180,7 @@ static void error_print_loc(void)
+         error_printf("%s", sep);
+     }
+ }
++#endif // __ANDROID__
+ 
+ bool enable_timestamp_msg;
+ /*
+@@ -185,6 +190,7 @@ bool enable_timestamp_msg;
+  * Prepend the current location and append a newline.
+  * It's wrong to call this in a QMP monitor.  Use error_setg() there.
+  */
++#ifndef __ANDROID__
+ void error_vreport(const char *fmt, va_list ap)
+ {
+     GTimeVal tv;
+@@ -201,6 +207,7 @@ void error_vreport(const char *fmt, va_list ap)
+     error_vprintf(fmt, ap);
+     error_printf("\n");
+ }
++#endif //__ANDROID__
+ 
+ /*
+  * Print an error message to current monitor if we have one, else to stderr.
+@@ -209,6 +216,7 @@ void error_vreport(const char *fmt, va_list ap)
+  * Prepend the current location and append a newline.
+  * It's wrong to call this in a QMP monitor.  Use error_setg() there.
+  */
++#ifndef __ANDROID__
+ void error_report(const char *fmt, ...)
+ {
+     va_list ap;
+@@ -217,3 +225,4 @@ void error_report(const char *fmt, ...)
+     error_vreport(fmt, ap);
+     va_end(ap);
+ }
++#endif //__ANDROID__
+diff --git a/util/qemu-openpty.c b/util/qemu-openpty.c
+index 2e8b43b..615452d 100644
+--- a/util/qemu-openpty.c
++++ b/util/qemu-openpty.c
+@@ -110,16 +110,23 @@ static void cfmakeraw (struct termios *termios_p)
+ 
+ int qemu_openpty_raw(int *aslave, char *pty_name)
+ {
++#ifndef __ANDROID__
+     int amaster;
+     struct termios tty;
++#endif
++
+ #if defined(__OpenBSD__) || defined(__DragonFly__)
+     char pty_buf[PATH_MAX];
+ #define q_ptsname(x) pty_buf
++#elif defined(__ANDROID__)
+ #else
+     char *pty_buf = NULL;
+ #define q_ptsname(x) ptsname(x)
+ #endif
+ 
++#ifdef __ANDROID__
++    return -1;
++#else
+     if (openpty(&amaster, aslave, pty_buf, NULL, NULL) < 0) {
+         return -1;
+     }
+@@ -132,6 +139,6 @@ int qemu_openpty_raw(int *aslave, char *pty_name)
+     if (pty_name) {
+         strcpy(pty_name, q_ptsname(amaster));
+     }
+-
+     return amaster;
++#endif //__ANDROID__
+ }
+diff --git a/vl.c b/vl.c
+index 0b4ed52..3467412 100644
+--- a/vl.c
++++ b/vl.c
+@@ -133,6 +133,10 @@ int main(int argc, char **argv)
+ #define MAX_VIRTIO_CONSOLES 1
+ #define MAX_SCLP_CONSOLES 1
+ 
++#ifdef __LIMBO__
++char * limbo_base_dir;
++#endif
++
+ static const char *data_dir[16];
+ static int data_dir_idx;
+ const char *bios_name = NULL;
+@@ -3395,6 +3399,10 @@ int main(int argc, char **argv, char **envp)
+                 if (is_help_option(optarg)) {
+                     list_data_dirs = true;
+                 } else if (data_dir_idx < ARRAY_SIZE(data_dir)) {
++#ifdef __LIMBO__
++					limbo_base_dir = strdup(optarg);
++                	LOGD("Storing limbo_base_dir=%s", limbo_base_dir);
++#endif // __LIMBO__
+                     data_dir[data_dir_idx++] = optarg;
+                 }
+                 break;
+@@ -4722,3 +4730,26 @@ int main(int argc, char **argv, char **envp)
+ 
+     return 0;
+ }
++
++#ifdef __LIMBO__
++
++void stop_vm(int no_reboot_vm) {
++    if (no_reboot_vm) {
++        shutdown_requested = 1;
++    } else {
++        reset_requested = 1;
++    }
++    cpu_stop_current();
++    qemu_notify_event();
++}
++int qemu_start(int argc, char **argv) {
++    return main(argc, argv, NULL);
++}
++
++int get_state(void) {
++    return runstate_is_running();
++}
++
++
++#endif //__LIMBO__
++
