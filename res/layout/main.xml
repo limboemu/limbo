@@ -952,6 +952,7 @@
                                 android:layout_height="wrap_content"
                                 android:enabled="false"
                                 android:gravity="right"
+                                android:inputType="textFilter|textNoSuggestions"
                                 android:singleLine="true"
                                 android:text="8.8.8.8"
                                 android:textSize="15dip" />
@@ -980,6 +981,7 @@
                                 android:enabled="false"
                                 android:gravity="right"
                                 android:hint="hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport{,hostfwd=...}"
+                                android:inputType="textFilter|textNoSuggestions"
                                 android:singleLine="true"
                                 android:text=""
                                 android:textSize="15dip" />
@@ -1134,6 +1136,7 @@
                                 android:layout_height="wrap_content"
                                 android:gravity="right"
                                 android:hint="ie: root=/dev/sda1"
+                                android:inputType="textFilter|textNoSuggestions"
                                 android:singleLine="true"
                                 android:text=""
                                 android:textSize="15dip" />
@@ -1580,6 +1583,7 @@
                             android:id="@+id/extraparamsval"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
+                            android:inputType="textFilter|textNoSuggestions"
                             android:singleLine="true"
                             android:text=""
                             android:textSize="15dip" />

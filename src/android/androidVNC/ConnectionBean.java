@@ -3,16 +3,9 @@
  */
 package android.androidVNC;
 
-import android.androidVNC.COLORMODEL;
-import android.androidVNC.VncCanvasActivity;
-import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
-import android.widget.ImageView.ScaleType;
-import android.widget.TextView;
-
-import java.lang.Comparable;
-
 import com.max2idea.android.limbo.main.Config;
+
+import android.widget.ImageView.ScaleType;
 
 /**
  * @author Michael A. MacDonald

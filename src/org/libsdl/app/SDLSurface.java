@@ -2,7 +2,6 @@ package org.libsdl.app;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboSDLActivity;
-import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.app.Activity;
 import android.content.Context;
@@ -95,17 +94,13 @@ public class SDLSurface extends GLSurfaceView
 	public void reSize() {
 		// TODO Auto-generated method stub
 		Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
-		int height;
-		int width;
-		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB_MR2) {
-			Point size = new Point();
-			display.getSize(size);
-			width = size.x;
-			height = size.y;
-		} else {
-			width = display.getWidth();
-			height = display.getHeight();
-		}
+		int height = 0;
+		int width = 0;
+
+		Point size = new Point();
+		display.getSize(size);
+		width = size.x;
+		height = size.y;
 
 		float currentRatio = (float) width / height;
 		if (this.getHeight() != 0)
@@ -169,23 +164,6 @@ public class SDLSurface extends GLSurfaceView
 
 		int sdlFormat = 0x15151002; // SDL_PIXELFORMAT_RGB565 by default
 		switch (format) {
-		case PixelFormat.A_8:
-			Log.v("SDL", "pixel format A_8");
-			break;
-		case PixelFormat.LA_88:
-			Log.v("SDL", "pixel format LA_88");
-			break;
-		case PixelFormat.L_8:
-			Log.v("SDL", "pixel format L_8");
-			break;
-		case PixelFormat.RGBA_4444:
-			Log.v("SDL", "pixel format RGBA_4444");
-			sdlFormat = 0x15421002; // SDL_PIXELFORMAT_RGBA4444
-			break;
-		case PixelFormat.RGBA_5551:
-			Log.v("SDL", "pixel format RGBA_5551");
-			sdlFormat = 0x15441002; // SDL_PIXELFORMAT_RGBA5551
-			break;
 		case PixelFormat.RGBA_8888:
 			Log.v("SDL", "pixel format RGBA_8888");
 			sdlFormat = 0x16462004; // SDL_PIXELFORMAT_RGBA8888
@@ -193,10 +171,6 @@ public class SDLSurface extends GLSurfaceView
 		case PixelFormat.RGBX_8888:
 			Log.v("SDL", "pixel format RGBX_8888");
 			sdlFormat = 0x16261804; // SDL_PIXELFORMAT_RGBX8888
-			break;
-		case PixelFormat.RGB_332:
-			Log.v("SDL", "pixel format RGB_332");
-			sdlFormat = 0x14110801; // SDL_PIXELFORMAT_RGB332
 			break;
 		case PixelFormat.RGB_565:
 			Log.v("SDL", "pixel format RGB_565");
@@ -385,8 +359,7 @@ public class SDLSurface extends GLSurfaceView
 	public boolean onTouchEvent(MotionEvent event) {
 		return false;
 	}
-	
-	
+
 	public boolean onTouchEventProcess(MotionEvent event) {
 		// Log.v("onTouchEvent",
 		// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
@@ -445,8 +418,9 @@ public class SDLSurface extends GLSurfaceView
 
 		@Override
 		public void onLongPress(MotionEvent event) {
-			//Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y=" + event.getX() + "," + event.getY() + " P="
-//					+ event.getPressure());
+			// Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y="
+			// + event.getX() + "," + event.getY() + " P="
+			// + event.getPressure());
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 			if (v.hasVibrator()) {
@@ -506,21 +480,21 @@ public class SDLSurface extends GLSurfaceView
 		// TODO Auto-generated method stub
 		Thread t = new Thread(new Runnable() {
 			public void run() {
-//				Log.d("SDL", "Mouse Double Click");
+				// Log.d("SDL", "Mouse Double Click");
 				for (int i = 0; i < 2; i++) {
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0,
 							0);
 					try {
 						Thread.sleep(50);
 					} catch (InterruptedException ex) {
-//						Log.v("doubletap", "Could not sleep");
+						// Log.v("doubletap", "Could not sleep");
 					}
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0,
 							0);
 					try {
 						Thread.sleep(50);
 					} catch (InterruptedException ex) {
-//						Log.v("doubletap", "Could not sleep");
+						// Log.v("doubletap", "Could not sleep");
 					}
 				}
 			}
@@ -576,7 +550,7 @@ public class SDLSurface extends GLSurfaceView
 	public boolean onTouch(View v, MotionEvent event) {
 		return false;
 	}
-	
+
 	// Touch events
 	public boolean onTouchProcess(View v, MotionEvent event) {
 		// Log.v("onTouch",
@@ -586,11 +560,10 @@ public class SDLSurface extends GLSurfaceView
 		float x = event.getX(0);
 		float y = event.getY(0);
 		float p = event.getPressure(0);
-		
+
 		if (event.getAction() == MotionEvent.ACTION_MOVE) {
 
 			// for (int i = 0; i < event.getPointerCount(); i++) {
-			
 
 			if (mouseUp) {
 				old_x = x;
@@ -598,17 +571,18 @@ public class SDLSurface extends GLSurfaceView
 				mouseUp = false;
 			}
 			if (action == MotionEvent.ACTION_MOVE) {
-				//Log.d("SDL", "onTouch Moving by=" + action + ", X,Y=" + (x - old_x) + "," + (y - old_y) + " P=" + p);
+				// Log.d("SDL", "onTouch Moving by=" + action + ", X,Y=" + (x -
+				// old_x) + "," + (y - old_y) + " P=" + p);
 				SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_MOVE,
 						(x - old_x) * sensitivity_mult, (y - old_y) * sensitivity_mult, p);
-				
+
 			}
 			// save current
 			old_x = x;
 			old_y = y;
 
 		} else if (event.getAction() == event.ACTION_UP) {
-//			Log.d("SDL", "onTouch Up");
+			// Log.d("SDL", "onTouch Up");
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
 			mouseUp = true;
 		}

@@ -87,11 +87,11 @@ public class Config {
 	public static final boolean enable_sound_menu = true; //Option for GUI
 	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
 	
-	public static final boolean enable_X86 = true; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_X86_64 = true; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
-	public static final boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
-	public static final boolean enable_PPC = false; //Enable if you build QEMU with Mips softmmu
+	public static boolean enable_X86 = true; //Enable if you build QEMU with Arm softmmu
+	public static boolean enable_X86_64 = true; //Enable if you build QEMU with Arm softmmu
+	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
+	public static boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
+	public static boolean enable_PPC = false; //Enable if you build QEMU with Mips softmmu
 	
 	//Enable if you build with KVM support
 	public static final boolean enable_KVM = false; 

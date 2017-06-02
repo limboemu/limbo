@@ -1523,7 +1523,7 @@ public class LimboActivity extends AppCompatActivity {
 			if (Config.debugMode == DebugMode.X86) {
 				try {
 					System.loadLibrary("qemu-system-i386");
-				} catch (Exception ex) {
+				} catch (Error ex) {
 					System.loadLibrary("qemu-system-x86_64");
 				}
 			} else if (Config.debugMode == DebugMode.X86_64)
@@ -2252,7 +2252,7 @@ public class LimboActivity extends AppCompatActivity {
 			this.mNetDevices.setEnabled(flag);
 		this.mVGAConfig.setEnabled(flag);
 
-		if (Config.enable_sound_menu || !flag)
+		if (Config.enable_sound_menu)
 			if (currMachine != null && currMachine.ui != null && currMachine.ui.equals("SDL"))
 				this.mSoundCardConfig.setEnabled(flag);
 			else
@@ -2911,12 +2911,12 @@ public class LimboActivity extends AppCompatActivity {
 		final Handler handler = this.handler;
 
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				LimboSettingsManager.setPrio(activity, true);
 			}
 		});
-		alertDialog.setButton2("Cancel", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				mPrio.setChecked(false);
 				return;
@@ -2991,12 +2991,12 @@ public class LimboActivity extends AppCompatActivity {
 		mLayout.setPadding(10,10,10,10);
 
 		RelativeLayout.LayoutParams textViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 		textViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, mLayout.getId());
 		mLayout.addView(textView, textViewParams);
 
 		RelativeLayout.LayoutParams passwordViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 
 		passwordViewParams.addRule(RelativeLayout.BELOW, textView.getId());
 		// passwordViewParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM,
@@ -3007,10 +3007,8 @@ public class LimboActivity extends AppCompatActivity {
 
 		final Handler handler = this.handler;
 
-		alertDialog.setButton("Set", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Set", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-
-				// UIUtils.log("Searching...");
 				EditText a = (EditText) alertDialog.findViewById(11111);
 
 				if (a.getText().toString().trim().equals("")) {
@@ -3018,19 +3016,16 @@ public class LimboActivity extends AppCompatActivity {
 					vnc_passwd = null;
 					vnc_allow_external = 0;
 					mVNCAllowExternal.setChecked(false);
-					// LimboSettingsManager.setVNCAllowExternal(activity,
-					// false);
 					return;
 				} else {
 					sendHandlerMessage(handler, Config.VNC_PASSWORD, "vnc_passwd", "passwd");
 					vnc_passwd = a.getText().toString();
 					vnc_allow_external = 1;
-					// LimboSettingsManager.setVNCAllowExternal(activity, true);
 				}
 
 			}
 		});
-		alertDialog.setButton2("Cancel", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				vnc_passwd = null;
 				vnc_allow_external = 0;
@@ -3261,24 +3256,18 @@ public class LimboActivity extends AppCompatActivity {
 		imageNameView.setId(201012010);
 		imageNameView.setSingleLine();
 		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(imageNameView, searchViewParams);
 
 		final Spinner size = new Spinner(this);
 		RelativeLayout.LayoutParams setPlusParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 		size.setId(201012044);
 
-		String[] arraySpinner = new String[7];
-		for (int i = 0; i < arraySpinner.length; i++) {
-
-			if (i < 5) {
-				arraySpinner[i] = (i + 1) + " GB";
-			}
-
-		}
-		arraySpinner[5] = "10 GB";
-		arraySpinner[6] = "20 GB";
+		String[] arraySpinner = new String[3];
+		arraySpinner[0] = "5 GB (Growable)";
+		arraySpinner[1] = "10 GB (Growable)";
+		arraySpinner[2] = "20 GB (Growable)";
 
 		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, R.layout.custom_spinner_item, arraySpinner);
 		sizeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
@@ -3316,15 +3305,15 @@ public class LimboActivity extends AppCompatActivity {
 		final Handler handler = this.handler;
 
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("Create", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				int sizeSel = size.getSelectedItemPosition();
 				String templateImage = "hd1g.qcow2";
-				if (sizeSel < 5) {
-					templateImage = "hd" + (sizeSel + 1) + "g.qcow2";
-				} else if (sizeSel == 5) {
+				if (sizeSel == 0) {
+					templateImage = "hd5g.qcow2";
+				} else if (sizeSel == 1) {
 					templateImage = "hd10g.qcow2";
-				} else if (sizeSel == 6) {
+				} else if (sizeSel == 2) {
 					templateImage = "hd20g.qcow2";
 				}
 
@@ -3445,7 +3434,7 @@ public class LimboActivity extends AppCompatActivity {
 		final Handler handler = this.handler;
 
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("Create", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
 				// UIUtils.log("Searching...");

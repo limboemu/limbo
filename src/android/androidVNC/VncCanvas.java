@@ -27,30 +27,30 @@
 //
 package android.androidVNC;
 
-import android.app.Activity;
 import java.io.IOException;
 import java.util.zip.Inflater;
 
+import com.antlersoft.android.bc.BCFactory;
+import com.max2idea.android.limbo.main.Config;
+
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.Paint.Style;
+import android.graphics.Point;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Display;
-import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.widget.ImageView;
 import android.widget.Toast;
-
-import com.antlersoft.android.bc.BCFactory;
-import com.max2idea.android.limbo.main.Config;
 
 public class VncCanvas extends ImageView {
 
@@ -160,8 +160,15 @@ public class VncCanvas extends ImageView {
 
 			public void run() {
 				try {
+					int width = 0;
+					int height = 0;
+					Point size = new Point();
+					display.getSize(size);
+					width = size.x;
+					height = size.y;
+					
 					connectAndAuthenticate(connection.getUserName(), connection.getPassword());
-					doProtocolInitialisation(display.getWidth(), display.getHeight());
+					doProtocolInitialisation(width, height);
 					handler.post(new Runnable() {
 						public void run() {
 							// pd.setMessage("Downloading first frame.\nPlease
@@ -183,8 +190,7 @@ public class VncCanvas extends ImageView {
 							// figure out how to gracefully notify the user
 							// Instantiating an alert dialog here doesn't work
 							// because we are out of memory. :(
-						} else if (e instanceof ArrayIndexOutOfBoundsException
-								|| e instanceof java.net.ConnectException
+						} else if (e instanceof ArrayIndexOutOfBoundsException || e instanceof java.net.ConnectException
 								|| e instanceof java.io.IOException) {
 							// Retry
 							if (retries < MAX_RETRIES) {
@@ -643,12 +649,18 @@ public class VncCanvas extends ImageView {
 
 		// Prevent panning right or below desktop image
 
+		Point outSize = new Point();
+		int height = 0;
+		int width = 0;
+		VncCanvasActivity.display.getSize(outSize);
+		height = outSize.y;
+		width = outSize.x;
+
 		if (absoluteXPosition + getVisibleWidth() + sX > getImageWidth()) {
 			sX = getImageWidth() - getVisibleWidth() - absoluteXPosition;
 		}
-		if (absoluteYPosition + getVisibleHeight() + sY > getImageHeight()
-				+ VncCanvasActivity.display.getHeight() * .6) {
-			sY = getImageHeight() + VncCanvasActivity.display.getHeight() * .6 - getVisibleHeight() - absoluteYPosition;
+		if (absoluteYPosition + getVisibleHeight() + sY > getImageHeight() + height * .6) {
+			sY = getImageHeight() + height * .6 - getVisibleHeight() - absoluteYPosition;
 		}
 
 		absoluteXPosition += sX;
@@ -714,8 +726,8 @@ public class VncCanvas extends ImageView {
 				for (i = 0; i < w; i++) {
 					final int idx = i * 4;
 					pixels[offset + i] = // 0xFF << 24 |
-					(handleRawRectBuffer[idx + 2] & 0xff) << 16 | (handleRawRectBuffer[idx + 1] & 0xff) << 8
-							| (handleRawRectBuffer[idx] & 0xff);
+							(handleRawRectBuffer[idx + 2] & 0xff) << 16 | (handleRawRectBuffer[idx + 1] & 0xff) << 8
+									| (handleRawRectBuffer[idx] & 0xff);
 				}
 			}
 		}

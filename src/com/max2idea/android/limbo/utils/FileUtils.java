@@ -98,16 +98,18 @@ public class FileUtils {
 	public static ArrayList<Machine> getVMs(String dBFile) {
 		// TODO Auto-generated method stub
 		ArrayList<Machine> machines = new ArrayList<Machine>();
+		BufferedReader buffreader = null;
+		InputStream instream = null;
 		// Read machines from csv file
 		try {
 			// open the file for reading
-			InputStream instream = new FileInputStream(Config.DBFile);
+			instream = new FileInputStream(Config.DBFile);
 
 			// if file the available for reading
 			if (instream != null) {
 				// prepare the file for reading
 				InputStreamReader inputreader = new InputStreamReader(instream);
-				BufferedReader buffreader = new BufferedReader(inputreader);
+				buffreader = new BufferedReader(inputreader);
 
 				String line;
 
@@ -122,8 +124,8 @@ public class FileUtils {
 						"DISABLE_ACPI", "DISABLE_HPET", "DISABLE_FD_BOOT_CHK", // Other
 						"EXTRA_PARAMS" // Extra Params
 				};
-				
-				Hashtable<Integer, String> attrs = new Hashtable<Integer,String>();
+
+				Hashtable<Integer, String> attrs = new Hashtable<Integer, String>();
 
 				// read every line of the file into the line-variable, on line
 				// at the time
@@ -133,7 +135,7 @@ public class FileUtils {
 				for (int i = 0; i < headers.length; i++) {
 					attrs.put(i, headers[i].replace("\"", ""));
 				}
-				
+
 				while (line != null) {
 					line = buffreader.readLine();
 					if (line == null)
@@ -161,7 +163,7 @@ public class FileUtils {
 						else if (attrs.get(i).equals("ARCH"))
 							mach.arch = machineAttr[i].replace("\"", "");
 						else if (attrs.get(i).equals("MACHINETYPE"))
-							mach.machine_type= machineAttr[i].replace("\"", "");
+							mach.machine_type = machineAttr[i].replace("\"", "");
 						else if (attrs.get(i).equals("CPU"))
 							mach.cpu = machineAttr[i].replace("\"", "");
 						else if (attrs.get(i).equals("CPUNUM"))
@@ -250,6 +252,21 @@ public class FileUtils {
 			Log.v("Import", "Error:" + ex.getMessage());
 		} finally {
 
+			try {
+				if (buffreader != null)
+					buffreader.close();
+
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			try {
+				if (instream != null)
+					instream.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 		return machines;

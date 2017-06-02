@@ -1,10 +1,5 @@
 package com.max2idea.android.limbo.main;
 
-import java.util.ArrayList;
-
-import org.libsdl.app.SDLActivity;
-
-import com.limbo.emu.main.LimboEmuActivity;
 import com.limbo.emu.main.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.utils.UIUtils;
@@ -16,11 +11,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
-import android.media.AudioManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
-import android.os.BaseBundle;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;

@@ -89,7 +89,7 @@ public class DrivesDialogBox extends Dialog {
 		mCD.setOnItemSelectedListener(new OnItemSelectedListener() {
 
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String cd = (String) ((ArrayAdapter) mCD.getAdapter()).getItem(position);
+				String cd = (String) ((ArrayAdapter<?>) mCD.getAdapter()).getItem(position);
 
 				if (userPressedCDROM && position == 0) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.CDROM, "");
@@ -124,7 +124,7 @@ public class DrivesDialogBox extends Dialog {
 		mFDA.setOnItemSelectedListener(new OnItemSelectedListener() {
 
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fda = (String) ((ArrayAdapter) mFDA.getAdapter()).getItem(position);
+				String fda = (String) ((ArrayAdapter<?>) mFDA.getAdapter()).getItem(position);
 				if (userPressedFDA && position == 0) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDA, "");
 					LimboActivity.currMachine.fda_img_path = "";
@@ -159,7 +159,7 @@ public class DrivesDialogBox extends Dialog {
 		mFDB.setOnItemSelectedListener(new OnItemSelectedListener() {
 
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fdb = (String) ((ArrayAdapter) mFDB.getAdapter()).getItem(position);
+				String fdb = (String) ((ArrayAdapter<?>) mFDB.getAdapter()).getItem(position);
 				if (userPressedFDB && position == 0) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDB, "");
 					LimboActivity.currMachine.fdb_img_path = "";
@@ -193,7 +193,7 @@ public class DrivesDialogBox extends Dialog {
 		mSD.setOnItemSelectedListener(new OnItemSelectedListener() {
 
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sd = (String) ((ArrayAdapter) mSD.getAdapter()).getItem(position);
+				String sd = (String) ((ArrayAdapter<?>) mSD.getAdapter()).getItem(position);
 				if (userPressedSD && position == 0) {
 					int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.SD, "");
 					LimboActivity.currMachine.sd_img_path = "";
@@ -270,7 +270,7 @@ public class DrivesDialogBox extends Dialog {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldCDs != null) {
-			Iterator i = oldCDs.iterator();
+			Iterator<String> i = oldCDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -278,7 +278,7 @@ public class DrivesDialogBox extends Dialog {
 				}
 			}
 		}
-		ArrayAdapter cdromAdapter = new ArrayAdapter(activity, R.layout.custom_spinner_item, arraySpinner);
+		ArrayAdapter<String> cdromAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
 		cdromAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		mCD.setAdapter(cdromAdapter);
 		mCD.invalidate();
@@ -299,7 +299,7 @@ public class DrivesDialogBox extends Dialog {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldSDs != null) {
-			Iterator i = oldSDs.iterator();
+			Iterator<String> i = oldSDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -307,7 +307,7 @@ public class DrivesDialogBox extends Dialog {
 				}
 			}
 		}
-		ArrayAdapter sdAdapter = new ArrayAdapter(activity, R.layout.custom_spinner_item, arraySpinner);
+		ArrayAdapter<String> sdAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
 		sdAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		mSD.setAdapter(sdAdapter);
 		mSD.invalidate();
@@ -328,7 +328,7 @@ public class DrivesDialogBox extends Dialog {
 		arraySpinner.add("None");
 		arraySpinner.add("Open");
 		if (oldFDs != null) {
-			Iterator i = oldFDs.iterator();
+			Iterator<String> i = oldFDs.iterator();
 			while (i.hasNext()) {
 				String file = (String) i.next();
 				if (file != null) {
@@ -338,44 +338,46 @@ public class DrivesDialogBox extends Dialog {
 		}
 
 		if (fileType.equals("fda")) {
-			ArrayAdapter fdaAdapter = new ArrayAdapter(activity, R.layout.custom_spinner_item, arraySpinner);
+			ArrayAdapter<String> fdaAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
 			fdaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			mFDA.setAdapter(fdaAdapter);
 			mFDA.invalidate();
 		} else if (fileType.equals("fdb")) {
-			ArrayAdapter fdbAdapter = new ArrayAdapter(activity, R.layout.custom_spinner_item, arraySpinner);
+			ArrayAdapter<String> fdbAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
 			fdbAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 			mFDB.setAdapter(fdbAdapter);
 			mFDB.invalidate();
 		}
 	}
 
+	
+	@SuppressWarnings("unchecked")
 	public static void setDriveAttr(String fileType, String file, boolean userPressed) {
 		// TODO Auto-generated method stub
 		addDriveToList(file, fileType);
 		if (fileType != null && fileType.startsWith("cd") && file != null && !file.trim().equals("")) {
 			int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.CDROM, file);
-			if (((ArrayAdapter) mCD.getAdapter()).getPosition(file) < 0) {
-				((ArrayAdapter) mCD.getAdapter()).add(file);
+			if (((ArrayAdapter<String>) mCD.getAdapter()).getPosition(file) < 0) {
+				((ArrayAdapter<String>) mCD.getAdapter()).add(file);
 			}
 			setCDROM(file, userPressed);
 		} else if (fileType != null && fileType.startsWith("sd") && file != null && !file.trim().equals("")) {
 			int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.SD, file);
-			if (((ArrayAdapter) mSD.getAdapter()).getPosition(file) < 0) {
-				((ArrayAdapter) mSD.getAdapter()).add(file);
+			if (((ArrayAdapter<String>) mSD.getAdapter()).getPosition(file) < 0) {
+				((ArrayAdapter<String>) mSD.getAdapter()).add(file);
 			}
 			setSD(file, userPressed);
 		} else if (fileType != null && fileType.startsWith("fd") && file != null && !file.trim().equals("")) {
 			if (fileType.startsWith("fda")) {
 				int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDA, file);
-				if (((ArrayAdapter) mFDA.getAdapter()).getPosition(file) < 0) {
-					((ArrayAdapter) mFDA.getAdapter()).add(file);
+				if (((ArrayAdapter<String>) mFDA.getAdapter()).getPosition(file) < 0) {
+					((ArrayAdapter<String>) mFDA.getAdapter()).add(file);
 				}
 				setFDA(file, userPressed);
 			} else if (fileType.startsWith("fdb")) {
 				int ret = LimboActivity.machineDB.update(LimboActivity.currMachine, MachineOpenHelper.FDB, file);
-				if (((ArrayAdapter) mFDB.getAdapter()).getPosition(file) < 0) {
-					((ArrayAdapter) mFDB.getAdapter()).add(file);
+				if (((ArrayAdapter<String>) mFDB.getAdapter()).getPosition(file) < 0) {
+					((ArrayAdapter<String>) mFDB.getAdapter()).add(file);
 				}
 				setFDB(file, userPressed);
 			}
@@ -399,12 +401,13 @@ public class DrivesDialogBox extends Dialog {
 
 	}
 
+	@SuppressWarnings("unchecked")
 	private static void setCDROM(String cdrom, boolean userPressed) {
 		userPressedCDROM = userPressed;
 		LimboActivity.currMachine.cd_iso_path = cdrom;
 		// Log.v("DB", "UserPressed: " + userPressedCDROM + " CDROM=" + cdrom);
 		if (cdrom != null) {
-			int pos = ((ArrayAdapter) mCD.getAdapter()).getPosition(cdrom);
+			int pos = ((ArrayAdapter<String>) mCD.getAdapter()).getPosition(cdrom);
 			// Log.v("DB", "Got pos: " + pos + " for CDROM=" + cdrom);
 			if (pos > 1) {
 				mCD.setSelection(pos);
@@ -417,12 +420,13 @@ public class DrivesDialogBox extends Dialog {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	private static void setSD(String sd, boolean userPressed) {
 		userPressedSD = userPressed;
 		LimboActivity.currMachine.sd_img_path = sd;
 		// Log.v("DB", "UserPressed: " + userPressedCDROM + " CDROM=" + cdrom);
 		if (sd != null) {
-			int pos = ((ArrayAdapter) mSD.getAdapter()).getPosition(sd);
+			int pos = ((ArrayAdapter<String>) mSD.getAdapter()).getPosition(sd);
 			// Log.v("DB", "Got pos: " + pos + " for CDROM=" + cdrom);
 			if (pos > 1) {
 				mSD.setSelection(pos);
@@ -435,12 +439,13 @@ public class DrivesDialogBox extends Dialog {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	private static void setFDA(String fda, boolean userPressed) {
 		userPressedFDA = userPressed;
 		LimboActivity.currMachine.fda_img_path = fda;
 		// Log.v("DB", "UserPressed: " + userPressedFDA + " FDA=" + fda);
 		if (fda != null) {
-			int pos = ((ArrayAdapter) mFDA.getAdapter()).getPosition(fda);
+			int pos = ((ArrayAdapter<String>) mFDA.getAdapter()).getPosition(fda);
 			// Log.v("DB", "Got pos: " + pos + " for FDA=" + fda);
 			if (pos >= 0) {
 				mFDA.setSelection(pos);
@@ -453,12 +458,13 @@ public class DrivesDialogBox extends Dialog {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	private static void setFDB(String fdb, boolean userPressed) {
 		userPressedFDB = userPressed;
 		LimboActivity.currMachine.fdb_img_path = fdb;
 		// Log.v("DB", "UserPressed: " + userPressedFDB + " FDB=" + fdb);
 		if (fdb != null) {
-			int pos = ((ArrayAdapter) mFDA.getAdapter()).getPosition(fdb);
+			int pos = ((ArrayAdapter<String>) mFDA.getAdapter()).getPosition(fdb);
 			// Log.v("DB", "Got pos: " + pos + " for FDB=" + fdb);
 			if (pos >= 0) {
 				mFDB.setSelection(pos);

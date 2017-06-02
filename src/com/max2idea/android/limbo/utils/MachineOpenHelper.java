@@ -18,6 +18,12 @@
  */
 package com.max2idea.android.limbo.utils;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+
+import com.max2idea.android.limbo.main.Config;
+
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
@@ -25,12 +31,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
-
-import com.max2idea.android.limbo.main.Config;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
 
 /**
  * 

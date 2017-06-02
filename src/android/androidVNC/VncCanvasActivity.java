@@ -26,7 +26,6 @@ import java.util.logging.Logger;
 import com.antlersoft.android.bc.BCFactory;
 import com.limbo.emu.main.R;
 import com.max2idea.android.limbo.main.LimboActivity;
-import com.max2idea.android.limbo.main.LimboSettingsManager;
 
 import android.app.Activity;
 import android.app.Dialog;

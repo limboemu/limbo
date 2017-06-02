@@ -294,7 +294,7 @@ public class VMExecutor {
 			if (arch.equals("x86")) {
 				try {
 					System.loadLibrary("qemu-system-i386");
-				} catch (Exception ex){
+				} catch (Error ex){
 					System.loadLibrary("qemu-system-x86_64");
 				}
 			}if (arch.equals("x86_64")){

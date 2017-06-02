@@ -18,11 +18,10 @@
  */
 package com.max2idea.android.limbo.utils;
 
+import com.max2idea.android.limbo.main.Config;
+
 import android.app.Activity;
 import android.util.Log;
-
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
 
 public class Machine {
 	public static Activity activity;

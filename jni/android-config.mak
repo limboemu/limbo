@@ -23,11 +23,11 @@ USE_SDL_AUDIO ?= true
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
-# Note 1: Building for Android ARM requires ndk13 and android-14
+# Note 1: Building for Android ARM requires ndk13b and android-17
 # Note 2: Building for Android x86 requires ndk13b and android-17
 # Note 3: Building for Android x86 w/ KVM support requires ndk13b and android-21
 # Note 4: Building for Android x86_64 requires ndk13b and android-21
-# Note 5: Building for Android x86_64 w/ KVM support requires ndk13b and android-21  
+# Note 5: Building for Android x86_64 w/ KVM support requires ndk13b and android-21 
 APP_PLATFORM = android-17
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 

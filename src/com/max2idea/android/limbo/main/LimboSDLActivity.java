@@ -26,7 +26,6 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -172,14 +171,14 @@ public class LimboSDLActivity extends SDLActivity {
 						+ "Step 3: Move your mouse pointer to all desktop corners to calibrate.\n");
 
 		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(textView, searchViewParams);
 		alertDialog.setView(mLayout);
 
 		final Handler handler = this.handler;
 
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,"OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 				LimboSDLActivity.singleClick(a, 0);
@@ -189,7 +188,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 			}
 		});
-		alertDialog.setButton2("Cancel", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE,"Cancel", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				LimboSDLActivity.enablebluetoothmouse = 0;
 				return;
@@ -959,7 +958,7 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog.setView(stateView);
 
 		// alertDialog.setMessage(body);
-		alertDialog.setButton("Create", new DialogInterface.OnClickListener() {
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,"Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
 				// UIUtils.log("Searching...");

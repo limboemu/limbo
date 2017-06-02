@@ -45,7 +45,6 @@ import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.AbsoluteLayout;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -200,13 +199,13 @@ public class SDLActivity extends AppCompatActivity {
 		Log.v(TAG, "Model: " + android.os.Build.MODEL);
 		Log.v(TAG, "onCreate(): " + mSingleton);
 		super.onCreate(savedInstanceState);
-		
+
 		SDLActivity.initialize();
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 
 		setupVolume();
-		
+
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
 		try {
@@ -369,7 +368,7 @@ public class SDLActivity extends AppCompatActivity {
 				keyCode == 169 /* API 11: KeyEvent.KEYCODE_ZOOM_OUT */
 		) {
 			return false;
-		}else if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN){
+		} else if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN) {
 			this.onBackPressed();
 		}
 		return super.dispatchKeyEvent(event);
@@ -612,7 +611,8 @@ public class SDLActivity extends AppCompatActivity {
 
 		@Override
 		public void run() {
-			AbsoluteLayout.LayoutParams params = new AbsoluteLayout.LayoutParams(w, h + HEIGHT_PADDING, x, y);
+			LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+					LinearLayout.LayoutParams.WRAP_CONTENT);
 
 			if (mTextEdit == null) {
 				mTextEdit = new DummyEdit(getContext());
@@ -651,8 +651,7 @@ public class SDLActivity extends AppCompatActivity {
 	 * This method is called by SDL using JNI.
 	 */
 	public static int audioInit(int sampleRate, boolean is16Bit, boolean isStereo, int desiredFrames) {
-		int channelConfig = isStereo ? AudioFormat.CHANNEL_CONFIGURATION_STEREO
-				: AudioFormat.CHANNEL_CONFIGURATION_MONO;
+		int channelConfig = isStereo ? AudioFormat.CHANNEL_OUT_STEREO : AudioFormat.CHANNEL_OUT_MONO;
 		int audioFormat = is16Bit ? AudioFormat.ENCODING_PCM_16BIT : AudioFormat.ENCODING_PCM_8BIT;
 		int frameSize = (isStereo ? 2 : 1) * (is16Bit ? 2 : 1);
 
@@ -683,7 +682,7 @@ public class SDLActivity extends AppCompatActivity {
 				mAudioTrack = null;
 				return -1;
 			}
-			
+
 			mAudioTrack.play();
 		}
 
@@ -696,22 +695,21 @@ public class SDLActivity extends AppCompatActivity {
 	}
 
 	public static AudioManager am;
-	protected static void setupVolume(){
+
+	protected static void setupVolume() {
 		if (am == null) {
-			 am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
-			 maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+			am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
+			maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
 		}
 	}
+
 	public static void setVolume(int volume) {
-		
-		am.setStreamVolume(
-			    AudioManager.STREAM_MUSIC,
-			    volume,
-			    0);
+
+		am.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
 	}
 
 	protected static int getCurrentVolume() {
-		 
+
 		AudioManager am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
 		int volumeTmp = am.getStreamVolume(AudioManager.STREAM_MUSIC);
 		return volumeTmp;
@@ -724,10 +722,10 @@ public class SDLActivity extends AppCompatActivity {
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteShortBuffer(short[] buffer) {
-		//Log.d(TAG, "audioWriteShortBuffer start: " + buffer.length);
+		// Log.d(TAG, "audioWriteShortBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
-			//Log.d(TAG, "Wrote to audioWriteShortBuffer: " + result);
+			// Log.d(TAG, "Wrote to audioWriteShortBuffer: " + result);
 			if (result > 0) {
 				i += result;
 			} else if (result == 0) {
@@ -735,21 +733,21 @@ public class SDLActivity extends AppCompatActivity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
-					//Log.e(TAG, "SDL: Audio Short interrupted: " + e);
+					// Log.e(TAG, "SDL: Audio Short interrupted: " + e);
 				}
 			} else {
-				//Log.w(TAG, "SDL audio: error return from write(short)");
+				// Log.w(TAG, "SDL audio: error return from write(short)");
 				return;
 			}
 		}
-		//Log.d(TAG, "audioWriteShortBuffer end");
+		// Log.d(TAG, "audioWriteShortBuffer end");
 	}
 
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void audioWriteByteBuffer(byte[] buffer) {
-		//Log.d(TAG, "audioWriteByteBuffer start: " + buffer.length);
+		// Log.d(TAG, "audioWriteByteBuffer start: " + buffer.length);
 		for (int i = 0; i < buffer.length;) {
 			int result = mAudioTrack.write(buffer, i, buffer.length - i);
 			if (result > 0) {
@@ -759,14 +757,14 @@ public class SDLActivity extends AppCompatActivity {
 					Thread.sleep(1);
 				} catch (InterruptedException e) {
 					// Nom nom
-//					Log.e(TAG, "SDL: Audio Byte interrupted: " + e);
+					// Log.e(TAG, "SDL: Audio Byte interrupted: " + e);
 				}
 			} else {
-//				Log.w(TAG, "SDL audio: error return from write(byte)");
+				// Log.w(TAG, "SDL audio: error return from write(byte)");
 				return;
 			}
 		}
-//		Log.d(TAG, "audioWriteByteBuffer end");
+		// Log.d(TAG, "audioWriteByteBuffer end");
 	}
 
 	/**
