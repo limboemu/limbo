@@ -15,7 +15,7 @@ https://github.com/limboemu/limbo
 2. Requirements:
 
     Android SDK
-    Android NDK r12+ (Recommended: 13 + GCC 4.9)
+    Android NDK r12+ (Recommended: 13b + GCC 4.9)
     Eclipse + Eclipse Android plugin
     An Android device (most stock/custom roms should be compatible)
     Cygwin (if you compile for Windows)
@@ -36,7 +36,7 @@ https://github.com/limboemu/limbo
     b. Configure your PATH variable add the NDK Directory so makefile can find ndk-build
     Examples:
     For bash:
-    export PATH=$PATH:/home/dev/tools/android/android-ndk-r13
+    export PATH=$PATH:/home/dev/tools/android/android-ndk-r13b
     
     c. Get QEMU version
     Get QEMU version 2.9.0 and extract somewhere outside of Limbo directories (important!):
@@ -78,8 +78,8 @@ https://github.com/limboemu/limbo
         
          
 	If you build on Windows platform make sure you update the android-config.mak file:
-    NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-	NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+    NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
+	NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
     
     a. Build the static and shared libraries:
         i.  > make config
