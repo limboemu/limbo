@@ -2278,8 +2278,7 @@ public class LimboActivity extends AppCompatActivity {
 		this.mFDBOOTCHK.setEnabled(flag);
 		this.mDNS.setEnabled(flag);
 
-		// XXX: we need to be able to change this when we resume
-		this.mHOSTFWD.setEnabled(true);
+		this.mHOSTFWD.setEnabled(flag);
 
 		mHDAenable.setEnabled(flag);
 		mHDBenable.setEnabled(flag);
