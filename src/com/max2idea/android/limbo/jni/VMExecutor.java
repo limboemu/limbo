@@ -143,7 +143,7 @@ public class VMExecutor {
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86_64";
-			if(machine.machine_type == null)
+			if (machine.machine_type == null)
 				this.machine_type = "pc";
 			else
 				this.machine_type = machine.machine_type;
@@ -151,12 +151,12 @@ public class VMExecutor {
 			this.cpu = machine.cpu;
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-i386.so";
 			File libFile = new File(libqemu);
-			if(!libFile.exists()){
-				this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";	
+			if (!libFile.exists()) {
+				this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
 			}
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86";
-			if(machine.machine_type == null)
+			if (machine.machine_type == null)
 				this.machine_type = "pc";
 			else
 				this.machine_type = machine.machine_type;
@@ -165,7 +165,7 @@ public class VMExecutor {
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-mips.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "mips";
-			if(machine.machine_type == null)
+			if (machine.machine_type == null)
 				this.machine_type = "malta";
 			else
 				this.machine_type = machine.machine_type;
@@ -174,12 +174,11 @@ public class VMExecutor {
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "ppc";
-			if(machine.machine_type == null)
+			if (machine.machine_type == null)
 				this.machine_type = "Default";
 			else
 				this.machine_type = machine.machine_type;
 		}
-		
 
 		if (machine.cd_iso_path == null || machine.cd_iso_path.equals("None")) {
 			this.cd_iso_path = null;
@@ -228,11 +227,12 @@ public class VMExecutor {
 			this.fdb_img_path = machine.fdb_img_path;
 		}
 
-		if (machine.sd_img_path == null || machine.sd_img_path.equals("None")) {
-			this.sd_img_path = null;
-		} else {
-
-			this.sd_img_path = machine.sd_img_path;
+		if (Config.enableFlashMemoryImages) {
+			if (machine.sd_img_path == null || machine.sd_img_path.equals("None")) {
+				this.sd_img_path = null;
+			} else {
+				this.sd_img_path = machine.sd_img_path;
+			}
 		}
 
 		if (this.arch.equals("arm")) {
@@ -254,7 +254,7 @@ public class VMExecutor {
 			this.net_cfg = "user";
 			this.nic_driver = machine.nic_driver;
 			this.guestfwd = machine.guestfwd;
-			if(machine.hostfwd!=null && !machine.hostfwd.equals(""))
+			if (machine.hostfwd != null && !machine.hostfwd.equals(""))
 				this.hostfwd = machine.hostfwd;
 			else
 				this.hostfwd = null;
@@ -267,18 +267,18 @@ public class VMExecutor {
 			this.sound_card = null;
 		}
 
-		//Shared folder
-		if (machine.shared_folder != null && !machine.shared_folder.trim().equals("")){
+		// Shared folder
+		if (machine.shared_folder != null && !machine.shared_folder.trim().equals("")) {
 			shared_folder_path = machine.shared_folder;
-			if(machine.shared_folder_mode == 0)
+			if (machine.shared_folder_mode == 0)
 				shared_folder_readonly = 1;
-			else if(machine.shared_folder_mode == 1)
+			else if (machine.shared_folder_mode == 1)
 				shared_folder_readonly = 0;
-		}else
+		} else
 			shared_folder_path = null;
-		
-		//Extra Params
-		if(machine.extra_params != null){
+
+		// Extra Params
+		if (machine.extra_params != null) {
 			this.extra_params = machine.extra_params;
 		}
 		this.prepPaths();
@@ -294,10 +294,11 @@ public class VMExecutor {
 			if (arch.equals("x86")) {
 				try {
 					System.loadLibrary("qemu-system-i386");
-				} catch (Error ex){
+				} catch (Error ex) {
 					System.loadLibrary("qemu-system-x86_64");
 				}
-			}if (arch.equals("x86_64")){
+			}
+			if (arch.equals("x86_64")) {
 				System.loadLibrary("qemu-system-x86_64");
 			} else if (arch.equals("arm")) {
 				System.loadLibrary("qemu-system-arm");
@@ -356,7 +357,7 @@ public class VMExecutor {
 	protected native String getsavestate();
 
 	protected native String getpausestate();
-	
+
 	public native String pausevm(String uri);
 
 	protected native void resize();
@@ -429,7 +430,7 @@ public class VMExecutor {
 	}
 
 	public String change_dev(String dev, String image_path) {
-		
+
 		if (image_path == null || image_path.trim().equals("")) {
 			Log.v("Limbo", "Ejecting Dev: " + dev);
 			this.busy = true;
@@ -552,6 +553,5 @@ public class VMExecutor {
 		}
 
 	}
-
 
 }

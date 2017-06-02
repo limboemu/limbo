@@ -136,6 +136,7 @@ public class Config {
 	//Keyboard Layout
 	public static String defaultKeyboardLayout = "en-us";
 	public static boolean collapseSections;
+	public static boolean enableFlashMemoryImages = false;
 	
 	
 	//FIXME: disable for now 

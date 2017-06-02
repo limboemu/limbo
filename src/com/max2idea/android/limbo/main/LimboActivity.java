@@ -2408,7 +2408,7 @@ public class LimboActivity extends AppCompatActivity {
 			vmexecutor.fda_img_path = "";
 		if (mFDBenable.isChecked() && vmexecutor.fdb_img_path == null)
 			vmexecutor.fdb_img_path = "";
-		if (mSDenable.isChecked() && vmexecutor.sd_img_path == null)
+		if (Config.enableFlashMemoryImages && mSDenable.isChecked() && vmexecutor.sd_img_path == null)
 			vmexecutor.sd_img_path = "";
 		// if (mSharedFolderenable.isChecked() && vmexecutor.shared_folder_path
 		// == null)

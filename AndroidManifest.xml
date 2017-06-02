@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
     android:installLocation="auto"
-    android:versionCode="290"
-    android:versionName="2.9.0-arm-x86_64-alpha" >
+    android:versionCode="291"
+    android:versionName="2.9.1-arm-x86_64-alpha" >
 
     <uses-sdk
         android:minSdkVersion="17"

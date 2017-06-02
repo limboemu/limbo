@@ -1,10 +1,16 @@
 <br>
+Limbo v2.9.1 Alpha<br>
+- Fix issue with crashes - Disable SD card image
+- Minimum Requirements: Android OS 17<br> 
+<br>
+
+<br>
 Limbo v2.9.0 Alpha<br>
 - Rebase with QEMU 2.9.0 and align versions<br>
 - User Interface improvements and Fixes<br>  
 - Fixed issue with fullscreen for SDL<br>
 - Fixed notifications<br>
-- Fix build under non-Windows environment (patch by paul70078 github)
+- Fix build under non-Windows environment (patch by paul70078 github)<br>
 - Minimum Requirements: Android OS 17<br> 
 <br>
 
