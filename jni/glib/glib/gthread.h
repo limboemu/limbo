@@ -344,7 +344,7 @@ void                    g_once_init_leave       (volatile gsize *value_location,
 G_INLINE_FUNC gboolean
 g_once_init_enter (volatile gsize *value_location)
 {
-  if G_LIKELY ((gpointer) g_atomic_pointer_get (value_location) != NULL)
+  if G_LIKELY ((gpointer) g_atomic_pointer_get ((volatile gpointer *) value_location) != NULL)
     return FALSE;
   else
     return g_once_init_enter_impl (value_location);
