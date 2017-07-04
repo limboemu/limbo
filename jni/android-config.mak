@@ -36,7 +36,7 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 USE_NDK_PLATFORM21 ?= false
 
 # Faster Builds with multiple threads
-BUILD_THREADS=2
+BUILD_THREADS=6
 
 ####### Windows/Cygwin SECTION END
 # If you use Windows to build
