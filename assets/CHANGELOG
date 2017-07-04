@@ -2,6 +2,7 @@
 Limbo v2.9.2<br>
 - Added Logging mechanism and View Log menu option<br>
 - Fixed issue with Keyboard<br>
+- Fixed Compatibility issue with KolibriOS and DSL Linux Live CD<br>
 - Support for building of ARM, PowerPC, Sparc Emulators <br>
 - Support for building for 64Bit Hosts (x86_64, ARM64) <br>
 - Support for enabling mttcg<br>
