@@ -23,7 +23,7 @@ package android.androidVNC;
 
 import java.util.ArrayList;
 
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 
 import android.app.Activity;
 import android.app.ActivityManager.MemoryInfo;
@@ -175,17 +175,12 @@ public class androidVNC extends Activity {
 	 */
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case R.id.itemSaveAsCopy:
+		if (item.getItemId() == R.id.itemSaveAsCopy){
 			updateSelectedFromView();
-
 			arriveOnPage();
-			break;
-		case R.id.itemDeleteConnection:
-			break;
-		case R.id.itemOpenDoc:
+		} else if (item.getItemId() == R.id.itemDeleteConnection || 
+					item.getItemId() == R.id.itemOpenDoc) {
 			Utils.showDocumentation(this);
-			break;
 		}
 		return true;
 	}

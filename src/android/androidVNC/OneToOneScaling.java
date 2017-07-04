@@ -3,7 +3,7 @@
  */
 package android.androidVNC;
 
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 
 import android.widget.ImageView.ScaleType;
 

@@ -24,7 +24,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.antlersoft.android.bc.BCFactory;
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.LimboActivity;
 
 import android.app.Activity;
@@ -889,30 +889,25 @@ public class VncCanvasActivity extends AppCompatActivity {
 		for (int i = 0; i < inputModeIds.length; ++i) {
 			if (inputModeIds[i] == id) {
 				if (inputModeHandlers[i] == null) {
-					switch (id) {
-					case R.id.itemInputFitToScreen:
+					if (id == R.id.itemInputFitToScreen)
 						inputModeHandlers[i] = new FitToScreenMode();
-						break;
-					case R.id.itemInputPan:
+					else if (id == R.id.itemInputPan)
 						inputModeHandlers[i] = new PanMode();
-						break;
-					case R.id.itemInputMouse:
+					else if (id ==  R.id.itemInputMouse)
 						inputModeHandlers[i] = new MouseMode();
-						break;
-					case R.id.itemInputTouchPanTrackballMouse:
+						
+					else if (id == R.id.itemInputTouchPanTrackballMouse)
 						inputModeHandlers[i] = new TouchPanTrackballMouse();
-						break;
-					case R.id.itemInputDPadPanTouchMouse:
+					else if (id == R.id.itemInputDPadPanTouchMouse)
 						inputModeHandlers[i] = new DPadPanTouchMouseMode();
-						break;
-					case R.id.itemInputTouchPanZoomMouse:
+			
+					else if (id == R.id.itemInputTouchPanZoomMouse)
 						inputModeHandlers[i] = new ZoomInputHandler();
-						break;
-					case R.id.itemInputTouchpad:
+	
+					else if (id ==  R.id.itemInputTouchpad)
 						inputModeHandlers[i] = new TouchpadInputHandler();
-						break;
 					}
-				}
+				
 				return inputModeHandlers[i];
 			}
 		}
@@ -946,40 +941,42 @@ public class VncCanvasActivity extends AppCompatActivity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		vncCanvas.afterMenu = true;
-		switch (item.getItemId()) {
-		case R.id.itemSpecialKeys:
+		if (item.getItemId() == R.id.itemSpecialKeys) {
 			showDialog(R.layout.metakey);
 			return true;
-		case R.id.itemColorMode:
+		}else if (item.getItemId() == R.id.itemColorMode) {
 			selectColorModel();
 			return true;
+		}
 		// Following sets one of the scaling options
-		case R.id.itemZoomable:
-		case R.id.itemOneToOne:
-		case R.id.itemFitToScreen:
+		else if (item.getItemId() == R.id.itemZoomable ||
+				item.getItemId() == R.id.itemOneToOne || 
+						item.getItemId() == R.id.itemFitToScreen) {
 			AbstractScaling.getById(item.getItemId()).setScaleTypeForActivity(this);
 			item.setChecked(true);
 			showPanningState();
 			return true;
+		}
 		// case R.id.itemCenterMouse:
 		// vncCanvas.warpMouse(vncCanvas.absoluteXPosition
 		// + vncCanvas.getVisibleWidth() / 2,
 		// vncCanvas.absoluteYPosition + vncCanvas.getVisibleHeight()
 		// / 2);
 		// return true;
-		case R.id.itemDisconnect:
+		else if (item.getItemId() ==  R.id.itemDisconnect){
 			vncCanvas.closeConnection();
 			finish();
 			return true;
-		case R.id.itemEnterText:
+		} else if (item.getItemId() == R.id.itemEnterText){
 			showDialog(R.layout.entertext);
 			return true;
-		case R.id.itemCtrlC:
+		}else if (item.getItemId() == R.id.itemCtrlC) {
 			vncCanvas.sendMetaKey(MetaKeyBean.keyCtrlC);
 			return true;
-		case R.id.itemCtrlAltDel:
+		}else if (item.getItemId() == R.id.itemCtrlAltDel){
 			vncCanvas.sendMetaKey(MetaKeyBean.keyCtrlAltDel);
 			return true;
+		}
 		// case R.id.itemFollowMouse:
 		// vncCanvas.panToMouse();
 		// return true;
@@ -997,12 +994,12 @@ public class VncCanvasActivity extends AppCompatActivity {
 		// case R.id.itemArrowDown:
 		// vncCanvas.sendMetaKey(MetaKeyBean.keyArrowDown);
 		// return true;
-		case R.id.itemSendKeyAgain:
+		else if (item.getItemId() == R.id.itemSendKeyAgain) {
 			return true;
-		case R.id.itemOpenDoc:
+		}else if (item.getItemId() == R.id.itemOpenDoc){
 			Utils.showDocumentation(this);
 			return true;
-		default:
+		}else {
 			AbstractInputHandler input = getInputHandlerById(item.getItemId());
 			if (input != null) {
 				inputHandler = input;
