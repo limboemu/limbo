@@ -26,13 +26,22 @@
 
 package android.androidVNC;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 //- import java.awt.*;
 //- import java.awt.event.*;
 import java.net.Socket;
+
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboService;
+import com.max2idea.android.limbo.main.LimboVNCService;
+
+import android.content.Intent;
+import android.os.Bundle;
 //- import java.util.zip.*;
 import android.util.Log;
-import android.androidVNC.DH;
 
 /**
  * Access the RFB protocol through a socket.
@@ -170,7 +179,58 @@ public class RfbProto {
   int port;
   Socket sock;
   DataInputStream is;
-  OutputStream os;
+  LimboOutputStream os;
+  private OutputStream sos;
+  
+  //Limbo: need to send the network operations of the Main UI
+  //  but also use a mechanism like IntentService to keep
+  //  the network message queue intact
+	class LimboOutputStream {
+
+		OutputStream os;
+
+		public LimboOutputStream(OutputStream sos) {
+			// TODO Auto-generated constructor stub
+			os = sos;
+			LimboVNCService.os = os;
+		}
+
+		public void write(final int arg0) throws IOException {
+			if (LimboService.service != null) {
+				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
+				Bundle b = new Bundle();
+				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTE);
+				b.putInt(Config.VNC_BYTE, arg0);
+				i.putExtras(b);
+				LimboService.service.startService(i);
+			}
+		}
+
+		public void write(final byte[] bytes) throws IOException {
+			if (LimboService.service != null) {
+				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
+				Bundle b = new Bundle();
+				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTES);
+				b.putByteArray(Config.VNC_BYTES, bytes);
+				i.putExtras(b);
+				LimboService.service.startService(i);
+			}
+		}
+
+		public void write(final byte[] buffer, final int offset, final int count) throws IOException {
+			if (LimboService.service != null) {
+				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
+				Bundle b = new Bundle();
+				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTES_OFFSET);
+				b.putByteArray(Config.VNC_BYTES, buffer);
+				b.putInt(Config.VNC_OFFSET, offset);
+				b.putInt(Config.VNC_COUNT, count);
+				i.putExtras(b);
+				LimboService.service.startService(i);
+			}
+		}
+
+	}
   
   DH dh;
   long dh_resp;
@@ -223,6 +283,7 @@ public class RfbProto {
   // If true, informs that the RFB socket was closed.
   private boolean closed;
 
+
   //
   // Constructor. Make TCP connection to RFB server.
   //
@@ -255,7 +316,8 @@ public class RfbProto {
     sock = new Socket(host, port);
     is = new DataInputStream(new BufferedInputStream(sock.getInputStream(),
 						     16384));
-    os = sock.getOutputStream();
+    sos = sock.getOutputStream();
+    os = new LimboOutputStream(sos);
 
     timing = false;
     timeWaitedIn100us = 5;
