@@ -49,7 +49,7 @@ ARCH_CFLAGS += -fstrength-reduce
 ARCH_CFLAGS += -fforce-addr 
 
 # Faster math might not be safe
-ARCH_CFLAGS += -ffast-math
+#ARCH_CFLAGS += -ffast-math
 
 # anyway enabled by -O2
 ARCH_CFLAGS += -foptimize-sibling-calls
@@ -61,7 +61,7 @@ ARCH_CFLAGS += -finline-limit=23422
 #ARCH_CFLAGS += -fforce-mem
 
 # Fast optimizations but maybe crashing apps?
-ARCH_CFLAGS += -funsafe-math-optimizations 
+#ARCH_CFLAGS += -funsafe-math-optimizations 
 
 # Useful for IEEE non-stop floating
 #ARCH_CFLAGS += -fno-trapping-math
