@@ -44,12 +44,12 @@ public class FileInstaller {
         Log.v("Installer", "Installing files...");
         File tmpDir = new File(Config.basefiledir);
         if (!tmpDir.exists()) {
-            tmpDir.mkdir();
+            tmpDir.mkdirs();
         }
 
         File tmpDir1 = new File(Config.machinedir);
         if (!tmpDir1.exists()) {
-            tmpDir1.mkdir();
+            tmpDir1.mkdirs();
         }
 
 
@@ -112,7 +112,10 @@ public class FileInstaller {
             InputStream is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
             File destDirF = new File(destDir);
             if (!destDirF.exists()) {
-                destDirF.mkdir();
+                boolean res = destDirF.mkdirs();
+                if(!res){
+                	UIUtils.toastLong(activity, "Could not create directory for image");
+                }
             }
             
             if(destFile==null)

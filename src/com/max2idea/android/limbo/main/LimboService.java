@@ -1,6 +1,13 @@
 package com.max2idea.android.limbo.main;
 
-import com.limbo.emu.main.R;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+
+import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.utils.UIUtils;
 
@@ -19,6 +26,7 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.support.v7.app.NotificationCompat;
 import android.support.v7.app.NotificationCompat.Builder;
+import android.system.Os;
 import android.util.Log;
 
 public class LimboService extends Service {
@@ -26,7 +34,7 @@ public class LimboService extends Service {
 	private static final String TAG = "LimboService";
 	private static Notification mNotification;
 	private static WifiLock mWifiLock;
-	private static LimboService service;
+	public static LimboService service;
 	private static WakeLock mWakeLock;
 	private NotificationManager mNotificationManager;
 
@@ -53,6 +61,8 @@ public class LimboService extends Service {
 
 			setUpAsForeground(LimboActivity.currMachine.machinename + ": VM Running");
 
+			startLogging();
+
 			Log.v(TAG, "Starting the VM");
 			executor.loadNativeLibs();
 
@@ -68,9 +78,54 @@ public class LimboService extends Service {
 			t.start();
 
 		}
+		
 
 		// Don't restart if killed
 		return START_NOT_STICKY;
+	}
+
+	public static StringBuilder log = null;
+	
+
+	private void startLogging() {
+		// TODO Auto-generated method stub
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+
+				FileOutputStream os = null;
+				File logFile = new File(Config.logFilePath);
+				if (logFile.exists()) {
+					logFile.delete();
+				}
+				try {
+					Runtime.getRuntime().exec("logcat -c");
+					Process process = Runtime.getRuntime().exec("logcat v main");
+					os = new FileOutputStream(logFile);
+					BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+					log = new StringBuilder();
+					String line = "";
+					while ((line = bufferedReader.readLine()) != null) {
+						log.append(line + "\n");
+						os.write((line + "\n").getBytes("UTF-8"));
+						os.flush();
+					}
+				} catch (IOException e) {
+
+				} finally {
+					try {
+						os.flush();
+						os.close();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+
+				}
+
+			}
+		});
+		t.start();
 	}
 
 	private static void setUpAsForeground(String text) {
@@ -82,12 +137,13 @@ public class LimboService extends Service {
 				} else if (LimboActivity.currMachine.ui.equals("SDL")) {
 					clientClass = LimboSDLActivity.class;
 				} else {
-					UIUtils.toastLong(service, "Unknown Machine UI");
+					UIUtils.toastLong(service, "Unknown User Interface");
 					return;
 				}
 			} else {
-				UIUtils.toastLong(service, "Machine UI is not set");
-				return;
+				// UIUtils.toastLong(service, "Machine UI is not set");
+				//using VNC by default
+				clientClass = LimboVNCActivity.class;
 			}
 		} else {
 			UIUtils.toastLong(service, "No Machine selected");

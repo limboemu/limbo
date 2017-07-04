@@ -99,9 +99,7 @@ https://github.com/limboemu/limbo
    		ii. From the command line type:
    			> make config-debug
    			> make debug
-   		iii. To start debugging type:
-   			> make ndk-gdb
-    
+   	
     d. For ARMv7 phones (hard floating point):
         i. Update android-config.mak and include file android-generic-armv7a-hard.mak
         ii. > make config
@@ -122,6 +120,24 @@ https://github.com/limboemu/limbo
     	> make clean
     	
     i. From Eclipse Build the project and check that all the .so libraries are included in your APK file.
+    	Import the Android sub-project under ./apps/ for the guest architecture you need (x86,arm,ppc,sparc).
+    	Build the project as an Eclipse project.
+    
+    k. To start debugging the native code for a particular guest arch type:
+   			for x86:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main
+   			
+   			for arm:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
+   			
+   			for sparc:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
+   			
+   			for ppc:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
+    	
+    k. You're done.
+    	
 ===============================================================================
 6. Development
 	a. Changes pertinent to compatibility with Android/bionic are tagged in C as preprocessor define __ANDROID__

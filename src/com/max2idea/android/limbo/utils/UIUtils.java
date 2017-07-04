@@ -1,6 +1,6 @@
 package com.max2idea.android.limbo.utils;
 
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.LimboSettingsManager;
 
 import android.app.Activity;

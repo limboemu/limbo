@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 6c359b2..23fa87a 100644
+index 6c359b2..44cbf44 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -203,7 +203,8 @@ $(call set-vpath, $(SRC_PATH))
@@ -22,9 +22,19 @@ index 6c359b2..23fa87a 100644
  endif
  
  all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
-@@ -378,7 +380,8 @@ qemu-img$(EXESUF): qemu-img.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-o
- qemu-nbd$(EXESUF): qemu-nbd.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
- qemu-io$(EXESUF): qemu-io.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+@@ -372,13 +374,14 @@ libqemuutil.a: $(util-obj-y)
+ 
+ COMMON_LDADDS = $(trace-obj-y) libqemuutil.a libqemustub.a
+ 
+-qemu-img.o: qemu-img-cmds.h
++#qemu-img.o: qemu-img-cmds.h
+ 
+-qemu-img$(EXESUF): qemu-img.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+-qemu-nbd$(EXESUF): qemu-nbd.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+-qemu-io$(EXESUF): qemu-io.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
++#qemu-img$(EXESUF): qemu-img.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
++#qemu-nbd$(EXESUF): qemu-nbd.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
++#qemu-io$(EXESUF): qemu-io.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
  
 -qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
 +#Limbo: No bridge helpers
@@ -889,7 +899,7 @@ index 03592c5..4ae2219 100644
      assert(ARRAY_SIZE(data.in_addr) >= data.in_num);
      assert(ARRAY_SIZE(data.out_addr) >= data.out_num);
 diff --git a/include/glib-compat.h b/include/glib-compat.h
-index 863c8cf..73da184 100644
+index 863c8cf..3713ebd 100644
 --- a/include/glib-compat.h
 +++ b/include/glib-compat.h
 @@ -20,7 +20,8 @@
@@ -955,6 +965,29 @@ index 863c8cf..73da184 100644
 +//#error schizophrenic detection of glib subprocess testing
 +//#endif
  #define g_test_subprocess() (0)
+ #endif
+ 
+@@ -336,15 +340,16 @@ g_test_add_data_func_full(const char *path,
+                           gpointer fn,
+                           gpointer data_free_func)
+ {
+-#if GLIB_CHECK_VERSION(2, 26, 0)
++	//Limbo: don't need this check for newer glib
++//#if GLIB_CHECK_VERSION(2, 26, 0)
+     /* back-compat casts, remove this once we can require new-enough glib */
+     g_test_add_vtable(path, 0, data, NULL,
+                       (GTestFixtureFunc)fn, (GTestFixtureFunc) data_free_func);
+-#else
+-    /* back-compat casts, remove this once we can require new-enough glib */
+-    g_test_add_vtable(path, 0, data, NULL,
+-                      (void (*)(void)) fn, (void (*)(void)) data_free_func);
+-#endif
++//#else
++//    /* back-compat casts, remove this once we can require new-enough glib */
++//    g_test_add_vtable(path, 0, data, NULL,
++//                      (void (*)(void)) fn, (void (*)(void)) data_free_func);
++//#endif
+ }
  #endif
  
 diff --git a/include/qemu/error-report.h b/include/qemu/error-report.h
@@ -1131,7 +1164,7 @@ index 3b19a4a..ab5267f 100644
  }
  
 diff --git a/monitor.c b/monitor.c
-index be282ec..dcab470 100644
+index be282ec..23caeff 100644
 --- a/monitor.c
 +++ b/monitor.c
 @@ -352,6 +352,10 @@ void monitor_vprintf(Monitor *mon, const char *fmt, va_list ap)
@@ -1139,7 +1172,7 @@ index be282ec..dcab470 100644
      char *buf;
  
 +#ifdef __ANDROID__
-+    __android_log_vprint(ANDROID_LOG_VERBOSE, "monitor", fmt, ap);
++    //__android_log_vprint(ANDROID_LOG_VERBOSE, "monitor", fmt, ap);
 +#endif
 +
      if (!mon)
@@ -1196,27 +1229,11 @@ index c6ddb7d..7a91cfd 100644
      /* keep pidfile open & locked forever */
      return 0;
 diff --git a/roms/u-boot/tools/buildman/buildman b/roms/u-boot/tools/buildman/buildman
-deleted file mode 100644
-index e69de29..0000000
-diff --git a/roms/u-boot/tools/buildman/buildman b/roms/u-boot/tools/buildman/buildman
-new file mode 120000
-index 0000000..e4fba2d
---- /dev/null
-+++ b/roms/u-boot/tools/buildman/buildman
-@@ -0,0 +1 @@
-+buildman.py
-\ No newline at end of file
+index e69de29..672ed8d 100644
+Binary files a/roms/u-boot/tools/buildman/buildman and b/roms/u-boot/tools/buildman/buildman differ
 diff --git a/roms/u-boot/tools/patman/patman b/roms/u-boot/tools/patman/patman
-deleted file mode 100644
-index e69de29..0000000
-diff --git a/roms/u-boot/tools/patman/patman b/roms/u-boot/tools/patman/patman
-new file mode 120000
-index 0000000..6cc3d7a
---- /dev/null
-+++ b/roms/u-boot/tools/patman/patman
-@@ -0,0 +1 @@
-+patman.py
-\ No newline at end of file
+index e69de29..2fb8c8f 100644
+Binary files a/roms/u-boot/tools/patman/patman and b/roms/u-boot/tools/patman/patman differ
 diff --git a/rules.mak b/rules.mak
 index 1c0eabb..4f258d0 100644
 --- a/rules.mak

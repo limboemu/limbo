@@ -38,7 +38,7 @@
 #define MAX_STRING_LEN 1024
 
 static int started = 0;
-void * handle;
+void * handle = 0;
 
 void loadLib(const char * lib_path_str) {
 
@@ -59,8 +59,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_togglef
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	LOGV("Toggle Fullscreen\n");
 
@@ -75,6 +75,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_togglef
 	}
 
 	toggleFullScreen();
+
 	sprintf(res_msg, "Full Screen");
 	LOGV(res_msg);
 
@@ -86,8 +87,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_save(
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	jclass c = (*env)->GetObjectClass(env, thiz);
 	jfieldID fid = (*env)->GetFieldID(env, c, "snapshot_name",
@@ -122,8 +123,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_pausevm
 	if (juri != NULL)
 		uri_str = (*env)->GetStringUTFChars(env, juri, 0);
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	jclass c = (*env)->GetObjectClass(env, thiz);
 
@@ -155,8 +156,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_vncchan
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 	Error **err;
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	jclass c = (*env)->GetObjectClass(env, thiz);
 	jfieldID fid = (*env)->GetFieldID(env, c, "vnc_passwd",
@@ -189,8 +190,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 		JNIEnv* env, jobject thiz, jstring jdev, jstring jdev_value) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 	Error **err;
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	const char *dev = NULL;
 	if (jdev != NULL)
@@ -222,8 +223,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectde
 		JNIEnv* env, jobject thiz, jstring jdev) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	const char *dev = NULL;
 	if (jdev != NULL)
@@ -252,8 +253,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getsave
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	typedef int (*get_save_state_t)();
 	dlerror();
@@ -285,8 +286,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getpaus
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	typedef int (*get_save_state_t)();
 	dlerror();
@@ -317,8 +318,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getstat
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	typedef int (*get_state_t)();
 	dlerror();
@@ -344,8 +345,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
 		JNIEnv* env, jobject thiz) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
 
-	if (handle == NULL)
-		return (*env)->NewStringUTF(env, "VM not running");
+//	if (handle == NULL)
+//		return (*env)->NewStringUTF(env, "VM not running");
 
 	jclass c = (*env)->GetObjectClass(env, thiz);
 	jfieldID fid = (*env)->GetFieldID(env, c, "restart", "I");
@@ -384,7 +385,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		return (*env)->NewStringUTF(env, res_msg);
 	}
 
-	LOGV("***************** INIT LIMBO ************************");
+	LOGV("***** INIT LIMBO VARS *****");
 
 	/* Read the member values from the Java Object
 	 */
@@ -395,7 +396,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jcpu != NULL)
 		cpu_str = (*env)->GetStringUTFChars(env, jcpu, 0);
 
-	LOGV("CPU= %s", cpu_str);
+//	LOGV("CPU= %s", cpu_str);
 
 	fid = (*env)->GetFieldID(env, c, "machine_type", "Ljava/lang/String;");
 	jstring jmachine_type = (*env)->GetObjectField(env, thiz, fid);
@@ -403,17 +404,17 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jmachine_type != NULL)
 		machine_type_str = (*env)->GetStringUTFChars(env, jmachine_type, 0);
 
-	LOGV("Machine Type= %s", machine_type_str);
+//	LOGV("Machine Type= %s", machine_type_str);
 
 	fid = (*env)->GetFieldID(env, c, "memory", "I");
 	int mem = (*env)->GetIntField(env, thiz, fid);
 
-	LOGV("MEM= %d", mem);
+//	LOGV("MEM= %d", mem);
 
 	fid = (*env)->GetFieldID(env, c, "cpuNum", "I");
 	int cpuNum = (*env)->GetIntField(env, thiz, fid);
 
-	LOGV("CPU Num= %d", cpuNum);
+//	LOGV("CPU Num= %d", cpuNum);
 
 	fid = (*env)->GetFieldID(env, c, "disableacpi", "I");
 	int disableacpi = (*env)->GetIntField(env, thiz, fid);
@@ -439,26 +440,29 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	fid = (*env)->GetFieldID(env, c, "vnc_allow_external", "I");
 	int vnc_allow_external = (*env)->GetIntField(env, thiz, fid);
 
-	LOGV("vnc_allow_external= %d", vnc_allow_external);
+	fid = (*env)->GetFieldID(env, c, "enable_mttcg", "I");
+	int enablemttcg = (*env)->GetIntField(env, thiz, fid);
+
+//	LOGV("vnc_allow_external= %d", vnc_allow_external);
 
 	fid = (*env)->GetFieldID(env, c, "disablefdbootchk", "I");
 	int disablefdbootchk = (*env)->GetIntField(env, thiz, fid);
 
-	LOGV("disablefdbootchk= %d", disablefdbootchk);
+//	LOGV("disablefdbootchk= %d", disablefdbootchk);
 
 	fid = (*env)->GetFieldID(env, c, "keyboard_layout", "Ljava/lang/String;");
 	jstring jkeyboard_layout = (*env)->GetObjectField(env, thiz, fid);
 	const char * keyboard_layout = NULL;
 	if (jkeyboard_layout != NULL)
 		keyboard_layout = (*env)->GetStringUTFChars(env, jkeyboard_layout, 0);
-	LOGV("Keyboard Layout = %s", keyboard_layout);
+//	LOGV("Keyboard Layout = %s", keyboard_layout);
 
 	fid = (*env)->GetFieldID(env, c, "hda_img_path", "Ljava/lang/String;");
 	jstring jhda_img_path = (*env)->GetObjectField(env, thiz, fid);
 	const char * hda_img_path_str = NULL;
 	if (jhda_img_path != NULL)
 		hda_img_path_str = (*env)->GetStringUTFChars(env, jhda_img_path, 0);
-	LOGV("HDA= %s", hda_img_path_str);
+//	LOGV("HDA= %s", hda_img_path_str);
 
 	fid = (*env)->GetFieldID(env, c, "hdb_img_path", "Ljava/lang/String;");
 	jstring jhdb_img_path = (*env)->GetObjectField(env, thiz, fid);
@@ -501,7 +505,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	const char * sd_img_path_str = NULL;
 	if (jsd_img_path != NULL)
 		sd_img_path_str = (*env)->GetStringUTFChars(env, jsd_img_path, 0);
-	LOGV("SD= %s", sd_img_path_str);
+//	LOGV("SD= %s", sd_img_path_str);
 
 	fid = (*env)->GetFieldID(env, c, "shared_folder_path",
 			"Ljava/lang/String;");
@@ -510,7 +514,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jshared_folder_path != NULL)
 		shared_folder_path_str = (*env)->GetStringUTFChars(env,
 				jshared_folder_path, 0);
-	LOGV("Shared Folder= %s", shared_folder_path_str);
+//	LOGV("Shared Folder= %s", shared_folder_path_str);
 
 	fid = (*env)->GetFieldID(env, c, "shared_folder_readonly", "I");
 	int shared_folder_readonly = (*env)->GetIntField(env, thiz, fid);
@@ -639,7 +643,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (jinitrd != NULL)
 		initrd_str = (*env)->GetStringUTFChars(env, jinitrd, 0);
 
-	LOGV("Finished getting Java fields");
+//	LOGV("Finished getting Java fields");
 
 	char mem_str[MAX_STRING_LEN] = "128";
 	sprintf(mem_str, "%d", mem);
@@ -708,7 +712,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 			strcpy(argv[param++], "-drive"); //empty
 			strcpy(argv[param++], "index=2,media=cdrom");
 		} else {
-			LOGV("Adding CD");
+//			LOGV("Adding CD");
 			strcpy(argv[param++], "-cdrom");
 			strcpy(argv[param++], cdrom_iso_path_str);
 
@@ -739,7 +743,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 			strcpy(argv[param++], "-drive"); //empty sd
 			strcpy(argv[param++], "index=0,if=sd");
 		} else {
-			LOGV("Adding SD");
+//			LOGV("Adding SD");
 			strcpy(argv[param++], "-sd");
 			strcpy(argv[param++], sd_img_path_str);
 		}
@@ -756,19 +760,19 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 
 	if (vga_type_str != NULL) {
-		LOGV("Adding vga: %s", vga_type_str);
+//		LOGV("Adding vga: %s", vga_type_str);
 		strcpy(argv[param++], "-vga");
 		strcpy(argv[param++], vga_type_str);
 	}
 
 	if (boot_dev_str != NULL) {
-		LOGV("Adding boot device: %s", boot_dev_str);
+//		LOGV("Adding boot device: %s", boot_dev_str);
 		strcpy(argv[param++], "-boot");
 		strcpy(argv[param++], boot_dev_str);
 	}
 
 	if (net_str != NULL) {
-		LOGV("Adding Net: %s", net_str);
+//		LOGV("Adding Net: %s", net_str);
 		strcpy(argv[param++], "-net");
 		if (strcmp(net_str, "user") == 0) {
 			strcpy(argv[param], net_str);
@@ -785,14 +789,14 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		} else if (strcmp(net_str, "none") == 0) {
 			strcpy(argv[param], "none");
 		} else {
-			LOGV("Unknown iface: %s", net_str);
+			LOGW("Unknown iface: %s", net_str);
 			strcpy(argv[param], "none");
 		}
 		param++;
 	}
 
 	if (nic_driver_str != NULL) {
-		LOGV("Adding NIC: %s", nic_driver_str);
+//		LOGV("Adding NIC: %s", nic_driver_str);
 		strcpy(argv[param++], "-net");
 		if (strcmp(net_str, "user") == 0) {
 			strcpy(argv[param], "nic,model=");
@@ -804,13 +808,13 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 
 	if (sound_card_str != NULL && strcmp(sound_card_str, "None") != 0) {
-		LOGV("Adding Sound: %s", sound_card_str);
+//		LOGV("Adding Sound: %s", sound_card_str);
 		strcpy(argv[param++], "-soundhw");
 		strcpy(argv[param++], sound_card_str);
 	}
 
 	if (snapshot_name_str != NULL && strcmp(snapshot_name_str, "") != 0) {
-		LOGV("Adding snapshot: %s", snapshot_name_str);
+//		LOGV("Adding snapshot: %s", snapshot_name_str);
 		strcpy(argv[param++], "-loadvm");
 		strcpy(argv[param++], snapshot_name_str);
 	}
@@ -842,16 +846,16 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], "tablet");
 	}
 	if (disableacpi) {
-		LOGV("Disabling ACPI");
+//		LOGV("Disabling ACPI");
 		strcpy(argv[param++], "-no-acpi"); //disable ACPI
 	}
 	if (disablehpet) {
-		LOGV("Disabling HPET");
+//		LOGV("Disabling HPET");
 		strcpy(argv[param++], "-no-hpet"); //        disable HPET
 	}
 
 	if (disablefdbootchk) {
-		LOGV("Disabling FD Boot Check");
+//		LOGV("Disabling FD Boot Check");
 		strcpy(argv[param++], "-no-fd-bootchk"); //        disable FD Boot Check
 	}
 
@@ -878,17 +882,19 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	//    strcpy(argv[param++], "file=/sdcard/limbo/tmp/trace");
 	//    strcpy(argv[param++], "-nographic"); //DO NOT USE //      disable graphical output and redirect serial I/Os to console
 
-	int enablemttcg = 0;
+
 
 	if (enablekvm) {
 		strcpy(argv[param++], "-enable-kvm");
 	} else if (enablemttcg) {
+#ifdef __LP64__
 		strcpy(argv[param++], "-accel");
 		strcpy(argv[param], "tcg");
 		if(cpuNum > 1)
 			strcat(argv[param++], ",thread=multi");
 		else
 			strcat(argv[param++], ",thread=single");
+#endif
 	}
 
 	if (enablevnc) {
@@ -930,23 +936,24 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		strcpy(argv[param++], keyboard_layout);
 	}
 
-	LOGV("Setting multi core: %s", cpu_num_str);
+//	LOGV("Setting multi core: %s", cpu_num_str);
 	strcpy(argv[param++], "-smp");
 	strcpy(argv[param++], cpu_num_str);
 
-	LOGV("Setting machine type: %s", machine_type_str);
-	strcpy(argv[param++], "-M");
-	strcpy(argv[param++], machine_type_str);
-
+//	LOGV("Setting machine type: %s", machine_type_str);
+	if (machine_type_str != NULL) {
+		strcpy(argv[param++], "-M");
+		strcpy(argv[param++], machine_type_str);
+	}
 //	LOGV("Setting tb memory");
 //	strcpy(argv[param++], "-tb-size");
 //	strcpy(argv[param++], "32M"); //Don't increase it crashes
 
-	LOGV("Setting real time");
+//	LOGV("Setting real time");
 	strcpy(argv[param++], "-realtime");
 	strcpy(argv[param++], "mlock=off");
 
-	LOGV("Setting clock");
+//	LOGV("Setting clock");
 	strcpy(argv[param++], "-rtc");
 	strcpy(argv[param++], "base=localtime");
 
@@ -960,10 +967,10 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		GError *error;
 		gboolean extra_params_res = g_shell_parse_argv(extra_params_str,
 				&argc_extra_params, &argv_extra_params, &error);
-		LOGD("Parsed args for extra_params: %d : %d", extra_params_res,
-				argc_extra_params);
+//		LOGD("Parsed args for extra_params: %d : %d", extra_params_res,
+//				argc_extra_params);
 		for (int i = 0; i < argc_extra_params; i++) {
-			LOGD("Copy args for extra_params: %s", argv_extra_params[i]);
+//			LOGD("Copy args for extra_params: %s", argv_extra_params[i]);
 			strcpy(argv[param++], argv_extra_params[i]);
 		}
 	}
@@ -973,7 +980,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	//	strcpy(argv[param++], "-redir");
 	//	strcpy(argv[param++], "5555::22");
 
-	LOGV("Preparing args param=%d", param);
+//	LOGV("Preparing args param=%d", param);
 	param++;
 	argv[param] = NULL;
 	int argc = param - 1;
@@ -982,27 +989,32 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	char ** argvs = (char **) malloc(param * sizeof(*argvs));
 	for (k = 0; k < argc; k++) {
 		argvs[k] = argv[k];
-		LOGV("param[%d]=%s", k, argvs[k]);
+		LOGV("QEMU param[%d]=%s", k, argvs[k]);
 	}
 	argvs[param] = NULL;
 
 	// XXX: install our debug handler
 	//signal(SIGSEGV, print_stack_trace);
 
-	LOGV("***************** INIT QEMU ************************");
+	LOGV("***** INIT QEMU *****");
 	started = 1;
 	LOGV("Starting VM...");
 
 	//LOAD LIB
+#ifndef __LP64__
 	if (handle == NULL) {
 		loadLib(lib_path_str);
 	}
 
-	if (!handle) {
-		sprintf(res_msg, "Error opening lib: %s :%s", lib_path_str, dlerror());
-		LOGV(res_msg);
-		return (*env)->NewStringUTF(env, res_msg);
-	}
+		if (!handle) {
+			sprintf(res_msg, "Error opening lib: %s :%s", lib_path_str, dlerror());
+			LOGV(res_msg);
+			return (*env)->NewStringUTF(env, res_msg);
+		}
+
+#endif
+
+
 
 	//setup jni env in qemu
 	typedef void (*set_jni_t)();

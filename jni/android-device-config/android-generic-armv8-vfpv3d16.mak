@@ -9,7 +9,7 @@ NDK_TOOLCHAIN_VERSION=4.9
 APP_ABI := arm64-v8a
 
 #FLOAT
-#FLOAT_FLAG := -mfloat-abi=softfp -mfpu=vfpv3-d16 
+#FLOAT_FLAG := +fp16 
 
 #LM
 LM := -lm

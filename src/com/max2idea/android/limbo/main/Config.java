@@ -18,6 +18,8 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.main;
 
+import java.util.Hashtable;
+
 import android.androidVNC.COLORMODEL;
 import android.androidVNC.VncCanvasActivity;
 import android.os.Environment;
@@ -74,9 +76,10 @@ public class Config {
 	public static final int UI_RESET = 1021;
 	public static final int VM_ARM_NOMACHINE = 1022;
 	public static final String ACTION_START = "com.max2idea.android.limbo.action.STARTVM";
+	public static final String SEND_VNC_DATA = "com.max2idea.android.limbo.action.SEND_VNC_DATA";
 
 	public static enum DebugMode {
-		X86, X86_64, ARM, MIPS, PPC
+		X86, X86_64, ARM, MIPS, PPC, M68K
 	};
 
 	// GUI Options
@@ -87,11 +90,13 @@ public class Config {
 	public static final boolean enable_sound_menu = true; //Option for GUI
 	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
 	
-	public static boolean enable_X86 = true; //Enable if you build QEMU with Arm softmmu
-	public static boolean enable_X86_64 = true; //Enable if you build QEMU with Arm softmmu
+	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
+	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
 	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
 	public static boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
-	public static boolean enable_PPC = false; //Enable if you build QEMU with Mips softmmu
+	public static boolean enable_PPC = false; //Enable if you build QEMU with PPC softmmu
+	public static boolean enable_m68k = false;
+	public static boolean enable_sparc = false;
 	
 	//Enable if you build with KVM support
 	public static final boolean enable_KVM = false; 
@@ -111,7 +116,7 @@ public class Config {
 	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
 	public static boolean enableOpenSL; //future enhancement
 	
-	public static final String machinedir = basefiledir + "machines/";
+	public static String machinedir = basefiledir + "machines/";
 	public static final boolean enableHDCache = false;
 	public static final String defaultDNSServer = "8.8.8.8";
 	public static final String defaultUI = "VNC";
@@ -135,8 +140,11 @@ public class Config {
 	
 	//Keyboard Layout
 	public static String defaultKeyboardLayout = "en-us";
-	public static boolean collapseSections;
+	public static boolean collapseSections = false;
 	public static boolean enableFlashMemoryImages = false;
+	protected static String logFilePath = Config.basefiledir + "limbolog.txt";
+	public static boolean enableMTTCG = false;
+	public static String isosImagesURL = "http://limboemulator.weebly.com/guides";
 	
 	
 	//FIXME: disable for now 
@@ -151,8 +159,16 @@ public class Config {
 
 	// Debug
 	public static final boolean debug = false;
-	public static final DebugMode debugMode = DebugMode.X86_64;
+	public static final DebugMode debugMode = DebugMode.ARM;
+	public static final String VNC_BYTE = "VNC_BYTE";
+	public static final String VNC_DATA_TYPE = "VNC_DATA_TYPE";
+	public static final String VNC_BYTES = "VNC_BYTES";
+	public static final String VNC_OFFSET = "VNC_OFFSET";
+	public static final String VNC_COUNT = "VNC_COUNT";
+	public static final int VNC_SEND_BYTE = 1;
+	public static final int VNC_SEND_BYTES = 2;
+	public static final int VNC_SEND_BYTES_OFFSET = 3;
 	
-	
+	public static Hashtable<String, String> osImages = new Hashtable<String, String>();
 
 }

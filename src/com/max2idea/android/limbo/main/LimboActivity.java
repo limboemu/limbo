@@ -41,7 +41,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.main.Config.DebugMode;
 import com.max2idea.android.limbo.utils.FavOpenHelper;
@@ -49,6 +49,7 @@ import com.max2idea.android.limbo.utils.FileInstaller;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
+import com.max2idea.android.limbo.utils.OSDialogBox;
 import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.androidVNC.ConnectionBean;
@@ -178,6 +179,9 @@ public class LimboActivity extends AppCompatActivity {
 	private static final int IMPORT = 5;
 	private static final int CHANGELOG = 6;
 	private static final int LICENSE = 7;
+	private static final int VIEWLOG = 8;
+	private static final int CREATE = 9;
+	private static final int ISOSIMAGES = 10;
 	private ImageView mStatus;
 	private EditText mDNS;
 	private EditText mHOSTFWD;
@@ -305,7 +309,7 @@ public class LimboActivity extends AppCompatActivity {
 						if (!machineLoaded) {
 							populateMachineType("Default");
 							populateCPUs("Default");
-							// populateNetDevices("smc91c111");
+							populateNetDevices("e1000");
 						}
 
 					} else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
@@ -319,12 +323,29 @@ public class LimboActivity extends AppCompatActivity {
 							populateNetDevices("ne2k_pci");
 						}
 
+					} else if (currMachine.arch.equals("m68k")) {
+
+						if (!machineLoaded) {
+							populateMachineType("Default");
+							populateCPUs("Default");
+							// populateNetDevices("smc91c111");
+						}
+
+					} else if (currMachine.arch.equals("SPARC")) {
+
+						if (!machineLoaded) {
+							populateMachineType("Default");
+							populateCPUs("Default");
+							populateNetDevices("lance");
+						}
+
 					}
 				}
 
 				if (currMachine != null)
 					if (currMachine.arch.equals("ARM") || currMachine.arch.equals("MIPS")
-							|| currMachine.arch.equals("PPC")) {
+							|| currMachine.arch.equals("m68k") || currMachine.arch.equals("PPC")
+							|| currMachine.arch.equals("SPARC")) {
 						mACPI.setEnabled(false);
 						mHPET.setEnabled(false);
 						mFDBOOTCHK.setEnabled(false);
@@ -1534,6 +1555,8 @@ public class LimboActivity extends AppCompatActivity {
 				System.loadLibrary("qemu-system-mips");
 			else if (Config.debugMode == DebugMode.PPC)
 				System.loadLibrary("qemu-system-ppc");
+			else if (Config.debugMode == DebugMode.M68K)
+				System.loadLibrary("qemu-system-m68k");
 		}
 
 		Toolbar tb = (Toolbar) findViewById(R.id.toolbar);
@@ -1637,6 +1660,29 @@ public class LimboActivity extends AppCompatActivity {
 
 					}
 				});
+		alertDialog.show();
+
+	}
+
+	public void viewLogFile(final Activity activity, String text) {
+
+		final AlertDialog alertDialog;
+		alertDialog = new AlertDialog.Builder(activity).create();
+		alertDialog.setTitle("Limbo Log");
+		EditText logView = new EditText(activity);
+		logView.setText(text);
+		logView.setTextSize(10);
+		logView.setId(201012015);
+		logView.setPadding(10, 10, 10, 10);
+		alertDialog.setView(logView);
+
+		// alertDialog.setMessage(body);
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				alertDialog.dismiss();
+			}
+		});
+
 		alertDialog.show();
 
 	}
@@ -1833,7 +1879,11 @@ public class LimboActivity extends AppCompatActivity {
 				if (machineDB.getMachine(machineValue, "") != null) {
 					Toast.makeText(activity, "VM Name \"" + machineValue + "\" exists please choose another name!",
 							Toast.LENGTH_SHORT).show();
+					return;
 				}
+
+				showDownloadLinks();
+
 				currMachine = new Machine(machineValue);
 				machineDB.insertMachine(currMachine);
 
@@ -1863,14 +1913,32 @@ public class LimboActivity extends AppCompatActivity {
 					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "Default");
 					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
 					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
+					machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, "e1000");
+				} else if (Config.enable_m68k) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "m68k");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
 					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
+				} else if (Config.enable_sparc) {
+					machineDB.update(currMachine, MachineOpenHelper.ARCH, "SPARC");
+					machineDB.update(currMachine, MachineOpenHelper.MACHINE_TYPE, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.CPU, "Default");
+					machineDB.update(currMachine, MachineOpenHelper.MEMORY, "128");
+					machineDB.update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
+					machineDB.update(currMachine, MachineOpenHelper.NIC_CONFIG, "lance");
+					
 				}
 
 				Toast.makeText(activity, "VM Created: " + machineValue, Toast.LENGTH_SHORT).show();
 				populateMachines();
 				setMachine(machineValue);
-				if (LimboActivity.currMachine != null && currMachine.cpu != null && (currMachine.cpu.endsWith("(arm)")
-						|| currMachine.arch.startsWith("MIPS") || currMachine.arch.startsWith("PPC"))) {
+				if (LimboActivity.currMachine != null && currMachine.cpu != null
+						&& (currMachine.cpu.endsWith("(arm)") || currMachine.arch.startsWith("MIPS")
+								|| currMachine.arch.startsWith("PPC") || currMachine.arch.startsWith("m68k"))
+
+				) {
 					mMachineType.setEnabled(true); // Disabled for now
 				}
 				enableNonRemovableDeviceOptions(true);
@@ -1950,8 +2018,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle(title);
 		WebView webview = new WebView(activity);
-		webview.setBackgroundColor(Color.BLACK);
-		webview.loadData("<font color=\"FFFFFF\">" + html + " </font>", "text/html", "UTF-8");
+		webview.loadData(html, "text/html", "UTF-8");
 		alertDialog.setView(webview);
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "I Acknowledge", new DialogInterface.OnClickListener() {
@@ -1978,6 +2045,14 @@ public class LimboActivity extends AppCompatActivity {
 			}
 		});
 		alertDialog.show();
+	}
+
+	protected void showDownloadLinks() {
+
+		if (!Config.osImages.isEmpty()) {
+			OSDialogBox oses = new OSDialogBox(activity, R.style.Transparent, this);
+			oses.show();
+		}
 	}
 
 	public static void UIAlertHtml(String title, String html, Activity activity) {
@@ -2149,13 +2224,13 @@ public class LimboActivity extends AppCompatActivity {
 		}
 	}
 
-	private static void onMenuHelp() {
-		String url = "https://github.com/limboemu/limbo";
-		Intent i = new Intent(Intent.ACTION_VIEW);
-		i.setData(Uri.parse(url));
-		activity.startActivity(i);
-
-	}
+	// private static void onMenuHelp() {
+	// String url = "https://limboemulator.weebly.com/guides";
+	// Intent i = new Intent(Intent.ACTION_VIEW);
+	// i.setData(Uri.parse(url));
+	// activity.startActivity(i);
+	//
+	// }
 
 	private static void onChangeLog() {
 		PackageInfo pInfo = null;
@@ -2352,10 +2427,14 @@ public class LimboActivity extends AppCompatActivity {
 	private TextView mAdvancedSectionHeader;
 	private View mBootSectionHeader;
 	private LinearLayout mBootSectionDetails;
-	private LinearLayout mMiscStorageSectionDetails;
-	private TextView mMiscStorageSectionHeader;
+	private LinearLayout mGraphicsSectionDetails;
+	private TextView mGraphicsSectionHeader;
 	private LinearLayout mRemovableStorageSectionDetails;
 	private TextView mRemovableStorageSectionHeader;
+	private LinearLayout mNetworkSectionDetails;
+	private View mNetworkSectionHeader;
+	private LinearLayout mAudioSectionDetails;
+	private TextView mAudioSectionHeader;
 
 	// Main event function
 	// Retrives values from saved preferences
@@ -2399,9 +2478,16 @@ public class LimboActivity extends AppCompatActivity {
 		//
 		// }
 
-		if (vmexecutor == null)
-			vmexecutor = new VMExecutor(currMachine, this);
+		if (vmexecutor == null) {
 
+			try {
+				vmexecutor = new VMExecutor(currMachine, this);
+			} catch (Exception ex) {
+				UIUtils.toastLong(activity, "Error: " + ex);
+				return;
+
+			}
+		}
 		if (mCDenable.isChecked() && vmexecutor.cd_iso_path == null)
 			vmexecutor.cd_iso_path = "";
 		if (mFDAenable.isChecked() && vmexecutor.fda_img_path == null)
@@ -2820,12 +2906,30 @@ public class LimboActivity extends AppCompatActivity {
 				}
 			});
 
-			mMiscStorageSectionDetails = (LinearLayout) findViewById(R.id.miscsectionDetails);
-			mMiscStorageSectionDetails.setVisibility(View.GONE);
-			mMiscStorageSectionHeader = (TextView) findViewById(R.id.miscsectionStr);
-			mMiscStorageSectionHeader.setOnClickListener(new OnClickListener() {
+			mGraphicsSectionDetails = (LinearLayout) findViewById(R.id.graphicssectionDetails);
+			mGraphicsSectionDetails.setVisibility(View.GONE);
+			mGraphicsSectionHeader = (TextView) findViewById(R.id.graphicssectionStr);
+			mGraphicsSectionHeader.setOnClickListener(new OnClickListener() {
 				public void onClick(View view) {
-					toggleVisibility(mMiscStorageSectionDetails);
+					toggleVisibility(mGraphicsSectionDetails);
+				}
+			});
+
+			mAudioSectionDetails = (LinearLayout) findViewById(R.id.audiosectionDetails);
+			mAudioSectionDetails.setVisibility(View.GONE);
+			mAudioSectionHeader = (TextView) findViewById(R.id.audiosectionStr);
+			mAudioSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mAudioSectionDetails);
+				}
+			});
+
+			mNetworkSectionDetails = (LinearLayout) findViewById(R.id.networksectionDetails);
+			mNetworkSectionDetails.setVisibility(View.GONE);
+			mNetworkSectionHeader = (TextView) findViewById(R.id.networksectionStr);
+			mNetworkSectionHeader.setOnClickListener(new OnClickListener() {
+				public void onClick(View view) {
+					toggleVisibility(mNetworkSectionDetails);
 				}
 			});
 
@@ -2987,7 +3091,7 @@ public class LimboActivity extends AppCompatActivity {
 
 		RelativeLayout mLayout = new RelativeLayout(this);
 		mLayout.setId(12222);
-		mLayout.setPadding(10,10,10,10);
+		mLayout.setPadding(10, 10, 10, 10);
 
 		RelativeLayout.LayoutParams textViewParams = new RelativeLayout.LayoutParams(
 				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
@@ -3212,7 +3316,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Machine Name");
 		EditText vmNameTextView = new EditText(activity);
-		vmNameTextView.setPadding(10,10,10,10);
+		vmNameTextView.setPadding(10, 10, 10, 10);
 		vmNameTextView.setEnabled(true);
 		vmNameTextView.setVisibility(View.VISIBLE);
 		vmNameTextView.setId(201012010);
@@ -3953,6 +4057,8 @@ public class LimboActivity extends AppCompatActivity {
 
 		String[] arraySpinner = { "e1000", "pcnet", "rtl8139", "ne2k_pci", "i82551", "i82557b", "i82559er", "virtio" };
 
+//		String[] arraySpinner = { ne2k_pci,i82551,i82557b,i82559er,rtl8139,e1000,pcnet,virtio
+		
 		ArrayList<String> arrList = new ArrayList<String>();
 
 		if (currMachine != null) {
@@ -3962,7 +4068,12 @@ public class LimboActivity extends AppCompatActivity {
 			} else if (currMachine.arch.equals("x64")) {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 			} else if (currMachine.arch.equals("ARM")) {
+				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 				arrList.add("smc91c111");
+			} else if (currMachine.arch.equals("PPC")) {
+				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+			} else if (currMachine.arch.equals("SPARC")) {
+				arrList.add("lance");
 			}
 		} else {
 			arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
@@ -4554,7 +4665,6 @@ public class LimboActivity extends AppCompatActivity {
 		arrX86_64.add("phenom");// AMD Phenom(tm) 9550 Quad-Core Processor
 		arrX86_64.add("core2duo");// Intel(R) Core(TM)2 Duo CPU T7700 @
 									// 2.40GHz
-
 		arrX86_64.add("Conroe");// Intel Celeron_4x0 (Conroe/Merom Class Core
 								// 2)
 		arrX86_64.add("Penryn");// Intel Core 2 Duo P9xxx (Penryn Class Core
@@ -4594,8 +4704,26 @@ public class LimboActivity extends AppCompatActivity {
 		ArrayList<String> arrMips = new ArrayList<String>();
 		arrMips.add("Default");
 
+		// PowerPC cpus
 		ArrayList<String> arrPpc = new ArrayList<String>();
 		arrPpc.add("Default");
+
+		// m68k cpus
+		ArrayList<String> arrM68k = new ArrayList<String>();
+		arrM68k.add("Default");
+		arrM68k.add("cfv4e");
+		arrM68k.add("m5206");
+		arrM68k.add("m5208");
+		arrM68k.add("m68000");
+		arrM68k.add("m68020");
+		arrM68k.add("m68030");
+		arrM68k.add("m68040");
+		arrM68k.add("m68060");
+		arrM68k.add("any");
+
+		// Sparc
+		ArrayList<String> arrSparc = new ArrayList<String>();
+		arrSparc.add("Default");
 
 		// "arm1136 (arm)", "arm1136-r2 (arm)", "arm1176 (arm)",
 		// "arm11mpcore (arm)", "cortex-m3 (arm)", "cortex-a8 (arm)",
@@ -4620,6 +4748,10 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.addAll(arrMips);
 			} else if (currMachine.arch.equals("PPC")) {
 				arrList.addAll(arrPpc);
+			} else if (currMachine.arch.equals("m68k")) {
+				arrList.addAll(arrM68k);
+			} else if (currMachine.arch.equals("SPARC")) {
+				arrList.addAll(arrSparc);
 			}
 		} else {
 			arrList.addAll(arrX86);
@@ -4666,6 +4798,12 @@ public class LimboActivity extends AppCompatActivity {
 
 		if (Config.enable_PPC)
 			arrList.add("PPC");
+
+		if (Config.enable_m68k)
+			arrList.add("m68k");
+
+		if (Config.enable_sparc)
+			arrList.add("SPARC");
 
 		archAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
 
@@ -4730,38 +4868,130 @@ public class LimboActivity extends AppCompatActivity {
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
 		if (currMachine != null) {
-			if (currMachine.arch.equals("x86")) {
+			if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
 				arrList.add("pc");
+				arrList.add("pc-i440fx-2.9");
+				arrList.add("pc-i440fx-2.8");
+				arrList.add("pc-i440fx-2.7");
+				arrList.add("pc-i440fx-2.6");
+				arrList.add("pc-i440fx-2.5");
+				arrList.add("pc-i440fx-2.4");
+				arrList.add("pc-i440fx-2.3");
+				arrList.add("pc-i440fx-2.2");
+				arrList.add("pc-i440fx-2.1");
+				arrList.add("pc-i440fx-2.0");
+				arrList.add("pc-i440fx-1.7");
+				arrList.add("pc-i440fx-1.6");
+				arrList.add("pc-i440fx-1.5");
+				arrList.add("pc-i440fx-1.4");
+				arrList.add("pc-1.3");
+				arrList.add("pc-1.2");
+				arrList.add("pc-1.1");
+				arrList.add("pc-1.0");
+				arrList.add("pc-0.15");
+				arrList.add("pc-0.14");
+				arrList.add("pc-0.13");
+				arrList.add("pc-0.12");
+				arrList.add("pc-0.11");
+				arrList.add("pc-0.10");
 				arrList.add("q35");
+				arrList.add("pc-q35-2.9");
+				arrList.add("pc-q35-2.8");
+				arrList.add("pc-q35-2.7");
+				arrList.add("pc-q35-2.6");
+				arrList.add("pc-q35-2.5");
+				arrList.add("pc-q35-2.4");
 				arrList.add("isapc");
-			} else if (currMachine.arch.equals("x64")) {
-				arrList.add("pc");
-				arrList.add("q35");
-				arrList.add("isapc");
+				arrList.add("none");
+
 			} else if (currMachine.arch.equals("ARM")) {
-				arrList.add("integratorcp - ARM Integrator/CP (ARM926EJ-S) (default)");
-				arrList.add("versatilepb - ARM Versatile/PB (ARM926EJ-S)");
-				arrList.add("n800 - Nokia N800 tablet aka. RX-34 (OMAP2420)");
-				arrList.add("n810 - Nokia N810 tablet aka. RX-44 (OMAP2420)");
-				arrList.add("n900 - Nokia N900 (OMAP3)");
-				arrList.add("netduino2 - Netduino 2 Machine");
-				arrList.add("vexpress-a9 - ARM Versatile Express for Cortex-A9");
-				arrList.add("vexpress-a15 - ARM Versatile Express for Cortex-A15");
-				arrList.add("beagle - Beagle board (OMAP3530)");
-				arrList.add("beaglexm - Beagle board XM (OMAP3630)");
-				arrList.add("xilinx-zynq-a9 - Xilinx Zynq Platform Baseboard for Cortex-A9");
-				arrList.add("smdkc210 - Samsung SMDKC210 board (Exynos4210)");
-				arrList.add("virt - ARM Virtual Machine");
+				arrList.add("akita");
+				arrList.add("ast2500-evb");
+				arrList.add("borzoi");
+				arrList.add("canon-a1100");
+				arrList.add("cheetah");
+				arrList.add("collie");
+				arrList.add("connex");
+				arrList.add("cubieboard");
+				arrList.add("highbank");
+				arrList.add("imx25-pdk");
+				arrList.add("integratorcp");
+				arrList.add("kzm");
+				arrList.add("lm3s6965evb");
+				arrList.add("lm3s811evb");
+				arrList.add("mainstone");
+				arrList.add("midway");
+				arrList.add("musicpal");
+				arrList.add("n800");
+				arrList.add("n810");
+				arrList.add("netduino2");
+				arrList.add("none");
+				arrList.add("nuri");
+				arrList.add("palmetto-bmc");
+				arrList.add("raspi2");
+				arrList.add("realview-eb");
+				arrList.add("realview-eb-mpcore");
+				arrList.add("realview-pb-a8");
+				arrList.add("realview-pbx-a9");
+				arrList.add("romulus-bmc");
+				arrList.add("sabrelite");
+				arrList.add("smdkc210");
+				arrList.add("spitz");
+				arrList.add("sx1");
+				arrList.add("sx1-v1");
+				arrList.add("terrier");
+				arrList.add("tosa");
+				arrList.add("verdex");
+				arrList.add("versatileab");
+				arrList.add("versatilepb");
+				arrList.add("vexpress-a15");
+				arrList.add("vexpress-a9");
+				arrList.add("virt-2.6");
+				arrList.add("virt-2.7");
+				arrList.add("virt-2.8");
+				arrList.add("virt");
+				arrList.add("virt-2.9");
+				arrList.add("xilinx-zynq-a9");
+				arrList.add("z2");
+
 			} else if (currMachine.arch.equals("MIPS")) {
 				arrList.add("malta");
+				arrList.add("mips");
+				arrList.add("mipssim");
+				arrList.add("none");
 			} else if (currMachine.arch.equals("PPC")) {
 				arrList.add("Default");
-				arrList.add("mac99");
-				arrList.add("g3bw");
+				arrList.add("40p");
+				arrList.add("bamboo");
 				arrList.add("g3beige");
+				arrList.add("mac99");
+				arrList.add("mpc8544ds");
+				arrList.add("none");
+				arrList.add("ppce500");
 				arrList.add("prep");
+				arrList.add("ref405ep");
+				arrList.add("taihu");
+				arrList.add("virtex-ml507");
+
+			} else if (currMachine.arch.equals("m68k")) {
+				arrList.add("Default");
+				arrList.add("an5206"); // Arnewsh 5206
+				arrList.add("mcf5208evb"); // MCF5206EVB (default0
+				arrList.add("none");
+			} else if (currMachine.arch.equals("SPARC")) {
+				arrList.add("Default");
+				arrList.add("LX"); // Arnewsh 5206
+				arrList.add("SPARCClassic"); // MCF5206EVB (default0
+				arrList.add("SS-10");
+				arrList.add("SS-20");
+				arrList.add("SS-4");
+				arrList.add("SS-5");
+				arrList.add("SS-600MP");
+				arrList.add("Voyager");
+				arrList.add("leon3_generic");
 
 			}
+
 		}
 		// else {
 		// arrList.add("pc");
@@ -5154,7 +5384,10 @@ public class LimboActivity extends AppCompatActivity {
 
 		menu.add(0, HELP, 0, "Help").setIcon(android.R.drawable.ic_menu_help);
 		menu.add(0, INSTALL, 0, "Install Roms").setIcon(R.drawable.install);
+		menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.cpu);
 		menu.add(0, DELETE, 0, "Delete Machine").setIcon(R.drawable.delete);
+		menu.add(0, ISOSIMAGES, 0, "ISOs & HD Images").setIcon(R.drawable.cdrom);
+		menu.add(0, VIEWLOG, 0, "View Log").setIcon(android.R.drawable.ic_menu_view);
 		menu.add(0, EXPORT, 0, "Export Machines").setIcon(R.drawable.exportvms);
 		menu.add(0, IMPORT, 0, "Import Machines").setIcon(R.drawable.importvms);
 		menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
@@ -5178,12 +5411,18 @@ public class LimboActivity extends AppCompatActivity {
 			this.install();
 		} else if (item.getItemId() == this.DELETE) {
 			this.onDeleteMachine();
+		} else if (item.getItemId() == this.CREATE) {
+			this.promptMachineName(this);
+		} else if (item.getItemId() == this.ISOSIMAGES) {
+			this.goToURL(Config.isosImagesURL);
 		} else if (item.getItemId() == this.EXPORT) {
 			this.onExportMachines();
 		} else if (item.getItemId() == this.IMPORT) {
 			this.onImportMachines();
 		} else if (item.getItemId() == this.HELP) {
 			this.onHelp();
+		} else if (item.getItemId() == this.VIEWLOG) {
+			this.onViewLog();
 		} else if (item.getItemId() == this.CHANGELOG) {
 			this.onChangeLog();
 		} else if (item.getItemId() == this.LICENSE) {
@@ -5192,6 +5431,30 @@ public class LimboActivity extends AppCompatActivity {
 			this.exit();
 		}
 		return true;
+	}
+
+	private void goToURL(String url) {
+
+		Intent i = new Intent(Intent.ACTION_VIEW);
+		i.setData(Uri.parse(url));
+		activity.startActivity(i);
+
+	}
+
+	private void onViewLog() {
+
+		File log = new File(Config.logFilePath);
+		if (log.exists()) {
+			try {
+				String contents = FileUtils.getFileContents(Config.logFilePath);
+				this.viewLogFile(activity, contents);
+			} catch (Exception e) {
+				UIUtils.toastLong(this, "Could not open Log file");
+			}
+
+		} else {
+			UIUtils.toastLong(this, "Log file not found");
+		}
 	}
 
 	public void stopVM(boolean exit) {

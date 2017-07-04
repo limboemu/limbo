@@ -4,13 +4,35 @@ include android-config.mak
 
 ####### x86 and ARM devices support
 #ARM is currently very slow
-#Possible Values=aarch64-softmmu,arm-softmmu,x86_64-softmmu,i386-softmmu,
-#  ppc-softmmu, ppc64-softmmu.mak,ppcemb-softmmu.mak,s390x-softmmu.mak,
-#  sh4-softmmu.mak, sh4eb-softmmu.mak, sparc-softmmu.mak, sparc64-softmmu.mak, xtensa-softmmu.mak,xtensaeb-softmmu.mak
-#  microblaze-softmmu,microblazeel-softmmu,mips-softmmu,mips64-softmmu.mak,mips64el-softmmu
-#  mipsel-softmmu, lm32-softmmu.mak, m68k-softmmu.mak, alpha-softmmu.mak, cris-softmmu.mak
-# QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu
-QEMU_TARGET_LIST = x86_64-softmmu
+#Possible Values=
+#QEMU_TARGET_LIST = aarch64-softmmu
+
+#QEMU_TARGET_LIST = ppc64-softmmu
+#QEMU_TARGET_LIST = ppcemb-softmmu
+#QEMU_TARGET_LIST = s390x-softmmu
+#QEMU_TARGET_LIST = sh4-softmmu
+#QEMU_TARGET_LIST = sh4eb-softmmu
+#QEMU_TARGET_LIST = sparc64-softmmu
+#QEMU_TARGET_LIST = xtensa-softmmu
+#QEMU_TARGET_LIST = xtensaeb-softmmu
+#QEMU_TARGET_LIST = microblaze-softmmu
+#QEMU_TARGET_LIST = microblazeel-softmmu
+#QEMU_TARGET_LIST = mips64-softmmu
+#QEMU_TARGET_LIST = mips64el-softmmu
+#QEMU_TARGET_LIST = mipsel-softmmu
+#QEMU_TARGET_LIST = lm32-softmmu
+#QEMU_TARGET_LIST = alpha-softmmu
+#QEMU_TARGET_LIST = cris-softmmu
+#QEMU_TARGET_LIST = i386-softmmu
+#QEMU_TARGET_LIST = m68k-softmmu
+#QEMU_TARGET_LIST = mips-softmmu
+
+#QEMU_TARGET_LIST = ppc-softmmu
+#QEMU_TARGET_LIST = x86_64-softmmu
+#QEMU_TARGET_LIST = arm-softmmu
+#QEMU_TARGET_LIST = sparc-softmmu
+
+QEMU_TARGET_LIST = ppc-softmmu,x86_64-softmmu,arm-softmmu,sparc-softmmu
 
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
@@ -171,6 +193,8 @@ else ifeq ($(APP_ABI), armeabi-v7a)
     QEMU_HOST_CPU = arm
 else ifeq ($(APP_ABI), armeabi-v7a-hard)
     QEMU_HOST_CPU = arm
+else ifeq ($(APP_ABI), arm64-v8a)
+	QEMU_HOST_CPU = aarch64
 else ifeq ($(APP_ABI), x86)
     QEMU_HOST_CPU = i686
 else ifeq ($(APP_ABI), x86_64)

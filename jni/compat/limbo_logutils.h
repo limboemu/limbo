@@ -32,26 +32,37 @@ extern "C" {
 //$ adb shell stop
 //$ adb shell setprop log.redirect-stdio true
 //$ adb shell start
+
 #define DEBUG_OUTPUT 1
+#define DEBUG_SHOW_BASENAME 1
 //#define DEBUG_OUTPUT_EXTRA 1
+
+#ifdef DEBUG_SHOW_BASENAME
+#define __FILENAME__ strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__
+#else
+#define __FILENAME__ __FILE__
+#endif
 
 #define STR1(x) #x
 #define STR(x) STR1(x)
-#define TAG __FILE__ ":" STR(__LINE__)
+#define TAG __FILENAME__ ":" STR(__LINE__)
 
 #ifdef DEBUG_OUTPUT
 
+//Custom
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG ,__VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG,__VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG,__VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG,__VA_ARGS__)
+
+//Generic
 #define printf(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define fprintf(stdout, ...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define vfprintf(stdout, ...)  __android_log_vprint(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define perror(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-//FIXME: logging for SDL
+//SDL logging
 #define SDL_Log_REAL(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
 #define SDL_LogVerbose_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
 #define SDL_LogDebug_REAL(category, ...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
@@ -61,7 +72,10 @@ extern "C" {
 #define SDL_LogCritical_REAL(category, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define SDL_LogMessage_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
 
+//GLib Logging
 #define g_error(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
+//QEMU Logging
 #define sdl_logerr(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_report(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_printf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)

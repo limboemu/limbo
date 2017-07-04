@@ -23,8 +23,10 @@ import java.io.File;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
 import com.max2idea.android.limbo.main.LimboService;
+import com.max2idea.android.limbo.main.Config.DebugMode;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import android.app.Notification;
 import android.content.Context;
@@ -83,6 +85,7 @@ public class VMExecutor {
 	public int enablevnc;
 	public String vnc_passwd = null;
 	public int vnc_allow_external = 0;
+	public int enable_mttcg = Config.enableMTTCG?1:0;
 	public String base_dir = Config.basefiledir;
 	public String dns_addr;
 	private int width;
@@ -104,8 +107,9 @@ public class VMExecutor {
 	private String extra_params;
 
 	/**
+	 * @throws Exception 
 	 */
-	public VMExecutor(Machine machine, Context context) {
+	public VMExecutor(Machine machine, Context context) throws Exception {
 
 		name = machine.machinename;
 		save_dir = Config.machinedir + name;
@@ -153,6 +157,10 @@ public class VMExecutor {
 			File libFile = new File(libqemu);
 			if (!libFile.exists()) {
 				this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
+				libFile = new File(libqemu);
+//				if (!libFile.exists()) {
+//					throw new Exception ("Could not find QEMU library: " + libFile.getAbsolutePath());
+//				}
 			}
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "x86";
@@ -174,10 +182,31 @@ public class VMExecutor {
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc.so";
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "ppc";
+			if (machine.machine_type == null || machine.machine_type.equals("Default"))
+				this.machine_type = null;
+			else
+				this.machine_type = machine.machine_type;
+		} else if (machine.arch.endsWith("m68k")) {
+			this.cpu = machine.cpu;
+			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-m68k.so";
+			this.cpu = machine.cpu.split(" ")[0];
+			this.arch = "m68k";
 			if (machine.machine_type == null)
 				this.machine_type = "Default";
 			else
 				this.machine_type = machine.machine_type;
+		} else if (machine.arch.endsWith("SPARC")) {
+			this.cpu = machine.cpu;
+			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-sparc.so";
+			this.cpu = machine.cpu.split(" ")[0];
+			this.arch = "SPARC";
+			if (machine.machine_type == null || machine.machine_type.equals("Default"))
+				this.machine_type = null;
+			else
+				this.machine_type = machine.machine_type;
+			
+			//override vga
+			this.vga_type ="cg3";
 		}
 
 		if (machine.cd_iso_path == null || machine.cd_iso_path.equals("None")) {
@@ -302,7 +331,14 @@ public class VMExecutor {
 				System.loadLibrary("qemu-system-x86_64");
 			} else if (arch.equals("arm")) {
 				System.loadLibrary("qemu-system-arm");
+			} else if (arch.equals("mips")) {
+				System.loadLibrary("qemu-system-mips");
+			}else if (arch.equals("ppc")) {
+				System.loadLibrary("qemu-system-ppc");
+			}else if (arch.equals("m68k")) {
+				System.loadLibrary("qemu-system-m68k");
 			}
+			
 		}
 		libLoaded = true;
 
@@ -490,7 +526,7 @@ public class VMExecutor {
 	public void prepPaths() {
 		File destDir = new File(save_dir);
 		if (!destDir.exists()) {
-			destDir.mkdir();
+			destDir.mkdirs();
 		}
 
 		// Protect the paths from qemu thinking they contain a protocol in the

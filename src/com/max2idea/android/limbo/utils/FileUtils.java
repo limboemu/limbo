@@ -273,18 +273,67 @@ public class FileUtils {
 	}
 
 	public static String getDataDir() {
+		
+		String dataDir = LimboActivity.activity.getApplicationInfo().dataDir;
 		PackageManager m = LimboActivity.activity.getPackageManager();
 		String packageName = LimboActivity.activity.getPackageName();
 		Log.v("VMExecutor", "Found packageName: " + packageName);
-		String dataDir = "";
-		try {
-			PackageInfo p = m.getPackageInfo(packageName, 0);
-			dataDir = p.applicationInfo.dataDir;
-			Log.v("VMExecutor", "Found dataDir: " + dataDir);
-		} catch (NameNotFoundException e) {
-			Log.w("VMExecutor", "Error Package name not found using /data/data/", e);
+	
+		if(dataDir == null) {
 			dataDir = "/data/data/" + packageName;
 		}
 		return dataDir;
 	}
+
+
+		public static String getFileContents(String filePath) {
+			String contents = "";
+			ArrayList<Machine> machines = new ArrayList<Machine>();
+			BufferedReader buffreader = null;
+			InputStream instream = null;
+			
+			try {
+				// open the file for reading
+				instream = new FileInputStream(filePath);
+
+				// if file the available for reading
+				if (instream != null) {
+					// prepare the file for reading
+					InputStreamReader inputreader = new InputStreamReader(instream);
+					buffreader = new BufferedReader(inputreader);
+
+					String line;
+					line = buffreader.readLine();
+
+					while (line != null) {
+						line = buffreader.readLine();
+						if (line == null)
+							break;
+						contents += (line + "\n");
+					}
+
+				}
+			} catch (Exception ex) {
+				Log.v("GetFileContents", "Error:" + ex.getMessage());
+			} finally {
+
+				try {
+					if (buffreader != null)
+						buffreader.close();
+
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				try {
+					if (instream != null)
+						instream.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+			return contents;
+		}
 }

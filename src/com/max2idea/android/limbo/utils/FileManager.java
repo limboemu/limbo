@@ -24,7 +24,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.logging.Logger;
 
-import com.limbo.emu.main.R;
+import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
 
 import android.app.Activity;

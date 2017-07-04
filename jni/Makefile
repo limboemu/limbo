@@ -31,7 +31,13 @@ INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 	../libs/$(APP_ABI_DIR)/
 REMOVE_GDBSETUP=rm ../libs/$(APP_ABI_DIR)/gdb.setup
 REMOVE_GDBSERVER=rm ../libs/$(APP_ABI_DIR)/gdbserver
-  
+COPY_ASSETS=cp -rf ../assets/* ../apps/limbo-android-x86/assets/ \
+	&& cp -rf ../assets/* ../apps/limbo-android-arm/assets/ \
+	&& cp -rf ../assets/* ../apps/limbo-android-mips/assets/ \
+	&& cp -rf ../assets/* ../apps/limbo-android-sparc/assets/ \
+	&& cp -rf ../assets/* ../apps/limbo-android-m68k/assets/ \
+	&& cp -rf ../assets/* ../apps/limbo-android-ppc/assets/
+	
 #RENAME_TUNCTL=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/tunctl \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
 #RENAME_PARPROUTED=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/parprouted \
@@ -92,6 +98,7 @@ debug:
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
+	$(COPY_ASSETS)
 	
 release:
 	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
@@ -102,6 +109,7 @@ release:
 	$(STRIP_LIBS)
 	-$(REMOVE_GDBSETUP)
 	-$(REMOVE_GDBSERVER)
+	$(COPY_ASSETS)
 	
 ndk-gdb:
 	-echo $(APP_ABI)
@@ -111,7 +119,7 @@ ndk-gdb:
 	$(COPY_GDB_SETUP_LIBS_ARMEABI)
 	$(COPY_GDB_SETUP_OBJ_ARMEABI)
 	$(APPEND_GDB_CMD_EXTRA)
-	$(ndkgdb)  
+	$(ndkgdb) --attach $(PKG_NAME) -v
 	
 distclean: 
 	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
