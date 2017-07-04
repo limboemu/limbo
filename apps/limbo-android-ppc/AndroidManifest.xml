@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.limbo.emu.main.ppc"
+    android:installLocation="auto"
+    android:versionCode="292"
+    android:versionName="2.9.2-x86-ppc" >
+
+    <uses-sdk
+        android:minSdkVersion="17"
+        android:targetSdkVersion="21" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <uses-feature android:glEsVersion="0x00020000" />
+
+    <application
+        android:name="com.max2idea.android.limbo.main.LimboApplication"
+        android:allowBackup="true"
+        android:debuggable="true"
+        android:hardwareAccelerated="true"
+        android:icon="@drawable/limbo"
+        android:label="Limbo PowerPC Emulator"
+        android:largeHeap="true" >
+        <activity
+            android:name=".LimboEmuActivity"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:label="Limbo PowerPC"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AppCompat.NoActionBar" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.max2idea.android.limbo.main.LimboFileManager"
+            class="com.max2idea.android.limbo.main.LimboFileManager"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:label="Choose a File" >
+            <intent-filter>
+                <action
+                    android:name="PFileManager"
+                    android:value="android.intent.action.VIEW" />
+
+                <category
+                    android:name="PFileManager"
+                    android:value="android.intent.category.NORMAL" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.max2idea.android.limbo.main.LimboSDLActivity"
+            class="com.max2idea.android.limbo.main.LimboSDLActivityToolbar"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AppCompat.NoActionBar" >
+            <intent-filter>
+                <action
+                    android:name=".SDLActivity"
+                    android:value="android.intent.action.VIEW" />
+
+                <category
+                    android:name=".SDLActivity"
+                    android:value="android.intent.category.NORMAL" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.max2idea.android.limbo.main.LimboVNCActivity"
+            class="com.max2idea.android.limbo.main.LimboVNCActivity"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:label="Limbo VNC client"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustPan" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" >
+                </action>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="com.max2idea.android.limbo.main.LimboService"
+            android:enabled="true"
+            android:exported="false"
+            android:label="Limbo Service" >
+            <intent-filter>
+                <action android:name="com.max2idea.android.limbo.action.STARTVM" />
+            </intent-filter>
+        </service>
+        
+        <service
+            android:name="com.max2idea.android.limbo.main.LimboVNCService"
+            android:enabled="true"
+            android:exported="false"
+            android:label="Limbo VNC Service" >
+        </service>
+    </application>
+
+</manifest>
