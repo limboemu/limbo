@@ -11,7 +11,7 @@ ARCH_CFLAGS := \
     -std=gnu99 \
     -ffunction-sections
 
-ANDROID_OPTIM_FLAGS :=  -O5 \
+ANDROID_OPTIM_FLAGS :=  -O2 \
                               -fomit-frame-pointer \
                               -fstrict-aliasing    \
                               -funswitch-loops     \
