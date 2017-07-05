@@ -3,7 +3,7 @@
     package="com.limbo.emu.main.sparc"
     android:installLocation="auto"
     android:versionCode="292"
-    android:versionName="2.9.2-x86-sparc" >
+    android:versionName="2.9.2-sparc" >
 
     <uses-sdk
         android:minSdkVersion="17"
