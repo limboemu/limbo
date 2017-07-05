@@ -47,6 +47,8 @@ https://github.com/limboemu/limbo
     d. Apply QEMU patch for Limbo:
 	cp /cygdrive/c/users/youraccount/.../limbo-android/jni/qemu-patches/qemu-2.9.0.patch /cygdrive/c/temp/qemu-2.9.0/
 	cd /cygdrive/c/temp/qemu-2.9.0
+	edit file qemu-2.9.0.patch and remove any binary file entries
+	dos2unix qemu-2.9.0.patch
 	git apply qemu-2.9.0.patch
 	mv /cygdrive/c/temp/qemu-2.9.0/* /cygdrive/c/users/youraccount/.../limbo-android/jni/qemu/
 
