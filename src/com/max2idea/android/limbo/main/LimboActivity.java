@@ -2243,7 +2243,7 @@ public class LimboActivity extends AppCompatActivity {
 		}
 		FileUtils fileutils = new FileUtils();
 		try {
-			showAlertHtml("CHANCELOG", fileutils.LoadFile(activity, "CHANGELOG", false), OShandler);
+			showAlertHtml("CHANGELOG", fileutils.LoadFile(activity, "CHANGELOG", false), OShandler);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
