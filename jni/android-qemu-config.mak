@@ -27,8 +27,8 @@ include android-config.mak
 #QEMU_TARGET_LIST = m68k-softmmu
 #QEMU_TARGET_LIST = mips-softmmu
 
-#QEMU_TARGET_LIST = ppc-softmmu
-QEMU_TARGET_LIST = x86_64-softmmu
+QEMU_TARGET_LIST = ppc-softmmu
+#QEMU_TARGET_LIST = x86_64-softmmu
 #QEMU_TARGET_LIST = arm-softmmu
 #QEMU_TARGET_LIST = sparc-softmmu
 
