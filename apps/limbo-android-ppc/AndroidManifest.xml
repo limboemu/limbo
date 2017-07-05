@@ -3,7 +3,7 @@
     package="com.limbo.emu.main.ppc"
     android:installLocation="auto"
     android:versionCode="292"
-    android:versionName="2.9.2-x86-ppc" >
+    android:versionName="2.9.2-ppc" >
 
     <uses-sdk
         android:minSdkVersion="17"
