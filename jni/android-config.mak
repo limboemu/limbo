@@ -103,7 +103,7 @@ NDK_ENV = windows-x86_64
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 
 # ARMv7 Generic soft float
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.mak
 
 # ARMv7 Generic soft float No Optimization
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16-noopt.mak
@@ -117,7 +117,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.
 
 ######### x86
 # x86 Phones (ie Zenfone)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86.mak
 
 # x86 Phones Debug No optimization (ie Zenfone)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-ndkr8-x86-noopt.mak
