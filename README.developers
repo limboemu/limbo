@@ -1,0 +1,171 @@
+Limbo PC Emulator (QEMU) for Android
+
+================================================================================
+
+1. What is Limbo?
+
+Limbo is a QEMU-based emulator for Android. It currently supports PC emulation 
+for Intel x86 architecture.
+For more information, instructions, guides, known issues, and downloads visit:
+https://github.com/limboemu/limbo
+
+===============================================================================
+
+2. Requirements:
+
+    Android SDK
+    Android NDK r13b/GCC 4.9
+    Android Studio
+    Android device with Android OS 4.2 and above
+    Cygwin (if you compile for Windows)
+    flex, bison, libtool (optional)
+
+===============================================================================
+
+3. Known Issues:
+	https://github.com/limboemu/limbo/issues
+	
+===============================================================================
+4. Setup Environment
+
+    a. Update variables for paths to NDK directories for your Build Environment
+     in ./limbo-android-lib/src/main/jni/android-config.mak
+     
+    b. Configure your PATH variable add the NDK Directory so makefile can find ndk-build
+    Examples:
+    For bash:
+    export PATH=$PATH:/home/dev/tools/android/android-ndk-r13b
+    
+    c. Get QEMU version
+    
+    cd /cygdrive/c/temp/
+	wget http://download.qemu-project.org/qemu-2.10.0.tar.xz
+    tar -xJf qemu-2.10.0.tar.xz
+    cd qemu-2.10.0
+    git init
+    git delete .gitmodules
+    rm -rf dtc
+    git submodule add git://git.qemu-project.org/dtc.git dtc
+    cp -r /cygdrive/c/temp/* ./limbo-android-lib/src/main/jni/qemu/
+    	
+    d. Apply QEMU patch for Limbo:
+	cd ./limbo-android-lib/src/main/jni/qemu/
+	dos2unix ../qemu-patches/qemu-2.10.0.patch
+	patch -p1 < ../qemu-patches/qemu-2.10.0.patch
+
+	Note: Use only if you need to create your own patch
+	cd ./limbo-android-lib/src/main/jni/qemu
+	diff -ru --no-dereference /cygdrive/c/temp/qemu-2.10.0/ . | grep -v '^Only in' > ../qemu-patches/qemu-2.10.0.patch
+
+    e. For linux/MacOSX make sure the configure script under .../qemu/configure is executable
+    chmod u+x qemu/configure
+
+    f. fix script permissions, run:
+    cd jni/
+    dos2unix fix_script_permissions.sh
+    chmod u+x fix_script_permissions.sh
+    ./fix_script_permissions.sh
+
+===============================================================================
+5. Build
+
+	a. To build the NDK part of the app make sure you're under the jni directory:
+    
+    WARNING! If you use Windows/Cygwin Make sure your project is in a directory ONLY under the C: drive!
+    
+    If you use Windows use Cygwin Prompt otherwise use your terminal (Linux/Macos)
+        > cd /cygdrive/c/users/youraccount/.../limbo-android-lib/src/main/jni
+        
+        or if you use linux:
+        > cd /home/youraccount/.../limbo-android-lib/src/main/jni
+        
+         
+	If you build on Windows platform make sure you update the android-config.mak file:
+    NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
+	NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
+        
+    If you want to build the x86, ARM,Sparc,PowerPC Emulator update android-qemu-config.mak file with one of these:
+    TARGET_LIST = x86_64-softmmu
+    TARGET_LIST = arm-softmmu
+    TARGET_LIST = sparc-softmmu
+	TARGET_LIST = ppc-softmmu
+
+	or multiple guest architectures to save time compiling:
+	TARGET_LIST = x86_64-softmmu,arm-softmmu
+
+    b. From Android Studio Import BOTH the Android library limbo-android-lib AND the submodule for the guest
+    	architecture you need (x86,arm,ppc,sparc) ie limbo-android-x86.
+		You will also need the Android Support Library should be included in the build.gradle files.
+    	
+    c. Build the static and shared libraries under ../limbo-android-lib/src/main/jni:
+        i. Update android-config.mak:
+            include android-generic-armv7a-vfpv3d16.mak for arm phones
+            Or android-ndkr8-x86.mak for x86 phones (zenfone)
+        ii. > make clean
+        iii. > make config
+        iv.  > make release
+
+        # sync the guest libs (x86, arm, sparc, or ppc emulator)
+        v. > make sync-libs-x86
+           > make sync-libs-arm, etc...
+
+    d. Build the Android apk for the corresponding guest using Android Studio.
+        Make sure the *.so libraries are zipped in the final .apk
+
+    h. If you want to build the debugging version:
+   		i. Modify debuggable flag in AndroidManifest.xml to true
+   			and set debug variable in Config.java to true
+   		ii. Modify android-config.mak and point to a configuration 
+   			with no optimization:
+   			ie android-generic-armv7a-vfpv3d16-noopt.mak
+   			
+    i. To start debugging the native code for a particular guest arch type:
+   			for x86 guest:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main
+   			
+   			for arm guest:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
+   			
+   			for sparc guest:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
+   			
+   			for ppc guest:
+   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
+    	
+    j. Done.
+    	
+===============================================================================
+6. Development
+	a. Changes pertinent to compatibility with Android/bionic are tagged in C as preprocessor define __ANDROID__
+	b. Similarly other changes pertinent to LIMBO are tagged with __LIMBO__
+	c. Important configuration makefiles:
+		android-config.mak (for setting up toolchain variables)
+		android-qemu-config.mak (for configuring QEMU options)
+	d. Android Makefiles can be found as Android.mk and Application.mk
+	e. Device specific flags can be found under directory android-device-config/
+	f. Frontend UI options configuration see: Config.java
+    	
+===============================================================================
+7. Run
+	a. Installing a full Qwerty keyboard for Android like Hacker's keyboard 
+		from the Google Android store. Make sure you use Transparent theme 
+		and Direct Draw found under Theme settings.
+	b. Start the Limbo app and choose CPU, Memory (~8-64MB),etc..
+	c. Choose a bootable disk image(s) for CDRom, Floppy, and a HDD image
+	d. Start the virtual machine.
+	e. For more instructions and guides visit: 
+		https://github.com/limboemu/limbo
+    f. Have fun!
+    	
+===============================================================================
+8. License
+
+Limbo PC Emulator is released under GPL v2 License.
+All icons unders /res are from Gnome Project (GPL v2 License)
+See file COPYING under root directory
+
+Other source included are released under their own license please view Licenses under each subdirectory
+
+===============================================================================
+
+Endofdoc
