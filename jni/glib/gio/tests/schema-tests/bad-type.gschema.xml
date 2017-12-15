@@ -1,7 +1,0 @@
-<schemalist>
-  <schema id="bad-type" path="/tests/">
-    <key name="test" type="-%$#*(a!">
-      <default></default>
-    </key>
-  </schema>
-</schemalist>

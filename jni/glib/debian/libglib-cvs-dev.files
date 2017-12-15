@@ -1,9 +1,0 @@
-usr/lib/libglib.so
-usr/lib/libglib.a
-usr/lib/libgmodule.so
-usr/lib/libgmodule.a
-usr/include/glib.h
-usr/include/gmodule.h
-usr/bin/glib-config
-usr/lib/glib/
-usr/share/aclocal/glib.m4

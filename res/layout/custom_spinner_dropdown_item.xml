@@ -1,6 +1,0 @@
-<CheckedTextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/customSpinnerDropDownItem"
-    style="@style/leftEllipsisSpinnerDropDownItem"
-    android:layout_width="fill_parent"
-    android:textColor="#FFFFFF"
-    android:layout_height="?android:attr/listPreferredItemHeight" />
