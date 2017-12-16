@@ -36,32 +36,26 @@ https://github.com/limboemu/limbo
     For bash:
     export PATH=$PATH:/home/dev/tools/android/android-ndk-r13b
     
-    c. Get QEMU version
-    
-    cd /cygdrive/c/temp/
-	wget http://download.qemu-project.org/qemu-2.10.0.tar.xz
-    tar -xJf qemu-2.10.0.tar.xz
-    cd qemu-2.10.0
-    git init
-    git delete .gitmodules
-    rm -rf dtc
-    git submodule add git://git.qemu-project.org/dtc.git dtc
-    cp -r /cygdrive/c/temp/* ./limbo-android-lib/src/main/jni/qemu/
-    	
-    d. Apply QEMU patch for Limbo:
+    c. Get QEMU (ignore any errors while extracting)
+    cd ./limbo-android-lib/src/main/jni
+	wget http://download.qemu-project.org/qemu-2.10.0.tar.xz -P /cygdrive/c/temp/
+    tar -xJf /cygdrive/c/temp/qemu-2.10.0.tar.xz
+    mv qemu-2.10.0 qemu
+
+	d. Apply QEMU patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/qemu/
 	dos2unix ../qemu-patches/qemu-2.10.0.patch
 	patch -p1 < ../qemu-patches/qemu-2.10.0.patch
 
-	Note: Use only if you need to create your own patch
-	cd ./limbo-android-lib/src/main/jni/qemu
-	diff -ru --no-dereference /cygdrive/c/temp/qemu-2.10.0/ . | grep -v '^Only in' > ../qemu-patches/qemu-2.10.0.patch
+	Note: Use only if you need to create your own patch for any version
+	diff -ru --no-dereference /cygdrive/c/temp/qemu-x.x.x . | grep -v '^Only in' > ../qemu-patches/qemu-x.x.x.patch
 
     e. For linux/MacOSX make sure the configure script under .../qemu/configure is executable
+    cd ./limbo-android-lib/src/main/jni/
     chmod u+x qemu/configure
 
     f. fix script permissions, run:
-    cd jni/
+    cd ./limbo-android-lib/src/main/jni/
     dos2unix fix_script_permissions.sh
     chmod u+x fix_script_permissions.sh
     ./fix_script_permissions.sh
@@ -74,7 +68,7 @@ https://github.com/limboemu/limbo
     WARNING! If you use Windows/Cygwin Make sure your project is in a directory ONLY under the C: drive!
     
     If you use Windows use Cygwin Prompt otherwise use your terminal (Linux/Macos)
-        > cd /cygdrive/c/users/youraccount/.../limbo-android-lib/src/main/jni
+        > cd /cygdrive/c/users/youraccount/limbo/limbo-android-lib/src/main/jni
         
         or if you use linux:
         > cd /home/youraccount/.../limbo-android-lib/src/main/jni
@@ -105,9 +99,9 @@ https://github.com/limboemu/limbo
         iii. > make config
         iv.  > make release
 
-        # sync the guest libs (x86, arm, sparc, or ppc emulator)
-        v. > make sync-libs-x86
-           > make sync-libs-arm, etc...
+        # sync the guest libs and assets for x86, arm, sparc, or ppc emulator
+        v. > make install-x86
+        (make install-arm, etc..)
 
     d. Build the Android apk for the corresponding guest using Android Studio.
         Make sure the *.so libraries are zipped in the final .apk
