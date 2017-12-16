@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="Transparent" parent="@android:style/Theme.Dialog"></style>
+
+    <style name="leftEllipsisSpinnerDropDownItem" parent="@android:style/Widget.DropDownItem.Spinner">
+        <item name="android:ellipsize">start</item>
+        <item name="android:singleLine">true</item>
+    </style>
+
+    <style name="leftEllipsisSimpleSpinnerItem" parent="@android:style/Widget.TextView.SpinnerItem">
+        <item name="android:ellipsize">start</item>
+        <item name="android:singleLine">true</item>
+    </style>
+
+</resources>
