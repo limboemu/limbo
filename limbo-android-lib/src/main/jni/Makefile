@@ -41,7 +41,7 @@ SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' --include='*/' --excl
 SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
 SYNC_LIBS_PPC=rsync -av --include='libqemu-system-ppc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
 
-COPY_ROMS=cp -rf ./qemu/pc-bios/*.rom \
+COPY_ROMS=mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ./qemu/pc-bios/*.bin \
 ./qemu/pc-bios/*.img \
 ./qemu/pc-bios/*.bmp \
