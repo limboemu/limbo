@@ -1,0 +1,939 @@
+<!-- ##### SECTION Title ##### -->
+Key-value file parser
+
+<!-- ##### SECTION Short_Description ##### -->
+parses <filename>.ini</filename>-like config files
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+#GKeyFile lets you parse, edit or create files containing groups of
+key-value pairs, which we call <firstterm>key files</firstterm> for 
+lack of a better name. Several freedesktop.org specifications use
+key files now, e.g the 
+<ulink url="http://freedesktop.org/Standards/desktop-entry-spec">Desktop
+Entry Specification</ulink> and the
+<ulink url="http://freedesktop.org/Standards/icon-theme-spec">Icon
+Theme Specification</ulink>. 
+</para>
+
+<para>
+The syntax of key files is described in detail in the 
+<ulink url="http://freedesktop.org/Standards/desktop-entry-spec">Desktop
+Entry Specification</ulink>, here is a quick summary: Key files
+consists of groups of key-value pairs, interspersed with comments.
+</para>
+
+<informalexample><programlisting>
+# this is just an example
+# there can be comments before the first group
+
+[First Group]
+
+Name=Key File Example\tthis value shows\nescaping
+
+# localized strings are stored in multiple key-value pairs
+Welcome=Hello
+Welcome[de]=Hallo
+Welcome[fr_FR]=Bonjour
+Welcome[it]=Ciao
+Welcome[be@latin]=Hello
+
+[Another Group]
+
+Numbers=2;20;-200;0
+
+Booleans=true;false;true;true
+
+</programlisting></informalexample>
+
+<para>
+Lines beginning with a '#' and blank lines are considered comments.
+</para>
+
+<para>
+Groups are started by a header line containing the group name enclosed
+in '[' and ']', and ended implicitly by the start of the next group or
+the end of the file. Each key-value pair must be contained in a group.
+</para>
+
+<para>
+Key-value pairs generally have the form <literal>key=value</literal>, 
+with the exception of localized strings, which have the form 
+<literal>key[locale]=value</literal>, with a locale identifier of the form
+<literal>lang_COUNTRY@MODIFIER</literal> where <literal>COUNTRY</literal> and 
+<literal>MODIFIER</literal> are optional. Space before and after the 
+'=' character are ignored. Newline, tab, carriage return and backslash 
+characters in value are escaped as \n, \t, \r, and \\, respectively. 
+To preserve leading spaces in values, these can also be escaped as \s.
+</para>
+
+<para>
+Key files can store strings (possibly with localized variants), integers,
+booleans and lists of these. Lists are separated by a separator character,
+typically ';' or ','. To use the list separator character in a value in
+a list, it has to be escaped by prefixing it with a backslash.
+</para>
+
+<para>
+This syntax is obviously inspired by the <filename>.ini</filename> 
+files commonly met on Windows, but there are some important differences:
+<itemizedlist>
+<listitem><para>
+<filename>.ini</filename> files use the ';' character to begin comments,
+ key files use the '#' character.
+</para></listitem>
+<listitem><para>
+Key files do not allow for ungrouped keys meaning only comments can precede the first group.
+</para></listitem>
+<listitem><para>
+Key files are always encoded in UTF-8.
+</para></listitem>
+<listitem><para>
+Key and Group names are case-sensitive, for example a group called
+<literal>[GROUP]</literal> is a different group from <literal>[group]</literal>.
+</para></listitem>
+<listitem><para>
+<filename>.ini</filename> files don't have a strongly typed boolean entry type, they only
+have <literal>GetProfileInt</literal>. In <structname>GKeyFile</structname> only
+<literal>true</literal> and <literal>false</literal> (in lower case) are allowed.
+</para></listitem>
+</itemizedlist>
+</para>
+
+<para>
+Note that in contrast to the
+<ulink url="http://freedesktop.org/Standards/desktop-entry-spec">Desktop
+Entry Specification</ulink>, groups in key files may contain the same
+key multiple times; the last entry wins. Key files may also contain
+multiple groups with the same name; they are merged together.
+Another difference is that keys and group names in key files are not
+restricted to ASCII characters.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### STRUCT GKeyFile ##### -->
+<para>
+The <structname>GKeyFile</structname> struct contains only private fields
+and should not be used directly.
+</para>
+
+
+<!-- ##### MACRO G_KEY_FILE_ERROR ##### -->
+<para>
+Error domain for key file parsing. Errors in this domain will
+be from the #GKeyFileError enumeration. See #GError for information on 
+error domains.
+</para>
+
+
+
+<!-- ##### ENUM GKeyFileError ##### -->
+<para>
+Error codes returned by key file parsing.
+</para>
+
+@G_KEY_FILE_ERROR_UNKNOWN_ENCODING: the text being parsed was in an unknown encoding
+@G_KEY_FILE_ERROR_PARSE: document was ill-formed
+@G_KEY_FILE_ERROR_NOT_FOUND: the file was not found
+@G_KEY_FILE_ERROR_KEY_NOT_FOUND: a requested key was not found
+@G_KEY_FILE_ERROR_GROUP_NOT_FOUND: a requested group was not found
+@G_KEY_FILE_ERROR_INVALID_VALUE: a value could not be parsed
+
+<!-- ##### ENUM GKeyFileFlags ##### -->
+<para>
+Flags which influence the parsing.
+</para>
+
+@G_KEY_FILE_NONE: No flags, default behaviour
+@G_KEY_FILE_KEEP_COMMENTS: Use this flag if you plan to write the (possibly modified)
+  contents of the key file back to a file; otherwise all comments will be lost when
+  the key file is written back.
+@G_KEY_FILE_KEEP_TRANSLATIONS: Use this flag if you plan to write the (possibly modified)
+  contents of the key file back to a file; otherwise only the translations for the current
+  language will be written back.
+
+<!-- ##### FUNCTION g_key_file_new ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_free ##### -->
+<para>
+
+</para>
+
+@key_file: 
+
+
+<!-- ##### FUNCTION g_key_file_set_list_separator ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@separator: 
+
+
+<!-- ##### FUNCTION g_key_file_load_from_file ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@file: 
+@flags: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_load_from_data ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@data: 
+@length: 
+@flags: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_load_from_data_dirs ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@file: 
+@full_path: 
+@flags: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_load_from_dirs ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@file: 
+@search_dirs: 
+@full_path: 
+@flags: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_to_data ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_start_group ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_groups ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@length: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_keys ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_has_group ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_has_key ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_value ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_string ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_locale_string ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@locale: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_boolean ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_integer ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_int64 ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_uint64 ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_double ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_string_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_locale_string_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@locale: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_boolean_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_integer_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_double_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@length: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_get_comment ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_set_value ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_string ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@string: 
+
+
+<!-- ##### FUNCTION g_key_file_set_locale_string ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@locale: 
+@string: 
+
+
+<!-- ##### FUNCTION g_key_file_set_boolean ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_integer ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_int64 ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_uint64 ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_double ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@value: 
+
+
+<!-- ##### FUNCTION g_key_file_set_string_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@list: 
+@length: 
+
+
+<!-- ##### FUNCTION g_key_file_set_locale_string_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@locale: 
+@list: 
+@length: 
+
+
+<!-- ##### FUNCTION g_key_file_set_boolean_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@list: 
+@length: 
+
+
+<!-- ##### FUNCTION g_key_file_set_integer_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@list: 
+@length: 
+
+
+<!-- ##### FUNCTION g_key_file_set_double_list ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@list: 
+@length: 
+
+
+<!-- ##### FUNCTION g_key_file_set_comment ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@comment: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_remove_group ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_remove_key ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_key_file_remove_comment ##### -->
+<para>
+
+</para>
+
+@key_file: 
+@group_name: 
+@key: 
+@error: 
+@Returns: 
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_GROUP ##### -->
+<para>
+The name of the main group of a desktop entry file, as defined in the
+<ulink url="http://freedesktop.org/Standards/desktop-entry-spec">Desktop
+Entry Specification</ulink>. Consult the specification for more
+details about the meanings of the keys below.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_TYPE ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string giving the type of the desktop entry. Usually
+<link linkend="G-KEY-FILE-DESKTOP-TYPE-APPLICATION:CAPS"><literal>G_KEY_FILE_DESKTOP_TYPE_APPLICATION</literal></link>,
+<link linkend="G-KEY-FILE-DESKTOP-TYPE-LINK:CAPS"><literal>G_KEY_FILE_DESKTOP_TYPE_LINK</literal></link>, or
+<link linkend="G-KEY-FILE-DESKTOP-TYPE-DIRECTORY:CAPS"><literal>G_KEY_FILE_DESKTOP_TYPE_DIRECTORY</literal></link>.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_VERSION ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string giving the version of the Desktop
+Entry Specification used for the desktop entry file.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_NAME ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a localized string giving the specific name of the
+desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_GENERIC_NAME ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a localized string giving the generic name of the
+desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_NO_DISPLAY ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a boolean stating whether the desktop entry should be
+shown in menus.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_COMMENT ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a localized string giving the tooltip for the desktop
+entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_ICON ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a localized string giving the name of the icon to be
+displayed for the desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_HIDDEN ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a boolean stating whether the desktop entry has been
+deleted by the user.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_ONLY_SHOW_IN ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a list of strings identifying the environments that
+should display the desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_NOT_SHOW_IN ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a list of strings identifying the environments that
+should not display the desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_TRY_EXEC ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string giving the file name of a binary on disk
+used to determine if the program is actually installed. It is only
+valid for desktop entries with the <literal>Application</literal>
+type.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_EXEC ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string giving the command line to execute. It is only
+valid for desktop entries with the <literal>Application</literal>
+type.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_PATH ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string containing the working directory to run the
+program in. It is only valid for desktop entries with the
+<literal>Application</literal> type.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_TERMINAL ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a boolean stating whether the program should be
+run in a terminal window. It is only valid for desktop entries with
+the <literal>Application</literal> type.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_MIME_TYPE ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a list of strings giving the MIME types supported
+by this desktop entry.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_CATEGORIES ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a list of strings giving the categories in which the
+desktop entry should be shown in a menu.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_STARTUP_NOTIFY ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a boolean stating whether the application supports
+the <ulink
+url="http://www.freedesktop.org/Standards/startup-notification-spec">Startup
+Notification Protocol Specification</ulink>.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_STARTUP_WM_CLASS ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is string identifying the WM class or name hint of a
+window that the application will create, which can be used to emulate
+Startup Notification with older applications.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_KEY_URL ##### -->
+<para>
+A key under <link
+linkend="G-KEY-FILE-DESKTOP-GROUP:CAPS"><literal>G_KEY_FILE_DESKTOP_GROUP</literal></link>
+whose value is a string giving the URL to access. It is only valid
+for desktop entries with the <literal>Link</literal> type.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_TYPE_APPLICATION ##### -->
+<para>
+The value of the <link
+linkend="G-KEY-FILE-DESKTOP-KEY-TYPE:CAPS"><literal>G_KEY_FILE_DESKTOP_KEY_TYPE</literal></link>
+key for desktop entries representing applications.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_TYPE_LINK ##### -->
+<para>
+The value of the <link
+linkend="G-KEY-FILE-DESKTOP-KEY-TYPE:CAPS"><literal>G_KEY_FILE_DESKTOP_KEY_TYPE</literal></link>
+key for desktop entries representing links to documents.
+</para>
+
+@Since: 2.14
+
+
+<!-- ##### MACRO G_KEY_FILE_DESKTOP_TYPE_DIRECTORY ##### -->
+<para>
+The value of the <link
+linkend="G-KEY-FILE-DESKTOP-KEY-TYPE:CAPS"><literal>G_KEY_FILE_DESKTOP_KEY_TYPE</literal></link>
+key for desktop entries representing directories.
+</para>
+
+@Since: 2.14
+
+

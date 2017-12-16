@@ -1,0 +1,239 @@
+<!-- ##### SECTION Title ##### -->
+Internationalization
+
+<!-- ##### SECTION Short_Description ##### -->
+gettext support macros
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+GLib doesn't force any particular localization method upon its users.
+But since GLib itself is localized using the gettext() mechanism, it seems
+natural to offer the de-facto standard gettext() support macros in an 
+easy-to-use form.
+</para>
+<para>
+In order to use these macros in an application, you must include 
+<filename>glib/gi18n.h</filename>. For use in a library, must include
+<filename>glib/gi18n-lib.h</filename> <emphasis>after</emphasis> defining
+the GETTEXT_PACKAGE macro suitably for your library:
+<informalexample><programlisting>
+&num;define GETTEXT_PACKAGE "gtk20"
+&num;include &lt;glib/gi18n-lib.h&gt;
+</programlisting></informalexample>
+The gettext manual covers details of how to set up message extraction
+with xgettext.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+The gettext manual.
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### MACRO _ ##### -->
+<para>
+Marks a string for translation, gets replaced with the translated string
+at runtime.
+</para>
+
+@String: the string to be translated
+@Since: 2.4
+
+
+<!-- ##### MACRO Q_ ##### -->
+<para>
+Like _(), but handles context in message ids. This has the advantage that 
+the string can be adorned with a prefix to guarantee uniqueness and provide 
+context to the translator. 
+</para>
+<para>
+One use case given in the gettext manual is GUI translation, where one could 
+e.g. disambiguate two "Open" menu entries as "File|Open" and "Printer|Open". 
+Another use case is the string "Russian" which may have to be translated
+differently depending on whether it's the name of a character set or a 
+language. This could be solved by using "charset|Russian" and 
+"language|Russian".
+</para>
+<para>
+See the C_() macro for a different way to mark up translatable strings
+with context.
+</para>
+<note><para>
+If you are using the Q_() macro, you need to make sure that you 
+pass <option>--keyword=Q_</option> to xgettext when extracting messages.
+If you are using GNU gettext >= 0.15, you can also use
+<option>--keyword=Q_:1g</option> to let xgettext split the context
+string off into a msgctxt line in the po file.
+</para></note>
+
+@String: the string to be translated, with a '|'-separated prefix which 
+  must not be translated
+@Returns: the translated message
+@Since: 2.4
+
+
+<!-- ##### MACRO C_ ##### -->
+<para>
+Uses gettext to get the translation for @msgid. @msgctxt is 
+used as a context. This is mainly useful for short strings which 
+may need different translations, depending on the context in which 
+they are used.
+<informalexample><programlisting>
+label1 = C_("Navigation", "Back");
+label2 = C_("Body part", "Back");
+</programlisting></informalexample> 
+</para>
+
+<note><para>
+If you are using the C_() macro, you need to make sure that you 
+pass <option>--keyword=C_:1c,2</option> to xgettext when extracting 
+messages. Note that this only works with GNU gettext >= 0.15. 
+</para></note>
+
+@Context: a message context, must be a string literal
+@String: a message id, must be a string literal
+@Returns: the translated message
+@Since: 2.16
+
+
+<!-- ##### MACRO N_ ##### -->
+<para>
+Only marks a string for translation.
+This is useful in situations where the translated strings can't
+be directly used, e.g. in string array initializers. 
+To get the translated string, call gettext() at runtime.
+</para>
+<informalexample><programlisting>
+     {
+       static const char *messages[] = {
+         N_("some very meaningful message"),
+         N_("and another one")
+       };
+       const char *string;
+       ...
+       string
+         = index &gt; 1 ? _("a default message") : gettext (messages[index]);
+<!-- -->     
+       fputs (string);
+       ...
+     }
+</programlisting></informalexample>
+
+@String: the string to be translated
+@Since: 2.4
+
+
+<!-- ##### MACRO NC_ ##### -->
+<para>
+Only marks a string for translation, with context.
+This is useful in situations where the translated strings can't
+be directly used, e.g. in string array initializers. 
+To get the translated string, you should call g_dpgettext2() at runtime.
+</para>
+|[
+     {
+       static const char *messages[] = {
+         NC_("some context", "some very meaningful message"),
+         NC_("some context", "and another one")
+       };
+       const char *string;
+       ...
+       string
+         = index &gt; 1 ? g_dpgettext2 (NULL, "some context", "a default message") : g_dpgettext2 (NULL, "some context", messages[index]);
+<!-- -->     
+       fputs (string);
+       ...
+     }
+]|
+
+<note><para>
+If you are using the NC_() macro, you need to make sure that you
+pass <option>--keyword=NC_:1c,2</option> to xgettext when extracting
+messages. Note that this only works with GNU gettext >= 0.15.
+Intltool has support for the NC_() macro since version 0.40.1.
+</para></note>
+
+@Context: a message context, must be a string literal
+@String: a message id, must be a string literal
+@Since: 2.18
+
+
+<!-- ##### FUNCTION g_dgettext ##### -->
+<para>
+
+</para>
+
+@domain: 
+@msgid: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_dcgettext ##### -->
+<para>
+
+</para>
+
+@domain: 
+@msgid: 
+@category: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_dngettext ##### -->
+<para>
+
+</para>
+
+@domain: 
+@msgid: 
+@msgid_plural: 
+@n: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_dpgettext ##### -->
+<para>
+
+</para>
+
+@domain: 
+@msgctxtid: 
+@msgidoffset: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_dpgettext2 ##### -->
+<para>
+
+</para>
+
+@domain: 
+@context: 
+@msgid: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_strip_context ##### -->
+<para>
+
+</para>
+
+@msgid: 
+@msgval: 
+@Returns: 
+
+
+<!-- ##### FUNCTION g_get_language_names ##### -->
+<para>
+
+</para>
+
+@void: 
+@Returns: 
+
+

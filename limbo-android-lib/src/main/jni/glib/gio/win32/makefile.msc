@@ -1,0 +1,35 @@
+TOP = ..\..\..
+PRJ_TOP = ..\..
+PACKAGE = giowin32
+PKG_VER = 2.0
+!INCLUDE $(TOP)\glib\build\win32\make.msc
+
+INCLUDES = \
+	-FImsvc_recommended_pragmas.h \
+	-I .. -I ..\.. -I ..\..\glib -I ..\..\gmodule -I . \
+	$(INTL_CFLAGS)
+
+DEFINES = \
+	-DG_LOG_DOMAIN=\"GLib-GIO\" \
+	-DGIO_MODULE_DIR=\"$(libdir)/gio/modules\" \
+	-DGIO_COMPILATION
+
+OBJECTS = \
+	gwin32directorymonitor.obj \
+	gwinhttpfile.obj \
+	gwinhttpfileinputstream.obj \
+	gwinhttpfileoutputstream.obj \
+	gwinhttpvfs.obj \
+
+all : \
+	$(PRJ_TOP)\config.h \
+	$(PACKAGE).lib
+
+$(PRJ_TOP)\config.h: $(PRJ_TOP)\config.h.win32
+	copy $(PRJ_TOP)\config.h.win32 $(PRJ_TOP)\config.h
+
+$(PACKAGE).lib : $(OBJECTS)
+	lib /out:$(PACKAGE).lib $(OBJECTS)
+
+.c.obj :
+	$(CC) $(CFLAGS) -c $(PKG_CFLAGS) $<

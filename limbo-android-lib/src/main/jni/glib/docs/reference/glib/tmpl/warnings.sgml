@@ -1,0 +1,236 @@
+<!-- ##### SECTION Title ##### -->
+Message Output and Debugging Functions
+
+<!-- ##### SECTION Short_Description ##### -->
+functions to output messages and help debug applications
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+These functions provide support for outputting messages.
+</para>
+<para>
+The <function>g_return</function> family of macros (g_return_if_fail(), 
+g_return_val_if_fail(), g_return_if_reached(), g_return_val_if_reached())
+should only be used for programming errors, a typical use case is
+checking for invalid parameters at the beginning of a public function.
+They should not be used if you just mean "if (error) return", they
+should only be used if you mean "if (bug in program) return".
+The program behavior is generally considered undefined after one of these 
+checks fails. They are not intended for normal control flow, only to
+give a perhaps-helpful warning before giving up. 
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### FUNCTION g_print ##### -->
+<para>
+Outputs a formatted message via the print handler.
+The default print handler simply outputs the message to stdout.
+</para>
+<para>
+g_print() should not be used from within libraries for debugging messages,
+since it may be redirected by applications to special purpose message
+windows or even files.
+Instead, libraries should use g_log(), or the convenience functions
+g_message(), g_warning() and g_error().
+</para>
+
+@format: the message format. See the printf() documentation.
+@Varargs: the parameters to insert into the format string.
+
+
+<!-- ##### FUNCTION g_set_print_handler ##### -->
+<para>
+Sets the print handler.
+Any messages passed to g_print() will be output via the new handler.
+The default handler simply outputs the message to stdout.
+By providing your own handler you can redirect the output, to a GTK+
+widget or a log file for example.
+</para>
+
+@func: the new print handler.
+@Returns: the old print handler.
+
+
+<!-- ##### USER_FUNCTION GPrintFunc ##### -->
+<para>
+Specifies the type of the print handler functions.
+These are called with the complete formatted string to output.
+</para>
+
+@string: the message to be output.
+
+
+<!-- ##### FUNCTION g_printerr ##### -->
+<para>
+Outputs a formatted message via the error message handler.
+The default handler simply outputs the message to stderr.
+</para>
+<para>
+g_printerr() should not be used from within libraries. Instead g_log() should
+be used, or the convenience functions g_message(), g_warning() and g_error().
+</para>
+
+@format: the message format. See the printf() documentation.
+@Varargs: the parameters to insert into the format string.
+
+
+<!-- ##### FUNCTION g_set_printerr_handler ##### -->
+<para>
+Sets the handler for printing error messages.
+Any messages passed to g_printerr() will be output via the new handler.
+The default handler simply outputs the message to stderr.
+By providing your own handler you can redirect the output, to a GTK+
+widget or a log file for example.
+</para>
+
+@func: the new error message handler.
+@Returns: the old error message handler.
+
+
+<!-- ##### MACRO g_return_if_fail ##### -->
+<para>
+Returns from the current function if the expression is not true.
+If the expression evaluates to %FALSE, a critical message is logged and
+the function returns. This can only be used in functions which do not return
+a value.
+</para>
+
+@expr: the expression to check.
+
+
+<!-- ##### MACRO g_return_val_if_fail ##### -->
+<para>
+Returns from the current function, returning the value @val, if the expression
+is not true.
+If the expression evaluates to %FALSE, a critical message is logged and
+@val is returned.
+</para>
+
+@expr: the expression to check.
+@val: the value to return from the current function if the expression is not
+true.
+
+
+<!-- ##### MACRO g_return_if_reached ##### -->
+<para>
+Logs a critical message and returns from the current function. 
+This can only be used in functions which do not return a value.
+</para>
+
+
+
+<!-- ##### MACRO g_return_val_if_reached ##### -->
+<para>
+Logs a critical message and returns @val. 
+</para>
+
+@val: the value to return from the current function.
+
+
+<!-- ##### MACRO g_warn_if_fail ##### -->
+<para>
+Logs a warning if the expression is not true.
+</para>
+
+@expr: the expression to check
+@Since: 2.16
+
+
+<!-- ##### MACRO g_warn_if_reached ##### -->
+<para>
+Logs a critical warning.
+</para>
+
+@Since: 2.16
+
+
+<!-- ##### FUNCTION g_on_error_query ##### -->
+<para>
+Prompts the user with <computeroutput>[E]xit, [H]alt, show [S]tack trace or [P]roceed</computeroutput>.
+This function is intended to be used for debugging use only. The following
+example shows how it can be used together with the g_log() functions.
+</para>
+<informalexample><programlisting>
+&num;include &lt;glib.h&gt;
+
+static void 
+log_handler (const gchar   *log_domain,
+	     GLogLevelFlags log_level,
+	     const gchar   *message,
+	     gpointer       user_data)
+{
+  g_log_default_handler (log_domain, log_level, message, user_data);
+
+  g_on_error_query (MY_PROGRAM_NAME);
+}
+
+int main (int argc, char *argv[])
+{
+  g_log_set_handler (MY_LOG_DOMAIN,
+		     G_LOG_LEVEL_WARNING | 
+                     G_LOG_LEVEL_ERROR | 
+                     G_LOG_LEVEL_CRITICAL,
+		     log_handler,
+		     NULL);
+
+ /* ... */  
+</programlisting></informalexample>
+<para>
+If [E]xit is selected, the application terminates with a call to
+<function>_exit(0)</function>.
+</para>
+<para>
+If [H]alt is selected, the application enters an infinite loop.
+The infinite loop can only be stopped by killing the application,
+or by setting #glib_on_error_halt to %FALSE (possibly via a debugger).
+</para>
+<para>
+If [S]tack trace is selected, g_on_error_stack_trace() is called. This
+invokes <command>gdb</command>, which attaches to the current process and shows a stack trace.
+The prompt is then shown again.
+</para>
+<para>
+If [P]roceed is selected, the function returns.
+</para>
+<para>
+This function may cause different actions on non-UNIX platforms.
+</para>
+
+@prg_name: the program name, needed by <command>gdb</command> for the [S]tack trace option.
+If @prg_name is %NULL, g_get_prgname() is called to get the program name
+(which will work correctly if gdk_init() or gtk_init() has been called).
+
+
+<!-- ##### FUNCTION g_on_error_stack_trace ##### -->
+<para>
+Invokes <command>gdb</command>, which attaches to the current process and shows a stack trace.
+Called by g_on_error_query() when the [S]tack trace option is selected.
+</para>
+<para>
+This function may cause different actions on non-UNIX platforms.
+</para>
+
+@prg_name: the program name, needed by <command>gdb</command> for the [S]tack trace option.
+If @prg_name is %NULL, g_get_prgname() is called to get the program name
+(which will work correctly if gdk_init() or gtk_init() has been called).
+
+
+<!-- ##### MACRO G_BREAKPOINT ##### -->
+<para>
+Inserts a breakpoint instruction into the code.  On x86 and alpha systems
+this is implemented as a soft interrupt and on other architectures it raises
+a %SIGTRAP signal.
+</para>
+
+
+

@@ -1,0 +1,50 @@
+# see glib-genmarshal(1) for a detailed description of the file format,
+# possible parameter types are:
+#   VOID        indicates   no   return   type,  or  no  extra
+#               parameters. if VOID is used as  the  parameter
+#               list, no additional parameters may be present.
+#   BOOLEAN     for boolean types (gboolean)
+#   CHAR        for signed char types (gchar)
+#   UCHAR       for unsigned char types (guchar)
+#   INT         for signed integer types (gint)
+#   UINT        for unsigned integer types (guint)
+#   LONG        for signed long integer types (glong)
+#   ULONG       for unsigned long integer types (gulong)
+#   ENUM        for enumeration types (gint)
+#   FLAGS       for flag enumeration types (guint)
+#   FLOAT       for single-precision float types (gfloat)
+#   DOUBLE      for double-precision float types (gdouble)
+#   STRING      for string types (gchar*)
+#   PARAM       for GParamSpec or derived types  (GParamSpec*)
+#   BOXED       for boxed (anonymous but reference counted) types (GBoxed*)
+#   POINTER     for anonymous pointer types (gpointer)
+#   OBJECT      for GObject or derived types (GObject*)
+#   VARIANT     for variants (GVariant*)
+#   NONE        deprecated alias for VOID
+#   BOOL        deprecated alias for BOOLEAN
+
+# standard VOID return marshallers
+VOID:VOID
+VOID:BOOLEAN
+VOID:CHAR
+VOID:UCHAR
+VOID:INT
+VOID:UINT
+VOID:LONG
+VOID:ULONG
+VOID:ENUM
+VOID:FLAGS
+VOID:FLOAT
+VOID:DOUBLE
+VOID:STRING
+VOID:PARAM
+VOID:BOXED
+VOID:POINTER
+VOID:OBJECT
+VOID:VARIANT
+
+# GRuntime specific marshallers
+VOID:UINT,POINTER
+BOOL:FLAGS
+STRING:OBJECT,POINTER
+BOOL:BOXED,BOXED

@@ -1,0 +1,30 @@
+glib CVS snapshots for Debian
+-----------------------------
+
+This is GLib version 1.1.   GLib, is a library which includes support
+routines for C such as lists, trees, hashes, memory allocation, and
+many other things.
+
+Versions of GLib prior to 1.1.0 are distributed with GTK+ versions 1.1.0
+and earlier.
+
+This is a snapshot of GLib from the main CVS archive, built into a
+Debian package. This package is not guaranteed to work, as it was
+built automatically. You're on your own, mister or missus!
+
+The GIMP Tool Kit (gtk) is a set of widgets to help you program
+programs for the X Windowing System easily and powerfully.
+
+gtk is the moving force behind The GNU Image Manipulation Program (The
+GIMP) -- the number one freely-available image editing and creation
+program available. 
+
+gtk is rapidly under development, and the source tree has officially
+been separated from The GIMP now, as other teams of programmers
+are beginning to write software using its great widget set -- like
+GNOME, a desktop interface for X, and gzilla, a freely available
+web browser for X.
+
+Ben Gertzfield <che@debian.org>, Tue, 17 Nov 1998 00:06:12 -0800
+
+

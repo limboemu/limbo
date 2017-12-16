@@ -1,0 +1,289 @@
+<!-- ##### SECTION Title ##### -->
+Dynamic Loading of Modules
+
+<!-- ##### SECTION Short_Description ##### -->
+portable method for dynamically loading 'plug-ins'
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+These functions provide a portable way to dynamically load object files
+(commonly known as 'plug-ins').
+The current implementation supports all systems that provide
+an implementation of dlopen() (e.g. Linux/Sun), as well as HP-UX via its
+shl_load() mechanism, and Windows platforms via DLLs.
+</para>
+
+<para>
+A program which wants to use these functions must be linked to the
+libraries output by the command <command>pkg-config --libs gmodule-2.0</command>.
+</para>
+
+<para>
+To use them you must first determine whether dynamic loading
+is supported on the platform by calling g_module_supported().
+If it is, you can open a module with g_module_open(),
+find the module's symbols (e.g. function names) with g_module_symbol(),
+and later close the module with g_module_close().
+g_module_name() will return the file name of a currently opened module.
+</para>
+<para>
+If any of the above functions fail, the error status can be found with
+g_module_error().
+</para>
+<para>
+The #GModule implementation features reference counting for opened modules,
+and supports hook functions within a module which are called when the
+module is loaded and unloaded (see #GModuleCheckInit and #GModuleUnload).
+</para>
+<para>
+If your module introduces static data to common subsystems in the running
+program, e.g. through calling <literal>g_quark_from_static_string ("my-module-stuff")</literal>,
+it must ensure that it is never unloaded, by calling g_module_make_resident().
+</para>
+
+<para>
+<example>
+<title>Calling a function defined in a <structname>GModule</structname></title>
+<programlisting>
+/* the function signature for 'say_hello' */
+typedef void (* SayHelloFunc) (const char *message);
+
+gboolean
+just_say_hello (const char *filename, GError **error)
+{
+  SayHelloFunc  say_hello;
+  GModule      *module;
+
+  module = g_module_open (filename, G_MODULE_BIND_LAZY);
+  if (!module)
+    {
+      g_set_error (error, FOO_ERROR, FOO_ERROR_BLAH,
+		   "&percnt;s", g_module_error (<!-- -->));
+      return FALSE;
+    }
+
+  if (!g_module_symbol (module, "say_hello", (gpointer *)&amp;say_hello))
+    {
+      g_set_error (error, SAY_ERROR, SAY_ERROR_OPEN,
+		   "&percnt;s: &percnt;s", filename, g_module_error (<!-- -->));
+      if (!g_module_close (module))
+	g_warning ("&percnt;s: &percnt;s", filename, g_module_error (<!-- -->));
+      return FALSE;
+    }
+
+  if (say_hello == NULL)
+    {
+      g_set_error (error, SAY_ERROR, SAY_ERROR_OPEN, "symbol say_hello is NULL");
+      if (!g_module_close (module))
+	g_warning ("&percnt;s: &percnt;s", filename, g_module_error (<!-- -->));
+      return FALSE;
+    }
+
+  /* call our function in the module */
+  say_hello ("Hello world!");
+
+  if (!g_module_close (module))
+    g_warning ("&percnt;s: &percnt;s", filename, g_module_error (<!-- -->));
+
+  return TRUE;
+}
+</programlisting>
+</example>
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### STRUCT GModule ##### -->
+<para>
+The #GModule struct is an opaque data structure to represent a
+<link linkend="glib-Dynamic-Loading-of-Modules">Dynamically-Loaded Module</link>.
+It should only be accessed via the following functions.
+</para>
+
+
+<!-- ##### FUNCTION g_module_supported ##### -->
+<para>
+Checks if modules are supported on the current platform.
+</para>
+
+@void: 
+@Returns: %TRUE if modules are supported.
+
+
+<!-- ##### FUNCTION g_module_build_path ##### -->
+<para>
+A portable way to build the filename of a module. The platform-specific
+prefix and suffix are added to the filename, if needed, and the result is
+added to the directory, using the correct separator character.
+</para>
+<para>
+The directory should specify the directory where the module can be found.
+It can be %NULL or an empty string to indicate that the module is in a standard
+platform-specific directory, though this is not recommended since the
+wrong module may be found.
+</para>
+<para>
+For example, calling g_module_build_path() on a Linux system with a @directory
+of <filename>/lib</filename> and a @module_name of "mylibrary" will return 
+<filename>/lib/libmylibrary.so</filename>. On a Windows system, using 
+<filename>\Windows</filename> as the directory it will return
+<filename>\Windows\mylibrary.dll</filename>.
+</para>
+
+@directory: the directory where the module is. This can be %NULL or the empty
+string to indicate that the standard platform-specific directories will be 
+used, though that is not recommended.
+@module_name: the name of the module.
+@Returns: the complete path of the module, including the standard library
+prefix and suffix. This should be freed when no longer needed.
+
+
+<!-- ##### FUNCTION g_module_open ##### -->
+<para>
+Opens a module. If the module has already been opened, its reference
+count is incremented. 
+</para>
+
+<para>
+First of all g_module_open() tries to open @file_name as a module. If
+that fails and @file_name has the ".la"-suffix (and is a libtool archive) 
+it tries to open the corresponding module. If that fails and it doesn't 
+have the proper module suffix for the platform (#G_MODULE_SUFFIX), this 
+suffix will be appended and the corresponding module will be opended. If 
+that fails and @file_name doesn't have the ".la"-suffix, this suffix is 
+appended and g_module_open() tries to open the corresponding module. If 
+eventually that fails as well, %NULL is returned.
+</para>
+
+@file_name: the name of the file containing the module, or %NULL to obtain
+  a #GModule representing the main program itself.
+@flags: the flags used for opening the module. This can be the logical
+OR of any of the #GModuleFlags.
+@Returns: a #GModule on success, or %NULL on failure.
+
+
+<!-- ##### ENUM GModuleFlags ##### -->
+<para>
+Flags passed to g_module_open(). Note that these flags are
+not supported on all platforms.
+</para>
+
+@G_MODULE_BIND_LAZY: specifies that symbols are only resolved when needed.
+  The default action is to bind all symbols when the module is loaded.
+@G_MODULE_BIND_LOCAL: specifies that symbols in the module should
+  not be added to the global name space.  The default action on most
+  platforms is to place symbols in the module in the global name space,
+  which may cause conflicts with existing symbols.
+@G_MODULE_BIND_MASK: mask for all flags.
+
+<!-- ##### FUNCTION g_module_symbol ##### -->
+<para>
+Gets a symbol pointer from a module, such as one exported by #G_MODULE_EXPORT.
+</para>
+<para>
+Note that a valid symbol can be %NULL.
+</para>
+
+@module: a #GModule.
+@symbol_name: the name of the symbol to find.
+@symbol: returns the pointer to the symbol value.
+@Returns: %TRUE on success.
+
+
+<!-- ##### FUNCTION g_module_name ##### -->
+<para>
+Gets the filename from a #GModule.
+</para>
+
+@module: a #GModule.
+@Returns: the filename of the module, or "main" if the module is the main
+program itself.
+
+
+<!-- ##### FUNCTION g_module_make_resident ##### -->
+<para>
+Ensures that a module will never be unloaded.
+Any future g_module_close() calls on the module will be ignored.
+</para>
+
+@module: a #GModule to make permanently resident.
+
+
+<!-- ##### FUNCTION g_module_close ##### -->
+<para>
+Closes a module.
+</para>
+
+@module: a #GModule to close.
+@Returns: %TRUE on success.
+
+
+<!-- ##### FUNCTION g_module_error ##### -->
+<para>
+Gets a string describing the last module error.
+</para>
+
+@void: 
+@Returns: a string describing the last module error.
+
+
+<!-- ##### USER_FUNCTION GModuleCheckInit ##### -->
+<para>
+Specifies the type of the module initialization function.
+<indexterm zone="g-module-check-init"><primary>g_module_check_init</primary></indexterm>
+If a module contains a function named g_module_check_init() it is called
+automatically when the module is loaded. It is passed the #GModule structure
+and should return %NULL on success or a string describing the initialization
+error.
+</para>
+
+@module: the #GModule corresponding to the module which has just been loaded.
+@Returns: %NULL on success, or a string describing the initialization error.
+
+
+<!-- ##### USER_FUNCTION GModuleUnload ##### -->
+<para>
+<indexterm zone="g-module-unload"><primary>g_module_unload</primary></indexterm>
+Specifies the type of the module function called when it is unloaded.
+If a module contains a function named g_module_unload() it is called
+automatically when the module is unloaded.
+It is passed the #GModule structure.
+</para>
+
+@module: the #GModule about to be unloaded.
+
+
+<!-- ##### MACRO G_MODULE_SUFFIX ##### -->
+<para>
+Expands to the proper shared library suffix for the current platform
+without the leading dot. For the most Unices and Linux this is "so",
+for some HP-UX versions this is "sl" and for Windows this is "dll".
+</para>
+
+
+
+<!-- ##### MACRO G_MODULE_EXPORT ##### -->
+<para>
+Used to declare functions exported by modules. This is a no-op on Linux and
+Unices, but when compiling for Windows, it marks a symbol to be exported from
+the library or executable being built.
+</para>
+
+
+
+<!-- ##### MACRO G_MODULE_IMPORT ##### -->
+<para>
+Used to declare functions imported from modules.
+</para>
+
+
+

@@ -1,0 +1,25 @@
+All the .po files are now in UTF-8!
+
+For information on editing UTF-8 files on Unix, see
+<http://www.cl.cam.ac.uk/~mgk25/unicode.html>
+
+If you just want to convert it back to your native encoding to
+edit and then convert again to UTF-8 to commit, please see the
+scripts in gnome-i18n/UTF-8, for example
+
+  export ENCODING_TO=ISO-8859-15
+  utftopo fi.po
+  emacs fi.po
+  potoutf.sh fi.po
+  cvs commit fi.po
+
+Alternatively, you can use the gettext package (>= 0.11) to convert
+your translation to and from your native encoding:
+
+msgconv -t ISO-8859-15 fi.po > fi.native.po
+emacs fi.native.po
+msgconv -t UTF-8 fi.native.po > fi.po
+cvs commit fi.po
+
+If you need help with this, ask, but please don't commit
+non-UTF-8 files here.

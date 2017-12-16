@@ -1,0 +1,1967 @@
+/* This file lists all exported symbols. It is used to generate
+ * the glib.def file used to control exports on Windows.
+ * 
+ * Every symbol must be included in the right
+ * #ifdef IN_HEADER(sym) #endif and
+ * #ifdef IN_FILE(sym) #endif sections. 
+ */
+#ifdef ALL_FILES
+#define IN_FILE(x) 1
+#define IN_HEADER(x) 1
+#endif
+#if IN_HEADER(__G_ARRAY_H__)
+#if IN_FILE(__G_ARRAY_C__)
+g_array_append_vals
+g_array_free
+g_array_insert_vals
+g_array_new
+g_array_ref
+g_array_unref
+g_array_get_element_size
+g_array_prepend_vals
+g_array_remove_index
+g_array_remove_index_fast
+g_array_remove_range
+g_array_set_size
+g_array_sized_new
+g_array_sort
+g_array_sort_with_data
+g_byte_array_append
+g_byte_array_free
+g_byte_array_unref
+g_byte_array_ref
+g_byte_array_new
+g_byte_array_prepend
+g_byte_array_remove_index
+g_byte_array_remove_index_fast
+g_byte_array_remove_range
+g_byte_array_set_size
+g_byte_array_sized_new
+g_byte_array_sort
+g_byte_array_sort_with_data
+g_ptr_array_add
+g_ptr_array_foreach
+g_ptr_array_free
+g_ptr_array_unref
+g_ptr_array_ref
+g_ptr_array_new
+g_ptr_array_new_with_free_func
+g_ptr_array_set_free_func
+g_ptr_array_remove
+g_ptr_array_remove_fast
+g_ptr_array_remove_index
+g_ptr_array_remove_index_fast
+g_ptr_array_remove_range
+g_ptr_array_set_size
+g_ptr_array_sized_new
+g_ptr_array_sort
+g_ptr_array_sort_with_data
+#endif
+#endif
+
+#if IN_HEADER(__G_ASYNCQUEUE_H__)
+#if IN_FILE(__G_ASYNCQUEUE_C__)
+g_async_queue_length
+g_async_queue_length_unlocked
+g_async_queue_lock
+g_async_queue_new
+g_async_queue_new_full
+g_async_queue_pop
+g_async_queue_pop_unlocked
+g_async_queue_push
+g_async_queue_push_unlocked
+g_async_queue_push_sorted
+g_async_queue_push_sorted_unlocked
+g_async_queue_ref
+g_async_queue_sort
+g_async_queue_sort_unlocked
+g_async_queue_timed_pop
+g_async_queue_timed_pop_unlocked
+g_async_queue_try_pop
+g_async_queue_try_pop_unlocked
+g_async_queue_unlock
+g_async_queue_unref
+#ifndef G_DISABLE_DEPRECATED
+g_async_queue_ref_unlocked
+g_async_queue_unref_and_unlock
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_ATOMIC_H__)
+#if IN_FILE(__G_ATOMIC_C__)
+g_atomic_int_add
+g_atomic_int_compare_and_exchange
+g_atomic_int_exchange_and_add
+g_atomic_pointer_compare_and_exchange
+#ifdef INCLUDE_INTERNAL_SYMBOLS
+ /* these are not internal, but we don't want to alias them */
+g_atomic_int_get
+g_atomic_pointer_get
+g_atomic_int_set
+g_atomic_pointer_set
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_BACKTRACE_H__)
+#if IN_FILE(__G_BACKTRACE_C__)
+g_on_error_query
+g_on_error_stack_trace
+#endif
+#endif
+
+#if IN_HEADER(__G_BASE64_H__)
+#if IN_FILE(__G_BASE64_C__)
+g_base64_encode_step
+g_base64_encode_close
+g_base64_encode G_GNUC_MALLOC
+g_base64_decode_step
+g_base64_decode G_GNUC_MALLOC
+g_base64_decode_inplace
+#endif
+#endif
+
+#if IN_HEADER(__G_BOOKMARK_FILE_H__)
+#if IN_FILE(__G_BOOKMARK_FILE_C__)
+g_bookmark_file_error_quark
+g_bookmark_file_new
+g_bookmark_file_free
+g_bookmark_file_load_from_file
+g_bookmark_file_load_from_data
+g_bookmark_file_load_from_data_dirs
+g_bookmark_file_to_data
+g_bookmark_file_to_file
+g_bookmark_file_set_title
+g_bookmark_file_get_title G_GNUC_MALLOC
+g_bookmark_file_set_description
+g_bookmark_file_get_description G_GNUC_MALLOC
+g_bookmark_file_set_mime_type
+g_bookmark_file_get_mime_type G_GNUC_MALLOC
+g_bookmark_file_set_groups
+g_bookmark_file_add_group
+g_bookmark_file_has_group
+g_bookmark_file_get_groups G_GNUC_MALLOC
+g_bookmark_file_add_application
+g_bookmark_file_has_application
+g_bookmark_file_get_applications G_GNUC_MALLOC
+g_bookmark_file_set_app_info
+g_bookmark_file_get_app_info
+g_bookmark_file_set_is_private
+g_bookmark_file_get_is_private
+g_bookmark_file_set_icon
+g_bookmark_file_get_icon
+g_bookmark_file_set_added
+g_bookmark_file_get_added
+g_bookmark_file_set_modified
+g_bookmark_file_get_modified
+g_bookmark_file_set_visited
+g_bookmark_file_get_visited
+g_bookmark_file_has_item
+g_bookmark_file_get_size
+g_bookmark_file_get_uris G_GNUC_MALLOC
+g_bookmark_file_remove_group
+g_bookmark_file_remove_application
+g_bookmark_file_remove_item
+g_bookmark_file_move_item
+#endif
+#endif
+
+#if IN_HEADER(__G_CACHE_H__)
+#if IN_FILE(__G_CACHE_C__)
+g_cache_destroy
+g_cache_insert
+g_cache_key_foreach
+g_cache_new
+g_cache_remove
+#ifndef G_DISABLE_DEPRECATED
+g_cache_value_foreach
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_CHECKSUM_H__)
+#if IN_FILE(__G_CHECKSUM_C__)
+g_checksum_type_get_length
+g_checksum_new
+g_checksum_copy
+g_checksum_free
+g_checksum_update
+g_checksum_reset
+g_checksum_get_string
+g_checksum_get_digest
+g_compute_checksum_for_data
+g_compute_checksum_for_string
+#endif
+#endif
+
+#if IN_HEADER(__G_COMPLETION_H__)
+#if IN_FILE(__G_COMPLETION_C__)
+g_completion_add_items
+g_completion_clear_items
+g_completion_complete
+g_completion_complete_utf8
+g_completion_free
+g_completion_new
+g_completion_remove_items
+g_completion_set_compare
+#endif
+#endif
+
+#if IN_HEADER(__G_CONVERT_H__)
+#if IN_FILE(__G_CONVERT_C__)
+g_get_filename_charsets
+g_convert G_GNUC_MALLOC
+g_convert_error_quark
+g_convert_with_fallback G_GNUC_MALLOC
+g_convert_with_iconv G_GNUC_MALLOC
+g_iconv
+g_iconv_close
+g_iconv_open
+g_locale_from_utf8 G_GNUC_MALLOC
+g_locale_to_utf8 G_GNUC_MALLOC
+g_filename_display_name G_GNUC_MALLOC
+g_filename_display_basename G_GNUC_MALLOC
+#ifndef _WIN64
+g_filename_from_uri PRIVATE G_GNUC_MALLOC
+g_filename_from_utf8 PRIVATE G_GNUC_MALLOC
+g_filename_to_uri PRIVATE G_GNUC_MALLOC
+g_filename_to_utf8 PRIVATE G_GNUC_MALLOC 
+#endif
+#ifdef G_OS_WIN32
+g_filename_from_uri_utf8 G_GNUC_MALLOC
+g_filename_from_utf8_utf8
+g_filename_to_uri_utf8 G_GNUC_MALLOC
+g_filename_to_utf8_utf8
+#endif
+g_uri_list_extract_uris G_GNUC_MALLOC
+#endif
+#endif
+
+#if IN_HEADER(__G_DATASET_H__)
+#if IN_FILE(__G_DATASET_C__)
+g_datalist_clear
+g_datalist_foreach
+g_datalist_get_flags
+g_datalist_id_get_data
+g_datalist_id_remove_no_notify
+g_datalist_id_set_data_full
+g_datalist_set_flags
+g_datalist_unset_flags
+g_datalist_init
+g_dataset_destroy
+g_dataset_foreach
+g_dataset_id_get_data
+g_dataset_id_remove_no_notify
+g_dataset_id_set_data_full
+#endif
+#endif
+
+#if IN_HEADER(__G_QUARK_H__)
+#if IN_FILE(__G_DATASET_C__)
+g_quark_from_static_string
+g_quark_from_string
+g_quark_to_string G_GNUC_CONST
+g_quark_try_string
+g_intern_string
+g_intern_static_string
+#endif
+#endif
+
+#if IN_HEADER(__G_DATE_H__)
+#if IN_FILE(__G_DATE_C__)
+g_date_add_days
+g_date_add_months
+g_date_add_years
+g_date_clamp
+g_date_clear
+g_date_compare
+g_date_days_between
+g_date_free
+g_date_get_day
+g_date_get_day_of_year
+g_date_get_days_in_month
+g_date_get_iso8601_week_of_year
+g_date_get_julian
+g_date_get_monday_week_of_year
+g_date_get_monday_weeks_in_year G_GNUC_CONST
+g_date_get_month
+g_date_get_sunday_week_of_year
+g_date_get_sunday_weeks_in_year G_GNUC_CONST
+g_date_get_weekday
+g_date_get_year
+g_date_is_first_of_month
+g_date_is_last_of_month
+g_date_is_leap_year G_GNUC_CONST
+g_date_new
+g_date_new_dmy
+g_date_new_julian
+g_date_order
+g_date_set_day
+g_date_set_dmy
+g_date_set_julian
+g_date_set_month
+g_date_set_parse
+#ifndef G_DISABLE_DEPRECATED
+g_date_set_time
+#endif
+g_date_set_time_t
+g_date_set_time_val
+g_date_set_year
+g_date_strftime
+g_date_subtract_days
+g_date_subtract_months
+g_date_subtract_years
+g_date_to_struct_tm
+g_date_valid
+g_date_valid_day G_GNUC_CONST
+g_date_valid_dmy
+g_date_valid_julian G_GNUC_CONST
+g_date_valid_month G_GNUC_CONST
+g_date_valid_weekday G_GNUC_CONST
+g_date_valid_year G_GNUC_CONST
+#endif
+#endif
+
+#if IN_HEADER(__G_DATE_TIME_H__)
+#if IN_FILE(__G_DATE_TIME_C__)
+g_date_time_add
+g_date_time_add_days
+g_date_time_add_full
+g_date_time_add_hours
+g_date_time_add_minutes
+g_date_time_add_months
+g_date_time_add_seconds
+g_date_time_add_weeks
+g_date_time_add_years
+g_date_time_compare
+g_date_time_difference
+g_date_time_equal
+g_date_time_format G_GNUC_MALLOC
+g_date_time_get_day_of_month
+g_date_time_get_day_of_week
+g_date_time_get_day_of_year
+g_date_time_get_hour
+g_date_time_get_microsecond
+g_date_time_get_minute
+g_date_time_get_month
+g_date_time_get_second
+g_date_time_get_seconds
+g_date_time_get_timezone_abbreviation
+g_date_time_get_utc_offset
+g_date_time_get_week_numbering_year
+g_date_time_get_week_of_year
+g_date_time_get_year
+g_date_time_get_ymd
+g_date_time_hash
+g_date_time_is_daylight_savings
+g_date_time_new
+g_date_time_new_from_timeval_local
+g_date_time_new_from_timeval_utc
+g_date_time_new_from_unix_local
+g_date_time_new_from_unix_utc
+g_date_time_new_local
+g_date_time_new_now
+g_date_time_new_now_local
+g_date_time_new_now_utc
+g_date_time_new_utc
+g_date_time_ref
+g_date_time_to_local
+g_date_time_to_timeval
+g_date_time_to_timezone
+g_date_time_to_unix
+g_date_time_to_utc
+g_date_time_unref
+#endif
+#endif
+
+#if IN_HEADER(__G_TIME_ZONE_H__)
+#if IN_FILE(__G_TIME_ZONE_C__)
+g_time_zone_new
+g_time_zone_new_local
+g_time_zone_new_utc
+g_time_zone_ref
+g_time_zone_unref
+#endif
+#endif
+
+#if IN_HEADER(__G_DIR_H__)
+#if IN_FILE(__G_DIR_C__)
+g_dir_close
+#ifndef _WIN64
+g_dir_open PRIVATE
+g_dir_read_name PRIVATE
+#endif
+#ifdef G_OS_WIN32
+g_dir_open_utf8
+g_dir_read_name_utf8
+#endif
+g_dir_rewind
+#endif
+#endif
+
+#if IN_HEADER(__G_ERROR_H__)
+#if IN_FILE(__G_ERROR_C__)
+g_clear_error
+g_error_copy
+g_error_free
+g_error_matches
+g_error_new G_GNUC_PRINTF(3,4)
+g_error_new_literal
+g_error_new_valist
+g_propagate_error
+g_set_error G_GNUC_PRINTF(4,5)
+g_set_error_literal
+g_prefix_error G_GNUC_PRINTF(2,3)
+g_propagate_prefixed_error G_GNUC_PRINTF(3,4)
+#endif
+#endif
+
+#if IN_HEADER(__G_FILEUTILS_H__)
+#if IN_FILE(__G_FILEUTILS_C__)
+g_build_filename G_GNUC_MALLOC G_GNUC_NULL_TERMINATED
+g_build_filenamev G_GNUC_MALLOC
+g_build_path G_GNUC_MALLOC G_GNUC_NULL_TERMINATED
+g_build_pathv G_GNUC_MALLOC 
+g_file_error_from_errno
+g_file_error_quark
+#ifndef _WIN64
+g_file_get_contents PRIVATE
+#endif
+g_file_set_contents
+#ifndef _WIN64
+g_file_open_tmp PRIVATE
+g_file_test PRIVATE
+#endif
+g_file_read_link
+g_format_size_for_display
+#ifndef _WIN64
+g_mkstemp PRIVATE
+#endif
+g_mkstemp_full
+g_mkdir_with_parents
+#ifdef G_OS_WIN32
+g_file_get_contents_utf8
+g_file_open_tmp_utf8
+g_file_test_utf8
+g_mkstemp_utf8
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_HASH_H__)
+#if IN_FILE(__G_HASH_C__)
+g_hash_table_destroy
+g_hash_table_unref
+g_hash_table_ref
+g_hash_table_find
+g_hash_table_foreach
+g_hash_table_foreach_remove
+g_hash_table_foreach_steal
+g_hash_table_get_keys
+g_hash_table_get_values
+g_hash_table_insert
+g_hash_table_lookup
+g_hash_table_lookup_extended
+g_hash_table_new
+g_hash_table_new_full
+g_hash_table_remove
+g_hash_table_remove_all
+g_hash_table_replace
+g_hash_table_size
+g_hash_table_steal
+g_hash_table_steal_all
+g_hash_table_iter_init
+g_hash_table_iter_next
+g_hash_table_iter_get_hash_table
+g_hash_table_iter_remove
+g_hash_table_iter_steal
+#endif
+#endif
+
+#if IN_HEADER(__G_HOOK_H__)
+#if IN_FILE(__G_HOOK_C__)
+g_hook_alloc
+g_hook_compare_ids
+g_hook_destroy
+g_hook_destroy_link
+g_hook_find
+g_hook_find_data
+g_hook_find_func
+g_hook_find_func_data
+g_hook_first_valid
+g_hook_free
+g_hook_get
+g_hook_insert_before
+g_hook_insert_sorted
+g_hook_list_clear
+g_hook_list_init
+g_hook_list_invoke
+g_hook_list_invoke_check
+g_hook_list_marshal
+g_hook_list_marshal_check
+g_hook_next_valid
+g_hook_prepend
+g_hook_ref
+g_hook_unref
+#endif
+#endif
+
+#if IN_HEADER(__G_IOCHANNEL_H__)
+#if IN_FILE(__G_IOCHANNEL_C__)
+g_io_add_watch
+g_io_add_watch_full
+g_io_create_watch
+g_io_channel_error_from_errno
+g_io_channel_error_quark
+g_io_channel_flush
+g_io_channel_get_buffer_condition
+g_io_channel_get_buffered
+g_io_channel_get_buffer_size
+g_io_channel_get_close_on_unref
+g_io_channel_get_encoding
+g_io_channel_get_flags
+g_io_channel_get_line_term
+g_io_channel_init
+g_io_channel_read_chars
+g_io_channel_read_line
+g_io_channel_read_line_string
+g_io_channel_read_to_end
+g_io_channel_read_unichar
+g_io_channel_ref
+g_io_channel_seek_position
+g_io_channel_set_buffered
+g_io_channel_set_buffer_size
+g_io_channel_set_close_on_unref
+g_io_channel_set_encoding
+g_io_channel_set_flags
+g_io_channel_set_line_term
+g_io_channel_shutdown
+g_io_channel_unref
+#ifndef G_DISABLE_DEPRECATED
+g_io_channel_close
+g_io_channel_read
+g_io_channel_seek
+g_io_channel_write
+#endif
+g_io_channel_write_chars
+g_io_channel_write_unichar
+#endif
+#endif
+
+#if IN_HEADER(__G_IOCHANNEL_H__)
+#if IN_FILE(__G_IO_UNIX_C__)
+#ifdef G_OS_UNIX
+g_io_channel_unix_get_fd
+g_io_channel_unix_new
+g_io_channel_new_file PRIVATE
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_IOCHANNEL_H__)
+#if IN_FILE(__G_IO_WIN32_C__)
+#ifdef G_OS_WIN32
+g_io_channel_unix_get_fd
+g_io_channel_unix_new
+#ifndef _WIN64
+g_io_channel_new_file PRIVATE
+#endif
+g_io_channel_new_file_utf8
+g_io_channel_win32_get_fd
+g_io_channel_win32_make_pollfd
+g_io_channel_win32_new_fd
+g_io_channel_win32_new_messages
+g_io_channel_win32_new_socket
+#ifndef _WIN64
+g_io_channel_win32_new_stream_socket PRIVATE
+#endif
+g_io_channel_win32_poll
+g_io_channel_win32_set_debug
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_KEY_FILE_H__)
+#if IN_FILE(__G_KEY_FILE_C__)
+g_key_file_error_quark
+g_key_file_free
+g_key_file_get_boolean
+g_key_file_get_boolean_list G_GNUC_MALLOC
+g_key_file_get_comment G_GNUC_MALLOC
+g_key_file_get_groups G_GNUC_MALLOC
+g_key_file_get_double
+g_key_file_get_double_list G_GNUC_MALLOC
+g_key_file_get_integer
+g_key_file_get_int64
+g_key_file_get_uint64
+g_key_file_get_integer_list G_GNUC_MALLOC
+g_key_file_get_keys G_GNUC_MALLOC
+g_key_file_get_locale_string G_GNUC_MALLOC
+g_key_file_get_locale_string_list G_GNUC_MALLOC
+g_key_file_get_start_group G_GNUC_MALLOC
+g_key_file_get_string G_GNUC_MALLOC
+g_key_file_get_string_list G_GNUC_MALLOC
+g_key_file_get_value G_GNUC_MALLOC
+g_key_file_has_group
+g_key_file_has_key
+g_key_file_load_from_dirs
+g_key_file_load_from_data
+g_key_file_load_from_data_dirs
+g_key_file_load_from_file
+g_key_file_new
+g_key_file_remove_comment
+g_key_file_remove_group
+g_key_file_remove_key
+g_key_file_set_boolean
+g_key_file_set_boolean_list
+g_key_file_set_comment
+g_key_file_set_double
+g_key_file_set_double_list
+g_key_file_set_integer
+g_key_file_set_int64
+g_key_file_set_uint64
+g_key_file_set_integer_list
+g_key_file_set_list_separator
+g_key_file_set_locale_string
+g_key_file_set_locale_string_list
+g_key_file_set_string
+g_key_file_set_string_list
+g_key_file_set_value
+g_key_file_to_data G_GNUC_MALLOC
+#endif
+#endif
+
+#if IN_HEADER(__G_LIST_H__)
+#if IN_FILE(__G_LIST_C__)
+g_list_alloc
+g_list_append
+g_list_concat
+g_list_copy
+g_list_delete_link
+g_list_find
+g_list_find_custom
+g_list_first
+g_list_foreach
+g_list_free
+g_list_free_1
+g_list_index
+g_list_insert
+g_list_insert_before
+g_list_insert_sorted
+g_list_insert_sorted_with_data
+g_list_last
+g_list_length
+g_list_nth
+g_list_nth_data
+g_list_nth_prev
+#ifndef G_DISABLE_DEPRECATED
+g_list_pop_allocator
+#endif
+g_list_position
+g_list_prepend
+#ifndef G_DISABLE_DEPRECATED
+g_list_push_allocator
+#endif
+g_list_remove
+g_list_remove_all
+g_list_remove_link
+g_list_reverse
+g_list_sort
+g_list_sort_with_data
+#endif
+#endif
+
+#if IN_HEADER(__G_MAIN_H__)
+#if IN_FILE(__G_MAIN_C__)
+g_child_watch_add
+g_child_watch_add_full
+g_child_watch_source_new
+g_get_current_time
+g_main_context_acquire
+g_main_context_add_poll
+g_main_context_check
+g_main_context_default
+g_main_context_dispatch
+g_main_context_find_source_by_funcs_user_data
+g_main_context_find_source_by_id
+g_main_context_find_source_by_user_data
+g_main_context_get_poll_func
+g_main_context_get_thread_default
+g_main_context_is_owner
+g_main_context_iteration
+g_main_context_new
+g_main_context_pending
+g_main_context_pop_thread_default
+g_main_context_prepare
+g_main_context_push_thread_default
+g_main_context_query
+g_main_context_ref
+g_main_context_release
+g_main_context_remove_poll
+g_main_context_set_poll_func
+g_main_context_unref
+g_main_context_wait
+g_main_context_wakeup
+g_main_depth
+g_main_current_source
+g_main_loop_get_context
+g_main_loop_is_running
+g_main_loop_new
+g_main_loop_quit
+g_main_loop_ref
+g_main_loop_run
+g_main_loop_unref
+g_source_add_poll
+g_source_attach
+g_source_destroy
+g_source_get_can_recurse
+g_source_get_context
+g_source_get_current_time
+g_source_get_id
+g_source_get_name
+g_source_get_priority
+g_source_new
+g_source_ref
+g_source_remove
+g_source_remove_by_funcs_user_data
+g_source_remove_by_user_data
+g_source_remove_poll
+g_source_set_callback
+g_source_set_callback_indirect
+g_source_set_can_recurse
+g_source_set_funcs
+g_source_set_name
+g_source_set_name_by_id
+g_source_is_destroyed
+g_source_set_priority
+g_source_unref
+g_idle_add
+g_idle_add_full
+g_idle_remove_by_data
+g_idle_source_new
+g_timeout_add
+g_timeout_add_seconds
+g_timeout_add_full
+g_timeout_add_seconds_full
+g_timeout_source_new
+g_timeout_source_new_seconds
+#endif
+#endif
+
+#if IN_HEADER(__G_MAPPED_FILE_H__)
+#if IN_FILE(__G_MAPPED_FILE_C__)
+g_mapped_file_new G_GNUC_MALLOC
+g_mapped_file_get_length
+g_mapped_file_get_contents
+g_mapped_file_ref
+g_mapped_file_unref
+#ifndef G_DISABLE_DEPRECATED
+g_mapped_file_free
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_MARKUP_H__)
+#if IN_FILE(__G_MARKUP_C__)
+g_markup_error_quark
+g_markup_escape_text
+g_markup_parse_context_end_parse
+g_markup_parse_context_free
+g_markup_parse_context_get_element
+g_markup_parse_context_get_element_stack
+g_markup_parse_context_get_position
+g_markup_parse_context_get_user_data
+g_markup_parse_context_new
+g_markup_parse_context_parse
+g_markup_parse_context_push
+g_markup_parse_context_pop
+g_markup_printf_escaped G_GNUC_PRINTF(1,2)
+g_markup_vprintf_escaped
+g_markup_collect_attributes
+#endif
+#endif
+
+#if IN_HEADER(__G_MEM_H__)
+#if IN_FILE(__G_MEM_C__)
+g_free
+g_malloc G_GNUC_MALLOC
+g_malloc0 G_GNUC_MALLOC
+g_malloc_n G_GNUC_MALLOC
+g_malloc0_n G_GNUC_MALLOC
+g_mem_is_system_malloc
+g_mem_profile
+g_mem_set_vtable
+g_realloc
+g_realloc_n
+g_try_malloc G_GNUC_MALLOC
+g_try_malloc0 G_GNUC_MALLOC
+g_try_malloc_n G_GNUC_MALLOC
+g_try_malloc0_n G_GNUC_MALLOC
+g_try_realloc
+g_try_realloc_n
+#ifndef G_DISABLE_DEPRECATED
+g_allocator_free
+g_allocator_new
+g_mem_chunk_alloc
+g_mem_chunk_alloc0
+g_mem_chunk_clean
+g_mem_chunk_destroy
+g_mem_chunk_free
+g_mem_chunk_info
+g_mem_chunk_new
+g_mem_chunk_print
+g_mem_chunk_reset
+g_blow_chunks
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_SLICE_H__)
+#if IN_FILE(__G_SLICE_C__)
+g_slice_alloc G_GNUC_MALLOC
+g_slice_alloc0 G_GNUC_MALLOC
+g_slice_copy G_GNUC_MALLOC
+g_slice_free1
+g_slice_free_chain_with_offset
+g_slice_set_config
+g_slice_get_config
+g_slice_get_config_state
+#ifdef G_ENABLE_DEBUG
+#ifdef INCLUDE_INTERNAL_SYMBOLS
+g_slice_debug_tree_statistics
+#endif
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_MESSAGES_H__)
+#if IN_FILE(__G_MESSAGES_C__)
+g_printf_string_upper_bound
+g_log G_GNUC_PRINTF(3,4)
+g_log_default_handler
+g_log_remove_handler
+g_log_set_always_fatal
+g_log_set_default_handler
+g_log_set_fatal_mask
+g_log_set_handler
+g_logv
+g_return_if_fail_warning
+g_warn_message
+#ifndef G_DISABLE_DEPRECATED
+g_assert_warning G_GNUC_NORETURN
+#endif
+g_print G_GNUC_PRINTF(1,2)
+g_printerr G_GNUC_PRINTF(1,2)
+g_set_printerr_handler
+g_set_print_handler
+#endif
+#endif
+
+#if IN_HEADER(__G_NODE_H__)
+#if IN_FILE(__G_NODE_C__)
+g_node_child_index
+g_node_child_position
+g_node_children_foreach
+g_node_copy
+g_node_copy_deep
+g_node_depth
+g_node_destroy
+g_node_find
+g_node_find_child
+g_node_first_sibling
+g_node_get_root
+g_node_insert
+g_node_insert_after
+g_node_insert_before
+g_node_is_ancestor
+g_node_last_child
+g_node_last_sibling
+g_node_max_height
+g_node_n_children
+g_node_new
+g_node_n_nodes
+g_node_nth_child
+#ifndef G_DISABLE_DEPRECATED
+g_node_pop_allocator
+#endif
+g_node_prepend
+#ifndef G_DISABLE_DEPRECATED
+g_node_push_allocator
+#endif
+g_node_reverse_children
+g_node_traverse
+g_node_unlink
+#endif
+#endif
+
+#if IN_HEADER(__G_OPTION_H__)
+#if IN_FILE(__G_OPTION_C__)
+g_option_context_add_group
+g_option_context_add_main_entries
+g_option_error_quark
+g_option_context_free
+g_option_context_get_description
+g_option_context_get_help_enabled
+g_option_context_get_ignore_unknown_options
+g_option_context_get_main_group
+g_option_context_get_summary
+g_option_context_new
+g_option_context_parse
+g_option_context_set_description
+g_option_context_set_help_enabled
+g_option_context_set_ignore_unknown_options
+g_option_context_set_main_group
+g_option_context_set_summary
+g_option_context_set_translate_func
+g_option_context_set_translation_domain
+g_option_context_get_help
+g_option_group_add_entries
+g_option_group_free
+g_option_group_new
+g_option_group_set_error_hook
+g_option_group_set_parse_hooks
+g_option_group_set_translate_func
+g_option_group_set_translation_domain
+#endif
+#endif
+
+#if IN_HEADER(__G_PATTERN_H__)
+#if IN_FILE(__G_PATTERN_C__)
+g_pattern_match
+g_pattern_match_simple
+g_pattern_match_string
+g_pattern_spec_equal
+g_pattern_spec_free
+g_pattern_spec_new
+#endif
+#endif
+
+#if IN_HEADER(__G_POLL_H__)
+#if IN_FILE(__G_POLL_C__)
+g_poll
+#endif
+#endif
+
+#if IN_HEADER(__G_PRIMES_H__)
+#if IN_FILE(__G_PRIMES_C__)
+g_spaced_primes_closest G_GNUC_CONST
+#endif
+#endif
+
+#if IN_HEADER(__G_PRINTF_H__)
+#if IN_FILE(__G_PRINTF_C__)
+g_fprintf G_GNUC_PRINTF(2,3)
+g_printf G_GNUC_PRINTF(1,2)
+g_sprintf G_GNUC_PRINTF(2,3)
+g_vasprintf
+g_vfprintf
+g_vprintf
+g_vsprintf
+#endif
+#endif
+
+#if IN_HEADER(__G_UTILS_H__)
+#if IN_FILE(__G_PRINTF_C__)
+g_snprintf G_GNUC_PRINTF(3,4)
+g_vsnprintf
+#endif
+#endif
+
+#if IN_HEADER(__G_QSORT_H__)
+#if IN_FILE(__G_QSORT_C__)
+g_qsort_with_data
+#endif
+#endif
+
+#if IN_HEADER(__G_QUEUE_H__)
+#if IN_FILE(__G_QUEUE_C__)
+g_queue_clear
+g_queue_copy
+g_queue_delete_link
+g_queue_find
+g_queue_find_custom
+g_queue_foreach
+g_queue_free
+g_queue_get_length
+g_queue_index
+g_queue_init
+g_queue_insert_after
+g_queue_insert_before
+g_queue_insert_sorted
+g_queue_is_empty
+g_queue_link_index
+g_queue_new
+g_queue_peek_head
+g_queue_peek_head_link
+g_queue_peek_nth
+g_queue_peek_nth_link
+g_queue_peek_tail
+g_queue_peek_tail_link
+g_queue_pop_head
+g_queue_pop_head_link
+g_queue_pop_nth
+g_queue_pop_nth_link
+g_queue_pop_tail
+g_queue_pop_tail_link
+g_queue_push_head
+g_queue_push_head_link
+g_queue_push_nth
+g_queue_push_nth_link
+g_queue_push_tail
+g_queue_push_tail_link
+g_queue_remove
+g_queue_remove_all
+g_queue_reverse
+g_queue_sort
+g_queue_unlink
+#endif
+#endif
+
+#if IN_HEADER(__G_RAND_H__)
+#if IN_FILE(__G_RAND_C__)
+g_rand_copy
+g_rand_double
+g_rand_double_range
+g_rand_free
+g_rand_int
+g_rand_int_range
+g_rand_new
+g_rand_new_with_seed
+g_rand_new_with_seed_array
+g_random_double
+g_random_double_range
+g_random_int
+g_random_int_range
+g_random_set_seed
+g_rand_set_seed
+g_rand_set_seed_array
+#endif
+#endif
+
+#if IN_HEADER(__G_REL_H__)
+#if IN_FILE(__G_REL_C__)
+g_relation_count
+g_relation_delete
+g_relation_destroy
+g_relation_exists
+g_relation_index
+g_relation_insert
+g_relation_new
+g_relation_print
+g_relation_select
+g_tuples_destroy
+g_tuples_index
+#endif
+#endif
+
+#if IN_HEADER(__G_SCANNER_H__)
+#if IN_FILE(__G_SCANNER_C__)
+g_scanner_cur_line
+g_scanner_cur_position
+g_scanner_cur_token
+g_scanner_cur_value
+g_scanner_destroy
+g_scanner_eof
+g_scanner_error G_GNUC_PRINTF(2,3)
+g_scanner_get_next_token
+g_scanner_input_file
+g_scanner_input_text
+g_scanner_lookup_symbol
+g_scanner_new
+g_scanner_peek_next_token
+g_scanner_scope_add_symbol
+g_scanner_scope_foreach_symbol
+g_scanner_scope_lookup_symbol
+g_scanner_scope_remove_symbol
+g_scanner_set_scope
+g_scanner_sync_file_offset
+g_scanner_unexp_token
+g_scanner_warn G_GNUC_PRINTF(2,3)
+#endif
+#endif
+
+#if IN_HEADER(__G_SEQUENCE_H__)
+#if IN_FILE(__G_SEQUENCE_C__)
+g_sequence_new
+g_sequence_free
+g_sequence_get_length
+g_sequence_foreach
+g_sequence_foreach_range
+g_sequence_sort
+g_sequence_sort_iter
+g_sequence_get_begin_iter
+g_sequence_get_end_iter
+g_sequence_get_iter_at_pos
+g_sequence_append
+g_sequence_prepend
+g_sequence_insert_before
+g_sequence_move
+g_sequence_swap
+g_sequence_insert_sorted
+g_sequence_insert_sorted_iter
+g_sequence_sort_changed
+g_sequence_sort_changed_iter
+g_sequence_remove
+g_sequence_remove_range
+g_sequence_move_range
+g_sequence_search
+g_sequence_search_iter
+g_sequence_get
+g_sequence_set
+g_sequence_iter_is_begin
+g_sequence_iter_is_end
+g_sequence_iter_next
+g_sequence_iter_prev
+g_sequence_iter_get_position
+g_sequence_iter_move
+g_sequence_iter_get_sequence
+g_sequence_iter_compare
+g_sequence_range_get_midpoint
+#endif
+#endif
+
+#if IN_HEADER(__G_SHELL_H__)
+#if IN_FILE(__G_SHELL_C__)
+g_shell_error_quark
+g_shell_parse_argv
+g_shell_quote
+g_shell_unquote
+#endif
+#endif
+
+#if IN_HEADER(__G_SLIST_H__)
+#if IN_FILE(__G_SLIST_C__)
+g_slist_alloc
+g_slist_append
+g_slist_concat
+g_slist_copy
+g_slist_delete_link
+g_slist_find
+g_slist_find_custom
+g_slist_foreach
+g_slist_free
+g_slist_free_1
+g_slist_index
+g_slist_insert
+g_slist_insert_before
+g_slist_insert_sorted
+g_slist_insert_sorted_with_data
+g_slist_last
+g_slist_length
+g_slist_nth
+g_slist_nth_data
+#ifndef G_DISABLE_DEPRECATED
+g_slist_pop_allocator
+#endif
+g_slist_position
+g_slist_prepend
+#ifndef G_DISABLE_DEPRECATED
+g_slist_push_allocator
+#endif
+g_slist_remove
+g_slist_remove_all
+g_slist_remove_link
+g_slist_reverse
+g_slist_sort
+g_slist_sort_with_data
+#endif
+#endif
+
+#if IN_HEADER(__G_SPAWN_H__)
+#if IN_FILE(__G_SPAWN_C__)
+#ifndef _WIN64
+g_spawn_async PRIVATE
+g_spawn_async_with_pipes PRIVATE
+#endif
+g_spawn_close_pid
+#ifndef _WIN64
+g_spawn_command_line_async PRIVATE
+g_spawn_command_line_sync PRIVATE
+#endif
+g_spawn_error_quark
+#ifndef _WIN64
+g_spawn_sync PRIVATE
+#endif
+#ifdef G_OS_WIN32
+g_spawn_async_utf8
+g_spawn_async_with_pipes_utf8
+g_spawn_command_line_async_utf8
+g_spawn_command_line_sync_utf8
+g_spawn_sync_utf8
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_STDIO_H__)
+#if IN_FILE(__G_STDIO_C__)
+#if !defined(G_OS_UNIX) || defined(G_STDIO_NO_WRAP_ON_UNIX)
+/* gstdio wrappers */
+g_chmod
+g_open
+g_creat
+g_rename
+g_mkdir
+g_stat
+g_lstat
+g_remove
+g_fopen
+g_freopen
+g_utime
+#endif
+g_access
+g_chdir
+g_unlink
+g_rmdir
+#endif
+#endif
+
+#if IN_HEADER(__G_STRFUNCS_H__)
+#if IN_FILE(__G_STRFUNCS_C__)
+g_ascii_digit_value G_GNUC_CONST
+g_ascii_dtostr
+g_ascii_formatd
+g_ascii_strdown G_GNUC_MALLOC
+g_ascii_strtod
+g_ascii_strtoull
+g_ascii_strtoll
+g_ascii_strup G_GNUC_MALLOC
+g_ascii_tolower G_GNUC_CONST
+g_ascii_toupper G_GNUC_CONST
+g_ascii_xdigit_value G_GNUC_CONST
+g_ascii_strcasecmp
+g_ascii_strncasecmp
+g_memdup G_GNUC_MALLOC
+g_stpcpy
+g_strcanon
+g_strchomp
+g_strchug
+g_strcompress G_GNUC_MALLOC
+g_strconcat G_GNUC_MALLOC G_GNUC_NULL_TERMINATED
+g_strdelimit
+g_strdup G_GNUC_MALLOC
+g_strdup_printf G_GNUC_PRINTF(1,2) G_GNUC_MALLOC
+g_strdupv G_GNUC_MALLOC
+g_strdup_vprintf G_GNUC_MALLOC
+g_strerror G_GNUC_CONST
+g_strescape G_GNUC_MALLOC
+g_strfreev
+g_str_has_prefix
+g_str_has_suffix
+g_strjoin G_GNUC_MALLOC G_GNUC_NULL_TERMINATED
+g_strjoinv G_GNUC_MALLOC
+g_strlcat
+g_strlcpy
+g_strndup G_GNUC_MALLOC
+g_strnfill G_GNUC_MALLOC
+g_strreverse
+g_strrstr
+g_strrstr_len
+g_strsignal G_GNUC_CONST
+g_strsplit G_GNUC_MALLOC
+g_strsplit_set G_GNUC_MALLOC
+g_strstr_len
+g_strtod
+#ifndef G_DISABLE_DEPRECATED
+g_strcasecmp
+g_strncasecmp
+g_strup
+g_strdown
+#endif
+g_strv_length
+g_strip_context G_GNUC_FORMAT(1)
+g_dgettext G_GNUC_FORMAT(2)
+g_dcgettext G_GNUC_FORMAT(2)
+g_dngettext G_GNUC_FORMAT(3)
+g_dpgettext G_GNUC_FORMAT(2)
+g_dpgettext2 G_GNUC_FORMAT(3)
+#endif
+#endif
+
+#if IN_HEADER(__G_URI_FUNCS_H__)
+#if IN_FILE(__G_URI_FUNCS_C__)
+g_uri_unescape_string 
+g_uri_unescape_segment 
+g_uri_parse_scheme 
+g_uri_escape_string 
+#endif
+#endif
+
+#if IN_HEADER(__G_STRING_H__)
+#if IN_FILE(__G_STRING_C__)
+g_string_append
+g_string_append_len
+g_string_append_printf G_GNUC_PRINTF(2,3)
+g_string_append_unichar
+g_string_append_vprintf
+g_string_ascii_down
+g_string_ascii_up
+g_string_assign
+g_string_chunk_free
+g_string_chunk_clear
+g_string_chunk_insert
+g_string_chunk_insert_const
+g_string_chunk_insert_len
+g_string_chunk_new
+g_string_equal
+g_string_erase
+g_string_free
+g_string_hash
+g_string_insert
+g_string_insert_c
+g_string_insert_len
+g_string_insert_unichar
+g_string_new
+g_string_new_len
+g_string_overwrite
+g_string_overwrite_len
+g_string_prepend
+g_string_prepend_c
+g_string_prepend_len
+g_string_prepend_unichar
+g_string_printf G_GNUC_PRINTF(2,3)
+g_string_set_size
+g_string_sized_new
+g_string_truncate
+g_string_append_uri_escaped
+#ifndef G_DISABLE_DEPRECATED
+g_string_down
+g_string_up
+#endif
+g_string_vprintf
+#ifdef INCLUDE_INTERNAL_SYMBOLS
+ /* these are not internal, but we don't want to alias them */
+g_string_append_c
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_BITLOCK_H__)
+#if IN_FILE(__G_BITLOCK_C__)
+g_bit_lock
+g_bit_trylock
+g_bit_unlock
+#endif
+#endif
+
+#if IN_HEADER(__G_THREAD_H__)
+#if IN_FILE(__G_THREAD_C__)
+g_once_impl
+g_once_init_enter_impl
+g_once_init_leave
+#ifdef INCLUDE_INTERNAL_SYMBOLS
+g_thread_init_glib
+g_once_init_enter
+#endif
+#ifdef INCLUDE_VARIABLES
+g_thread_functions_for_glib_use
+g_threads_got_initialized
+g_thread_use_default_impl
+g_thread_gettime
+#endif
+g_thread_create_full
+g_thread_error_quark
+g_thread_exit
+g_thread_join
+g_thread_self
+g_thread_set_priority
+g_static_mutex_free
+g_static_mutex_get_mutex_impl
+g_static_mutex_init
+g_static_private_free
+g_static_private_get
+g_static_private_init
+g_static_private_set
+g_static_rec_mutex_free
+g_static_rec_mutex_init
+g_static_rec_mutex_lock
+g_static_rec_mutex_lock_full
+g_static_rec_mutex_trylock
+g_static_rec_mutex_unlock
+g_static_rec_mutex_unlock_full
+g_static_rw_lock_free
+g_static_rw_lock_init
+g_static_rw_lock_reader_lock
+g_static_rw_lock_reader_trylock
+g_static_rw_lock_reader_unlock
+g_static_rw_lock_writer_lock
+g_static_rw_lock_writer_trylock
+g_static_rw_lock_writer_unlock
+g_thread_foreach
+g_thread_get_initialized
+#endif
+#endif
+
+#if IN_HEADER(__G_THREADPOOL_H__)
+#if IN_FILE(__G_THREADPOOL_C__)
+g_thread_pool_free
+g_thread_pool_get_max_threads
+g_thread_pool_get_max_unused_threads
+g_thread_pool_get_max_idle_time
+g_thread_pool_get_num_threads
+g_thread_pool_get_num_unused_threads
+g_thread_pool_new
+g_thread_pool_push
+g_thread_pool_set_max_threads
+g_thread_pool_set_max_unused_threads
+g_thread_pool_set_max_idle_time
+g_thread_pool_stop_unused_threads
+g_thread_pool_unprocessed
+g_thread_pool_set_sort_function
+#endif
+#endif
+
+#if IN_HEADER(__G_TEST_UTILS_H__)
+#if IN_FILE(__G_MESSAGES_C__)
+g_test_log_set_fatal_handler
+#endif
+#if IN_FILE(__G_TEST_UTILS_C__)
+g_assertion_message G_GNUC_NORETURN
+g_assertion_message_cmpnum G_GNUC_NORETURN
+g_assertion_message_cmpstr G_GNUC_NORETURN
+g_assertion_message_expr G_GNUC_NORETURN
+g_assertion_message_error G_GNUC_NORETURN
+g_strcmp0
+g_test_add_data_func
+g_test_add_func
+g_test_add_vtable
+g_test_bug
+g_test_bug_base
+#ifdef INCLUDE_VARIABLES
+g_test_config_vars
+#endif
+g_test_create_case
+g_test_create_suite
+g_test_get_root
+g_test_init
+g_test_log_buffer_free
+g_test_log_buffer_new
+g_test_log_buffer_pop
+g_test_log_buffer_push
+g_test_log_msg_free
+g_test_log_type_name
+g_test_maximized_result
+g_test_message
+g_test_minimized_result
+g_test_queue_destroy
+g_test_queue_free
+g_test_rand_double
+g_test_rand_double_range
+g_test_rand_int
+g_test_rand_int_range
+g_test_run
+g_test_run_suite
+g_test_suite_add
+g_test_suite_add_suite
+g_test_timer_elapsed
+g_test_timer_last
+g_test_timer_start
+g_test_trap_assertions
+g_test_trap_fork
+g_test_trap_has_passed
+g_test_trap_reached_timeout
+#endif
+#endif
+
+#if IN_HEADER(__G_TIMER_H__)
+#if IN_FILE(__G_TIMER_C__)
+g_timer_continue
+g_timer_destroy
+g_timer_elapsed
+g_timer_new
+g_timer_reset
+g_timer_start
+g_timer_stop
+g_time_val_add
+g_time_val_from_iso8601
+g_time_val_to_iso8601 G_GNUC_MALLOC
+g_usleep
+#endif
+#endif
+
+#if IN_HEADER(__G_TREE_H__)
+#if IN_FILE(__G_TREE_C__)
+g_tree_destroy
+g_tree_foreach
+g_tree_height
+g_tree_insert
+g_tree_lookup
+g_tree_lookup_extended
+g_tree_new
+g_tree_ref
+g_tree_unref
+g_tree_new_full
+g_tree_new_with_data
+g_tree_nnodes
+g_tree_remove
+g_tree_replace
+g_tree_search
+g_tree_steal
+#ifndef G_DISABLE_DEPRECATED
+g_tree_traverse
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_UNICODE_H__)
+#if IN_FILE(__G_UNIBREAK_C__)
+g_unichar_break_type G_GNUC_CONST
+#endif
+#endif
+
+#if IN_HEADER(__G_UNICODE_H__)
+#if IN_FILE(__G_UNICOLLATE_C__)
+g_utf8_collate
+g_utf8_collate_key G_GNUC_MALLOC
+g_utf8_collate_key_for_filename G_GNUC_MALLOC
+#endif
+#endif
+
+#if IN_HEADER(__G_UNICODE_H__)
+#if IN_FILE(__G_UNIDECOMP_C__)
+g_unicode_canonical_decomposition G_GNUC_MALLOC
+g_unicode_canonical_ordering
+g_unichar_combining_class G_GNUC_CONST
+g_utf8_normalize
+#endif
+#endif
+
+#if IN_HEADER(__G_UNICODE_H__)
+#if IN_FILE(__G_UNIPROP_C__)
+g_unichar_isalnum G_GNUC_CONST
+g_unichar_isalpha G_GNUC_CONST
+g_unichar_iscntrl G_GNUC_CONST
+g_unichar_isdefined G_GNUC_CONST
+g_unichar_isdigit G_GNUC_CONST
+g_unichar_isgraph G_GNUC_CONST
+g_unichar_islower G_GNUC_CONST
+g_unichar_isprint G_GNUC_CONST
+g_unichar_ispunct G_GNUC_CONST
+g_unichar_isspace G_GNUC_CONST
+g_unichar_istitle G_GNUC_CONST
+g_unichar_isupper G_GNUC_CONST
+g_unichar_iswide G_GNUC_CONST
+g_unichar_iswide_cjk G_GNUC_CONST
+g_unichar_isxdigit G_GNUC_CONST
+g_unichar_iszerowidth G_GNUC_CONST
+g_unichar_tolower G_GNUC_CONST
+g_unichar_totitle G_GNUC_CONST
+g_unichar_toupper G_GNUC_CONST
+g_unichar_ismark G_GNUC_CONST
+g_unichar_get_mirror_char
+g_unichar_get_script
+g_unichar_digit_value G_GNUC_CONST
+g_unichar_xdigit_value G_GNUC_CONST
+g_unichar_type G_GNUC_CONST
+g_utf8_casefold G_GNUC_MALLOC
+g_utf8_strup G_GNUC_MALLOC
+g_utf8_strdown G_GNUC_MALLOC
+#endif
+#endif
+
+#if IN_HEADER(__G_UNICODE_H__)
+#if IN_FILE(__G_UTF8_C__)
+g_get_charset
+g_ucs4_to_utf16 G_GNUC_MALLOC
+g_ucs4_to_utf8 G_GNUC_MALLOC
+g_utf16_to_ucs4 G_GNUC_MALLOC
+g_utf16_to_utf8 G_GNUC_MALLOC
+g_utf8_find_next_char
+g_utf8_find_prev_char
+g_utf8_get_char
+g_utf8_get_char_validated
+g_utf8_offset_to_pointer
+g_utf8_pointer_to_offset
+g_utf8_prev_char
+g_utf8_strchr
+g_utf8_strlen
+g_utf8_strncpy
+g_utf8_strrchr
+g_utf8_strreverse
+g_utf8_to_ucs4 G_GNUC_MALLOC
+g_utf8_to_ucs4_fast G_GNUC_MALLOC
+g_utf8_to_utf16 G_GNUC_MALLOC
+g_utf8_validate
+g_unichar_to_utf8
+g_unichar_validate
+#endif
+#endif
+
+#if IN_HEADER(__GLIBINTL_H__)
+#if IN_FILE(__G_UTILS_C__)
+glib_gettext G_GNUC_FORMAT(1)
+#endif
+#endif
+
+#if IN_HEADER(__G_HASH_H__)
+#if IN_FILE(__G_UTILS_C__)
+g_int_equal
+g_int_hash
+g_int64_equal
+g_int64_hash
+g_double_equal
+g_double_hash
+g_direct_equal G_GNUC_CONST
+g_direct_hash G_GNUC_CONST
+#endif
+#if IN_FILE(__G_STRING_C__)
+g_str_equal
+g_str_hash
+#endif
+#endif
+
+#if IN_HEADER(__G_UTILS_H__)
+#if IN_FILE(__G_UTILS_C__)
+g_atexit
+#ifndef G_DISABLE_DEPRECATED
+g_basename
+#endif
+g_get_application_name
+#ifndef _WIN64
+g_find_program_in_path PRIVATE
+g_get_current_dir PRIVATE
+g_getenv PRIVATE
+g_unsetenv PRIVATE
+g_get_home_dir PRIVATE
+#endif
+g_get_host_name
+#ifndef _WIN64
+g_setenv PRIVATE
+#endif
+g_listenv
+#ifdef G_OS_WIN32
+g_find_program_in_path_utf8
+g_get_current_dir_utf8
+g_getenv_utf8
+g_unsetenv_utf8
+g_setenv_utf8
+g_get_home_dir_utf8
+#endif
+g_get_language_names
+g_get_prgname
+#ifndef _WIN64
+g_get_real_name PRIVATE
+#endif
+#ifdef G_OS_WIN32
+g_get_real_name_utf8
+#endif
+g_get_system_config_dirs
+g_get_system_data_dirs
+#ifdef G_OS_WIN32
+g_win32_get_system_data_dirs_for_module
+#endif
+#ifndef _WIN64
+g_get_tmp_dir PRIVATE
+#endif
+#ifdef G_OS_WIN32
+g_get_tmp_dir_utf8
+#endif
+g_get_user_cache_dir
+g_get_user_config_dir
+g_get_user_data_dir
+g_reload_user_special_dirs_cache
+g_get_user_special_dir
+#ifndef _WIN64
+g_get_user_name PRIVATE
+#endif
+#ifdef G_OS_WIN32
+g_get_user_name_utf8
+#endif
+glib_check_version
+g_nullify_pointer
+g_parse_debug_string
+g_path_get_basename G_GNUC_MALLOC
+g_path_get_dirname G_GNUC_MALLOC
+g_path_is_absolute
+g_path_skip_root
+g_set_application_name
+g_set_prgname
+#ifdef INCLUDE_INTERNAL_SYMBOLS
+g_bit_nth_lsf
+g_bit_nth_msf
+g_bit_storage
+g_trash_stack_height
+g_trash_stack_peek
+g_trash_stack_pop
+g_trash_stack_push
+g_get_codeset
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_REGEX_H__)
+#if IN_FILE(__G_REGEX_C__)
+g_regex_error_quark
+g_regex_new
+g_regex_ref
+g_regex_unref
+g_regex_get_pattern
+g_regex_get_max_backref
+g_regex_get_capture_count
+g_regex_get_string_number
+g_regex_get_compile_flags
+g_regex_get_match_flags
+g_regex_escape_string
+g_regex_match_simple
+g_regex_match
+g_regex_match_full
+g_regex_match_all
+g_regex_match_all_full
+g_regex_split_simple
+g_regex_split
+g_regex_split_full
+g_regex_replace
+g_regex_replace_literal
+g_regex_replace_eval
+g_regex_check_replacement
+g_match_info_get_regex
+g_match_info_get_string
+g_match_info_free
+g_match_info_next
+g_match_info_matches
+g_match_info_get_match_count
+g_match_info_is_partial_match
+g_match_info_expand_references
+g_match_info_fetch
+g_match_info_fetch_pos
+g_match_info_fetch_named
+g_match_info_fetch_named_pos
+g_match_info_fetch_all
+#endif
+#endif
+
+#if IN_HEADER(__G_VARIANT_TYPE_H__)
+#if IN_FILE(__G_VARIANT_TYPE_C__)
+g_variant_type_string_is_valid
+g_variant_type_string_scan
+g_variant_type_free
+g_variant_type_copy
+g_variant_type_new
+g_variant_type_get_string_length
+g_variant_type_peek_string
+g_variant_type_dup_string
+g_variant_type_is_definite
+g_variant_type_is_container
+g_variant_type_is_basic
+g_variant_type_is_maybe
+g_variant_type_is_array
+g_variant_type_is_tuple
+g_variant_type_is_dict_entry
+g_variant_type_is_variant
+g_variant_type_hash
+g_variant_type_equal
+g_variant_type_is_subtype_of
+g_variant_type_element
+g_variant_type_first
+g_variant_type_next
+g_variant_type_n_items
+g_variant_type_key
+g_variant_type_value
+g_variant_type_new_array
+g_variant_type_new_maybe
+g_variant_type_new_tuple
+g_variant_type_new_dict_entry
+g_variant_type_checked_
+#endif
+#endif
+
+#if IN_HEADER(__G_VARIANT_H__)
+#if IN_FILE(__G_VARIANT_CORE_C__)
+g_variant_unref
+g_variant_ref
+g_variant_ref_sink
+g_variant_is_floating
+g_variant_n_children
+g_variant_get_child_value
+g_variant_get_size
+g_variant_get_data
+g_variant_store
+g_variant_is_normal_form
+#endif
+
+#if IN_FILE(__G_VARIANT_C__)
+g_variant_get_type
+g_variant_get_type_string
+g_variant_is_of_type
+g_variant_is_container
+g_variant_classify
+g_variant_compare
+
+g_variant_new_boolean
+g_variant_new_byte
+g_variant_new_int16
+g_variant_new_uint16
+g_variant_new_int32
+g_variant_new_uint32
+g_variant_new_int64
+g_variant_new_uint64
+g_variant_new_handle
+g_variant_new_double
+g_variant_new_string
+g_variant_new_object_path
+g_variant_is_object_path
+g_variant_new_signature
+g_variant_is_signature
+g_variant_new_variant
+g_variant_new_strv
+g_variant_new_bytestring
+g_variant_new_bytestring_array
+
+g_variant_get_boolean
+g_variant_get_byte
+g_variant_get_int16
+g_variant_get_uint16
+g_variant_get_int32
+g_variant_get_uint32
+g_variant_get_int64
+g_variant_get_uint64
+g_variant_get_handle
+g_variant_get_double
+g_variant_get_string
+g_variant_dup_string
+g_variant_get_variant
+g_variant_get_strv
+g_variant_dup_strv
+g_variant_get_bytestring
+g_variant_dup_bytestring
+g_variant_get_bytestring_array
+g_variant_dup_bytestring_array
+
+g_variant_new_maybe
+g_variant_new_array
+g_variant_new_tuple
+g_variant_new_dict_entry
+
+g_variant_get_maybe
+g_variant_get_fixed_array
+
+g_variant_print
+g_variant_print_string
+
+g_variant_hash
+g_variant_equal
+
+g_variant_iter_copy
+g_variant_iter_free
+g_variant_iter_init
+g_variant_iter_n_children
+g_variant_iter_new
+g_variant_iter_next_value
+
+g_variant_builder_add_value
+g_variant_builder_init
+g_variant_builder_clear
+g_variant_builder_open
+g_variant_builder_close
+g_variant_builder_end
+g_variant_builder_new
+g_variant_builder_unref
+g_variant_builder_ref
+
+g_variant_new_va
+g_variant_get_va
+g_variant_new
+g_variant_get
+
+g_variant_builder_add
+g_variant_get_child
+g_variant_iter_next
+g_variant_iter_loop
+
+g_variant_new_from_data
+g_variant_get_normal_form
+g_variant_byteswap
+#endif
+
+#if IN_FILE(__G_VARIANT_PARSER_C__)
+g_variant_new_parsed
+g_variant_new_parsed_va
+g_variant_builder_add_parsed
+g_variant_parse
+g_variant_parser_get_error_quark
+#endif
+#endif
+
+#if IN_HEADER(__G_VARIANT_TYPE_INFO_H__)
+#if IN_FILE(__G_VARIANT_TYPE_INFO_C__)
+g_variant_type_info_get_type_string
+g_variant_type_info_query
+g_variant_type_info_element
+g_variant_type_info_query_element
+g_variant_type_info_n_members
+g_variant_type_info_member_info
+g_variant_type_info_get
+g_variant_type_info_ref
+g_variant_type_info_unref
+g_variant_type_info_assert_no_infos
+#endif
+#endif
+
+#if IN_HEADER(__G_VARIANT_SERIALISER_H__)
+#if IN_FILE(__G_VARIANT_SERIALISER_C__)
+g_variant_serialised_byteswap
+g_variant_serialised_get_child
+g_variant_serialised_is_normal
+g_variant_serialised_n_children
+g_variant_serialiser_is_object_path
+g_variant_serialiser_is_signature
+g_variant_serialiser_is_string
+g_variant_serialiser_needed_size
+g_variant_serialiser_serialise
+#endif
+#endif
+
+#if IN_HEADER(__G_VARIANT_INTERNAL_H__)
+#if IN_FILE(__G_VARIANT_C__)
+g_variant_format_string_scan_type
+g_variant_format_string_scan
+#endif
+#endif
+
+#if IN_HEADER(__G_WIN32_H__)
+#if IN_FILE(__G_WIN32_H__)
+#ifdef G_OS_WIN32
+g_win32_error_message
+g_win32_ftruncate
+g_win32_get_package_installation_directory_of_module
+#ifndef _WIN64
+g_win32_get_package_installation_directory PRIVATE
+#endif
+g_win32_get_package_installation_directory_utf8
+#ifndef _WIN64
+g_win32_get_package_installation_subdirectory PRIVATE
+#endif
+g_win32_get_package_installation_subdirectory_utf8
+g_win32_get_windows_version
+g_win32_getlocale
+g_win32_locale_filename_from_utf8
+#endif
+#endif
+#endif
+
+#if IN_HEADER(__G_HOST_UTILS_H__)
+#if IN_FILE(__G_HOST_UTILS_C__)
+g_hostname_is_non_ascii
+g_hostname_is_ascii_encoded
+g_hostname_is_ip_address
+g_hostname_to_ascii
+g_hostname_to_unicode
+#endif
+#endif
+
+#ifdef INCLUDE_VARIABLES
+g_ascii_table
+g_utf8_skip
+g_idle_funcs
+g_timeout_funcs
+g_io_watch_funcs
+g_child_watch_funcs
+glib_binary_age
+glib_interface_age
+glib_major_version
+glib_mem_profiler_table
+glib_micro_version
+glib_minor_version
+glib_on_error_halt
+g_mem_gc_friendly
+#endif

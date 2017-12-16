@@ -1,0 +1,9 @@
+glib_genmarshal=${pc_top_builddir}/${pcfiledir}/gobject/glib-genmarshal
+gobject_query=${pc_top_builddir}/${pcfiledir}/gobject/gobject-query
+glib_mkenums=${pc_top_builddir}/${pcfiledir}/@srcdir@/gobject/glib-mkenums
+
+Name: GLib Uninstalled
+Description: C Utility Library, Not Installed
+Version: @VERSION@
+Libs: ${pc_top_builddir}/${pcfiledir}/glib/libglib-2.0.la
+Cflags: -I${pc_top_builddir}/${pcfiledir} -I${pc_top_builddir}/${pcfiledir}/@srcdir@ -I${pc_top_builddir}/${pcfiledir}/@srcdir@/glib

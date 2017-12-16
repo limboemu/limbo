@@ -1,0 +1,77 @@
+<!-- ##### SECTION Title ##### -->
+Trash Stacks
+
+<!-- ##### SECTION Short_Description ##### -->
+maintain a stack of unused allocated memory chunks
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+A #GTrashStack is an efficient way to keep a stack of unused allocated
+memory chunks. Each memory chunk is required to be large enough to hold
+a #gpointer. This allows the stack to be maintained without any space
+overhead, since the stack pointers can be stored inside the memory chunks.
+</para>
+<para>
+There is no function to create a #GTrashStack. A %NULL #GTrashStack* 
+is a perfectly valid empty stack.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### STRUCT GTrashStack ##### -->
+<para>
+Each piece of memory that is pushed onto the stack
+is cast to a <structname>GTrashStack*</structname>.
+</para>
+
+@next: pointer to the previous element of the stack,
+gets stored in the first <literal>sizeof (gpointer)</literal>
+bytes of the element.
+
+<!-- ##### FUNCTION g_trash_stack_push ##### -->
+<para>
+Pushes a piece of memory onto a #GTrashStack.
+</para>
+
+@stack_p: a pointer to a #GTrashStack.
+@data_p: the piece of memory to push on the stack.
+
+
+<!-- ##### FUNCTION g_trash_stack_pop ##### -->
+<para>
+Pops a piece of memory off a #GTrashStack.
+</para>
+
+@stack_p: a pointer to a #GTrashStack.
+@Returns: the element at the top of the stack.
+
+
+<!-- ##### FUNCTION g_trash_stack_peek ##### -->
+<para>
+Returns the element at the top of a #GTrashStack which may be %NULL.
+</para>
+
+@stack_p: a pointer to a #GTrashStack.
+@Returns: the element at the top of the stack.
+
+
+<!-- ##### FUNCTION g_trash_stack_height ##### -->
+<para>
+Returns the height of a #GTrashStack.
+Note that execution of this function is of O(N) complexity
+where N denotes the number of items on the stack.
+</para>
+
+@stack_p: a pointer to a #GTrashStack.
+@Returns: the height of the stack.
+
+

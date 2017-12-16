@@ -1,0 +1,53 @@
+Source: glib-cvs
+Priority: extra
+Section: libs
+Maintainer: Ben Gertzfield <che@debian.org>
+Standards-Version: 2.4.0.0
+
+Package: libglib-cvs-1.1
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends}
+Suggests: libgtk-cvs-1.1
+Conflicts: libglib1.1
+Description: CVS build of the GLib library of C routines
+ **THIS IS NOT AN OFFICIAL DEBIAN PACKAGE! THIS IS AN AUTOMATED CVS
+   BUILD OF THE GLIB LIBRARIES! BEWARE! IT MAY NOT WORK!**
+ . 
+ GLib is a library containing many useful C routines for things such
+ as trees, hashes, and lists. GLib was previously distributed with
+ the GTK+ toolkit, but has been split off as of the developers' version
+ 1.1.0.
+
+Package: libglib-cvs-dev
+Architecture: any
+Section: devel
+Conflicts: libgtk-dev, libglib-dev
+Provides: libglib-dev
+Replaces: libglib-dev
+Depends: libglib-cvs-1.1 (=${Source-Version})
+Suggests: libgtk-cvs-dev, libgtk-cvs-1.1-doc
+Description: CVS header files and static libraries for the GLib library
+ **THIS IS NOT AN OFFICIAL DEBIAN PACKAGE! THIS IS AN AUTOMATED CVS
+   BUILD OF THE GLIB LIBRARIES! BEWARE! IT MAY NOT WORK!**
+ .
+ This package contains the header files and static libraries for the
+ GLib C library.
+ .
+ Install this package if you wish to develop your own X programs using
+ the GTK+ widget toolkit, or wish to develop plug-ins for The GIMP.
+
+Package: libglib-cvs-dbg
+Architecture: any
+Section: devel
+Conflicts: libgtk-dev, libglib-dbg
+Depends: libglib-cvs-1.1 (=${Source-Version}), libglib-cvs-dev (=${Source-Version})
+Description: CVS debugging static libraries for the GLib library
+ **THIS IS NOT AN OFFICIAL DEBIAN PACKAGE! THIS IS AN AUTOMATED CVS
+   BUILD OF THE GLIB LIBRARIES! BEWARE! IT MAY NOT WORK!**
+ .
+ This package contains the debugging static libraries for the GLib C
+ library.
+ .
+ The debugging libraries are installed as /usr/lib/libglib_g.a -- link
+ specifically with them if you want to debug.

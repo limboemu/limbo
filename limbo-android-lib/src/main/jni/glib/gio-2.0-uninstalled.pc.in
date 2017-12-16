@@ -1,0 +1,6 @@
+Name: GIO Uninstalled
+Description: glib I/O library, Not Installed
+Version: @VERSION@
+Requires: glib-2.0-uninstalled,gobject-2.0-uninstalled,gmodule-no-export-2.0-uninstalled
+Libs: ${pc_top_builddir}/${pcfiledir}/gio/libgio-2.0.la
+Cflags: -I${pc_top_builddir}/${pcfiledir}/@srcdir@

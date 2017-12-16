@@ -1,0 +1,8 @@
+glib-genmarshal
+glib-mkenums
+gmarshal.[ch]
+gmarshal.strings
+gobject-query
+testgobject
+libgobject-gdb.py
+makefile.msc
