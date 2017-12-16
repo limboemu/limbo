@@ -55,10 +55,14 @@ COPY_ROMS=mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 
 COPY_KEYMAPS=cp -rf ./qemu/pc-bios/keymaps ../assets/roms/
 
-COPY_ASSETS_X86=cp -rf ../assets/* ../../../../limbo-android-x86/src/main/assets/
-COPY_ASSETS_ARM=cp -rf ../assets/* ../../../../limbo-android-arm/src/main/assets/
-COPY_ASSETS_PPC=cp -rf ../assets/* ../../../../limbo-android-ppc/src/main/assets/
-COPY_ASSETS_SPARC=cp -rf ../assets/* ../../../../limbo-android-sparc/src/main/assets/
+COPY_ASSETS_X86=mkdir -p ../../../../limbo-android-x86/src/main/assets/ && \
+    cp -rf ../assets/* ../../../../limbo-android-x86/src/main/assets/
+COPY_ASSETS_ARM=mkdir -p ../../../../limbo-android-arm/src/main/assets/ && \
+    cp -rf ../assets/* ../../../../limbo-android-arm/src/main/assets/
+COPY_ASSETS_PPC=mkdir -p ../../../../limbo-android-ppc/src/main/assets/ && \
+    cp -rf ../assets/* ../../../../limbo-android-ppc/src/main/assets/
+COPY_ASSETS_SPARC=mkdir -p ../../../../limbo-android-sparc/src/main/assets/ && \
+    cp -rf ../assets/* ../../../../limbo-android-sparc/src/main/assets/
 
 #RENAME_TUNCTL=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/tunctl \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
