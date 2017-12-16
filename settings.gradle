@@ -1,0 +1,4 @@
+include ':limbo-android-lib', ':limbo-android-x86'
+include ':limbo-android-arm'
+include ':limbo-android-sparc'
+include ':limbo-android-ppc'
