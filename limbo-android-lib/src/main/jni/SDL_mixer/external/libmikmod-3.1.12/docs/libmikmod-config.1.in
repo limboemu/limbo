@@ -1,0 +1,59 @@
+.TH LIBMIKMOD 1 "Version @VERSION@, 3rd Januark 2000"
+
+.SH NAME
+libmikmod-config - script to get information about the installed version of
+libmikmod.
+
+.SH SYNOPSIS
+.B libmikmod-config [\-\-prefix\fI[=DIR]\fP] [\-\-exec\-prefix\fI[=DIR]\fP]
+[\-\-version] [\-\-libs] [\-\-cflags] [\-\-ldadd]
+
+.SH DESCRIPTION
+.PP
+\fIlibmikmod-config\fP is a tool that is used to configure to determine
+the compiler and linker flags that should be used to compile
+and link programs that use \fIlibmikmod\fP. It is also used internally
+to the .m4 macros for GNU autoconf that are included with \fIlibmikmod\fP.
+
+.SH OPTIONS
+.l
+\fIlibmikmod-config\fP accepts the following options:
+.TP 8
+.B  \-\-version
+Print the currently installed version of \fIlibmikmod\fP on the standard output.
+.TP 8
+.B  \-\-libs
+Print the linker flags that are necessary to link a \fIlibmikmod\fP program.
+.TP 8
+.B  \-\-ldadd
+Print the extra linker flags that are necessary to link a \fIlibmikmod\fP
+program if it was compiled with the GNU C compiler.
+.TP 8
+.B  \-\-cflags
+Print the compiler flags that are necessary to compile a \fIlibmikmod\fP
+program.
+.TP 8
+.B  \-\-prefix=PREFIX
+If specified, use PREFIX instead of the installation prefix that \fIlibmikmod\fP
+was built with when computing the output for the \-\-cflags and \-\-libs
+options. This option is also used for the exec prefix if \-\-exec\-prefix was
+not specified. This option must be specified before any \-\-libs or \-\-cflags
+options.
+.TP 8
+.B  \-\-exec\-prefix=PREFIX
+If specified, use PREFIX instead of the installation exec prefix that
+\fIlibmikmod\fP was built with when computing the output for the \-\-cflags and
+\-\-libs options.  This option must be specified before any \-\-libs or
+\-\-cflags options.
+
+.SH AUTHORS
+\fIlibmikmod\fP is the result of the work of many people, including:
+Jean-Paul Mikkers, Jake Stine, Miodrag Vallat, Steve McIntyre, Peter Amstutz,
+and many others.
+
+A full list of people having worked on libmikmod can be found in the libmikmod
+source package.
+
+This man page was inspired by the gtk-config man page written by Owen Taylor.
+
+The k in ``Januark'' is not a typo. It's a genuine Y2K bug.

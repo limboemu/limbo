@@ -1,0 +1,139 @@
+LIBRARY mikmod2
+DESCRIPTION "libmikmod/2 @LIBMIKMOD_MAJOR_VERSION@.@LIBMIKMOD_MINOR_VERSION@.@LIBMIKMOD_MICRO_VERSION@"
+EXPORTS
+	MikMod_GetVersion				@1
+	
+	MikMod_errno					@11
+	MikMod_critical					@12
+	MikMod_strerror					@17
+	MikMod_RegisterErrorHandler			@18
+	
+	MikMod_Init					@21
+	MikMod_Exit					@22
+	MikMod_Reset					@23
+	MikMod_SetNumVoices				@24
+	MikMod_Active					@25
+	MikMod_EnableOutput				@26
+	MikMod_DisableOutput				@27
+	MikMod_Update					@28
+
+	MikMod_InfoDriver				@29
+	MikMod_RegisterDriver				@30
+	MikMod_RegisterAllDrivers			@31
+
+	MikMod_InfoLoader				@32
+	MikMod_RegisterAllLoaders			@33
+	MikMod_RegisterLoader				@34
+
+	MikMod_RegisterPlayer				@35
+
+	MikMod_InitThreads				@36
+	MikMod_Lock					@37
+	MikMod_Unlock					@38
+	
+	MikMod_DriverFromAlias				@39
+
+	Player_Load					@41
+	Player_LoadFP					@42
+	Player_LoadGeneric				@43
+	Player_LoadTitle				@44
+	Player_Free					@45
+	Player_Start					@46
+	Player_Active					@47
+	Player_Stop					@48
+	Player_TogglePause				@49
+	Player_Paused					@50
+	Player_NextPosition				@51
+	Player_PrevPosition				@52
+	Player_SetPosition				@53
+	Player_Muted					@54
+	Player_SetVolume				@55
+	Player_GetModule				@56
+	Player_SetSpeed					@57
+	Player_SetTempo					@58
+	Player_Unmute					@59
+	Player_Mute					@60
+	Player_ToggleMute				@61
+	Player_GetChannelVoice				@62
+	Player_GetChannelPeriod				@63
+	Player_LoadTitleFP				@64
+
+	Sample_Load					@71
+	Sample_LoadFP					@72
+	Sample_LoadGeneric				@73
+	Sample_Free					@74
+	Sample_Play					@75
+	
+	Voice_GetVolume					@78
+	Voice_GetFrequency				@79
+	Voice_GetPanning				@80
+	Voice_SetVolume					@81
+	Voice_SetFrequency				@82
+	Voice_SetPanning				@83
+	Voice_Play					@84
+	Voice_Stop					@85
+	Voice_Stopped					@86
+	Voice_GetPosition				@87
+	Voice_RealVolume				@88
+	
+	md_volume					@91
+	md_musicvolume					@92
+	md_sndfxvolume					@93
+	md_reverb					@94
+	md_pansep					@95
+
+	md_device					@96
+	md_mixfreq					@97
+	md_mode						@98
+
+	md_driver					@99
+
+	drv_nos						@101
+	drv_raw						@102
+	drv_stdout					@103
+	drv_wav						@104
+	@DRV_DART@
+	@DRV_OS2@
+
+	load_669					@111
+	load_amf					@112
+	load_dsm					@113
+	load_far					@114
+	load_it						@115
+	load_imf					@116
+	load_m15					@117
+	load_med					@118
+	load_mod					@119
+	load_mtm					@120
+	load_s3m					@121
+	load_stm					@122
+	load_stx					@123
+	load_ult					@124
+	load_uni					@125
+	load_xm						@126
+	load_gdm					@127
+	load_okt					@128
+
+	VC_Init						@141
+	VC_Exit						@142
+	VC_SetNumVoices					@143
+	VC_SampleSpace					@144
+	VC_SampleLength					@145
+	VC_PlayStart					@146
+	VC_PlayStop					@147
+	VC_SampleLoad					@148
+	VC_SampleUnload					@149
+	VC_WriteBytes					@150
+	VC_SilenceBytes					@151
+	VC_VoiceSetVolume				@152
+	VC_VoiceSetFrequency				@153
+	VC_VoiceSetPanning				@154
+	VC_VoicePlay					@155
+	VC_VoiceStop					@156
+	VC_VoiceStopped					@157
+	VC_VoiceGetPosition				@158
+	VC_VoiceRealVolume				@159
+	VC_VoiceGetVolume				@160
+	VC_VoiceGetFrequency				@161
+	VC_VoiceGetPanning				@162
+
