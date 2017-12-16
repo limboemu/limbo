@@ -1,6 +1,6 @@
 glib-genmarshal
 glib-mkenums
-gmarshal.[ch]
+#gmarshal.[ch]
 gmarshal.strings
 gobject-query
 testgobject
