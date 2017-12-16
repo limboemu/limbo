@@ -34,14 +34,31 @@ INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 REMOVE_GDBSETUP=rm -f ../libs/$(APP_ABI_DIR)/gdb.setup
 REMOVE_GDBSERVER=rm -f ../libs/$(APP_ABI_DIR)/gdbserver
 
-COPY_ASSETS=cp -rf ../assets/* ../../../../limbo-android-x86/src/main/assets/
-
 SYNC_LIBS=rsync -av --delete --delete-excluded --exclude libqemu-system-* ../libs/* ../jnilibs/
 
 SYNC_LIBS_X86=rsync -av --include='libqemu-system-x86*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
 SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
 SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
 SYNC_LIBS_PPC=rsync -av --include='libqemu-system-ppc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
+
+COPY_ROMS=cp -rf ./qemu/pc-bios/*.rom \
+./qemu/pc-bios/*.bin \
+./qemu/pc-bios/*.img \
+./qemu/pc-bios/*.bmp \
+./qemu/pc-bios/*.ico \
+./qemu/pc-bios/*.svg \
+./qemu/pc-bios/*.rsrc \
+./qemu/pc-bios/*.ndrv \
+./qemu/pc-bios/openbios-* \
+./qemu/pc-bios/README \
+../assets/roms/
+
+COPY_KEYMAPS=cp -rf ./qemu/pc-bios/keymaps ../assets/roms/
+
+COPY_ASSETS_X86=cp -rf ../assets/* ../../../../limbo-android-x86/src/main/assets/
+COPY_ASSETS_ARM=cp -rf ../assets/* ../../../../limbo-android-arm/src/main/assets/
+COPY_ASSETS_PPC=cp -rf ../assets/* ../../../../limbo-android-ppc/src/main/assets/
+COPY_ASSETS_SPARC=cp -rf ../assets/* ../../../../limbo-android-sparc/src/main/assets/
 
 #RENAME_TUNCTL=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/tunctl \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libtunctl.so
@@ -103,7 +120,8 @@ debug:
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
-	$(COPY_ASSETS)
+	$(COPY_ROMS)
+	$(COPY_KEYMAPS)
 	
 release:
 	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
@@ -114,23 +132,28 @@ release:
 	$(STRIP_LIBS)
 	$(REMOVE_GDBSETUP)
 	$(REMOVE_GDBSERVER)
-	$(COPY_ASSETS)
+	$(COPY_ROMS)
+	$(COPY_KEYMAPS)
 
-sync-libs-x86:
+install-x86:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_X86)
+	$(COPY_ASSETS_X86)
 
-sync-libs-arm:
+install-arm:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_ARM)
+	$(COPY_ASSETS_ARM)
 
-sync-libs-sparc:
+install-sparc:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_SPARC)
 
-sync-libs-ppc:
+install-ppc:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_PPC)
+	$(COPY_ASSETS_PPC)
+	$(COPY_ASSETS_SPARC)
 
 ndk-gdb:
 	-echo $(APP_ABI)
