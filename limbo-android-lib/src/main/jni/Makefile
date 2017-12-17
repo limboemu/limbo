@@ -54,6 +54,7 @@ COPY_ROMS=mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ../assets/roms/
 
 COPY_KEYMAPS=cp -rf ./qemu/pc-bios/keymaps ../assets/roms/
+COPY_RESOLV_CONF=mkdir -p ../assets/roms/etc/ && echo "nameserver 8.8.8.8" > ../assets/roms/etc/resolv.conf
 
 COPY_ASSETS_X86=mkdir -p ../../../../limbo-android-x86/src/main/assets/ && \
     cp -rf ../assets/* ../../../../limbo-android-x86/src/main/assets/
@@ -126,6 +127,7 @@ debug:
 	$(RENAME_PARPROUTED)
 	$(COPY_ROMS)
 	$(COPY_KEYMAPS)
+	$(COPY_RESOLV_CONF)
 	
 release:
 	$(MAKE) ndk LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)  V=$(V)
@@ -138,6 +140,7 @@ release:
 	$(REMOVE_GDBSERVER)
 	$(COPY_ROMS)
 	$(COPY_KEYMAPS)
+	$(COPY_RESOLV_CONF)
 
 install-x86:
 	$(SYNC_LIBS)
