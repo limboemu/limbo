@@ -1,26 +1,5 @@
 package com.max2idea.android.limbo.main;
 
-import java.io.File;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.egl.EGLContext;
-import javax.microedition.khronos.egl.EGLDisplay;
-import javax.microedition.khronos.egl.EGLSurface;
-
-import org.libsdl.app.ClearRenderer;
-import org.libsdl.app.SDLActivity;
-import org.libsdl.app.SDLSurface;
-
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.utils.DrivesDialogBox;
-import com.max2idea.android.limbo.utils.FavOpenHelper;
-import com.max2idea.android.limbo.utils.Machine;
-import com.max2idea.android.limbo.utils.MachineOpenHelper;
-import com.max2idea.android.limbo.utils.QmpClient;
-import com.max2idea.android.limbo.utils.UIUtils;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -48,12 +27,33 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.utils.DrivesDialogBox;
+import com.max2idea.android.limbo.utils.Machine;
+import com.max2idea.android.limbo.utils.MachineOpenHelper;
+import com.max2idea.android.limbo.utils.QmpClient;
+import com.max2idea.android.limbo.utils.UIUtils;
+
+import org.libsdl.app.ClearRenderer;
+import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLSurface;
+
+import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.egl.EGLContext;
+import javax.microedition.khronos.egl.EGLDisplay;
+import javax.microedition.khronos.egl.EGLSurface;
 
 /**
  * SDL Activity
@@ -162,20 +162,20 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Enable Bluetooth Mouse");
 
-		RelativeLayout mLayout = new RelativeLayout(this);
-		mLayout.setId(12222);
+		LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20,20,20,20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
 
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
-		textView.setId(201012010);
 		textView.setText(
 				"Step 1: Disable Mouse Acceleration inside the Guest OS.\n\tFor DSL use command: dsl@box:/>xset m 1\n"
 						+ "Step 2: Pair your Bluetooth Mouse and press OK!\n"
 						+ "Step 3: Move your mouse pointer to all desktop corners to calibrate.\n");
 
-		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(textView, searchViewParams);
+        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+		mLayout.addView(textView, textViewParams);
 		alertDialog.setView(mLayout);
 
 		final Handler handler = this.handler;
@@ -979,13 +979,12 @@ public class LimboSDLActivity extends SDLActivity {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Snapshot/State Name");
-		EditText stateView = new EditText(activity);
+		final EditText stateView = new EditText(activity);
 		if (LimboActivity.currMachine.snapshot_name != null) {
 			stateView.setText(LimboActivity.currMachine.snapshot_name);
 		}
 		stateView.setEnabled(true);
 		stateView.setVisibility(View.VISIBLE);
-		stateView.setId(201012010);
 		stateView.setSingleLine();
 		alertDialog.setView(stateView);
 
@@ -993,13 +992,11 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
-				// UIUtils.log("Searching...");
-				final EditText a = (EditText) alertDialog.findViewById(201012010);
 				progDialog = ProgressDialog.show(activity, "Please Wait", "Saving VM State...", true);
 				new Thread(new Runnable() {
 					public void run() {
 						// Log.v("promptStateName", a.getText().toString());
-						onSaveState1(a.getText().toString());
+						onSaveState1(stateView.getText().toString());
 					}
 				}).start();
 
@@ -1174,10 +1171,10 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Volume");
 
-		RelativeLayout.LayoutParams volParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-		RelativeLayout t = createVolumePanel();
+		LinearLayout t = createVolumePanel();
 		t.setLayoutParams(volParams);
 
 		ScrollView s = new ScrollView(activity);
@@ -1193,13 +1190,12 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
-	public RelativeLayout createVolumePanel() {
-		RelativeLayout layout = new RelativeLayout(this);
-		layout.setId(2346134);
-		layout.setPadding(10, 10, 10, 10);
+	public LinearLayout createVolumePanel() {
+		LinearLayout layout = new LinearLayout (this);
+		layout.setPadding(20, 20, 20, 20);
 
-		RelativeLayout.LayoutParams volparams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        LinearLayout.LayoutParams volparams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
 
 		SeekBar vol = new SeekBar(this);
 		vol.setMax(maxVolume);
@@ -1289,13 +1285,11 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog.setTitle("Pause VM");
 		TextView stateView = new TextView(activity);
 		stateView.setText("This make take a while depending on the RAM size used");
-		stateView.setId(201012011);
 		stateView.setPadding(10, 10, 10, 10);
 		alertDialog.setView(stateView);
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Pause", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-				EditText a = (EditText) alertDialog.findViewById(201012010);
 				onPauseVM();
 				return;
 			}

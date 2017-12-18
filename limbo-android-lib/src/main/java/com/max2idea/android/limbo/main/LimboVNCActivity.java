@@ -756,16 +756,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		alertDialog.setTitle("Pause VM");
 		TextView stateView = new TextView(activity);
 		stateView.setText("This make take a while depending on the RAM size used");
-		stateView.setId(201012011);
-		stateView.setPadding(10, 10, 10, 10);
+		stateView.setPadding(20, 20, 20, 20);
 		alertDialog.setView(stateView);
 
-		// alertDialog.setMessage(body);
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Pause", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
-				// UIUtils.log("Searching...");
-				EditText a = (EditText) alertDialog.findViewById(201012010);
 
 				if (LimboActivity.vmexecutor.enableqmp == 1)
 					onPauseVMQMP();
@@ -797,13 +793,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Snapshot/State Name");
-		EditText stateView = new EditText(activity);
+		final EditText stateView = new EditText(activity);
 		if (LimboActivity.currMachine.snapshot_name != null) {
 			stateView.setText(LimboActivity.currMachine.snapshot_name);
 		}
 		stateView.setEnabled(true);
 		stateView.setVisibility(View.VISIBLE);
-		stateView.setId(201012010);
 		stateView.setSingleLine();
 		alertDialog.setView(stateView);
 
@@ -811,12 +806,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
-				// UIUtils.log("Searching...");
-				EditText a = (EditText) alertDialog.findViewById(201012010);
-
 				if (Config.enableSaveVMmonitor) {
 					// XXX: Safer for now via the Monitor console
-					onSaveSnapshot(a.getText().toString());
+					onSaveSnapshot(stateView.getText().toString());
 				} else {
 					// FIXME: This saves the vm natively but cannot resume the
 					// vm

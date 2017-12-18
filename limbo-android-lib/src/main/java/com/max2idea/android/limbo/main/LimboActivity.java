@@ -18,40 +18,6 @@
  */
 package com.max2idea.android.limbo.main;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.jni.VMExecutor;
-import com.max2idea.android.limbo.main.Config.DebugMode;
-import com.max2idea.android.limbo.utils.FavOpenHelper;
-import com.max2idea.android.limbo.utils.FileInstaller;
-import com.max2idea.android.limbo.utils.FileUtils;
-import com.max2idea.android.limbo.utils.Machine;
-import com.max2idea.android.limbo.utils.MachineOpenHelper;
-import com.max2idea.android.limbo.utils.OSDialogBox;
-import com.max2idea.android.limbo.utils.UIUtils;
-
 import android.androidVNC.ConnectionBean;
 import android.androidVNC.VncCanvas;
 import android.app.Activity;
@@ -66,7 +32,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.graphics.Color;
 import android.net.Uri;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.AsyncTask;
@@ -87,6 +52,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Layout;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -113,6 +79,40 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.jni.VMExecutor;
+import com.max2idea.android.limbo.main.Config.DebugMode;
+import com.max2idea.android.limbo.utils.FavOpenHelper;
+import com.max2idea.android.limbo.utils.FileInstaller;
+import com.max2idea.android.limbo.utils.FileUtils;
+import com.max2idea.android.limbo.utils.Machine;
+import com.max2idea.android.limbo.utils.MachineOpenHelper;
+import com.max2idea.android.limbo.utils.OSDialogBox;
+import com.max2idea.android.limbo.utils.UIUtils;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 //import com.max2idea.android.limbo.main.R;
 
@@ -2064,8 +2064,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog.setTitle("New Version " + version);
 		TextView stateView = new TextView(activity);
 		stateView.setText("There is a new version available with fixes and new features. Do you want to update?");
-		stateView.setId(201012014);
-		stateView.setPadding(10, 10, 10, 10);
+		stateView.setPadding(20, 20, 20, 20);
 		alertDialog.setView(stateView);
 
 		// alertDialog.setMessage(body);
@@ -2100,8 +2099,7 @@ public class LimboActivity extends AppCompatActivity {
 		EditText logView = new EditText(activity);
 		logView.setText(text);
 		logView.setTextSize(10);
-		logView.setId(201012015);
-		logView.setPadding(10, 10, 10, 10);
+		logView.setPadding(20, 20, 20, 20);
 		alertDialog.setView(logView);
 
 		// alertDialog.setMessage(body);
@@ -2281,19 +2279,19 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Import Machines");
 
-		RelativeLayout mLayout = new RelativeLayout(this);
-		mLayout.setId(12222);
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+        mLayout.setPadding(20,20,20,20);
 
 		TextView imageNameView = new TextView(activity);
 		imageNameView.setVisibility(View.VISIBLE);
-		imageNameView.setId(201012010);
 		imageNameView.setText(
 				"Step 1: Place the machine.CSV file you export previously under \"limbo\" directory in your SD card.\n"
 						+ "Step 2: WARNING: Any machine with the same name will be replaced!\n"
 						+ "Step 3: Press \"OK\".\n");
 
-		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+		LinearLayout.LayoutParams searchViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(imageNameView, searchViewParams);
 		alertDialog.setView(mLayout);
 
@@ -3003,7 +3001,7 @@ public class LimboActivity extends AppCompatActivity {
 
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
-		textView.setId(201012010);
+		textView.setPadding(20,20,20,20);
 		textView.setText("Warning! High Priority might increase emulation speed but " + "will slow your phone down!");
 
 		alertDialog.setView(textView);
@@ -3037,8 +3035,7 @@ public class LimboActivity extends AppCompatActivity {
 
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
-		textView.setId(201012010);
-		textView.setText(
+		textView.setPadding(20,20,20,20);		textView.setText(
 				"Warning! Enabling KVM is an UNTESTED and EXPERIMENTAL feature. If you experience crashes disable this option. Do you want to continue?");
 
 		alertDialog.setView(textView);
@@ -3071,31 +3068,26 @@ public class LimboActivity extends AppCompatActivity {
 
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
-		textView.setId(201012010);
-		textView.setText("VNC Server: " + this.getLocalIpAddress() + ":" + "5901\n"
+		textView.setPadding(20,20,20,20);		textView.setText("VNC Server: " + this.getLocalIpAddress() + ":" + "5901\n"
 				+ "Warning: VNC Connection is UNencrypted and not secure make sure you're on a private network!\n");
 
-		EditText passwdView = new EditText(activity);
+		final EditText passwdView = new EditText(activity);
 		passwdView.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
 		passwdView.setHint("Password");
 		passwdView.setEnabled(true);
 		passwdView.setVisibility(View.VISIBLE);
-		passwdView.setId(11111);
 		passwdView.setSingleLine();
 
-		RelativeLayout mLayout = new RelativeLayout(this);
-		mLayout.setId(12222);
-		mLayout.setPadding(10, 10, 10, 10);
+		LinearLayout mLayout = new LinearLayout(this);
+		mLayout.setPadding(20, 20, 20, 20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
 
-		RelativeLayout.LayoutParams textViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-		textViewParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, mLayout.getId());
+        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(textView, textViewParams);
 
-		RelativeLayout.LayoutParams passwordViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-
-		passwordViewParams.addRule(RelativeLayout.BELOW, textView.getId());
+        LinearLayout.LayoutParams passwordViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 		mLayout.addView(passwdView, passwordViewParams);
 
 		alertDialog.setView(mLayout);
@@ -3104,9 +3096,9 @@ public class LimboActivity extends AppCompatActivity {
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Set", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-				EditText a = (EditText) alertDialog.findViewById(11111);
 
-				if (a.getText().toString().trim().equals("")) {
+
+				if (passwdView.getText().toString().trim().equals("")) {
 					Toast.makeText(getApplicationContext(), "Password cannot be empty!", Toast.LENGTH_SHORT).show();
 					vnc_passwd = null;
 					vnc_allow_external = 0;
@@ -3114,7 +3106,7 @@ public class LimboActivity extends AppCompatActivity {
 					return;
 				} else {
 					sendHandlerMessage(handler, Config.VNC_PASSWORD, "vnc_passwd", "passwd");
-					vnc_passwd = a.getText().toString();
+					vnc_passwd = passwdView.getText().toString();
 					vnc_allow_external = 1;
 				}
 
@@ -3304,11 +3296,10 @@ public class LimboActivity extends AppCompatActivity {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Machine Name");
-		EditText vmNameTextView = new EditText(activity);
-		vmNameTextView.setPadding(10, 10, 10, 10);
+		final EditText vmNameTextView = new EditText(activity);
+		vmNameTextView.setPadding(20, 20, 20, 20);
 		vmNameTextView.setEnabled(true);
 		vmNameTextView.setVisibility(View.VISIBLE);
-		vmNameTextView.setId(201012010);
 		vmNameTextView.setSingleLine();
 		alertDialog.setView(vmNameTextView);
 		final Handler handler = this.handler;
@@ -3320,11 +3311,10 @@ public class LimboActivity extends AppCompatActivity {
 		Button button = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
 		button.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View view) {
-				EditText a = (EditText) alertDialog.findViewById(201012010);
-				if (a.getText().toString().trim().equals(""))
+				if (vmNameTextView.getText().toString().trim().equals(""))
 					UIUtils.toastLong(activity, "Machine name cannot be empty");
 				else {
-					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", a.getText().toString());
+					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", vmNameTextView.getText().toString());
 					alertDialog.dismiss();
 				}
 			}
@@ -3338,23 +3328,21 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Image Name");
 
-		RelativeLayout mLayout = new RelativeLayout(this);
-		mLayout.setPadding(10, 10, 10, 10);
-		mLayout.setId(12222);
+		LinearLayout mLayout = new LinearLayout(this);
+		mLayout.setPadding(20, 20, 20, 20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
 
-		EditText imageNameView = new EditText(activity);
+		final EditText imageNameView = new EditText(activity);
 		imageNameView.setEnabled(true);
 		imageNameView.setVisibility(View.VISIBLE);
-		imageNameView.setId(201012010);
 		imageNameView.setSingleLine();
-		RelativeLayout.LayoutParams searchViewParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(imageNameView, searchViewParams);
+        LinearLayout.LayoutParams imageNameViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+		mLayout.addView(imageNameView, imageNameViewParams);
 
 		final Spinner size = new Spinner(this);
-		RelativeLayout.LayoutParams setPlusParams = new RelativeLayout.LayoutParams(
-				RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-		size.setId(201012044);
+        LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
 		String[] arraySpinner = new String[3];
 		arraySpinner[0] = "5 GB (Growable)";
@@ -3364,8 +3352,7 @@ public class LimboActivity extends AppCompatActivity {
 		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, R.layout.custom_spinner_item, arraySpinner);
 		sizeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 		size.setAdapter(sizeAdapter);
-		setPlusParams.addRule(RelativeLayout.BELOW, imageNameView.getId());
-		mLayout.addView(size, setPlusParams);
+		mLayout.addView(size, spinnerParams);
 
 		alertDialog.setView(mLayout);
 
@@ -3383,10 +3370,10 @@ public class LimboActivity extends AppCompatActivity {
 					templateImage = "hd20g.qcow2";
 				}
 
-				EditText a = (EditText) alertDialog.findViewById(201012010);
+
 				progDialog = ProgressDialog.show(activity, "Please Wait", "Creating HD Image...", true);
 
-				String image = a.getText().toString();
+				String image = imageNameView.getText().toString();
 				if (!image.endsWith(".qcow2")) {
 					image += ".qcow2";
 				}
@@ -3425,23 +3412,20 @@ public class LimboActivity extends AppCompatActivity {
 		final AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle("Snapshot/State Name");
-		EditText searchView = new EditText(activity);
-		searchView.setPadding(10, 10, 10, 10);
-		searchView.setEnabled(true);
-		searchView.setVisibility(View.VISIBLE);
-		searchView.setId(201012010);
-		searchView.setSingleLine();
-		alertDialog.setView(searchView);
+		final EditText stateNameView = new EditText(activity);
+        stateNameView.setPadding(20, 20, 20, 20);
+        stateNameView.setEnabled(true);
+        stateNameView.setVisibility(View.VISIBLE);
+        stateNameView.setSingleLine();
+		alertDialog.setView(stateNameView);
 		final Handler handler = this.handler;
 
 		// alertDialog.setMessage(body);
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 
-				// UIUtils.log("Searching...");
-				EditText a = (EditText) alertDialog.findViewById(201012010);
 				sendHandlerMessage(handler, Config.SNAPSHOT_CREATED, new String[] { "snapshot_name" },
-						new String[] { a.getText().toString() });
+						new String[] { stateNameView.getText().toString() });
 				return;
 			}
 		});
@@ -3674,8 +3658,7 @@ public class LimboActivity extends AppCompatActivity {
 		stateView.setText("VNC Server started: " + this.getLocalIpAddress() + ":" + "5901\n"
 				+ "Warning: VNC Connection is Unencrypted and not secure make sure you're on a private network!\n");
 
-		stateView.setId(201012555);
-		stateView.setPadding(10, 10, 10, 10);
+		stateView.setPadding(20, 20, 20, 20);
 		alertDialog.setView(stateView);
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
