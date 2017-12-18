@@ -106,16 +106,17 @@ https://github.com/limboemu/limbo
         Make sure the *.so libraries are zipped in the final .apk
 
     e. If you want to build the debugging version:
-   		i. Modify debuggable flag in AndroidManifest.xml to true
-   			and set variables in Config.java:
+   		i. Add debuggable flag in AndroidManifest.xml:
+   		    android:debuggable="false"
+   		ii. Set variables in Config.java:
    			    debug = true;
    			    debugMode = DebugMode.X86_64; //or any other arch
-   		ii. Modify android-config.mak and point to a configuration 
+   		iii. Modify android-config.mak and point to a configuration
    			with no optimization if you want:
    			ie android-generic-armv7a-vfpv3d16-noopt.mak
-   		iii. Sync the libraries and gdbserver/gdb.setup
+   		iv. Sync the libraries and gdbserver/gdb.setup
    		    > make install-x86
-   		iv. From Android studio Build> Make Project and Run > Debug
+   		v. From Android studio Build> Make Project and Run > Debug
    			
     f. To start debugging the native code for a particular guest arch type:
    			for x86 guest:
