@@ -2018,12 +2018,12 @@ public class LimboActivity extends AppCompatActivity {
 			}
 			byte[] streamData = bos.toByteArray();
 			final String versionStr = new String(streamData);
-			Double version = Double.parseDouble(versionStr);
+			float version = Float.parseFloat(versionStr);
 
 			PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
 					PackageManager.GET_META_DATA);
-
-			if ((int) (version * 100) > pInfo.versionCode) {
+            int versionCheck = (int)  (version * 100);
+			if (versionCheck > pInfo.versionCode) {
 				new Handler(Looper.getMainLooper()).post(new Runnable() {
 					@Override
 					public void run() {
@@ -2032,7 +2032,7 @@ public class LimboActivity extends AppCompatActivity {
 				});
 			}
 		} catch (Exception ex) {
-
+            ex.printStackTrace();
 		} finally {
 			if (is != null) {
 				try {
