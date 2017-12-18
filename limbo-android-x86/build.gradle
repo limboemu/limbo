@@ -19,6 +19,9 @@ android {
             jniDebuggable true
         }
     }
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {

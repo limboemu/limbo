@@ -25,7 +25,6 @@
     <application
         android:name="com.max2idea.android.limbo.main.LimboApplication"
         android:allowBackup="true"
-        android:debuggable="true"
         android:hardwareAccelerated="true"
         android:icon="@drawable/limbo"
         android:label="Limbo ARM Emulator"
