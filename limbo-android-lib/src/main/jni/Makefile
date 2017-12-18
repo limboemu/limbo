@@ -36,10 +36,22 @@ REMOVE_GDBSERVER=rm -f ../libs/$(APP_ABI_DIR)/gdbserver
 
 SYNC_LIBS=rsync -av --delete --delete-excluded --exclude libqemu-system-* ../libs/* ../jnilibs/
 
-SYNC_LIBS_X86=rsync -av --include='libqemu-system-x86*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
-SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
-SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
-SYNC_LIBS_PPC=rsync -av --include='libqemu-system-ppc*.so' --include='*/' --exclude='*' ../libs/ ../jnilibs/
+SYNC_LIBS_X86=rsync -av --include='libqemu-system-x86*.so' \
+    --include='gdbserver' --include='gdb.setup' \
+    --include='*/' --exclude='*' \
+    ../libs/ ../../../../limbo-android-x86/src/main/jnilibs/
+SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' \
+    --include='gdbserver' --include='gdb.setup' \
+    --include='*/' --exclude='*' \
+    ../libs/ ../../../../limbo-android-arm/src/main/jnilibs/
+SYNC_LIBS_PPC=rsync -av --include='libqemu-system-ppc*.so' \
+    --include='gdbserver' --include='gdb.setup' \
+    --include='*/' --exclude='*' \
+    ../libs/ ../../../../limbo-android-ppc/src/main/jnilibs/
+SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' \
+    --include='gdbserver' --include='gdb.setup' \
+    --include='*/' --exclude='*' \
+    ../libs/ ../../../../limbo-android-sparc/src/main/jnilibs/
 
 COPY_ROMS=mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ./qemu/pc-bios/*.bin \
@@ -70,19 +82,9 @@ COPY_ASSETS_SPARC=mkdir -p ../../../../limbo-android-sparc/src/main/assets/ && \
 #RENAME_PARPROUTED=mv -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/parprouted \
 	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/libparprouted.so
 	
-#GDB needs the gdb.setup under ./libs & ./obj/local/armeabi
+#GDB needs the gdb.setup under ./libs
 COPY_GDB_SETUP_LIBS=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/libs/gdb.setup
-CREATE_LIBSDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/libs/armeabi
-CREATE_OBJDIR_ARMEABI=-mkdir -p $(NDK_PROJECT_PATH)/obj/local/armeabi
-COPY_GDB_SETUP_LIBS_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
-	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup
-COPY_GDB_SETUP_OBJ_ARMEABI=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
-	$(NDK_PROJECT_PATH)/obj/local/armeabi/gdb.setup
-APPEND_GDB_CMD_EXTRA=cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
-	$(NDK_PROJECT_PATH)/libs/armeabi/gdb.setup; \
-	cat $(NDK_PROJECT_PATH)/jni/gdb.setup.extra >> \
-	$(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup;
 	
 ifneq ($(NDK_DEBUG),1)
 	STRIP_LIBS=$(STRIP) --strip-unneeded  $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
@@ -155,21 +157,18 @@ install-arm:
 install-sparc:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_SPARC)
+	$(COPY_ASSETS_SPARC)
 
 install-ppc:
 	$(SYNC_LIBS)
 	$(SYNC_LIBS_PPC)
 	$(COPY_ASSETS_PPC)
-	$(COPY_ASSETS_SPARC)
+
+install-all: install-x86 install-arm install-ppc install-sparc
 
 ndk-gdb:
 	-echo $(APP_ABI)
 	$(COPY_GDB_SETUP_LIBS)
-	$(CREATE_OBJDIR_ARMEABI)
-	$(CREATE_LIBSDIR_ARMEABI)
-	$(COPY_GDB_SETUP_LIBS_ARMEABI)
-	$(COPY_GDB_SETUP_OBJ_ARMEABI)
-	$(APPEND_GDB_CMD_EXTRA)
 	$(ndkgdb) --attach $(PKG_NAME) -v
 	
 distclean: 

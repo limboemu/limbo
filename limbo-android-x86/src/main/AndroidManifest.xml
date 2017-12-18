@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
     android:installLocation="auto"
-    android:versionCode="2100"
+    android:versionCode="21000"
     android:versionName="2.10.0-x86" >
 
     <uses-sdk

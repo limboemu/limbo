@@ -2,42 +2,7 @@
 
 include android-config.mak
 
-####### x86 and ARM devices support
-# Uncomment to build for your guest architecture
-# ARM is currently very slow, not all archs are supported right now
-
-#Possible Values
-#QEMU_TARGET_LIST = aarch64-softmmu
-
-#QEMU_TARGET_LIST = ppc64-softmmu
-#QEMU_TARGET_LIST = ppcemb-softmmu
-#QEMU_TARGET_LIST = s390x-softmmu
-#QEMU_TARGET_LIST = sh4-softmmu
-#QEMU_TARGET_LIST = sh4eb-softmmu
-#QEMU_TARGET_LIST = sparc64-softmmu
-#QEMU_TARGET_LIST = xtensa-softmmu
-#QEMU_TARGET_LIST = xtensaeb-softmmu
-#QEMU_TARGET_LIST = microblaze-softmmu
-#QEMU_TARGET_LIST = microblazeel-softmmu
-#QEMU_TARGET_LIST = mips64-softmmu
-#QEMU_TARGET_LIST = mips64el-softmmu
-#QEMU_TARGET_LIST = mipsel-softmmu
-#QEMU_TARGET_LIST = lm32-softmmu
-#QEMU_TARGET_LIST = alpha-softmmu
-#QEMU_TARGET_LIST = cris-softmmu
-#QEMU_TARGET_LIST = i386-softmmu
-#QEMU_TARGET_LIST = m68k-softmmu
-#QEMU_TARGET_LIST = mips-softmmu
-
-# Supported
-#QEMU_TARGET_LIST = ppc-softmmu
-#QEMU_TARGET_LIST = x86_64-softmmu
-#QEMU_TARGET_LIST = arm-softmmu
-#QEMU_TARGET_LIST = sparc-softmmu
-
-# Or create multiple archs
-QEMU_TARGET_LIST = ppc-softmmu,x86_64-softmmu,arm-softmmu,sparc-softmmu
-
+#### QEMU advance options
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
 # gthread is not working right AFAIK
@@ -111,7 +76,7 @@ VNC += --disable-vnc-sasl
 
 
 # NEEDS ABOVE ENCODING
-#INCLUDE_ENC += -I$(LIMBO_JNI_ROOT_INC)/png -I$(LIMBO_JNI_ROOT_INC)/jpeg
+#INCLUDE_ENC += -I$(LIMBO_JNI_ROOT)/png -I$(LIMBO_JNI_ROOT)/jpeg
 
 #SMART CARD
 SMARTCARD =	--disable-smartcard
@@ -119,7 +84,7 @@ SMARTCARD =	--disable-smartcard
 #FDT is needed for system emulation
 #FDT =	--disable-fdt
 FDT =	--enable-fdt
-FDT_INC = -I$(LIMBO_JNI_ROOT_INC)/qemu/dtc/libfdt
+FDT_INC = -I$(LIMBO_JNI_ROOT)/qemu/dtc/libfdt
 
 #Disable nptl
 #NPTL += --disable-nptl 
@@ -242,21 +207,21 @@ config:
 	--extra-cflags=\
 	"\
 	$(SYSTEM_INCLUDE) \
-	-I$(LIMBO_JNI_ROOT_INC)/limbo/include \
-	-I$(LIMBO_JNI_ROOT_INC)/glib/glib \
-	-I$(LIMBO_JNI_ROOT_INC)/glib \
-	-I$(LIMBO_JNI_ROOT_INC)/glib/gmodule \
-	-I$(LIMBO_JNI_ROOT_INC)/glib/io \
-	-I$(LIMBO_JNI_ROOT_INC)/glib/android \
-	-I$(LIMBO_JNI_ROOT_INC)/pixman \
-	-I$(LIMBO_JNI_ROOT_INC)/scsi \
-	-I$(LIMBO_JNI_ROOT_INC)/png \
-	-I$(LIMBO_JNI_ROOT_INC)/jpeg \
-	-I$(LIMBO_JNI_ROOT_INC) \
-	-I$(LIMBO_JNI_ROOT_INC)/SDL/include  \
-	-I$(LIMBO_JNI_ROOT_INC)/compat  \
-	-I$(LIMBO_JNI_ROOT_INC)/spice-protocol  \
-	-I$(LIMBO_JNI_ROOT_INC)/spice/server  \
+	-I$(LIMBO_JNI_ROOT)/limbo/include \
+	-I$(LIMBO_JNI_ROOT)/glib/glib \
+	-I$(LIMBO_JNI_ROOT)/glib \
+	-I$(LIMBO_JNI_ROOT)/glib/gmodule \
+	-I$(LIMBO_JNI_ROOT)/glib/io \
+	-I$(LIMBO_JNI_ROOT)/glib/android \
+	-I$(LIMBO_JNI_ROOT)/pixman \
+	-I$(LIMBO_JNI_ROOT)/scsi \
+	-I$(LIMBO_JNI_ROOT)/png \
+	-I$(LIMBO_JNI_ROOT)/jpeg \
+	-I$(LIMBO_JNI_ROOT) \
+	-I$(LIMBO_JNI_ROOT)/SDL/include  \
+	-I$(LIMBO_JNI_ROOT)/compat  \
+	-I$(LIMBO_JNI_ROOT)/spice-protocol  \
+	-I$(LIMBO_JNI_ROOT)/spice/server  \
 	$(FDT_INC) \
 	$(INCLUDE_ENC) \
 	$(LIMBO_DISABLE_TSC) \

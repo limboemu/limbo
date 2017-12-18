@@ -7,7 +7,7 @@ LOCAL_ARM_MODE:= $(APP_ARM_MODE)
 
 LOCAL_MODULE := libpixman
 
-LOCAL_CFLAGS := -DHAVE_CONFIG_H -I$(NDK_ROOT_INC)/sources/android/cpufeatures
+LOCAL_CFLAGS := -DHAVE_CONFIG_H -I$(NDK_ROOT)/sources/android/cpufeatures
 
 # Core files
 LOCAL_SRC_FILES := \

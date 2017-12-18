@@ -158,7 +158,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = false;
+	public static final boolean debug = true;
 	public static final DebugMode debugMode = DebugMode.X86_64;
 	public static final String VNC_BYTE = "VNC_BYTE";
 	public static final String VNC_DATA_TYPE = "VNC_DATA_TYPE";

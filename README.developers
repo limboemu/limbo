@@ -76,9 +76,8 @@ https://github.com/limboemu/limbo
          
 	If you build on Windows platform make sure you update the android-config.mak file:
     NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
-	NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
         
-    If you want to build the x86, ARM,Sparc,PowerPC Emulator update android-qemu-config.mak file with one of these:
+    If you want to build the x86, ARM,Sparc,PowerPC Emulator update android-config.mak file with one of these:
     TARGET_LIST = x86_64-softmmu
     TARGET_LIST = arm-softmmu
     TARGET_LIST = sparc-softmmu
@@ -106,14 +105,19 @@ https://github.com/limboemu/limbo
     d. Build the Android apk for the corresponding guest using Android Studio.
         Make sure the *.so libraries are zipped in the final .apk
 
-    h. If you want to build the debugging version:
+    e. If you want to build the debugging version:
    		i. Modify debuggable flag in AndroidManifest.xml to true
-   			and set debug variable in Config.java to true
+   			and set variables in Config.java:
+   			    debug = true;
+   			    debugMode = DebugMode.X86_64; //or any other arch
    		ii. Modify android-config.mak and point to a configuration 
-   			with no optimization:
+   			with no optimization if you want:
    			ie android-generic-armv7a-vfpv3d16-noopt.mak
+   		iii. Sync the libraries and gdbserver/gdb.setup
+   		    > make install-x86
+   		iv. From Android studio Build> Make Project and Run > Debug
    			
-    i. To start debugging the native code for a particular guest arch type:
+    f. To start debugging the native code for a particular guest arch type:
    			for x86 guest:
    			> make ndk-gdb PKG_NAME=com.limbo.emu.main
    			
@@ -125,8 +129,6 @@ https://github.com/limboemu/limbo
    			
    			for ppc guest:
    			> make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
-    	
-    j. Done.
     	
 ===============================================================================
 6. Development

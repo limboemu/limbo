@@ -16,12 +16,12 @@ LOCAL_MODULE := limbo
 
 LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/.. \
-	$(LIMBO_JNI_ROOT_INC)/qemu \
-	$(LIMBO_JNI_ROOT_INC)/qemu/include \
-	$(LIMBO_JNI_ROOT_INC)/compat \
-	$(LIMBO_JNI_ROOT_INC)/glib/glib \
-	$(LIMBO_JNI_ROOT_INC)/glib \
-	$(LIMBO_JNI_ROOT_INC)/glib/android
+	$(LIMBO_JNI_ROOT)/qemu \
+	$(LIMBO_JNI_ROOT)/qemu/include \
+	$(LIMBO_JNI_ROOT)/compat \
+	$(LIMBO_JNI_ROOT)/glib/glib \
+	$(LIMBO_JNI_ROOT)/glib \
+	$(LIMBO_JNI_ROOT)/glib/android
 
 LOCAL_STATIC_LIBRARIES := spice png glib-2.0
 

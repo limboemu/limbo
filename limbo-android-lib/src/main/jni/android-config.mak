@@ -1,11 +1,8 @@
 # Base definitions for Android toolchain.
 # This is the only part of the file you need to change before when compiling.
 
-############## Project Config Start
 
-# IMPORTANT: Speficy the root of the project
-LIMBO_JNI_ROOT := C:/users/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
-LIMBO_JNI_ROOT_INC := C:/users/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
+############## Project Config
 
 # Enable KVM (NOT Tested)
 # Note: KVM headers are available only for android-21 platform and above
@@ -17,9 +14,9 @@ USE_SDL ?= true
 # If you want to use SDL Audio (currently not working)
 USE_SDL_AUDIO ?= true
 
-############## Project Config End
 
-############## Environment Config Start
+
+############## Environment Config
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
@@ -36,69 +33,41 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 USE_NDK_PLATFORM21 ?= false
 
 # Faster Builds with multiple threads
-BUILD_THREADS=3
+BUILD_THREADS=6
 
-####### Windows/Cygwin SECTION END
-# If you use Windows to build
 
-# ndk 13b for x86
+
+############## Windows Config
+# Uncomment all lines below if you use Windows to compile
+##### ndk 13b for Windows x86
+LIMBO_JNI_ROOT := C:/users/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
 NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
-NDK_ROOT_INC = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
 NDK_ENV = windows
-
-# ndk 13 for 64bit
-#NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-#NDK_ROOT_INC = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+# or Windows 64 bit to compile
 #NDK_ENV = windows-x86_64
 
-# ndk 12
-#NDK_ROOT = C:/tools/bin/android-ndk-r12b-windows-x86/android-ndk-r12b
-#NDK_ROOT_INC = C:/tools/bin/android-ndk-r12b-windows-x86/android-ndk-r12b
-#NDK_ENV = windows
 
-# ndk 12 for 64bit
-#NDK_ROOT = C:/tools/bin/android-ndk-r12b-windows-x86_64/android-ndk-r12b
-#NDK_ROOT_INC = C:/tools/bin/android-ndk-r12b-windows-x86_64/android-ndk-r12b
-#NDK_ENV = windows-x86_64
 
-####### Windows Config End 
-
-############## Linux Config START
-# If you use Linux for compiling
-
-# Uncomment all lines below if you use Linux
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r12b
-#NDK_ROOT_INC = $(NDK_ROOT)
-#LIMBO_JNI_ROOT := $(CURDIR)
-#LIMBO_JNI_ROOT_INC := $(LIMBO_JNI_ROOT)
-
-# Uncomment if you use Ubuntu/Linux x86 to compile
+############## Linux Config
+# Uncomment all lines below if you use Linux to compile
+#LIMBO_JNI_ROOT := /home/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
 #NDK_ENV = linux-x86
-
-# Uncomment if you use Ubuntu/Linux 64bit to compile
+# or Linux 64bit to compile
 #NDK_ENV = linux-x86_64
 
 
-############## Linux Config END
 
-############## MacOS X Config End
-# If you use MacOS X to build
-
-# ndk 12 for 64bit
-#NDK_ROOT = C:/tools/bin/android-ndk-r12b-windows-x86_64/android-ndk-r12b
-#NDK_ROOT_INC = C:/tools/bin/android-ndk-r12b-windows-x86_64/android-ndk-r12b
+############## MacOS X Config
+# Uncomment all lines below if you use MacOS to compile
+#LIMBO_JNI_ROOT := /home/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
 #NDK_ENV = darwin-x86
 
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r12b
-#NDK_ROOT_INC = $(NDK_ROOT)
-#LIMBO_JNI_ROOT := $(CURDIR)
-#LIMBO_JNI_ROOT_INC := $(LIMBO_JNI_ROOT)
 
-
-############## MacOS X Config End
 
 ############## ANDROID DEVICE CONFIGURATION
-# Chooce ONLY ONE:
+# Choose ONLY ONE:
 
 ######### ARMv7 Soft Float  (Supports VNC and SDL)
 
@@ -145,5 +114,20 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-vfpv3d16.
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv8-vfpv3d16-noopt.mak
 
 
+######## Guest Config
+# Uncomment to build for the guest architecture
+# Supported
+#QEMU_TARGET_LIST = i386-softmmu
+QEMU_TARGET_LIST = x86_64-softmmu
+#QEMU_TARGET_LIST = arm-softmmu
+#QEMU_TARGET_LIST = ppc-softmmu
+#QEMU_TARGET_LIST = ppc64-softmmu
+#QEMU_TARGET_LIST = sparc-softmmu
+
+# Or create multiple archs
+#QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu,sparc-softmmu
+
+
 ################ No modifications below this line are necessary #####################
+
 include $(LIMBO_JNI_ROOT)/android-setup-toolchain.mak
