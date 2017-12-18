@@ -1320,13 +1320,13 @@
                         </LinearLayout>
 
                         <LinearLayout
-                            android:id="@+id/globall"
+                            android:id="@+id/uiscreen"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal" >
 
                             <LinearLayout
-                                android:id="@+id/globallr"
+                                android:id="@+id/uiscreenl"
                                 android:layout_width="fill_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -1360,7 +1360,7 @@
                             </LinearLayout>
 
                             <LinearLayout
-                                android:id="@+id/globallr"
+                                android:id="@+id/uiscreenr"
                                 android:layout_width="fill_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
