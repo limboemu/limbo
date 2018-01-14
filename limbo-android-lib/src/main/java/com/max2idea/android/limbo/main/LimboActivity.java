@@ -52,7 +52,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.InputType;
-import android.text.Layout;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -74,7 +73,6 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -82,7 +80,6 @@ import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
-import com.max2idea.android.limbo.main.Config.DebugMode;
 import com.max2idea.android.limbo.utils.FavOpenHelper;
 import com.max2idea.android.limbo.utils.FileInstaller;
 import com.max2idea.android.limbo.utils.FileUtils;
@@ -635,7 +632,7 @@ public class LimboActivity extends AppCompatActivity {
 			// disable sound card with VNC
 			vmexecutor.enablevnc = 1;
 			vmexecutor.enablespice = 0;
-			vmexecutor.sound_card = null;
+			//vmexecutor.sound_card = null;
 			vmexecutor.vnc_allow_external = vnc_allow_external;
 			vmexecutor.vnc_passwd = vnc_passwd;
 		} else if (UI == Config.UI_SDL) {
@@ -848,7 +845,7 @@ public class LimboActivity extends AppCompatActivity {
 				} else {
 					mVNCAllowExternal.setEnabled(false);
 					if (mSnapshot.getSelectedItemPosition() == 0) {
-						if (Config.enable_sound_menu)
+						if (Config.enable_sound)
 							mSoundCardConfig.setEnabled(true);
 					}
 				}
@@ -1907,44 +1904,30 @@ public class LimboActivity extends AppCompatActivity {
 		}
 
 		// //Load SDL libraries
-		if (Config.enable_SDL_libs) {
+		if (Config.enable_SDL) {
 			System.loadLibrary("SDL2");
 			System.loadLibrary("SDL2_image");
 		}
-		if (Config.enable_sound_libs) {
+		if (Config.enable_sound) {
 			// System.loadLibrary("mikmod");
 			System.loadLibrary("SDL2_mixer");
 			// System.loadLibrary("SDL_ttf");
 
 		}
-		if (Config.enable_SDL_libs) {
+		if (Config.enable_SDL) {
 			System.loadLibrary("main");
 		}
 
 		System.loadLibrary("limbo");
 
-		// For debugging purposes
-		if (Config.debug) {
-			if (Config.debugMode == DebugMode.X86) {
-				try {
-					System.loadLibrary("qemu-system-i386");
-				} catch (Error ex) {
-					System.loadLibrary("qemu-system-x86_64");
-				}
-			} else if (Config.debugMode == DebugMode.X86_64)
-				System.loadLibrary("qemu-system-x86_64");
-			else if (Config.debugMode == DebugMode.ARM)
-				System.loadLibrary("qemu-system-arm");
-			else if (Config.debugMode == DebugMode.MIPS)
-				System.loadLibrary("qemu-system-mips");
-			else if (Config.debugMode == DebugMode.PPC)
-				System.loadLibrary("qemu-system-ppc");
-			else if (Config.debugMode == DebugMode.M68K)
-				System.loadLibrary("qemu-system-m68k");
-		}
+		loadQEMULib();
 	}
 
-	public void setupToolbar() {
+    protected void loadQEMULib() {
+
+    }
+
+    public void setupToolbar() {
 		Toolbar tb = (Toolbar) findViewById(R.id.toolbar);
 		setSupportActionBar(tb);
 
@@ -2032,7 +2015,7 @@ public class LimboActivity extends AppCompatActivity {
 				});
 			}
 		} catch (Exception ex) {
-            ex.printStackTrace();
+            //ex.printStackTrace();
 		} finally {
 			if (is != null) {
 				try {
@@ -2091,27 +2074,7 @@ public class LimboActivity extends AppCompatActivity {
 
 	}
 
-	public void viewLogFile(final Activity activity, String text) {
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Limbo Log");
-		EditText logView = new EditText(activity);
-		logView.setText(text);
-		logView.setTextSize(10);
-		logView.setPadding(20, 20, 20, 20);
-		alertDialog.setView(logView);
-
-		// alertDialog.setMessage(body);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				alertDialog.dismiss();
-			}
-		});
-
-		alertDialog.show();
-
-	}
 
 	private void populateAttributes() {
 
@@ -2202,7 +2165,7 @@ public class LimboActivity extends AppCompatActivity {
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
-        } else if (Config.enable_PPC) {
+        } else if (Config.enable_PPC || Config.enable_PPC64) {
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "PPC");
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
                     "Default");
@@ -2378,7 +2341,7 @@ public class LimboActivity extends AppCompatActivity {
 			this.mNetDevices.setEnabled(flag);
 		this.mVGAConfig.setEnabled(flag);
 
-		if (Config.enable_sound_menu)
+		if (Config.enable_sound)
 			if (currMachine != null && currMachine.ui != null && currMachine.ui.equals("SDL"))
 				this.mSoundCardConfig.setEnabled(flag);
 			else
@@ -2739,7 +2702,7 @@ public class LimboActivity extends AppCompatActivity {
 
 		this.mCPUNum = (Spinner) findViewById(R.id.cpunumval);
 		this.mUI = (Spinner) findViewById(R.id.uival);
-		if (!Config.enable_SDL_libs)
+		if (!Config.enable_SDL)
 			this.mUI.setEnabled(false);
 
 		this.mRamSize = (Spinner) findViewById(R.id.rammemval);
@@ -3212,7 +3175,7 @@ public class LimboActivity extends AppCompatActivity {
 				enableNonRemovableDeviceOptions(true);
 				enableRemovableDeviceOptions(true);
 
-				if (Config.enable_sound_menu) {
+				if (Config.enable_sound) {
 					if (currMachine.ui != null && currMachine.ui.equals("SDL")) {
 						mSoundCardConfig.setEnabled(true);
 					} else
@@ -3476,8 +3439,7 @@ public class LimboActivity extends AppCompatActivity {
 
 				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
-				final int takeFlags = data.getFlags()
-						& (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
 				getContentResolver().takePersistableUriPermission(uri, takeFlags);
 				setDriveAttr(filetype, file);
 
@@ -3818,7 +3780,7 @@ public class LimboActivity extends AppCompatActivity {
 		arrList.add("cirrus");
 		arrList.add("vmware");
 
-		if (Config.enable_SPICE_menu)
+		if (Config.enable_SPICE)
 			arrList.add("qxl");
 
 		// Add XEN
@@ -3915,7 +3877,7 @@ public class LimboActivity extends AppCompatActivity {
 			} else if (currMachine.arch.equals("ARM")) {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 				arrList.add("smc91c111");
-			} else if (currMachine.arch.equals("PPC")) {
+			} else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64") ) {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 			} else if (currMachine.arch.equals("SPARC")) {
 				arrList.add("lance");
@@ -4574,7 +4536,419 @@ public class LimboActivity extends AppCompatActivity {
 		arrPpc.add("Nitro");// (alias for 7410_v1.4)
 		arrPpc.add("e500");// (alias for e500v2_v22)
 
-		// m68k cpus
+        ArrayList<String> arrPpc64 = new ArrayList<String>();
+        arrPpc64.add("Default");
+        arrPpc64.add("601_v1");
+        arrPpc64.add("601_v0");
+        arrPpc64.add("601_v2");
+        arrPpc64.add("601");
+        arrPpc64.add("601v");
+        arrPpc64.add("603");
+        arrPpc64.add("mpc8240");
+        arrPpc64.add("vanilla");
+        arrPpc64.add("604");
+        arrPpc64.add("ppc32");
+        arrPpc64.add("ppc");
+        arrPpc64.add("default");
+        arrPpc64.add("602");
+        arrPpc64.add("603e_v1.1");
+        arrPpc64.add("603e_v1.2");
+        arrPpc64.add("603e_v1.3");
+        arrPpc64.add("603e_v1.4");
+        arrPpc64.add("603e_v2.2");
+        arrPpc64.add("603e_v3");
+        arrPpc64.add("603e_v4");
+        arrPpc64.add("603e_v4.1");
+        arrPpc64.add("603e");
+        arrPpc64.add("stretch");
+        arrPpc64.add("603p");
+        arrPpc64.add("603e7v");
+        arrPpc64.add("vaillant");
+        arrPpc64.add("603e7v1");
+        arrPpc64.add("6030000000");
+        arrPpc64.add("603e7v2");
+        arrPpc64.add("603e7t");
+        arrPpc64.add("603r");
+        arrPpc64.add("goldeneye");
+        arrPpc64.add("750_v1.0");
+        arrPpc64.add("740_v1.0");
+        arrPpc64.add("740e");
+        arrPpc64.add("750e");
+        arrPpc64.add("750_v2.0");
+        arrPpc64.add("740_v2.0");
+        arrPpc64.add("750_v2.1");
+        arrPpc64.add("740_v2.1");
+        arrPpc64.add("740_v2.2");
+        arrPpc64.add("750_v2.2");
+        arrPpc64.add("750_v3.0");
+        arrPpc64.add("740_v3.0");
+        arrPpc64.add("750_v3.1");
+        arrPpc64.add("750");
+        arrPpc64.add("typhoon");
+        arrPpc64.add("g3");
+        arrPpc64.add("740_v3.1");
+        arrPpc64.add("740");
+        arrPpc64.add("arthur");
+        arrPpc64.add("750cx_v1.0");
+        arrPpc64.add("750cx_v2.0");
+        arrPpc64.add("750cx_v2.1");
+        arrPpc64.add("750cx_v2.2");
+        arrPpc64.add("750cx");
+        arrPpc64.add("750cxe_v2.1");
+        arrPpc64.add("750cxe_v2.2");
+        arrPpc64.add("750cxe_v2.3");
+        arrPpc64.add("750cxe_v2.4");
+        arrPpc64.add("750cxe_v3.0");
+        arrPpc64.add("750cxe_v3.1");
+        arrPpc64.add("755_v1.0");
+        arrPpc64.add("745_v1.0");
+        arrPpc64.add("755_v1.1");
+        arrPpc64.add("745_v1.1");
+        arrPpc64.add("755_v2.0");
+        arrPpc64.add("745_v2.0");
+        arrPpc64.add("755_v2.1");
+        arrPpc64.add("745_v2.1");
+        arrPpc64.add("745_v2.2");
+        arrPpc64.add("755_v2.2");
+        arrPpc64.add("755_v2.3");
+        arrPpc64.add("745_v2.3");
+        arrPpc64.add("755_v2.4");
+        arrPpc64.add("745_v2.4");
+        arrPpc64.add("745_v2.5");
+        arrPpc64.add("755_v2.5");
+        arrPpc64.add("755_v2.6");
+        arrPpc64.add("745_v2.6");
+        arrPpc64.add("755_v2.7");
+        arrPpc64.add("745_v2.7");
+        arrPpc64.add("745_v2.8");
+        arrPpc64.add("745");
+        arrPpc64.add("755_v2.8");
+        arrPpc64.add("755");
+        arrPpc64.add("goldfinger");
+        arrPpc64.add("750cxe_v2.4b");
+        arrPpc64.add("750cxe_v3.1b");
+        arrPpc64.add("750cxe");
+        arrPpc64.add("750cxr");
+        arrPpc64.add("750cl_v1.0");
+        arrPpc64.add("750cl_v2.0");
+        arrPpc64.add("750cl");
+        arrPpc64.add("750l_v2.0");
+        arrPpc64.add("750l_v2.1");
+        arrPpc64.add("750l_v2.2");
+        arrPpc64.add("750l_v3.0");
+        arrPpc64.add("750l_v3.2");
+        arrPpc64.add("750l");
+        arrPpc64.add("lonestar");
+        arrPpc64.add("604e_v1.0");
+        arrPpc64.add("604e_v2.2");
+        arrPpc64.add("604e_v2.4");
+        arrPpc64.add("604e");
+        arrPpc64.add("sirocco");
+        arrPpc64.add("604r");
+        arrPpc64.add("mach5");
+        arrPpc64.add("7400_v1.0");
+        arrPpc64.add("7400_v1.1");
+        arrPpc64.add("7400_v2.0");
+        arrPpc64.add("7400_v2.1");
+        arrPpc64.add("7400_v2.2");
+        arrPpc64.add("7400_v2.6");
+        arrPpc64.add("7400_v2.7");
+        arrPpc64.add("7400_v2.8");
+        arrPpc64.add("7400_v2.9");
+        arrPpc64.add("7400");
+        arrPpc64.add("max");
+        arrPpc64.add("g4");
+        arrPpc64.add("403ga");
+        arrPpc64.add("403gb");
+        arrPpc64.add("403gc");
+        arrPpc64.add("403");
+        arrPpc64.add("403gcx");
+        arrPpc64.add("401a1");
+        arrPpc64.add("401b2");
+        arrPpc64.add("iop480");
+        arrPpc64.add("401c2");
+        arrPpc64.add("401d2");
+        arrPpc64.add("40100");
+        arrPpc64.add("401f2");
+        arrPpc64.add("401g2");
+        arrPpc64.add("401");
+        arrPpc64.add("g2");
+        arrPpc64.add("mpc603");
+        arrPpc64.add("g2hip3");
+        arrPpc64.add("mpc8250_hip3");
+        arrPpc64.add("mpc8255_hip3");
+        arrPpc64.add("mpc8260_hip3");
+        arrPpc64.add("mpc8264_hip3");
+        arrPpc64.add("mpc8265_hip3");
+        arrPpc64.add("mpc8266_hip3");
+        arrPpc64.add("mpc8349a");
+        arrPpc64.add("mpc8347ap");
+        arrPpc64.add("mpc8347eap");
+        arrPpc64.add("mpc8347p");
+        arrPpc64.add("mpc8349");
+        arrPpc64.add("mpc8343e");
+        arrPpc64.add("mpc8343ea");
+        arrPpc64.add("mpc8343");
+        arrPpc64.add("mpc8347et");
+        arrPpc64.add("mpc8347e");
+        arrPpc64.add("mpc8349e");
+        arrPpc64.add("mpc8347at");
+        arrPpc64.add("mpc8347a");
+        arrPpc64.add("mpc8349ea");
+        arrPpc64.add("mpc8347eat");
+        arrPpc64.add("mpc8347ea");
+        arrPpc64.add("mpc8343a");
+        arrPpc64.add("mpc8347t");
+        arrPpc64.add("mpc8347");
+        arrPpc64.add("mpc8347ep");
+        arrPpc64.add("e300c1");
+        arrPpc64.add("e300c2");
+        arrPpc64.add("e300c3");
+        arrPpc64.add("e300");
+        arrPpc64.add("mpc8379");
+        arrPpc64.add("mpc8378e");
+        arrPpc64.add("mpc8379e");
+        arrPpc64.add("mpc8378");
+        arrPpc64.add("mpc8377");
+        arrPpc64.add("e300c4");
+        arrPpc64.add("mpc8377e");
+        arrPpc64.add("750p");
+        arrPpc64.add("conan/doyle");
+        arrPpc64.add("740p");
+        arrPpc64.add("cobra");
+        arrPpc64.add("460exb");
+        arrPpc64.add("460ex");
+        arrPpc64.add("440epx");
+        arrPpc64.add("405d2");
+        arrPpc64.add("x2vp4");
+        arrPpc64.add("x2vp7");
+        arrPpc64.add("x2vp20");
+        arrPpc64.add("x2vp50");
+        arrPpc64.add("405gpa");
+        arrPpc64.add("405gpb");
+        arrPpc64.add("405cra");
+        arrPpc64.add("405gpc");
+        arrPpc64.add("405gpd");
+        arrPpc64.add("405gp");
+        arrPpc64.add("405crb");
+        arrPpc64.add("405crc");
+        arrPpc64.add("405cr");
+        arrPpc64.add("405gpe");
+        arrPpc64.add("stb03");
+        arrPpc64.add("npe4gs3");
+        arrPpc64.add("npe405h");
+        arrPpc64.add("npe405h2");
+        arrPpc64.add("405ez");
+        arrPpc64.add("npe405l");
+        arrPpc64.add("405d4");
+        arrPpc64.add("405");
+        arrPpc64.add("stb04");
+        arrPpc64.add("405lp");
+        arrPpc64.add("440epa");
+        arrPpc64.add("440epb");
+        arrPpc64.add("440ep");
+        arrPpc64.add("405gpr");
+        arrPpc64.add("405ep");
+        arrPpc64.add("stb25");
+        arrPpc64.add("750fx_v1.0");
+        arrPpc64.add("750fx_v2.0");
+        arrPpc64.add("750fx_v2.1");
+        arrPpc64.add("750fx_v2.2");
+        arrPpc64.add("750fl");
+        arrPpc64.add("750fx_v2.3");
+        arrPpc64.add("750fx");
+        arrPpc64.add("750gx_v1.0");
+        arrPpc64.add("750gx_v1.1");
+        arrPpc64.add("750gx_v1.2");
+        arrPpc64.add("750gx");
+        arrPpc64.add("750gl");
+        arrPpc64.add("440-xilinx");
+        arrPpc64.add("440-xilinx-w-dfpu");
+        arrPpc64.add("7450_v1.0");
+        arrPpc64.add("7450_v1.1");
+        arrPpc64.add("7450_v1.2");
+        arrPpc64.add("7450_v2.0");
+        arrPpc64.add("7450_v2.1");
+        arrPpc64.add("7450");
+        arrPpc64.add("vger");
+        arrPpc64.add("7441_v2.1");
+        arrPpc64.add("7441_v2.3");
+        arrPpc64.add("7441");
+        arrPpc64.add("7451_v2.3");
+        arrPpc64.add("7451");
+        arrPpc64.add("7451_v2.10");
+        arrPpc64.add("7441_v2.10");
+        arrPpc64.add("7455_v1.0");
+        arrPpc64.add("7445_v1.0");
+        arrPpc64.add("7445_v2.1");
+        arrPpc64.add("7455_v2.1");
+        arrPpc64.add("7445_v3.2");
+        arrPpc64.add("7445");
+        arrPpc64.add("7455_v3.2");
+        arrPpc64.add("7455");
+        arrPpc64.add("apollo6");
+        arrPpc64.add("7455_v3.3");
+        arrPpc64.add("7445_v3.3");
+        arrPpc64.add("7455_v3.4");
+        arrPpc64.add("7445_v3.4");
+        arrPpc64.add("7447_v1.0");
+        arrPpc64.add("7457_v1.0");
+        arrPpc64.add("7457_v1.1");
+        arrPpc64.add("7447_v1.1");
+        arrPpc64.add("7447");
+        arrPpc64.add("7457_v1.2");
+        arrPpc64.add("7457");
+        arrPpc64.add("apollo7");
+        arrPpc64.add("7457a_v1.0");
+        arrPpc64.add("apollo7pm");
+        arrPpc64.add("7447a_v1.0");
+        arrPpc64.add("7447a_v1.1");
+        arrPpc64.add("7457a_v1.1");
+        arrPpc64.add("7447a_v1.2");
+        arrPpc64.add("7447a");
+        arrPpc64.add("7457a_v1.2");
+        arrPpc64.add("7457a");
+        arrPpc64.add("e600");
+        arrPpc64.add("mpc8610");
+        arrPpc64.add("mpc8641d");
+        arrPpc64.add("mpc8641");
+        arrPpc64.add("7448_v1.0");
+        arrPpc64.add("7448_v1.1");
+        arrPpc64.add("7448_v2.0");
+        arrPpc64.add("7448_v2.1");
+        arrPpc64.add("7448");
+        arrPpc64.add("7410_v1.0");
+        arrPpc64.add("7410_v1.1");
+        arrPpc64.add("7410_v1.2");
+        arrPpc64.add("7410_v1.3");
+        arrPpc64.add("7410_v1.4");
+        arrPpc64.add("7410");
+        arrPpc64.add("nitro");
+        arrPpc64.add("e500_v10");
+        arrPpc64.add("mpc8540_v10");
+        arrPpc64.add("mpc8540_v21");
+        arrPpc64.add("mpc8540");
+        arrPpc64.add("e500_v20");
+        arrPpc64.add("e500v1");
+        arrPpc64.add("mpc8541_v10");
+        arrPpc64.add("mpc8541e_v11");
+        arrPpc64.add("mpc8541e");
+        arrPpc64.add("mpc8540_v20");
+        arrPpc64.add("mpc8541e_v10");
+        arrPpc64.add("mpc8541_v11");
+        arrPpc64.add("mpc8541");
+        arrPpc64.add("mpc8555_v10");
+        arrPpc64.add("mpc8548_v10");
+        arrPpc64.add("mpc8543_v10");
+        arrPpc64.add("mpc8543e_v10");
+        arrPpc64.add("mpc8548e_v10");
+        arrPpc64.add("mpc8555e_v10");
+        arrPpc64.add("e500v2_v10");
+        arrPpc64.add("mpc8560_v10");
+        arrPpc64.add("mpc8543e_v11");
+        arrPpc64.add("mpc8548e_v11");
+        arrPpc64.add("mpc8555e_v11");
+        arrPpc64.add("mpc8555e");
+        arrPpc64.add("mpc8555_v11");
+        arrPpc64.add("mpc8555");
+        arrPpc64.add("mpc8548_v11");
+        arrPpc64.add("mpc8543_v11");
+        arrPpc64.add("mpc8547e_v20");
+        arrPpc64.add("e500v2_v20");
+        arrPpc64.add("mpc8560_v20");
+        arrPpc64.add("mpc8545e_v20");
+        arrPpc64.add("mpc8545_v20");
+        arrPpc64.add("mpc8548_v20");
+        arrPpc64.add("mpc8543_v20");
+        arrPpc64.add("mpc8543e_v20");
+        arrPpc64.add("mpc8548e_v20");
+        arrPpc64.add("mpc8545_v21");
+        arrPpc64.add("mpc8545");
+        arrPpc64.add("mpc8548_v21");
+        arrPpc64.add("mpc8548");
+        arrPpc64.add("mpc8543_v21");
+        arrPpc64.add("mpc8543");
+        arrPpc64.add("mpc8544_v10");
+        arrPpc64.add("mpc8543e_v21");
+        arrPpc64.add("mpc8543e");
+        arrPpc64.add("mpc8544e_v10");
+        arrPpc64.add("mpc8533_v10");
+        arrPpc64.add("mpc8548e_v21");
+        arrPpc64.add("mpc8548e");
+        arrPpc64.add("mpc8547e_v21");
+        arrPpc64.add("mpc8547e");
+        arrPpc64.add("mpc8560_v21");
+        arrPpc64.add("mpc8560");
+        arrPpc64.add("e500v2_v21");
+        arrPpc64.add("mpc8533e_v10");
+        arrPpc64.add("mpc8545e_v21");
+        arrPpc64.add("mpc8545e");
+        arrPpc64.add("mpc8533_v11");
+        arrPpc64.add("mpc8533");
+        arrPpc64.add("mpc8567e");
+        arrPpc64.add("e500v2_v22");
+        arrPpc64.add("e500");
+        arrPpc64.add("e500v2");
+        arrPpc64.add("mpc8533e_v11");
+        arrPpc64.add("mpc8533e");
+        arrPpc64.add("mpc8568e");
+        arrPpc64.add("mpc8568");
+        arrPpc64.add("mpc8567");
+        arrPpc64.add("mpc8544e_v11");
+        arrPpc64.add("mpc8544e");
+        arrPpc64.add("mpc8544_v11");
+        arrPpc64.add("mpc8544");
+        arrPpc64.add("e500v2_v30");
+        arrPpc64.add("mpc8572e");
+        arrPpc64.add("mpc8572");
+        arrPpc64.add("e500mc");
+        arrPpc64.add("g2h4");
+        arrPpc64.add("g2hip4");
+        arrPpc64.add("mpc8241");
+        arrPpc64.add("mpc8245");
+        arrPpc64.add("mpc8250");
+        arrPpc64.add("mpc8250_hip4");
+        arrPpc64.add("mpc8255");
+        arrPpc64.add("mpc8255_hip4");
+        arrPpc64.add("mpc8260");
+        arrPpc64.add("mpc8260_hip4");
+        arrPpc64.add("mpc8264");
+        arrPpc64.add("mpc8264_hip4");
+        arrPpc64.add("mpc8265");
+        arrPpc64.add("mpc8265_hip4");
+        arrPpc64.add("mpc8266");
+        arrPpc64.add("mpc8266_hip4");
+        arrPpc64.add("g2le");
+        arrPpc64.add("g2gp");
+        arrPpc64.add("g2legp");
+        arrPpc64.add("mpc5200_v10");
+        arrPpc64.add("mpc5200_v12");
+        arrPpc64.add("mpc52xx");
+        arrPpc64.add("mpc5200");
+        arrPpc64.add("g2legp1");
+        arrPpc64.add("mpc5200_v11");
+        arrPpc64.add("mpc5200b_v21");
+        arrPpc64.add("mpc5200b");
+        arrPpc64.add("mpc5200b_v20");
+        arrPpc64.add("g2legp3");
+        arrPpc64.add("mpc82xx");
+        arrPpc64.add("powerquicc-ii");
+        arrPpc64.add("mpc8247");
+        arrPpc64.add("mpc8248");
+        arrPpc64.add("mpc8270");
+        arrPpc64.add("mpc8271");
+        arrPpc64.add("mpc8272");
+        arrPpc64.add("mpc8275");
+        arrPpc64.add("mpc8280");
+        arrPpc64.add("e200z5");
+        arrPpc64.add("e200z6");
+        arrPpc64.add("e200");
+        arrPpc64.add("g2ls");
+        arrPpc64.add("g2lels");
+
+
+
+        // m68k cpus
 		ArrayList<String> arrM68k = new ArrayList<String>();
 		arrM68k.add("Default");
 		arrM68k.add("cfv4e");
@@ -4614,6 +4988,8 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.addAll(arrMips);
 			} else if (currMachine.arch.equals("PPC")) {
 				arrList.addAll(arrPpc);
+            } else if (currMachine.arch.equals("PPC64")) {
+                arrList.addAll(arrPpc64);
 			} else if (currMachine.arch.equals("m68k")) {
 				arrList.addAll(arrM68k);
 			} else if (currMachine.arch.equals("SPARC")) {
@@ -4622,6 +4998,8 @@ public class LimboActivity extends AppCompatActivity {
 		} else {
 			arrList.addAll(arrX86);
 		}
+
+        arrList.add("host");
 
 		if (cpuAdapter == null) {
 			cpuAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
@@ -4663,6 +5041,9 @@ public class LimboActivity extends AppCompatActivity {
 
 		if (Config.enable_PPC)
 			arrList.add("PPC");
+
+        if (Config.enable_PPC)
+            arrList.add("PPC64");
 
 		if (Config.enable_m68k)
 			arrList.add("m68k");
@@ -4836,6 +5217,35 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.add("ref405ep");
 				arrList.add("taihu");
 				arrList.add("virtex-ml507");
+            } else if (currMachine.arch.equals("PPC64")) {
+                arrList.add("Default");
+                arrList.add("40p");
+                arrList.add("bamboo");
+                arrList.add("g3beige");
+                arrList.add("mac99");
+                arrList.add("mpc8544ds");
+                arrList.add("none");
+                arrList.add("powernv");
+                arrList.add("ppce500");
+                arrList.add("prep");
+                arrList.add("pseries-2.1");
+                arrList.add("pseries-2.10");
+                arrList.add("pseries");
+                arrList.add("pseries-2.11");
+                arrList.add("pseries-2.2");
+                arrList.add("pseries-2.3");
+                arrList.add("pseries-2.4");
+                arrList.add("pseries-2.5");
+                arrList.add("pseries-2.6");
+                arrList.add("pseries-2.7");
+                arrList.add("pseries-2.8");
+                arrList.add("pseries-2.9");
+                arrList.add("ref405ep");
+                arrList.add("taihu");
+                arrList.add("virtex-ml507");
+
+
+
 
 			} else if (currMachine.arch.equals("m68k")) {
 				arrList.add("Default");
@@ -4890,9 +5300,9 @@ public class LimboActivity extends AppCompatActivity {
 		String[] arraySpinner = { "VNC" };
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		if (Config.enable_SDL_menu)
+		if (Config.enable_SDL)
 			arrList.add("SDL");
-		if (Config.enable_SPICE_menu)
+		if (Config.enable_SPICE)
 			arrList.add("SPICE");
 
 		uiAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
@@ -5314,6 +5724,10 @@ public class LimboActivity extends AppCompatActivity {
 		return true;
 	}
 
+	public void onViewLog() {
+        FileUtils.viewLimboLog(this);
+    }
+
 	private void goToURL(String url) {
 
 		Intent i = new Intent(Intent.ACTION_VIEW);
@@ -5322,21 +5736,7 @@ public class LimboActivity extends AppCompatActivity {
 
 	}
 
-	private void onViewLog() {
 
-		File log = new File(Config.logFilePath);
-		if (log.exists()) {
-			try {
-				String contents = FileUtils.getFileContents(Config.logFilePath);
-				this.viewLogFile(activity, contents);
-			} catch (Exception e) {
-				UIUtils.toastLong(this, "Could not open Log file");
-			}
-
-		} else {
-			UIUtils.toastLong(this, "Log file not found");
-		}
-	}
 
 	public void stopVM(boolean exit) {
 		if (vmexecutor == null && !exit) {

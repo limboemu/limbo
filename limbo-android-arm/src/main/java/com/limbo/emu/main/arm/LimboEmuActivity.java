@@ -1,9 +1,9 @@
 package com.limbo.emu.main.arm;
 
+import android.os.Bundle;
+
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
-
-import android.os.Bundle;
 
 public class LimboEmuActivity extends LimboActivity {
 
@@ -16,4 +16,8 @@ public class LimboEmuActivity extends LimboActivity {
 		
 		super.onCreate(bundle);
 	}
+
+	protected void loadQEMULib(){
+        System.loadLibrary("qemu-system-arm");
+    }
 }

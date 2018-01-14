@@ -19,3 +19,4 @@
 #Don't check in just provide patches
 /qemu
 !/qemu/LIMBO.README
+qemu-2.11.0

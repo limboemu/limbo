@@ -18,15 +18,6 @@
  */
 package com.max2idea.android.limbo.main;
 
-import java.io.File;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.utils.DrivesDialogBox;
-import com.max2idea.android.limbo.utils.QmpClient;
-import com.max2idea.android.limbo.utils.UIUtils;
-
 import android.androidVNC.AbstractScaling;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -37,9 +28,11 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.ActionBar;
@@ -47,6 +40,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -54,6 +48,16 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.utils.DrivesDialogBox;
+import com.max2idea.android.limbo.utils.FileUtils;
+import com.max2idea.android.limbo.utils.QmpClient;
+import com.max2idea.android.limbo.utils.UIUtils;
+
+import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 //import com.max2idea.android.limbo.main.R;
 
@@ -138,6 +142,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		}
 		vnc_canvas.setLayoutParams(vnc_params);
 		zoom.setLayoutParams(zoom_params);
+
+        this.supportInvalidateOptionsMenu();
 	}
 
 	public void stopTimeListener() {
@@ -284,10 +290,11 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				String file = uri.toString();
 				
 				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-				
-				final int takeFlags = data.getFlags()
-						& (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-				getContentResolver().takePersistableUriPermission(uri, takeFlags);
+
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                }
 
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
@@ -340,21 +347,30 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			return onMouse();
 		} else if (item.getItemId() == R.id.itemHelp) {
 			this.onMenuHelp();
-		}
-		// this.vncCanvas.requestFocus();
+		} else if (item.getItemId() == R.id.itemHideToolbar) {
+            this.onHideToolbar();
+        } else if (item.getItemId() == R.id.itemViewLog) {
+            this.onViewLog();
+        }
+        // this.vncCanvas.requestFocus();
 
-		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getSupportActionBar();
-			if (bar != null) {
-				if (bar.isShowing()) {
-					bar.hide();
-				} else
-					bar.show();
-			}
-		}
+//		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+//			ActionBar bar = this.getSupportActionBar();
+//			if (bar != null) {
+//				if (bar.isShowing()) {
+//					bar.hide();
+//				} else
+//					bar.show();
+//			}
+//		}
+        this.supportInvalidateOptionsMenu();
 
 		return true;
 	}
+
+    public void onViewLog() {
+        FileUtils.viewLimboLog(this);
+    }
 
 	public void setContentView() {
 		
@@ -404,7 +420,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			connection.setInputMode(inputHandler.getName());
 			connection.setFollowMouse(true);
 			mouseOn = true;
-			Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_LONG).show();
 		} else {
 			// XXX: Limbo
 			// we disable panning for now
@@ -414,8 +429,49 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			// mouseOn = false;
 		}
 
+        Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_SHORT).show();
+		//Start calibration
+        calibration();
+
 		return true;
 	}
+
+	//XXX: We need to adjust the mouse inside the Guest
+    // This is a known issue with QEMU under VNC mode
+    // this only fixes things temporarily but it's better
+    //  than nothing
+    public void calibration() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+            try {
+
+                for(int i = 0; i< 4*10; i++) {
+                    int x = 0+i*200;
+                    int y = 0+i*200;
+                    if(i%4==1){
+                        x=vncCanvas.rfb.framebufferWidth;
+                    }else if (i%4==2) {
+                        y=vncCanvas.rfb.framebufferHeight;
+                    }else if (i%4==3) {
+                        x=0;
+                    }
+
+                    MotionEvent event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                            SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+                            x,y, 0);
+                    Thread.sleep(100);
+                    vncCanvas.processPointerEvent(event, false, false);
+
+
+                }
+
+            }catch(Exception ex) {
+
+            }
+            }
+        });
+        t.start();
+    }
 
 	@Override
 	public boolean onPrepareOptionsMenu(Menu menu) {
@@ -437,20 +493,28 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
 		}
 
-		// Remove Scaling for now
-		// menu.removeItem(menu.findItem(R.id.itemScaling).getItemId());
-
 		if (this.monitorMode) {
 			menu.findItem(R.id.itemMonitor).setTitle("VM Display");
+            menu.findItem(R.id.itemMonitor).setIcon(R.drawable.ui);
 
 		} else {
 			menu.findItem(R.id.itemMonitor).setTitle("QEMU Monitor");
+            menu.findItem(R.id.itemMonitor).setIcon(R.drawable.terminal);
 
 		}
+
+		//XXX: We don't need these for now
 		menu.removeItem(menu.findItem(R.id.itemEnterText).getItemId());
 		menu.removeItem(menu.findItem(R.id.itemSendKeyAgain).getItemId());
 		menu.removeItem(menu.findItem(R.id.itemSpecialKeys).getItemId());
 		menu.removeItem(menu.findItem(R.id.itemInputMode).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemScaling).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemCtrlAltDel).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemCtrlC).getItemId());
+
+        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+            menu.removeItem(menu.findItem(R.id.itemHideToolbar).getItemId());
+        }
 
 		// Menu inputMenu = menu.findItem(R.id.itemInputMode).getSubMenu();
 		//
@@ -471,13 +535,21 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		//
 		// }
 
-		for (int i = 0; i < menu.size() && i < 2; i++) {
-			MenuItemCompat.setShowAsAction(menu.getItem(i), MenuItemCompat.SHOW_AS_ACTION_IF_ROOM);
+        int maxMenuItemsShown = 4;
+        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
+        if(UIUtils.isLandscapeOrientation(this)) {
+            maxMenuItemsShown = 8;
+            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
+        }
+		for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
+			MenuItemCompat.setShowAsAction(menu.getItem(i), actionShow);
 		}
 
 		return true;
 
 	}
+
+
 
 	public void onRestartVM() {
 		Thread t = new Thread(new Runnable() {
@@ -877,6 +949,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			super.onBackPressed();
 
 	}
+
+	public void onHideToolbar(){
+			ActionBar bar = this.getSupportActionBar();
+			if (bar != null) {
+					bar.hide();
+			}
+    }
 
 	@Override
 	public void onConnected() {

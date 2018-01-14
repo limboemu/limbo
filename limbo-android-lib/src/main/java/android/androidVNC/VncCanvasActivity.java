@@ -19,14 +19,6 @@
 //
 package android.androidVNC;
 
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import com.antlersoft.android.bc.BCFactory;
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.main.LimboActivity;
-
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -55,6 +47,16 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 import android.widget.ZoomControls;
+
+import com.antlersoft.android.bc.BCFactory;
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.LimboActivity;
+
+import org.libsdl.app.SDLActivity;
+
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class VncCanvasActivity extends AppCompatActivity {
 
@@ -599,37 +601,47 @@ public class VncCanvasActivity extends AppCompatActivity {
 			return true;
 		}
 
-		private boolean doubleClick(final MotionEvent e) {
+		private Object doubleClickLock = new Object();
+
+		private boolean doubleClick(final MotionEvent e1) {
 			Thread t = new Thread(new Runnable() {
 				public void run() {
-					remoteMouseStayPut(e);
-					// One
-					// Log.v("Double Click", "One");
-					vncCanvas.processPointerEvent(e, true, false);
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException ex) {
-						Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
-					}
-					e.setAction(MotionEvent.ACTION_UP);
-					vncCanvas.processPointerEvent(e, false, false);
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException ex) {
-						Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
-					}
-					// Two
-					// Log.v("Double Click", "Two");
-					e.setAction(MotionEvent.ACTION_DOWN);
-					vncCanvas.processPointerEvent(e, true, false);
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException ex) {
-						Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
-					}
-					e.setAction(MotionEvent.ACTION_UP);
-					vncCanvas.processPointerEvent(e, false, false);
+                    synchronized (doubleClickLock) {
 
+                        //XXX: We make a copy of the event because we have some
+                        //  race condition here updating mouseX, mouseY
+                        MotionEvent event = MotionEvent.obtain(e1.getDownTime(),
+                        e1.getEventTime(), e1.getAction(),
+                        e1.getX(), e1.getY(), e1.getMetaState());
+
+                        remoteMouseStayPut(event);
+                        // One
+                        // Log.v("Double Click", "One");
+                        vncCanvas.processPointerEvent(event, true, false);
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        event.setAction(MotionEvent.ACTION_UP);
+                        vncCanvas.processPointerEvent(event, false, false);
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        // Two
+                        // Log.v("Double Click", "Two");
+                        event.setAction(MotionEvent.ACTION_DOWN);
+                        vncCanvas.processPointerEvent(event, true, false);
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        event.setAction(MotionEvent.ACTION_UP);
+                        vncCanvas.processPointerEvent(event, false, false);
+                    }
 				}
 			});
 			// t.setPriority(Thread.MAX_PRIORITY);

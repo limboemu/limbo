@@ -83,11 +83,9 @@ endif
 ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) $(USE_PLATFORM21_FLAGS) 
 
 # Needed for some c++ source code for ARM disas
-STL_INCLUDE := -I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/include \
--I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(APP_ABI_DIR)/include \
--I$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/include/backward
-
-STL_LIB := $(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(APP_ABI_DIR)/libgnustl_static.a
+#stl port
+STL_INCLUDE := -I$(NDK_ROOT)/sources/cxx-stl/stlport/stlport -D__STDC_CONSTANT_MACROS
+STL_LIB :=$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI)/libstlport_shared.so
 
 # logging macros
 ARCH_CFLAGS := $(ARCH_CFLAGS)

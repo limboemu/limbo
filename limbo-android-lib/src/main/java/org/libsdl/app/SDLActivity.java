@@ -484,7 +484,7 @@ public class SDLActivity extends AppCompatActivity {
 	// Handler for the messages
 	protected Handler commandHandler = new SDLCommandHandler();
 
-	protected static int maxVolume;
+	protected int maxVolume;
 
 	// Send a message from the SDLMain thread
 	protected boolean sendCommand(int command, Object data) {
@@ -694,24 +694,24 @@ public class SDLActivity extends AppCompatActivity {
 		return 0;
 	}
 
-	public static AudioManager am;
+	public AudioManager am;
 
-	protected static void setupVolume() {
+	protected void setupVolume() {
 		if (am == null) {
 			am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
 			maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
 		}
 	}
 
-	public static void setVolume(int volume) {
-
-		am.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
+	public void setVolume(int volume) {
+        if(am!=null)
+		    am.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
 	}
 
-	protected static int getCurrentVolume() {
-
-		AudioManager am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
-		int volumeTmp = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+	protected int getCurrentVolume() {
+		int volumeTmp = 0;
+        if(am!=null)
+            volumeTmp = am.getStreamVolume(AudioManager.STREAM_MUSIC);
 		return volumeTmp;
 	}
 

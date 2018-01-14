@@ -28,6 +28,7 @@
 package android.androidVNC;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.zip.Inflater;
 
 import com.antlersoft.android.bc.BCFactory;
@@ -867,41 +868,42 @@ public class VncCanvas extends ImageView {
 	}
 
 	boolean processPointerEvent(int x, int y, int action, int modifiers, boolean mouseIsDown, boolean useRightButton) {
-		if (rfb != null && rfb.inNormalProtocol) {
-			if (action == MotionEvent.ACTION_DOWN || (mouseIsDown && action == MotionEvent.ACTION_MOVE)) {
-				if (useRightButton) {
-					// Log.v("Limbo", "Right Button Down");
-					pointerMask = MOUSE_BUTTON_RIGHT;
-				} else {
-					// Log.v("Limbo", "Left Button Down");
-					pointerMask = MOUSE_BUTTON_LEFT;
-				}
-			} else if (action == MotionEvent.ACTION_UP) {
-				// Log.v("Limbo", "Button Up");
-				pointerMask = 0;
-			}
-			bitmapData.invalidateMousePosition();
-			mouseX = x;
-			mouseY = y;
-			if (mouseX < 0) {
-				mouseX = 0;
-			} else if (mouseX >= rfb.framebufferWidth) {
-				mouseX = rfb.framebufferWidth - 1;
-			}
-			if (mouseY < 0) {
-				mouseY = 0;
-			} else if (mouseY >= rfb.framebufferHeight) {
-				mouseY = rfb.framebufferHeight - 1;
-			}
-			bitmapData.invalidateMousePosition();
-			try {
-				rfb.writePointerEvent(mouseX, mouseY, modifiers, pointerMask);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			panToMouse();
-			return true;
-		}
+            if (rfb != null && rfb.inNormalProtocol) {
+                if (action == MotionEvent.ACTION_DOWN || (mouseIsDown && action == MotionEvent.ACTION_MOVE)) {
+                    if (useRightButton) {
+                        // Log.v("Limbo", "Right Button Down");
+                        pointerMask = MOUSE_BUTTON_RIGHT;
+                    } else {
+                        Log.v("Limbo", "Left Button Down: x=" + x + ", y=" + y);
+                        pointerMask = MOUSE_BUTTON_LEFT;
+                    }
+                } else if (action == MotionEvent.ACTION_UP) {
+                    // Log.v("Limbo", "Button Up");
+                    pointerMask = 0;
+                }
+                bitmapData.invalidateMousePosition();
+                mouseX = x;
+                mouseY = y;
+                if (mouseX < 0) {
+                    mouseX = 0;
+                } else if (mouseX >= rfb.framebufferWidth) {
+                    mouseX = rfb.framebufferWidth - 1;
+                }
+                if (mouseY < 0) {
+                    mouseY = 0;
+                } else if (mouseY >= rfb.framebufferHeight) {
+                    mouseY = rfb.framebufferHeight - 1;
+                }
+                bitmapData.invalidateMousePosition();
+                try {
+                    rfb.writePointerEvent(mouseX, mouseY, modifiers, pointerMask);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                panToMouse();
+                return true;
+            }
+
 		return false;
 	}
 

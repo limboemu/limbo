@@ -1,18 +1,20 @@
 package com.max2idea.android.limbo.utils;
 
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.main.LimboSettingsManager;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.graphics.Point;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.view.Display;
 import android.view.Gravity;
 import android.widget.Toast;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
 
 public class UIUtils {
 
@@ -88,4 +90,14 @@ public class UIUtils {
 		}
 	}
 
+
+    public static boolean isLandscapeOrientation(Activity activity)
+    {
+        Display display = activity.getWindowManager().getDefaultDisplay();
+        Point screenSize = new Point();
+        display.getSize(screenSize);
+        if(screenSize.x < screenSize.y)
+            return false;
+        return true;
+    }
 }

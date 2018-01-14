@@ -38,14 +38,14 @@ https://github.com/limboemu/limbo
     
     c. Get QEMU (ignore any errors while extracting)
     cd ./limbo-android-lib/src/main/jni
-	wget http://download.qemu-project.org/qemu-2.10.0.tar.xz -P /cygdrive/c/temp/
-    tar -xJf /cygdrive/c/temp/qemu-2.10.0.tar.xz
-    mv qemu-2.10.0 qemu
+	wget http://download.qemu-project.org/qemu-2.11.0.tar.xz -P /cygdrive/c/temp/
+    tar -xJf /cygdrive/c/temp/qemu-2.11.0.tar.xz
+    mv qemu-2.11.0 qemu
 
 	d. Apply QEMU patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/qemu/
-	dos2unix ../qemu-patches/qemu-2.10.0.patch
-	patch -p1 < ../qemu-patches/qemu-2.10.0.patch
+	dos2unix ../qemu-patches/qemu.patch
+	patch -p1 < ../qemu-patches/qemu.patch
 
 	Note: Use only if you need to create your own patch for any version
 	diff -ru --no-dereference /cygdrive/c/temp/qemu-x.x.x . | grep -v '^Only in' > ../qemu-patches/qemu-x.x.x.patch
@@ -92,7 +92,7 @@ https://github.com/limboemu/limbo
     	
     c. Build the static and shared libraries under ../limbo-android-lib/src/main/jni:
         i. Update android-config.mak:
-            include android-generic-armv7a-vfpv3d16.mak for arm phones
+            include android-generic-armv7a.mak for arm phones
             Or android-ndkr8-x86.mak for x86 phones (zenfone)
         ii. > make clean
         iii. > make config
@@ -112,8 +112,8 @@ https://github.com/limboemu/limbo
    			    debug = true;
    			    debugMode = DebugMode.X86_64; //or any other arch
    		iii. Modify android-config.mak and point to a configuration
-   			with no optimization if you want:
-   			ie android-generic-armv7a-vfpv3d16-noopt.mak
+   			with no optimization:
+   			USE_OPTIMIZATION ?= false
    		iv. Sync the libraries and gdbserver/gdb.setup
    		    > make install-x86
    		v. From Android studio Build> Make Project and Run > Debug

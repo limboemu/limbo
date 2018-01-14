@@ -4,9 +4,6 @@ include $(CLEAR_VARS)
 
 LOCAL_ARM_MODE:= $(APP_ARM_MODE)
 
-#include $(LIMBO_JNI_ROOT)/android-config.mak
-
-  
 LOCAL_SRC_FILES := \
 	limbo_compat_memmove.c \
 	limbo_compat_fd.c \
@@ -22,7 +19,6 @@ LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/../SDL/src \
 	$(LOCAL_PATH)/../SDL/include
 
-#LIMBO
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
 LOCAL_CFLAGS += -include $(LOGUTILS)
 LOCAL_ARM_MODE := $(ARM_MODE)

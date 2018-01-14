@@ -725,7 +725,7 @@ public class RfbProto {
   //
 
   String desktopName;
-  int framebufferWidth, framebufferHeight;
+  public int framebufferWidth, framebufferHeight;
   int bitsPerPixel, depth;
   boolean bigEndian, trueColour;
   int redMax, greenMax, blueMax, redShift, greenShift, blueShift;

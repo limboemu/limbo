@@ -170,6 +170,201 @@
                     </LinearLayout>
                 </RelativeLayout>
 
+
+                <LinearLayout
+                    android:id="@+id/userInterfaceSectionl"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/border"
+                    android:gravity="center|center_vertical"
+                    android:orientation="vertical"
+                    android:padding="15dip" >
+
+                    <TextView
+                        android:id="@+id/userInterfaceSectionStr"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center|center_vertical"
+                        android:gravity="center|center_vertical"
+                        android:padding="5dip"
+                        android:text="User Interface"
+                        android:textSize="15dip" />
+
+                    <LinearLayout
+                        android:id="@+id/userInterfaceDetails"
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:orientation="vertical" >
+
+                        <LinearLayout
+                            android:id="@+id/uil"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_vertical"
+                            android:orientation="horizontal" >
+
+                            <ImageView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:paddingRight="5dip"
+                                android:src="@drawable/ui" />
+
+                            <TextView
+                                android:id="@+id/uiStr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:text="User Interface: "
+                                android:textSize="15dip" />
+
+                            <Spinner
+                                android:id="@+id/uival"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:gravity="right"
+                                android:singleLine="true"
+                                android:text=""
+                                android:textSize="15dip" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/orientation"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="right|center_vertical"
+                            android:gravity="right|center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="10dip" >
+
+                            <TextView
+                                android:id="@+id/orientationstr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="right|center_vertical"
+                                android:gravity="right|center_vertical"
+                                android:text="Orientation"
+                                android:textSize="15dip" />
+
+                            <Spinner
+                                android:id="@+id/orientationval"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:gravity="right"
+                                android:singleLine="true"
+                                android:text=""
+                                android:textSize="15dip" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/keyboard"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="right|center_vertical"
+                            android:gravity="right|center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="10dip" >
+
+                            <TextView
+                                android:id="@+id/keyboardstr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="right|center_vertical"
+                                android:gravity="right|center_vertical"
+                                android:text="Keyboard Layout"
+                                android:textSize="15dip" />
+
+                            <Spinner
+                                android:id="@+id/keyboardval"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:gravity="right"
+                                android:singleLine="true"
+                                android:text=""
+                                android:textSize="15dip" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/uiscreen"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" >
+
+                            <LinearLayout
+                                android:id="@+id/uiscreenl"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical" >
+
+                                <LinearLayout
+                                    android:id="@+id/showtoolbarl"
+                                    android:layout_width="fill_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="right|center_vertical"
+                                    android:gravity="right|center_vertical"
+                                    android:orientation="horizontal"
+                                    android:padding="5dip" >
+
+                                    <TextView
+                                        android:id="@+id/showtoolbarStr"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical"
+                                        android:text="Always Toolbar"
+                                        android:textSize="15dip" />
+
+                                    <CheckBox
+                                        android:id="@+id/showtoolbarval"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/uiscreenr"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical" >
+
+                                <LinearLayout
+                                    android:id="@+id/fullscreenl"
+                                    android:layout_width="fill_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="right|center_vertical"
+                                    android:gravity="right|center_vertical"
+                                    android:orientation="horizontal"
+                                    android:padding="5dip" >
+
+                                    <TextView
+                                        android:id="@+id/fullscreenstr"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical"
+                                        android:text="Fullscreen"
+                                        android:textSize="15dip" />
+
+                                    <CheckBox
+                                        android:id="@+id/fullscreenval"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
                 <LinearLayout
                     android:id="@+id/cpusectionl"
                     android:layout_width="fill_parent"
@@ -1202,199 +1397,6 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/userInterfaceSectionl"
-                    android:layout_width="fill_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/border"
-                    android:gravity="center|center_vertical"
-                    android:orientation="vertical"
-                    android:padding="15dip" >
-
-                    <TextView
-                        android:id="@+id/userInterfaceSectionStr"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center|center_vertical"
-                        android:gravity="center|center_vertical"
-                        android:padding="5dip"
-                        android:text="User Interface"
-                        android:textSize="15dip" />
-
-                    <LinearLayout
-                        android:id="@+id/userInterfaceDetails"
-                        android:layout_width="fill_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical"
-                        android:orientation="vertical" >
-
-                        <LinearLayout
-                            android:id="@+id/uil"
-                            android:layout_width="fill_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center_vertical"
-                            android:orientation="horizontal" >
-
-                            <ImageView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:paddingRight="5dip"
-                                android:src="@drawable/ui" />
-
-                            <TextView
-                                android:id="@+id/uiStr"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:text="User Interface: "
-                                android:textSize="15dip" />
-
-                            <Spinner
-                                android:id="@+id/uival"
-                                android:layout_width="fill_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:gravity="right"
-                                android:singleLine="true"
-                                android:text=""
-                                android:textSize="15dip" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/orientation"
-                            android:layout_width="fill_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="right|center_vertical"
-                            android:gravity="right|center_vertical"
-                            android:orientation="horizontal"
-                            android:padding="10dip" >
-
-                            <TextView
-                                android:id="@+id/orientationstr"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="right|center_vertical"
-                                android:gravity="right|center_vertical"
-                                android:text="Orientation"
-                                android:textSize="15dip" />
-
-                            <Spinner
-                                android:id="@+id/orientationval"
-                                android:layout_width="fill_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:gravity="right"
-                                android:singleLine="true"
-                                android:text=""
-                                android:textSize="15dip" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/keyboard"
-                            android:layout_width="fill_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="right|center_vertical"
-                            android:gravity="right|center_vertical"
-                            android:orientation="horizontal"
-                            android:padding="10dip" >
-
-                            <TextView
-                                android:id="@+id/keyboardstr"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="right|center_vertical"
-                                android:gravity="right|center_vertical"
-                                android:text="Keyboard Layout"
-                                android:textSize="15dip" />
-
-                            <Spinner
-                                android:id="@+id/keyboardval"
-                                android:layout_width="fill_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:gravity="right"
-                                android:singleLine="true"
-                                android:text=""
-                                android:textSize="15dip" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/uiscreen"
-                            android:layout_width="fill_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal" >
-
-                            <LinearLayout
-                                android:id="@+id/uiscreenl"
-                                android:layout_width="fill_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical" >
-
-                                <LinearLayout
-                                    android:id="@+id/showtoolbarl"
-                                    android:layout_width="fill_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_gravity="right|center_vertical"
-                                    android:gravity="right|center_vertical"
-                                    android:orientation="horizontal"
-                                    android:padding="5dip" >
-
-                                    <TextView
-                                        android:id="@+id/showtoolbarStr"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_gravity="right|center_vertical"
-                                        android:gravity="right|center_vertical"
-                                        android:text="Show Toolbar"
-                                        android:textSize="15dip" />
-
-                                    <CheckBox
-                                        android:id="@+id/showtoolbarval"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_gravity="right|center_vertical"
-                                        android:gravity="right|center_vertical" />
-                                </LinearLayout>
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:id="@+id/uiscreenr"
-                                android:layout_width="fill_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical" >
-
-                                <LinearLayout
-                                    android:id="@+id/fullscreenl"
-                                    android:layout_width="fill_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_gravity="right|center_vertical"
-                                    android:gravity="right|center_vertical"
-                                    android:orientation="horizontal"
-                                    android:padding="5dip" >
-
-                                    <TextView
-                                        android:id="@+id/fullscreenstr"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_gravity="right|center_vertical"
-                                        android:gravity="right|center_vertical"
-                                        android:text="Fullscreen"
-                                        android:textSize="15dip" />
-
-                                    <CheckBox
-                                        android:id="@+id/fullscreenval"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_gravity="right|center_vertical"
-                                        android:gravity="right|center_vertical" />
-                                </LinearLayout>
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="fill_parent"

@@ -56,6 +56,7 @@ SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' \
 COPY_ROMS=mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ./qemu/pc-bios/*.bin \
 ./qemu/pc-bios/*.img \
+./qemu/pc-bios/*.lid \
 ./qemu/pc-bios/*.bmp \
 ./qemu/pc-bios/*.ico \
 ./qemu/pc-bios/*.svg \
@@ -106,12 +107,9 @@ ndk:
 ndkclean:
 	$(ndkclean)
 	$(ndkcleanobj) 
-	
+
 qemu:
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/qemu.mak all NDK_DEBUG=$(NDK_DEBUG) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) BUILD_THREADS=$(BUILD_THREADS) V=$(V)
-	
-#limbo: ndk config qemu
-#	$(MAKE) -f $(LIMBO_JNI_ROOT)/limbo.mak all V=1 LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT)
+	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) all NDK_DEBUG=$(NDK_DEBUG) LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) -j $(BUILD_THREADS) V=$(V)
 
 config-debug:
 	$(MAKE) createdirs LIMBO_JNI_ROOT=$(LIMBO_JNI_ROOT) V=$(V)

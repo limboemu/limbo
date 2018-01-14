@@ -32,7 +32,6 @@
 #include <dlfcn.h>
 #include <glib.h>
 #include <stdexcept>
-#include "debugger.h"
 #include "limbo_compat.h"
 #include "limbo_compat_fd.h"
 
@@ -509,38 +508,5 @@ void setup_jni(JNIEnv* env, jobject thiz) {
 	}
 	jclass c = env->GetObjectClass(thiz);
 	set_jni(env, thiz, c);
-}
-
-void print_stack_trace(int signum) {
-	JNIEnv *env;
-	const size_t max = 30;
-	void* buffer[max];
-	std::ostringstream oss;
-
-	__android_log_print(ANDROID_LOG_INFO, "Limbo", "Print stack trace");
-
-	dumpBacktrace(oss, buffer, captureBacktrace(buffer, max));
-
-	__android_log_print(ANDROID_LOG_INFO, "Limbo", "%s", oss.str().c_str());
-
-	__android_log_print(ANDROID_LOG_INFO, "Limbo", "Print stack trace end");
-
-//XXX: no time for this
-//    LOGE("Attaching JNI Env");
-//
-//    jint rs = jvm->AttachCurrentThread(&env, NULL);
-//    	if (rs != JNI_OK) {
-//    		LOGE("Could not get env");
-//    		return;
-//    	}
-//
-//    LOGE("Sending Java Exception");
-//    jclass c = env->FindClass("java/lang/Exception");
-//    env->ThrowNew(c, "Native Crash");
-//    LOGE("Detaching thread");
-//    jvm->DetachCurrentThread();
-//    LOGE("Done");
-
-	exit(2);
 }
 

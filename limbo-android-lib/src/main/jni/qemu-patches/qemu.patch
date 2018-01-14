@@ -1,6 +1,21 @@
-diff -ru --no-dereference ../qemu-2.10.0/audio/sdlaudio.c ./audio/sdlaudio.c
---- ../qemu-2.10.0/audio/sdlaudio.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./audio/sdlaudio.c	2017-09-27 21:27:22.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
+--- ../qemu-2.11.0/accel/kvm/kvm-all.c	2017-12-13 19:27:20.000000000 +0200
++++ ./accel/kvm/kvm-all.c	2018-01-06 13:40:04.715140400 +0200
+@@ -1831,7 +1831,11 @@
+     sigaddset(&waitset, SIG_IPI);
+ 
+     do {
++#if defined(__ANDROID__)
++    	__rt_sigtimedwait(&waitset, &siginfo, &ts, sizeof(waitset));
++#else
+         r = sigtimedwait(&waitset, &siginfo, &ts);
++#endif // __ANDROID__
+         if (r == -1 && !(errno == EAGAIN || errno == EINTR)) {
+             perror("sigtimedwait");
+             exit(1);
+diff -ru --no-dereference ../qemu-2.11.0/audio/sdlaudio.c ./audio/sdlaudio.c
+--- ../qemu-2.11.0/audio/sdlaudio.c	2017-12-13 19:27:20.000000000 +0200
++++ ./audio/sdlaudio.c	2017-12-25 11:28:14.654371900 +0200
 @@ -66,6 +66,7 @@
  } glob_sdl;
  typedef struct SDLAudioState SDLAudioState;
@@ -49,10 +64,10 @@ diff -ru --no-dereference ../qemu-2.10.0/audio/sdlaudio.c ./audio/sdlaudio.c
  #endif
      return status;
  }
-diff -ru --no-dereference ../qemu-2.10.0/block/file-posix.c ./block/file-posix.c
---- ../qemu-2.10.0/block/file-posix.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./block/file-posix.c	2017-09-27 21:27:22.000000000 +0300
-@@ -1993,7 +1993,9 @@
+diff -ru --no-dereference ../qemu-2.11.0/block/file-posix.c ./block/file-posix.c
+--- ../qemu-2.11.0/block/file-posix.c	2017-12-13 19:27:20.000000000 +0200
++++ ./block/file-posix.c	2017-12-25 11:28:14.654371900 +0200
+@@ -2014,7 +2014,9 @@
      }
  
      if (nocow) {
@@ -63,9 +78,9 @@ diff -ru --no-dereference ../qemu-2.10.0/block/file-posix.c ./block/file-posix.c
          /* Set NOCOW flag to solve performance issue on fs like btrfs.
           * This is an optimisation. The FS_IOC_SETFLAGS ioctl return value
           * will be ignored since any failure of this operation should not
-diff -ru --no-dereference ../qemu-2.10.0/block/qcow.c ./block/qcow.c
---- ../qemu-2.10.0/block/qcow.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./block/qcow.c	2017-09-27 21:27:22.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/block/qcow.c ./block/qcow.c
+--- ../qemu-2.11.0/block/qcow.c	2017-12-13 19:27:20.000000000 +0200
++++ ./block/qcow.c	2017-12-25 11:28:14.669977800 +0200
 @@ -299,6 +299,9 @@
          bs->backing_file[len] = '\0';
      }
@@ -84,10 +99,10 @@ diff -ru --no-dereference ../qemu-2.10.0/block/qcow.c ./block/qcow.c
  
      QDECREF(encryptopts);
      qapi_free_QCryptoBlockOpenOptions(crypto_opts);
-diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
---- ../qemu-2.10.0/block/vvfat.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./block/vvfat.c	2017-09-27 21:27:24.000000000 +0300
-@@ -88,6 +88,10 @@
+diff -ru --no-dereference ../qemu-2.11.0/block/vvfat.c ./block/vvfat.c
+--- ../qemu-2.11.0/block/vvfat.c	2017-12-13 19:27:20.000000000 +0200
++++ ./block/vvfat.c	2017-12-25 11:28:14.669977800 +0200
+@@ -80,6 +80,10 @@
      unsigned int size,next,item_size;
  } array_t;
  
@@ -98,7 +113,7 @@ diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
  static inline void array_init(array_t* array,unsigned int item_size)
  {
      array->pointer = NULL;
-@@ -1287,6 +1291,8 @@
+@@ -1282,6 +1286,8 @@
      s->sector_count = s->offset_to_root_dir
                      + s->sectors_per_cluster * s->cluster_count;
  
@@ -107,7 +122,7 @@ diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
      /* Disable migration when vvfat is used rw */
      if (s->qcow) {
          error_setg(&s->migration_blocker,
-@@ -1300,6 +1306,7 @@
+@@ -1295,6 +1301,7 @@
              goto fail;
          }
      }
@@ -115,7 +130,7 @@ diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
  
      if (s->offset_to_bootsector > 0) {
          init_mbr(s, cyls, heads, secs);
-@@ -3051,7 +3058,13 @@
+@@ -3047,7 +3054,13 @@
  
      for (i = sector2cluster(s, sector_num);
              i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
@@ -130,7 +145,7 @@ diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
              s->used_clusters[i] |= USED_ALLOCATED;
  
  DLOG(checkpoint());
-@@ -3148,6 +3161,12 @@
+@@ -3144,6 +3157,12 @@
      QemuOpts *opts = NULL;
      int ret;
      int size = sector2cluster(s, s->sector_count);
@@ -143,10 +158,10 @@ diff -ru --no-dereference ../qemu-2.10.0/block/vvfat.c ./block/vvfat.c
      QDict *options;
  
      s->used_clusters = calloc(size, 1);
-diff -ru --no-dereference ../qemu-2.10.0/block.c ./block.c
---- ../qemu-2.10.0/block.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./block.c	2017-09-27 21:26:52.000000000 +0300
-@@ -56,6 +56,11 @@
+diff -ru --no-dereference ../qemu-2.11.0/block.c ./block.c
+--- ../qemu-2.11.0/block.c	2017-12-13 19:27:20.000000000 +0200
++++ ./block.c	2017-12-25 11:28:14.701171200 +0200
+@@ -55,6 +55,11 @@
  #include <windows.h>
  #endif
  
@@ -158,7 +173,7 @@ diff -ru --no-dereference ../qemu-2.10.0/block.c ./block.c
  #define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
  
  static QTAILQ_HEAD(, BlockDriverState) graph_bdrv_states =
-@@ -538,7 +543,19 @@
+@@ -540,7 +545,19 @@
      const char *tmpdir;
      tmpdir = getenv("TMPDIR");
      if (!tmpdir) {
@@ -178,9 +193,9 @@ diff -ru --no-dereference ../qemu-2.10.0/block.c ./block.c
      }
      if (snprintf(filename, size, "%s/vl.XXXXXX", tmpdir) >= size) {
          return -EOVERFLOW;
-diff -ru --no-dereference ../qemu-2.10.0/chardev/char-parallel.c ./chardev/char-parallel.c
---- ../qemu-2.10.0/chardev/char-parallel.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./chardev/char-parallel.c	2017-09-27 21:27:24.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/chardev/char-parallel.c ./chardev/char-parallel.c
+--- ../qemu-2.11.0/chardev/char-parallel.c	2017-12-13 19:27:20.000000000 +0200
++++ ./chardev/char-parallel.c	2017-12-25 11:28:14.701171200 +0200
 @@ -37,7 +37,9 @@
  #else
  #ifdef __linux__
@@ -275,10 +290,19 @@ diff -ru --no-dereference ../qemu-2.10.0/chardev/char-parallel.c ./chardev/char-
      ioctl(fd, PPRELEASE);
      close(fd);
      qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
-diff -ru --no-dereference ../qemu-2.10.0/configure ./configure
---- ../qemu-2.10.0/configure	2017-08-30 19:02:54.000000000 +0300
-+++ ./configure	2017-09-27 21:26:52.000000000 +0300
-@@ -470,7 +470,10 @@
+diff -ru --no-dereference ../qemu-2.11.0/configure ./configure
+--- ../qemu-2.11.0/configure	2017-12-13 19:27:20.000000000 +0200
++++ ./configure	2018-01-14 15:36:32.009853400 +0200
+@@ -111,6 +111,8 @@
+ 
+ compile_object() {
+   local_cflags="$1"
++  # Limbo debugging tests
++  #echo do_cc $QEMU_CFLAGS $local_cflags -c -o $TMPO $TMPC
+   do_cc $QEMU_CFLAGS $local_cflags -c -o $TMPO $TMPC
+ }
+ 
+@@ -488,7 +490,10 @@
  windres="${WINDRES-${cross_prefix}windres}"
  pkg_config_exe="${PKG_CONFIG-${cross_prefix}pkg-config}"
  query_pkg_config() {
@@ -290,7 +314,7 @@ diff -ru --no-dereference ../qemu-2.10.0/configure ./configure
  }
  pkg_config=query_pkg_config
  sdl_config="${SDL_CONFIG-${cross_prefix}sdl-config}"
-@@ -1928,7 +1931,9 @@
+@@ -1966,7 +1971,9 @@
  # pkg-config probe
  
  if ! has "$pkg_config_exe"; then
@@ -301,7 +325,7 @@ diff -ru --no-dereference ../qemu-2.10.0/configure ./configure
  fi
  
  ##########################################
-@@ -2775,14 +2780,17 @@
+@@ -2813,14 +2820,17 @@
        if compile_prog "$sdl_cflags" "$sdl_libs" ; then
  	:
        else
@@ -322,7 +346,7 @@ diff -ru --no-dereference ../qemu-2.10.0/configure ./configure
    fi # sdl compile test
  fi
  
-@@ -3236,7 +3244,8 @@
+@@ -3284,7 +3294,8 @@
          LIBS="$glib_libs $LIBS"
          libs_qga="$glib_libs $libs_qga"
      else
@@ -332,55 +356,25 @@ diff -ru --no-dereference ../qemu-2.10.0/configure ./configure
      fi
  done
  
-@@ -5003,9 +5012,13 @@
+@@ -5125,9 +5136,12 @@
    CFLAGS="-fprofile-arcs -ftest-coverage -g $CFLAGS"
    LDFLAGS="-fprofile-arcs -ftest-coverage $LDFLAGS"
  elif test "$fortify_source" = "yes" ; then
 -  CFLAGS="-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
-+  #Limbo: Remove optimization
++  #Limbo: We handle optimization later
 +  #CFLAGS="-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
 +  CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
  elif test "$debug" = "no"; then
 -  CFLAGS="-O2 $CFLAGS"
-+  #Limbo: Remove optimization
-+  #CFLAGS="-O2 $CFLAGS"
++  #Limbo: We handle optimization later
 +  CFLAGS="$CFLAGS"
  fi
  
  ##########################################
-@@ -6180,6 +6193,14 @@
-     # For non-KVM architectures we will not have asm headers
-     if [ -e "$source_path/linux-headers/asm-$linux_arch" ]; then
-       symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm
-+      #Limbo: create symlink
-+      case "$OSTYPE" in
-+			cygwin*) rm -rf "$source_path/linux-headers/asm" \
-+				&& cygstart --action=runas cmd /c \
-+				mklink /d "`cygpath -w \"$source_path/linux-headers/asm"`" "`cygpath \
-+				-w \"$source_path/linux-headers/asm-$linux_arch"`" ;;		
-+			*) symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm ;;
-+		esac
-     fi
- fi
- 
-@@ -6441,9 +6462,10 @@
-   ;;
-   arm)
-     disas_config "ARM"
--    if test -n "${cxx}"; then
--      disas_config "ARM_A64"
--    fi
-+    echo "Limbo: Disabling ${cxx} disas_config ARM_A64"
-+    #if test -n "${cxx}"; then
-+    #  disas_config "ARM_A64"
-+    #fi
-   ;;
-   cris)
-     disas_config "CRIS"
-diff -ru --no-dereference ../qemu-2.10.0/hmp.c ./hmp.c
---- ../qemu-2.10.0/hmp.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hmp.c	2017-09-27 21:26:52.000000000 +0300
-@@ -1849,6 +1849,97 @@
+diff -ru --no-dereference ../qemu-2.11.0/hmp.c ./hmp.c
+--- ../qemu-2.11.0/hmp.c	2017-12-13 19:27:20.000000000 +0200
++++ ./hmp.c	2017-12-25 11:43:42.146757200 +0200
+@@ -1879,6 +1879,97 @@
      bool is_block_migration;
  } HMPMigrationStatus;
  
@@ -478,7 +472,7 @@ diff -ru --no-dereference ../qemu-2.10.0/hmp.c ./hmp.c
  static void hmp_migrate_status_cb(void *opaque)
  {
      HMPMigrationStatus *status = opaque;
-@@ -1881,6 +1972,12 @@
+@@ -1911,6 +2002,12 @@
          monitor_resume(status->mon);
          timer_del(status->timer);
          g_free(status);
@@ -491,7 +485,7 @@ diff -ru --no-dereference ../qemu-2.10.0/hmp.c ./hmp.c
      }
  
      qapi_free_MigrationInfo(info);
-@@ -1894,9 +1991,18 @@
+@@ -1924,9 +2021,16 @@
      const char *uri = qdict_get_str(qdict, "uri");
      Error *err = NULL;
  
@@ -501,28 +495,16 @@ diff -ru --no-dereference ../qemu-2.10.0/hmp.c ./hmp.c
 +
      qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
      if (err) {
-         error_report_err(err);
-+
+         hmp_handle_error(mon, &err);
 +#ifdef __LIMBO__
-+     migration_status = -1;
++        migration_status = -1;
 +#endif //__LIMBO__
-+
          return;
      }
  
-@@ -1906,6 +2012,9 @@
-         if (monitor_suspend(mon) < 0) {
-             monitor_printf(mon, "terminal does not allow synchronous "
-                            "migration, continuing detached\n");
-+#ifdef __LIMBO__
-+            migration_status = -1;
-+#endif //__LIMBO__
-             return;
-         }
- 
-diff -ru --no-dereference ../qemu-2.10.0/hw/core/loader.c ./hw/core/loader.c
---- ../qemu-2.10.0/hw/core/loader.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hw/core/loader.c	2017-09-27 21:27:42.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/hw/core/loader.c ./hw/core/loader.c
+--- ../qemu-2.11.0/hw/core/loader.c	2017-12-13 19:27:20.000000000 +0200
++++ ./hw/core/loader.c	2017-12-25 11:28:14.758260600 +0200
 @@ -64,6 +64,11 @@
  int get_image_size(const char *filename)
  {
@@ -619,22 +601,9 @@ diff -ru --no-dereference ../qemu-2.10.0/hw/core/loader.c ./hw/core/loader.c
      fd = open(rom->path, O_RDONLY | O_BINARY);
      if (fd == -1) {
          fprintf(stderr, "Could not open option rom '%s': %s\n",
-diff -ru --no-dereference ../qemu-2.10.0/hw/scsi/mptsas.c ./hw/scsi/mptsas.c
---- ../qemu-2.10.0/hw/scsi/mptsas.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hw/scsi/mptsas.c	2017-09-27 21:27:46.000000000 +0300
-@@ -1239,7 +1239,8 @@
-      * When we do, we might be able to re-enable NDEBUG below.
-      */
- #ifdef NDEBUG
--#error building with NDEBUG is not supported
-+//Limbo:
-+//#error building with NDEBUG is not supported
- #endif
-     assert(n >= 0);
- 
-diff -ru --no-dereference ../qemu-2.10.0/hw/usb/dev-mtp.c ./hw/usb/dev-mtp.c
---- ../qemu-2.10.0/hw/usb/dev-mtp.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hw/usb/dev-mtp.c	2017-09-27 21:27:48.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/hw/usb/dev-mtp.c ./hw/usb/dev-mtp.c
+--- ../qemu-2.11.0/hw/usb/dev-mtp.c	2017-12-13 19:27:20.000000000 +0200
++++ ./hw/usb/dev-mtp.c	2017-12-25 11:28:14.770275400 +0200
 @@ -14,7 +14,9 @@
  #include <wchar.h>
  #include <dirent.h>
@@ -662,9 +631,9 @@ diff -ru --no-dereference ../qemu-2.10.0/hw/usb/dev-mtp.c ./hw/usb/dev-mtp.c
      return d;
  }
  
-diff -ru --no-dereference ../qemu-2.10.0/hw/usb/hcd-ohci.c ./hw/usb/hcd-ohci.c
---- ../qemu-2.10.0/hw/usb/hcd-ohci.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hw/usb/hcd-ohci.c	2017-09-27 21:27:48.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/hw/usb/hcd-ohci.c ./hw/usb/hcd-ohci.c
+--- ../qemu-2.11.0/hw/usb/hcd-ohci.c	2017-12-13 19:27:20.000000000 +0200
++++ ./hw/usb/hcd-ohci.c	2017-12-25 11:28:14.785913300 +0200
 @@ -935,7 +935,7 @@
      }
      return 1;
@@ -685,22 +654,9 @@ diff -ru --no-dereference ../qemu-2.10.0/hw/usb/hcd-ohci.c ./hw/usb/hcd-ohci.c
  
  /* Service a transport descriptor.
     Returns nonzero to terminate processing of this endpoint.  */
-diff -ru --no-dereference ../qemu-2.10.0/hw/virtio/virtio.c ./hw/virtio/virtio.c
---- ../qemu-2.10.0/hw/virtio/virtio.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./hw/virtio/virtio.c	2017-09-27 21:27:48.000000000 +0300
-@@ -1028,7 +1028,8 @@
-      * When we do, we might be able to re-enable NDEBUG below.
-      */
- #ifdef NDEBUG
--#error building with NDEBUG is not supported
-+//Limbo:
-+//#error building with NDEBUG is not supported
- #endif
-     assert(ARRAY_SIZE(data.in_addr) >= data.in_num);
-     assert(ARRAY_SIZE(data.out_addr) >= data.out_num);
-diff -ru --no-dereference ../qemu-2.10.0/include/glib-compat.h ./include/glib-compat.h
---- ../qemu-2.10.0/include/glib-compat.h	2017-08-30 19:02:54.000000000 +0300
-+++ ./include/glib-compat.h	2017-09-27 21:27:24.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/include/glib-compat.h ./include/glib-compat.h
+--- ../qemu-2.11.0/include/glib-compat.h	2017-12-13 19:27:20.000000000 +0200
++++ ./include/glib-compat.h	2017-12-25 11:28:14.817164300 +0200
 @@ -19,9 +19,11 @@
  #include <glib.h>
  
@@ -726,7 +682,7 @@ diff -ru --no-dereference ../qemu-2.10.0/include/glib-compat.h ./include/glib-co
      /* Error occurred, clean up. */
      g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
                  "mkdtemp() failed");
-@@ -310,16 +315,17 @@
+@@ -312,16 +317,17 @@
  }
  #endif
  
@@ -754,7 +710,7 @@ diff -ru --no-dereference ../qemu-2.10.0/include/glib-compat.h ./include/glib-co
  
  #if !GLIB_CHECK_VERSION(2, 36, 0)
  /* Always fail.  This will not include error_report output in the test log,
-@@ -328,9 +334,11 @@
+@@ -330,9 +336,11 @@
  #define g_test_initialized() (0)
  #endif
  #if !GLIB_CHECK_VERSION(2, 38, 0)
@@ -766,7 +722,7 @@ diff -ru --no-dereference ../qemu-2.10.0/include/glib-compat.h ./include/glib-co
  #define g_test_subprocess() (0)
  #endif
  
-@@ -342,15 +350,16 @@
+@@ -344,15 +352,16 @@
                            gpointer fn,
                            gpointer data_free_func)
  {
@@ -789,9 +745,9 @@ diff -ru --no-dereference ../qemu-2.10.0/include/glib-compat.h ./include/glib-co
  }
  #endif
  
-diff -ru --no-dereference ../qemu-2.10.0/include/qemu/error-report.h ./include/qemu/error-report.h
---- ../qemu-2.10.0/include/qemu/error-report.h	2017-08-30 19:02:54.000000000 +0300
-+++ ./include/qemu/error-report.h	2017-09-27 21:27:48.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/include/qemu/error-report.h ./include/qemu/error-report.h
+--- ../qemu-2.11.0/include/qemu/error-report.h	2017-12-13 19:27:20.000000000 +0200
++++ ./include/qemu/error-report.h	2017-12-25 11:28:14.832788400 +0200
 @@ -30,12 +30,15 @@
  void loc_set_cmdline(char **argv, int idx, int cnt);
  void loc_set_file(const char *fname, int lno);
@@ -816,10 +772,10 @@ diff -ru --no-dereference ../qemu-2.10.0/include/qemu/error-report.h ./include/q
  
  const char *error_get_progname(void);
  extern bool enable_timestamp_msg;
-diff -ru --no-dereference ../qemu-2.10.0/include/ui/console.h ./include/ui/console.h
---- ../qemu-2.10.0/include/ui/console.h	2017-08-30 19:02:54.000000000 +0300
-+++ ./include/ui/console.h	2017-09-27 21:27:48.000000000 +0300
-@@ -27,8 +27,14 @@
+diff -ru --no-dereference ../qemu-2.11.0/include/ui/console.h ./include/ui/console.h
+--- ../qemu-2.11.0/include/ui/console.h	2017-12-13 19:27:20.000000000 +0200
++++ ./include/ui/console.h	2017-12-25 11:28:14.845352800 +0200
+@@ -29,8 +29,14 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
  /* in ms */
@@ -834,10 +790,10 @@ diff -ru --no-dereference ../qemu-2.10.0/include/ui/console.h ./include/ui/conso
  
  /* Color number is match to standard vga palette */
  enum qemu_color_names {
-diff -ru --no-dereference ../qemu-2.10.0/Makefile ./Makefile
---- ../qemu-2.10.0/Makefile	2017-08-30 19:02:54.000000000 +0300
-+++ ./Makefile	2017-11-30 17:32:12.626036100 +0200
-@@ -16,13 +16,13 @@
+diff -ru --no-dereference ../qemu-2.11.0/Makefile ./Makefile
+--- ../qemu-2.11.0/Makefile	2017-12-13 19:27:20.000000000 +0200
++++ ./Makefile	2018-01-05 03:24:46.157560600 +0200
+@@ -46,13 +46,13 @@
  
  # Check that we're not trying to do an out-of-tree build from
  # a tree that's been used for an in-tree build.
@@ -856,7 +812,7 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile ./Makefile
  
  CONFIG_SOFTMMU := $(if $(filter %-softmmu,$(TARGET_DIRS)),y)
  CONFIG_USER_ONLY := $(if $(filter %-user,$(TARGET_DIRS)),y)
-@@ -203,7 +203,7 @@
+@@ -259,7 +259,7 @@
  
  LIBS+=-lz $(LIBS_TOOLS)
  
@@ -865,16 +821,20 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile ./Makefile
  
  ifdef BUILD_DOCS
  DOCS=qemu-doc.html qemu-doc.txt qemu.1 qemu-img.1 qemu-nbd.8 qemu-ga.8
-@@ -281,7 +281,7 @@
+@@ -338,9 +338,10 @@
                  common-obj-m \
                  trace-obj-y)
  
 -include $(SRC_PATH)/tests/Makefile.include
 +#include $(SRC_PATH)/tests/Makefile.include
  
- all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
+-all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
++#all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
++all: $(HELPERS-y) recurse-all modules
  
-@@ -354,7 +354,8 @@
+ qemu-version.h: FORCE
+ 	$(call quiet-command, \
+@@ -417,7 +418,8 @@
  
  ALL_SUBDIRS=$(TARGET_DIRS) $(patsubst %,pc-bios/%, $(ROMS))
  
@@ -884,9 +844,9 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile ./Makefile
  
  $(BUILD_DIR)/version.o: $(SRC_PATH)/version.rc config-host.h
  	$(call quiet-command,$(WINDRES) -I$(BUILD_DIR) -o $@ $<,"RC","version.o")
-@@ -371,13 +372,13 @@
+@@ -434,13 +436,13 @@
  
- COMMON_LDADDS = libqemuutil.a libqemustub.a
+ COMMON_LDADDS = libqemuutil.a
  
 -qemu-img.o: qemu-img-cmds.h
 +#qemu-img.o: qemu-img-cmds.h
@@ -901,20 +861,20 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile ./Makefile
 -qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
 +#qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
  
- fsdev/virtfs-proxy-helper$(EXESUF): fsdev/virtfs-proxy-helper.o fsdev/9p-marshal.o fsdev/9p-iov-marshal.o $(COMMON_LDADDS)
- fsdev/virtfs-proxy-helper$(EXESUF): LIBS += -lcap
-@@ -812,7 +813,7 @@
+ qemu-keymap$(EXESUF): qemu-keymap.o ui/input-keymap.o $(COMMON_LDADDS)
+ 
+@@ -892,7 +894,7 @@
+ 
+ # Include automatically generated dependency files
  # Dependencies in Makefile.objs files come from our recursive subdir rules
- -include $(wildcard *.d tests/*.d)
+--include $(wildcard *.d tests/*.d)
++#-include $(wildcard *.d tests/*.d)
  
--include $(SRC_PATH)/tests/docker/Makefile.include
-+#include $(SRC_PATH)/tests/docker/Makefile.include
- 
- .PHONY: help
- help:
-diff -ru --no-dereference ../qemu-2.10.0/Makefile.target ./Makefile.target
---- ../qemu-2.10.0/Makefile.target	2017-08-30 19:02:54.000000000 +0300
-+++ ./Makefile.target	2017-09-27 21:26:52.000000000 +0300
+ include $(SRC_PATH)/tests/docker/Makefile.include
+ include $(SRC_PATH)/tests/vm/Makefile.include
+diff -ru --no-dereference ../qemu-2.11.0/Makefile.target ./Makefile.target
+--- ../qemu-2.11.0/Makefile.target	2017-12-13 19:27:20.000000000 +0200
++++ ./Makefile.target	2018-01-05 12:19:49.176109000 +0200
 @@ -1,5 +1,7 @@
  # -*- Mode: makefile -*-
  
@@ -923,9 +883,9 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile.target ./Makefile.target
  BUILD_DIR?=$(CURDIR)/..
  
  include ../config-host.mak
-@@ -195,13 +197,84 @@
+@@ -188,13 +190,15 @@
  
- COMMON_LDADDS = ../libqemuutil.a ../libqemustub.a
+ COMMON_LDADDS = ../libqemuutil.a
  
 +#Limbo: Don't build an executable but a lib
  # build either PROG or PROGW
@@ -934,88 +894,20 @@ diff -ru --no-dereference ../qemu-2.10.0/Makefile.target ./Makefile.target
 -ifdef CONFIG_DARWIN
 -	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
 -	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
+-endif
 +#$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS)
 +#	$(call LINK, $(filter-out %.mak, $^))
 +#ifdef CONFIG_DARWIN
 +#	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
 +#	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
 +#endif
-+
-+#### ANDROID SHARED LIB - START
-+
-+#$(warning COMMON_LDADDS=$(COMMON_LDADDS))
-+
-+# Need this only if we enable png/jpeg encoding for VNC
-+#pnglib=../../../obj/local/$(APP_ABI)/libpng.a
-+#jpeglib=../../../obj/local/$(APP_ABI)/libjpeg.a
-+
-+#spicelib=../../../obj/local/$(APP_ABI)/libspice.so
-+
-+ifeq ($(USE_SDL),true)
-+sdllibs=../../../obj/local/$(APP_ABI)/libSDL2.so \
-+	../../../obj/local/$(APP_ABI)/libSDL2_image.so
- endif
-+ 
-+ifeq ($(USE_SDL_AUDIO),true)
-+	sdlaudiolibs=../../../obj/local/$(APP_ABI)/libSDL2_mixer.so
-+ endif
-+ 
-+
-+glibs=../../../obj/local/$(APP_ABI)/libglib-2.0.so \
-+	../../../obj/local/$(APP_ABI)/libgthread-2.0.so \
-+	../../../obj/local/$(APP_ABI)/libgmodule-2.0.so \
-+	../../../obj/local/$(APP_ABI)/libgobject-2.0.so
-+
-+#openssllib=../../../obj/local/$(APP_ABI)/libssl.so
-+
-+#cryptolib=../../../obj/local/$(APP_ABI)/libcrypto.so  
-+
-+pixmanlib=../../../obj/local/$(APP_ABI)/libpixman.so
-+
-+compatlib=../../../obj/local/$(APP_ABI)/liblimbocompat.a
-+
-+fdtlib=../../qemu/dtc/libfdt/libfdt.a
-+
-+$(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
-+	echo "INCLUDE_FUNCS=$(INCLUDE_FUNCS)"
-+	$(LNK)     \
-+	-Wl,-soname,$(QEMU_PROG) \
-+	-shared $(SYS_ROOT) \
-+	-Wl,--no-undefined \
-+	-Wl,-z,noexecstack  \
-+	-Wl,--no-undefined \
-+	-Wl,-z,relro -Wl,-z,now \
-+	-Wl,--no-warn-mismatch \
-+	$(sort $(all-obj-y)) \
-+	$(COMMON_LDADDS) \
-+	../libqemuutil.a ../libqemustub.a \
-+	$(STL_LIB) \
-+	$(compatlib) \
-+	$(pnglib) \
-+	$(jpeglib) \
-+	$(spicelib) \
-+	$(fixlib) \
-+	$(fdtlib) \
-+	$(GCC_STATIC) \
-+	$(glibs) \
-+	$(pixmanlib) \
-+	$(iconvlib) \
-+	$(sdllibs) \
-+	$(sdlaudiolibs) \
-+	$(USR_LIB) \
-+	-llog $(LM) -lz -lstdc++ -lc -dl -lgcc \
-+	$(LIMBO_LD_FLAGS) \
-+    $(P_THREAD) \
-+    $(INCLUDE_FUNCS) \
-+	-o ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).so
-+
-+#### ANDROID SHARED LIB - END
++include ../../android-qemu-build.mak
  
  gdbstub-xml.c: $(TARGET_XML_FILES) $(SRC_PATH)/scripts/feature_to_c.sh
  	$(call quiet-command,rm -f $@ && $(SHELL) $(SRC_PATH)/scripts/feature_to_c.sh $@ $(TARGET_XML_FILES),"GEN","$(TARGET_DIR)$@")
-diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
---- ../qemu-2.10.0/migration/savevm.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./migration/savevm.c	2017-12-08 00:16:34.855427100 +0200
+diff -ru --no-dereference ../qemu-2.11.0/migration/savevm.c ./migration/savevm.c
+--- ../qemu-2.11.0/migration/savevm.c	2017-12-13 19:27:20.000000000 +0200
++++ ./migration/savevm.c	2017-12-25 11:28:14.873522700 +0200
 @@ -62,6 +62,10 @@
  
  const unsigned int postcopy_ram_discard_version = 0;
@@ -1027,7 +919,7 @@ diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
  /* Subcommands for QEMU_VM_COMMAND */
  enum qemu_vm_cmd {
      MIG_CMD_INVALID = 0,   /* Must be 0 */
-@@ -1080,6 +1084,11 @@
+@@ -1105,6 +1109,11 @@
  
      qemu_put_byte(f, QEMU_VM_EOF);
      qemu_fflush(f);
@@ -1039,7 +931,7 @@ diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
  }
  
  int qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only,
-@@ -1178,6 +1187,12 @@
+@@ -1210,6 +1219,12 @@
      qjson_destroy(vmdesc);
  
      qemu_fflush(f);
@@ -1052,7 +944,7 @@ diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
      return 0;
  }
  
-@@ -2084,6 +2099,23 @@
+@@ -2129,6 +2144,23 @@
      return ret;
  }
  
@@ -1076,7 +968,7 @@ diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
  int save_snapshot(const char *name, Error **errp)
  {
      BlockDriverState *bs, *bs1;
-@@ -2194,6 +2226,11 @@
+@@ -2239,6 +2271,11 @@
      if (saved_vm_running) {
          vm_start();
      }
@@ -1088,10 +980,10 @@ diff -ru --no-dereference ../qemu-2.10.0/migration/savevm.c ./migration/savevm.c
      return ret;
  }
  
-diff -ru --no-dereference ../qemu-2.10.0/monitor.c ./monitor.c
---- ../qemu-2.10.0/monitor.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./monitor.c	2017-09-27 21:26:52.000000000 +0300
-@@ -1973,6 +1973,13 @@
+diff -ru --no-dereference ../qemu-2.11.0/monitor.c ./monitor.c
+--- ../qemu-2.11.0/monitor.c	2017-12-13 19:27:20.000000000 +0200
++++ ./monitor.c	2017-12-25 11:28:14.889146800 +0200
+@@ -1963,6 +1963,13 @@
  {
      mon_fd_t *monfd;
  
@@ -1105,7 +997,7 @@ diff -ru --no-dereference ../qemu-2.10.0/monitor.c ./monitor.c
      QLIST_FOREACH(monfd, &mon->fds, next) {
          int fd;
  
-@@ -4058,6 +4065,7 @@
+@@ -4049,6 +4056,7 @@
      monitor_flush(opaque);
  }
  
@@ -1113,7 +1005,7 @@ diff -ru --no-dereference ../qemu-2.10.0/monitor.c ./monitor.c
  /*
   * Print to current monitor if we have one, else to stderr.
   * TODO should return int, so callers can calculate width, but that
-@@ -4080,6 +4088,7 @@
+@@ -4071,6 +4079,7 @@
          vfprintf(stderr, fmt, ap);
      }
  }
@@ -1121,10 +1013,10 @@ diff -ru --no-dereference ../qemu-2.10.0/monitor.c ./monitor.c
  
  static void __attribute__((constructor)) monitor_lock_init(void)
  {
-diff -ru --no-dereference ../qemu-2.10.0/os-posix.c ./os-posix.c
---- ../qemu-2.10.0/os-posix.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./os-posix.c	2017-09-27 21:26:52.000000000 +0300
-@@ -306,6 +306,7 @@
+diff -ru --no-dereference ../qemu-2.11.0/os-posix.c ./os-posix.c
+--- ../qemu-2.11.0/os-posix.c	2017-12-13 19:27:20.000000000 +0200
++++ ./os-posix.c	2017-12-25 11:28:14.904771300 +0200
+@@ -305,6 +305,7 @@
      if (fd == -1) {
          return -1;
      }
@@ -1132,7 +1024,7 @@ diff -ru --no-dereference ../qemu-2.10.0/os-posix.c ./os-posix.c
      if (lockf(fd, F_TLOCK, 0) == -1) {
          close(fd);
          return -1;
-@@ -315,6 +316,7 @@
+@@ -314,6 +315,7 @@
          close(fd);
          return -1;
      }
@@ -1140,9 +1032,9 @@ diff -ru --no-dereference ../qemu-2.10.0/os-posix.c ./os-posix.c
  
      /* keep pidfile open & locked forever */
      return 0;
-diff -ru --no-dereference ../qemu-2.10.0/rules.mak ./rules.mak
---- ../qemu-2.10.0/rules.mak	2017-08-30 19:02:54.000000000 +0300
-+++ ./rules.mak	2017-09-27 21:26:52.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/rules.mak ./rules.mak
+--- ../qemu-2.11.0/rules.mak	2017-12-13 19:27:20.000000000 +0200
++++ ./rules.mak	2017-12-25 11:28:14.904771300 +0200
 @@ -62,10 +62,21 @@
                    $(foreach o,$(filter %.mo,$1),$($o-objs)) \
                    $(filter-out %.o %.mo,$1))
@@ -1227,9 +1119,28 @@ diff -ru --no-dereference ../qemu-2.10.0/rules.mak ./rules.mak
  #
  # In the end, the result will be:
  #
-diff -ru --no-dereference ../qemu-2.10.0/slirp/misc.c ./slirp/misc.c
---- ../qemu-2.10.0/slirp/misc.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./slirp/misc.c	2017-09-27 21:27:26.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/scsi/qemu-pr-helper.c ./scsi/qemu-pr-helper.c
+--- ../qemu-2.11.0/scsi/qemu-pr-helper.c	2017-12-13 19:27:20.000000000 +0200
++++ ./scsi/qemu-pr-helper.c	2017-12-25 12:53:36.264093300 +0200
+@@ -116,6 +116,7 @@
+     int pidfd;
+     char pidstr[32];
+ 
++#ifndef __ANDROID__
+     pidfd = qemu_open(pidfile, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+     if (pidfd == -1) {
+         error_report("Cannot open pid file, %s", strerror(errno));
+@@ -136,6 +137,7 @@
+         error_report("Failed to write pid file");
+         goto fail;
+     }
++#endif
+     return;
+ 
+ fail:
+diff -ru --no-dereference ../qemu-2.11.0/slirp/misc.c ./slirp/misc.c
+--- ../qemu-2.11.0/slirp/misc.c	2017-12-13 19:27:20.000000000 +0200
++++ ./slirp/misc.c	2017-12-25 11:28:14.904771300 +0200
 @@ -146,8 +146,12 @@
  		dup2(s, 0);
  		dup2(s, 1);
@@ -1243,9 +1154,9 @@ diff -ru --no-dereference ../qemu-2.10.0/slirp/misc.c ./slirp/misc.c
  
  		i = 0;
  		bptr = g_strdup(ex); /* No need to free() this */
-diff -ru --no-dereference ../qemu-2.10.0/slirp/slirp.c ./slirp/slirp.c
---- ../qemu-2.10.0/slirp/slirp.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./slirp/slirp.c	2017-09-27 21:27:26.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/slirp/slirp.c ./slirp/slirp.c
+--- ../qemu-2.11.0/slirp/slirp.c	2017-12-13 19:27:20.000000000 +0200
++++ ./slirp/slirp.c	2017-12-25 11:28:14.920406000 +0200
 @@ -64,6 +64,10 @@
  /* for the aging of certain requests like DNS */
  #define TIMEOUT_DEFAULT 1000  /* milliseconds */
@@ -1304,9 +1215,9 @@ diff -ru --no-dereference ../qemu-2.10.0/slirp/slirp.c ./slirp/slirp.c
      if (!f)
          return -1;
  
-diff -ru --no-dereference ../qemu-2.10.0/stubs/error-printf.c ./stubs/error-printf.c
---- ../qemu-2.10.0/stubs/error-printf.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./stubs/error-printf.c	2017-09-27 21:27:26.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/stubs/error-printf.c ./stubs/error-printf.c
+--- ../qemu-2.11.0/stubs/error-printf.c	2017-12-13 19:27:20.000000000 +0200
++++ ./stubs/error-printf.c	2017-12-25 11:28:14.920406000 +0200
 @@ -2,6 +2,7 @@
  #include "qemu-common.h"
  #include "qemu/error-report.h"
@@ -1320,9 +1231,9 @@ diff -ru --no-dereference ../qemu-2.10.0/stubs/error-printf.c ./stubs/error-prin
      error_vprintf(fmt, ap);
  }
 +#endif //__LIMBO__
-diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2.c ./ui/sdl2.c
---- ../qemu-2.10.0/ui/sdl2.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./ui/sdl2.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/ui/sdl2.c ./ui/sdl2.c
+--- ../qemu-2.11.0/ui/sdl2.c	2017-12-13 19:27:20.000000000 +0200
++++ ./ui/sdl2.c	2017-12-25 11:28:14.936023000 +0200
 @@ -90,10 +90,17 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -1342,7 +1253,7 @@ diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2.c ./ui/sdl2.c
      sdl_update_caption(scon);
  }
  
-@@ -768,6 +775,7 @@
+@@ -773,6 +780,7 @@
          gui_noframe = 1;
      }
  
@@ -1350,7 +1261,7 @@ diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -780,6 +788,7 @@
+@@ -785,6 +793,7 @@
       */
      setenv("SDL_VIDEODRIVER", "x11", 0);
  #endif
@@ -1358,9 +1269,9 @@ diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2.c ./ui/sdl2.c
  
      flags = SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE;
      if (SDL_Init(flags)) {
-diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
---- ../qemu-2.10.0/ui/sdl2-2d.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./ui/sdl2-2d.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
+--- ../qemu-2.11.0/ui/sdl2-2d.c	2017-12-13 19:27:20.000000000 +0200
++++ ./ui/sdl2-2d.c	2017-12-25 11:28:14.951647500 +0200
 @@ -66,7 +66,15 @@
  
      SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
@@ -1389,9 +1300,9 @@ diff -ru --no-dereference ../qemu-2.10.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
  }
  
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
-diff -ru --no-dereference ../qemu-2.10.0/ui/vnc.c ./ui/vnc.c
---- ../qemu-2.10.0/ui/vnc.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./ui/vnc.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/ui/vnc.c ./ui/vnc.c
+--- ../qemu-2.11.0/ui/vnc.c	2017-12-13 19:27:20.000000000 +0200
++++ ./ui/vnc.c	2017-12-25 11:28:14.951647500 +0200
 @@ -47,7 +47,14 @@
  #include "io/dns-resolver.h"
  
@@ -1407,10 +1318,10 @@ diff -ru --no-dereference ../qemu-2.10.0/ui/vnc.c ./ui/vnc.c
  #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
  static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
  static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
-diff -ru --no-dereference ../qemu-2.10.0/util/osdep.c ./util/osdep.c
---- ../qemu-2.10.0/util/osdep.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./util/osdep.c	2017-09-27 21:27:28.000000000 +0300
-@@ -288,8 +288,18 @@
+diff -ru --no-dereference ../qemu-2.11.0/util/osdep.c ./util/osdep.c
+--- ../qemu-2.11.0/util/osdep.c	2017-12-13 19:27:20.000000000 +0200
++++ ./util/osdep.c	2017-12-25 11:28:14.967273200 +0200
+@@ -329,8 +329,18 @@
      }
  
  #ifdef O_CLOEXEC
@@ -1429,7 +1340,7 @@ diff -ru --no-dereference ../qemu-2.10.0/util/osdep.c ./util/osdep.c
      ret = open(name, flags, mode);
      if (ret >= 0) {
          qemu_set_cloexec(ret);
-@@ -315,7 +325,11 @@
+@@ -356,7 +366,11 @@
      if (fdset_id != -1) {
          int ret;
  
@@ -1441,7 +1352,7 @@ diff -ru --no-dereference ../qemu-2.10.0/util/osdep.c ./util/osdep.c
          if (ret == 0) {
              monitor_fdset_dup_fd_remove(fd);
          }
-@@ -323,7 +337,11 @@
+@@ -364,7 +378,11 @@
          return ret;
      }
  
@@ -1453,9 +1364,9 @@ diff -ru --no-dereference ../qemu-2.10.0/util/osdep.c ./util/osdep.c
  }
  
  /*
-diff -ru --no-dereference ../qemu-2.10.0/util/oslib-posix.c ./util/oslib-posix.c
---- ../qemu-2.10.0/util/oslib-posix.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./util/oslib-posix.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/util/oslib-posix.c ./util/oslib-posix.c
+--- ../qemu-2.11.0/util/oslib-posix.c	2017-12-13 19:27:20.000000000 +0200
++++ ./util/oslib-posix.c	2017-12-25 11:28:14.979643700 +0200
 @@ -36,7 +36,10 @@
  #include "qapi/error.h"
  #include "qemu/sockets.h"
@@ -1467,7 +1378,7 @@ diff -ru --no-dereference ../qemu-2.10.0/util/oslib-posix.c ./util/oslib-posix.c
  #include "qemu/cutils.h"
  
  #ifdef CONFIG_LINUX
-@@ -72,7 +75,9 @@
+@@ -76,7 +79,9 @@
  
  int qemu_get_thread_id(void)
  {
@@ -1478,9 +1389,9 @@ diff -ru --no-dereference ../qemu-2.10.0/util/oslib-posix.c ./util/oslib-posix.c
      return syscall(SYS_gettid);
  #else
      return getpid();
-diff -ru --no-dereference ../qemu-2.10.0/util/qemu-error.c ./util/qemu-error.c
---- ../qemu-2.10.0/util/qemu-error.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./util/qemu-error.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/util/qemu-error.c ./util/qemu-error.c
+--- ../qemu-2.11.0/util/qemu-error.c	2017-12-13 19:27:20.000000000 +0200
++++ ./util/qemu-error.c	2017-12-25 11:28:14.991008000 +0200
 @@ -24,6 +24,7 @@
      REPORT_TYPE_INFO,
  } report_type;
@@ -1510,9 +1421,9 @@ diff -ru --no-dereference ../qemu-2.10.0/util/qemu-error.c ./util/qemu-error.c
      va_end(ap);
  }
 +#endif //__ANDROID__
-diff -ru --no-dereference ../qemu-2.10.0/util/qemu-openpty.c ./util/qemu-openpty.c
---- ../qemu-2.10.0/util/qemu-openpty.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./util/qemu-openpty.c	2017-09-27 21:27:28.000000000 +0300
+diff -ru --no-dereference ../qemu-2.11.0/util/qemu-openpty.c ./util/qemu-openpty.c
+--- ../qemu-2.11.0/util/qemu-openpty.c	2017-12-13 19:27:20.000000000 +0200
++++ ./util/qemu-openpty.c	2017-12-25 11:28:14.998015700 +0200
 @@ -110,16 +110,24 @@
  
  int qemu_openpty_raw(int *aslave, char *pty_name)
@@ -1546,10 +1457,10 @@ diff -ru --no-dereference ../qemu-2.10.0/util/qemu-openpty.c ./util/qemu-openpty
      return amaster;
 +#endif //__ANDROID__
  }
-diff -ru --no-dereference ../qemu-2.10.0/vl.c ./vl.c
---- ../qemu-2.10.0/vl.c	2017-08-30 19:02:54.000000000 +0300
-+++ ./vl.c	2017-09-27 21:26:52.000000000 +0300
-@@ -135,6 +135,10 @@
+diff -ru --no-dereference ../qemu-2.11.0/vl.c ./vl.c
+--- ../qemu-2.11.0/vl.c	2017-12-13 19:27:20.000000000 +0200
++++ ./vl.c	2017-12-25 11:28:15.011025000 +0200
+@@ -132,6 +132,10 @@
  #define MAX_VIRTIO_CONSOLES 1
  #define MAX_SCLP_CONSOLES 1
  
@@ -1560,18 +1471,7 @@ diff -ru --no-dereference ../qemu-2.10.0/vl.c ./vl.c
  static const char *data_dir[16];
  static int data_dir_idx;
  const char *bios_name = NULL;
-@@ -3449,6 +3453,10 @@
-                 if (is_help_option(optarg)) {
-                     list_data_dirs = true;
-                 } else if (data_dir_idx < ARRAY_SIZE(data_dir)) {
-+#ifdef __LIMBO__
-+                	limbo_base_dir = strdup(optarg);
-+                	LOGD("Storing limbo_base_dir=%s", limbo_base_dir);
-+#endif // __LIMBO__
-                     data_dir[data_dir_idx++] = optarg;
-                 }
-                 break;
-@@ -4805,3 +4813,25 @@
+@@ -4927,3 +4931,25 @@
  
      return 0;
  }

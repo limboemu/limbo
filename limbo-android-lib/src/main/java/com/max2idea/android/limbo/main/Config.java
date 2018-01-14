@@ -78,28 +78,22 @@ public class Config {
 	public static final String ACTION_START = "com.max2idea.android.limbo.action.STARTVM";
 	public static final String SEND_VNC_DATA = "com.max2idea.android.limbo.action.SEND_VNC_DATA";
 
-	public static enum DebugMode {
-		X86, X86_64, ARM, MIPS, PPC, M68K
-	};
-
 	// GUI Options
-	public static final boolean enable_SDL_menu = true; //Option for GUI
-	public static final boolean enable_SDL_libs = true; //Enable always if you build QEMU with SDL Support
-	public static final boolean enable_SPICE_menu = false;
+	public static final boolean enable_SDL = true;
 	public static final boolean enable_SPICE = false;
-	public static final boolean enable_sound_menu = true; //Option for GUI
-	public static final boolean enable_sound_libs = true; //Enable always if you build QEMU with Audio Support
+	public static final boolean enable_sound= true;
 	
 	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
 	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
 	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
 	public static boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
 	public static boolean enable_PPC = false; //Enable if you build QEMU with PPC softmmu
+    public static boolean enable_PPC64 = false; //Enable if you build QEMU with PPC64 softmmu
 	public static boolean enable_m68k = false;
 	public static boolean enable_sparc = false;
 	
 	//Enable if you build with KVM support
-	public static final boolean enable_KVM = false; 
+	public static final boolean enable_KVM = true;
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
@@ -142,7 +136,7 @@ public class Config {
 	public static String defaultKeyboardLayout = "en-us";
 	public static boolean collapseSections = false;
 	public static boolean enableFlashMemoryImages = false;
-	protected static String logFilePath = Config.basefiledir + "limbolog.txt";
+	public static String logFilePath = Config.basefiledir + "limbolog.txt";
 	public static boolean enableMTTCG = false;
 	public static String isosImagesURL = "http://limboemulator.weebly.com/guides";
 	
@@ -158,8 +152,9 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = false;
-	public static final DebugMode debugMode = DebugMode.X86_64;
+	public static final boolean debug = true;
+
+    // VNC
 	public static final String VNC_BYTE = "VNC_BYTE";
 	public static final String VNC_DATA_TYPE = "VNC_DATA_TYPE";
 	public static final String VNC_BYTES = "VNC_BYTES";

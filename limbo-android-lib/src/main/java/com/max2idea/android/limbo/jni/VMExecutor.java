@@ -26,16 +26,13 @@ import java.util.ArrayList;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
 import com.max2idea.android.limbo.main.LimboService;
-import com.max2idea.android.limbo.main.Config.DebugMode;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.UIUtils;
-
 import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 public class VMExecutor {
@@ -129,7 +126,7 @@ public class VMExecutor {
 		this.qmp_port = Config.QMPPort;
 		this.enablevnc = machine.enablevnc;
 		this.enablevnc = machine.enablespice;
-		if (Config.enable_sound_libs)
+		if (Config.enable_sound)
 			if (!machine.soundcard.equals("none"))
 				this.sound_card = machine.soundcard;
 		this.kernel = machine.kernel;
@@ -188,7 +185,16 @@ public class VMExecutor {
 				this.machine_type = null;
 			else
 				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("m68k")) {
+		} else if (machine.arch.endsWith("PPC64")) {
+            this.cpu = machine.cpu;
+            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc64.so";
+            this.cpu = machine.cpu.split(" ")[0];
+            this.arch = "ppc64";
+            if (machine.machine_type == null || machine.machine_type.equals("Default"))
+                this.machine_type = null;
+            else
+                this.machine_type = machine.machine_type;
+        } else if (machine.arch.endsWith("m68k")) {
 			this.cpu = machine.cpu;
 			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-m68k.so";
 			this.cpu = machine.cpu.split(" ")[0];
@@ -316,31 +322,7 @@ public class VMExecutor {
 	}
 
 	public void loadNativeLibs() {
-
-		// Load the C library
-		if (!Config.debug) {
-			if (arch.equals("x86")) {
-				try {
-					System.loadLibrary("qemu-system-i386");
-				} catch (Error ex) {
-					System.loadLibrary("qemu-system-x86_64");
-				}
-			}
-			if (arch.equals("x86_64")) {
-				System.loadLibrary("qemu-system-x86_64");
-			} else if (arch.equals("arm")) {
-				System.loadLibrary("qemu-system-arm");
-			} else if (arch.equals("mips")) {
-				System.loadLibrary("qemu-system-mips");
-			}else if (arch.equals("ppc")) {
-				System.loadLibrary("qemu-system-ppc");
-			}else if (arch.equals("m68k")) {
-				System.loadLibrary("qemu-system-m68k");
-			}
-
-		}
 		libLoaded = true;
-
 	}
 
 	// Load the shared lib
@@ -601,6 +583,7 @@ public class VMExecutor {
 				tcgParams+=",thread=multi";
 			else
 				tcgParams+=",thread=single";
+            paramsList.add(tcgParams);
             //#endif
 		}
 

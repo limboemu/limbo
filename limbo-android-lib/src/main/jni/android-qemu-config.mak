@@ -94,17 +94,18 @@ FDT_INC = -I$(LIMBO_JNI_ROOT)/qemu/dtc/libfdt
 MISC = --disable-tools --disable-libusb --disable-libnfs --disable-tpm 
 MISC +=  --disable-qom-cast-debug
 MISC += --disable-libnfs --disable-libiscsi --disable-docs
-MISC += --disable-rdma --disable-brlapi --disable-curl --disable-uuid
+MISC += --disable-rdma --disable-brlapi --disable-curl
 MISC += --disable-vde --disable-netmap --disable-cap-ng --disable-zlib-test
 MISC += --disable-attr --disable-guest-agent --disable-pie
 MISC += --disable-rbd --disable-xfsctl  --disable-lzo  --disable-snappy 
 MISC += --disable-seccomp --disable-bzip2 --disable-glusterfs 
-MISC += --disable-vte --disable-libssh2 --disable-vhdx
+MISC += --disable-vte --disable-libssh2
 MISC += --disable-opengl
 MISC += --disable-blobs
 MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
+MISC += --disable-capstone
 
 #Trying nop doesn't work
 #MISC += --enable-trace-backends=nop
@@ -123,7 +124,7 @@ LINUX_AIO = --disable-linux-aio
 
 #For 2.3.0
 #PIXMAN
-PIXMAN = --with-system-pixman
+#PIXMAN = --with-system-pixman
 
 #Enable debugging for QEMU
 DEBUG =
@@ -175,7 +176,6 @@ config:
 	echo NDK ROOT: $(NDK_ROOT) 
 	echo NDK PLATFORM: $(NDK_PLATFORM) 
 	echo USR INCLUDE: $(NDK_INCLUDE)
-
 	cd ./qemu	; \
 	./configure \
 	--target-list=$(QEMU_TARGET_LIST) \

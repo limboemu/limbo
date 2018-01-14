@@ -99,4 +99,7 @@
     <string name="drives">Drives</string>
     <string name="volume">Volume</string>
 
+    <string name="hide_toolbar">Hide Toolbar</string>
+    <string name="view_log">View Log</string>
+
 </resources>

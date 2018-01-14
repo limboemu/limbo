@@ -14,40 +14,63 @@
         android:id="@+id/itemDrives"
         android:icon="@drawable/drives"
         android:title="@string/drives"/>
-    <item
-        android:id="@+id/itemSaveState"
-        android:icon="@drawable/savestate"
-        android:title="@string/save_state"/>
+
     <item
         android:id="@+id/itemHelp"
         android:icon="@drawable/help"
         android:title="@string/help">
     </item>
-    <item
-        android:id="@+id/itemCtrlC"
-        android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/ctrl_c"/>
-    <item
-        android:id="@+id/itemCtrlAltDel"
-        android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/ctrl_alt_del"/>
-    <item
-        android:id="@+id/itemSpecialKeys"
-        android:icon="@android:drawable/ic_dialog_dialer"
-        android:title="@string/special_keys"/>
-    <item
-        android:id="@+id/itemSendKeyAgain"
-        android:title="@string/send_key_again"/>
-    <item
-        android:id="@+id/itemEnterText"
-        android:alphabeticShortcut="e"
-        android:icon="@android:drawable/ic_menu_edit"
-        android:title="@string/enter_text"/>
+
+
     <item
         android:id="@+id/itemColorMode"
-        android:icon="@android:drawable/ic_menu_preferences"
+        android:icon="@drawable/screen"
         android:title="@string/color_mode">
     </item>
+
+    <item
+        android:id="@+id/itemMonitor"
+        android:icon="@drawable/terminal"
+        android:title="@string/monitor">
+    </item>
+
+    <item
+        android:id="@+id/itemFullScreen"
+        android:icon="@android:drawable/ic_menu_zoom"
+        android:title="@string/toggle_full_screen"/>
+
+    <item
+        android:id="@+id/itemHideToolbar"
+        android:icon="@drawable/pan"
+        android:title="@string/hide_toolbar"/>
+
+    <item
+        android:id="@+id/itemViewLog"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="@string/view_log"/>
+
+    <item
+        android:id="@+id/itemDisconnect"
+        android:icon="@drawable/disconnect"
+        android:title="@string/disconnect">
+    </item>
+
+    <item
+        android:id="@+id/itemSaveState"
+        android:icon="@drawable/pause"
+        android:title="@string/save_state"/>
+
+    <item
+        android:id="@+id/itemReset"
+        android:icon="@drawable/reset"
+        android:title="@string/reset"/>
+    <item
+        android:id="@+id/itemShutdown"
+        android:icon="@drawable/shutdown"
+        android:title="@string/shutdown"/>
+
+
+    <!--XXXX: Not needed-->
     <item
         android:id="@+id/itemInputMode"
         android:icon="@android:drawable/ic_input_get"
@@ -100,26 +123,28 @@
             </group>
         </menu>
     </item>
+
     <item
-        android:id="@+id/itemFullScreen"
-        android:title="@string/toggle_full_screen"/>
+        android:id="@+id/itemEnterText"
+        android:alphabeticShortcut="e"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="@string/enter_text"/>
+
     <item
-        android:id="@+id/itemMonitor"
-        android:icon="@drawable/terminal"
-        android:title="@string/monitor">
-    </item>
+        android:id="@+id/itemSpecialKeys"
+        android:icon="@android:drawable/ic_dialog_dialer"
+        android:title="@string/special_keys"/>
     <item
-        android:id="@+id/itemDisconnect"
-        android:icon="@drawable/disconnect"
-        android:title="@string/disconnect">
-    </item>
+        android:id="@+id/itemSendKeyAgain"
+        android:title="@string/send_key_again"/>
     <item
-        android:id="@+id/itemReset"
-        android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/reset"/>
+        android:id="@+id/itemCtrlC"
+        android:icon="@drawable/keyboard"
+        android:title="@string/ctrl_c"/>
+
     <item
-        android:id="@+id/itemShutdown"
-        android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/shutdown"/>
+        android:id="@+id/itemCtrlAltDel"
+        android:icon="@drawable/keyboard"
+        android:title="@string/ctrl_alt_del"/>
 
 </menu>

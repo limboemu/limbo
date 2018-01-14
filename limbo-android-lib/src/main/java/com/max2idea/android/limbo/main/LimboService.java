@@ -56,7 +56,6 @@ public class LimboService extends Service {
         final int ui = b.getInt("ui", 0);
 
 		if (action.equals(Config.ACTION_START)) {
-			Log.d(TAG, "Received ACTION_URL");
 			if (LimboActivity.currMachine == null)
 				return START_NOT_STICKY;
 

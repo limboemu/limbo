@@ -9,6 +9,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,6 +38,7 @@ import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
+import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.QmpClient;
@@ -94,6 +96,7 @@ public class LimboSDLActivity extends SDLActivity {
 	public String vga_type = "std";
 	public String hd_cache = "default";
 	public String nic_driver = null;
+    public String soundcard = null;
 	public String lib = "liblimbo.so";
 	public String lib_path = null;
 	public int restart = 0;
@@ -240,9 +243,10 @@ public class LimboSDLActivity extends SDLActivity {
 
 				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
-				final int takeFlags = data.getFlags()
-						& (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-				getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                }
 
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
@@ -362,6 +366,8 @@ public class LimboSDLActivity extends SDLActivity {
 			net_cfg = "user";
 			nic_driver = machine.nic_driver;
 		}
+
+		soundcard = machine.soundcard;
 
 	}
 
@@ -519,21 +525,37 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == this.QUIT) {
 		} else if (item.getItemId() == R.id.itemHelp) {
 			this.onMenuHelp();
-		}
+		}  else if (item.getItemId() == R.id.itemHideToolbar) {
+            this.onHideToolbar();
+        } else if (item.getItemId() == R.id.itemViewLog) {
+            this.onViewLog();
+        }
 		// this.canvas.requestFocus();
 
-		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getSupportActionBar();
-			if (bar != null) {
-				if (bar.isShowing()) {
-					bar.hide();
-				} else
-					bar.show();
-			}
-		}
+//		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+//			ActionBar bar = this.getSupportActionBar();
+//			if (bar != null) {
+//				if (bar.isShowing()) {
+//					bar.hide();
+//				} else
+//					bar.show();
+//			}
+//		}
 
+        this.supportInvalidateOptionsMenu();
 		return true;
 	}
+
+    public void onViewLog() {
+        FileUtils.viewLimboLog(this);
+    }
+
+    public void onHideToolbar(){
+        ActionBar bar = this.getSupportActionBar();
+        if (bar != null) {
+            bar.hide();
+        }
+    }
 
 	private static void onMenuHelp() {
 		String url = "https://github.com/limboemu/limbo";
@@ -549,7 +571,7 @@ public class LimboSDLActivity extends SDLActivity {
 		LimboSDLActivity.singleClick(a, 0);
 		// SDLActivityCommon.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE,
 		// vm_width / 2, vm_height / 2, 0);
-		Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_LONG).show();
+		Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_SHORT).show();
 	}
 
 	private void onCtrlAltDel() {
@@ -789,6 +811,17 @@ public class LimboSDLActivity extends SDLActivity {
 		// Remove external mouse for now
 		menu.removeItem(menu.findItem(R.id.itemExternalMouse).getItemId());
 
+        menu.removeItem(menu.findItem(R.id.itemCtrlAltDel).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemCtrlC).getItemId());
+
+        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+            menu.removeItem(menu.findItem(R.id.itemHideToolbar).getItemId());
+        }
+
+        if (soundcard==null || soundcard.equals("None")) {
+            menu.removeItem(menu.findItem(R.id.itemVolume).getItemId());
+        }
+
 		// if (this.monitorMode) {
 		// menu.findItem(R.id.itemMonitor).setTitle("VM Console");
 		//
@@ -808,9 +841,15 @@ public class LimboSDLActivity extends SDLActivity {
 		//
 		// }
 
-		for (int i = 0; i < menu.size() && i < 2; i++) {
-			MenuItemCompat.setShowAsAction(menu.getItem(i), MenuItemCompat.SHOW_AS_ACTION_IF_ROOM);
-		}
+        int maxMenuItemsShown = 4;
+        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
+        if(UIUtils.isLandscapeOrientation(this)) {
+            maxMenuItemsShown = 6;
+            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
+        }
+        for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
+            MenuItemCompat.setShowAsAction(menu.getItem(i), actionShow);
+        }
 
 		return true;
 
@@ -1206,8 +1245,7 @@ public class LimboSDLActivity extends SDLActivity {
 		((SeekBar) vol).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
 			public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-				if (mAudioTrack != null)
-					setVolume(progress);
+                setVolume(progress);
 			}
 
 			public void onStartTrackingTouch(SeekBar arg0) {

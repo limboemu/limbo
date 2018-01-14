@@ -1,7 +1,6 @@
 LIMBO_JNI_ROOT := $(CURDIR)/jni
 
-#APP_STL                 := stlport_static
-APP_STL := gnustl_static 
+APP_STL := stlport_shared
 include $(LIMBO_JNI_ROOT)/android-config.mak
 
 #Suppress Format errors from logutils.h macros
