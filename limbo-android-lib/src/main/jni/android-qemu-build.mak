@@ -51,6 +51,7 @@ $(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(jpeglib) \
 	$(spicelib) \
 	$(STL_LIB) \
+	$(ARCH_LD_FLAGS) \
 	-lc -lgcc -dl -lz -llog \
 	$(INCLUDE_FUNCS) \
 	-o ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).so
