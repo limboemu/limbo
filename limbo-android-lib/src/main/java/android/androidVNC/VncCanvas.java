@@ -59,7 +59,7 @@ public class VncCanvas extends ImageView {
 	private final static boolean LOCAL_LOGV = true;
 	public AbstractScaling scaling;
 	// Available to activity
-	int mouseX, mouseY;
+	public int mouseX, mouseY;
 	// Connection parameters
 	ConnectionBean connection;
 	// Runtime control flags

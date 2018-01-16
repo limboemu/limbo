@@ -445,9 +445,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
             public void run() {
             try {
 
-                for(int i = 0; i< 4*10; i++) {
-                    int x = 0+i*200;
-                    int y = 0+i*200;
+                int origX = vncCanvas.mouseX;
+                int origY = vncCanvas.mouseY;
+                MotionEvent event = null;
+
+                for(int i = 0; i< 4*20; i++) {
+                    int x = 0+i*50;
+                    int y = 0+i*50;
                     if(i%4==1){
                         x=vncCanvas.rfb.framebufferWidth;
                     }else if (i%4==2) {
@@ -456,14 +460,20 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                         x=0;
                     }
 
-                    MotionEvent event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                    event = MotionEvent.obtain(SystemClock.uptimeMillis(),
                             SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
                             x,y, 0);
-                    Thread.sleep(100);
+                    Thread.sleep(50);
                     vncCanvas.processPointerEvent(event, false, false);
 
 
                 }
+
+                Thread.sleep(50);
+                event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                        SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+                        origX,origY, 0);
+                vncCanvas.processPointerEvent(event, false, false);
 
             }catch(Exception ex) {
 
