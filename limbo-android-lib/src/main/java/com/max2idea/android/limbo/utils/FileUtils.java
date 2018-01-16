@@ -19,11 +19,10 @@ Copyright (C) Max Kastanas 2012
 package com.max2idea.android.limbo.utils;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.util.Log;
-import android.widget.EditText;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
@@ -337,39 +336,13 @@ public class FileUtils {
 
     public static void viewLimboLog(Activity activity) {
 
-        File log = new File(Config.logFilePath);
-        if (log.exists()) {
-            try {
-                String contents = FileUtils.getFileContents(Config.logFilePath);
-                viewLogFile(activity, contents);
-            } catch (Exception e) {
-                UIUtils.toastLong(activity, "Could not open Log file");
-            }
+        Intent intent = new Intent(Intent.ACTION_EDIT);
+        Uri uri = Uri.parse(Config.logFilePath);
+        intent.setDataAndType(uri, "text/plain");
+        activity.startActivity(intent);
 
-        } else {
-            UIUtils.toastLong(activity, "Log file not found");
-        }
-    }
-
-    public static void viewLogFile(final Activity activity, String text) {
-
-        final AlertDialog alertDialog;
-        alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Limbo Log");
-        EditText logView = new EditText(activity);
-        logView.setText(text);
-        logView.setTextSize(10);
-        logView.setPadding(20, 20, 20, 20);
-        alertDialog.setView(logView);
-
-        // alertDialog.setMessage(body);
-        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                alertDialog.dismiss();
-            }
-        });
-
-        alertDialog.show();
 
     }
+
+
 }
