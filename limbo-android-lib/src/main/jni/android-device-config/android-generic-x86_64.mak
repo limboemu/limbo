@@ -1,3 +1,5 @@
+#Needs platform = android-21
+
 #NDK VERSION
 NDK_TOOLCHAIN_VERSION=4.9
 

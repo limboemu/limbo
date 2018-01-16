@@ -8,12 +8,6 @@ APP_ABI := arm64-v8a
 ARM_MODE:=arm
 ARCH_CFLAGS := -march=armv8-a
 
-#FLOAT
-ARCH_CFLAGS += -mfloat-abi=softfp
-
-# Use VFP (Optional)
-#ARCH_CFLAGS += +fp16
-
 #Math lib
 ARCH_CFLAGS += -lm
 
