@@ -337,7 +337,8 @@ public class FileUtils {
     public static void viewLimboLog(Activity activity) {
 
         Intent intent = new Intent(Intent.ACTION_EDIT);
-        Uri uri = Uri.parse(Config.logFilePath);
+        File file = new File(Config.logFilePath);
+        Uri uri = Uri.fromFile(file);
         intent.setDataAndType(uri, "text/plain");
         activity.startActivity(intent);
 
