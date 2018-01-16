@@ -152,7 +152,7 @@ public class Config {
 																// save vms
 
 	// Debug
-	public static final boolean debug = true;
+	public static final boolean debug = false;
 
     // VNC
 	public static final String VNC_BYTE = "VNC_BYTE";
