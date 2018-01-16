@@ -1,5 +1,10 @@
+#Needs platform = android-17
+
 #NDK VERSION
 NDK_TOOLCHAIN_VERSION=4.9
+
+#LINKER SPECIFIC
+ARCH_LD_FLAGS += -Wl,--fix-cortex-a8
 
 #TARGET ARCH
 APP_ABI := armeabi-v7a
@@ -10,11 +15,11 @@ ARCH_CFLAGS += -march=armv7-a
 ARCH_CFLAGS += -mfloat-abi=softfp
 
 # Use VFP (Optional)
-#ARCH_CFLAGS += -mfpu=vfpv3-d16
+ARCH_CFLAGS += -mfpu=vfpv3-d16
 #ARCH_CFLAGS += -mfpu=vfpv3
 
 # Tuning (Optional)
-#ARCH_CFLAGS += -mtune=arm7
+ARCH_CFLAGS += -mtune=arm7
 
 ARCH_CFLAGS += -lm
 
