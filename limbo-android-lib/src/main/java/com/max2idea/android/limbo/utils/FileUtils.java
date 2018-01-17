@@ -336,11 +336,15 @@ public class FileUtils {
 
     public static void viewLimboLog(Activity activity) {
 
-        Intent intent = new Intent(Intent.ACTION_EDIT);
-        File file = new File(Config.logFilePath);
-        Uri uri = Uri.fromFile(file);
-        intent.setDataAndType(uri, "text/plain");
-        activity.startActivity(intent);
+        try {
+            Intent intent = new Intent(Intent.ACTION_EDIT);
+            File file = new File(Config.logFilePath);
+            Uri uri = Uri.fromFile(file);
+            intent.setDataAndType(uri, "text/plain");
+            activity.startActivity(intent);
+        }catch (Exception ex) {
+            UIUtils.toastLong(activity, "Could not find a Text Viewer on your device");
+        }
 
 
     }
