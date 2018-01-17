@@ -1,16 +1,16 @@
 package com.max2idea.android.limbo.utils;
 
+import android.util.Log;
+
+import com.max2idea.android.limbo.main.Config;
+
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-
-import org.json.JSONObject;
-
-import com.max2idea.android.limbo.main.Config;
-
-import android.util.Log;
 
 public class QmpClient {
 
@@ -26,7 +26,7 @@ public class QmpClient {
 
 		try {
 			pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
-			pingSocket.setSoTimeout(60000);
+			pingSocket.setSoTimeout(5000);
 			out = new PrintWriter(pingSocket.getOutputStream(), true);
 			in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
 
@@ -58,38 +58,60 @@ public class QmpClient {
 
 	private static void sendRequest(PrintWriter out, String request) {
 		
-		Log.i(TAG, "HMP request" + request);
+		Log.i(TAG, "QMP request" + request);
 		out.println(request);
 	}
 
-	private static String getResponse(BufferedReader in) throws Exception {
-		
-		String line;
-		StringBuilder stringBuilder = new StringBuilder("");
-		do {
-			line = in.readLine();
-			if (line != null) {
-				Log.i(TAG, "HMP response: " + line);
-				JSONObject object = new JSONObject(line);
-				try {
-					String returnStr = object.getString("return");
-					if (returnStr != null) {
-						break;
-					}
-				} catch (Exception ex) {
+    private static String getResponse(BufferedReader in) throws Exception {
 
-				}
+        String line;
+        StringBuilder stringBuilder = new StringBuilder("");
 
-				stringBuilder.append(line);
-			} else
-				break;
-		} while (true);
-		return stringBuilder.toString();
-	}
+        try {
+            do {
+                line = in.readLine();
+                if (line != null) {
+                    Log.i(TAG, "QMP response: " + line);
+                    JSONObject object = new JSONObject(line);
+                    String returnStr = null;
+                    String errStr = null;
+
+                    try {
+                        returnStr = object.getString("return");
+                    } catch (Exception ex) {
+
+                    }
+
+                    if (returnStr != null) {
+                        break;
+                    }
+
+                    try {
+                        errStr = object.getString("error");
+                    } catch (Exception ex) {
+
+                    }
+
+                    stringBuilder.append(line);
+                    stringBuilder.append("\n");
+
+                    if (errStr != null) {
+                        break;
+                    }
+
+
+                } else
+                    break;
+            } while (true);
+        } catch (Exception ex) {
+
+        }
+        return stringBuilder.toString();
+    }
 
 	public static String migrate(boolean block, boolean inc, String uri) {
 		
-		// XXX: Detach should not be used via HMP according to docs
+		// XXX: Detach should not be used via QMP according to docs
 		// return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach
 		// + ",\"blk\":" + block + ",\"inc\":" + inc
 		// + ",\"uri\":\"" + uri + "\"},\"id\":\"limbo\"}";

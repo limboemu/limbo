@@ -174,7 +174,11 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		while (timeQuit != true) {
 			String status = checkCompletion();
 			Log.v("Inside", "Status: " + status);
-			if (status == null || status.equals("") || status.equals("DONE")) {
+			if (status == null
+                    || status.equals("")
+                    || status.equals("DONE")
+                    || status.equals("ERROR")
+                    ) {
 				Log.v("Inside", "Saving state is done: " + status);
 				stopTimeListener();
 				return;
@@ -205,12 +209,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			ex.printStackTrace();
 			Log.v("SaveVM", "Time listener thread error: " + ex.getMessage());
 		}
-		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				Toast.makeText(getApplicationContext(), "VM State saved", Toast.LENGTH_LONG).show();
-			}
-		}, 1000);
+//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//			@Override
+//			public void run() {
+//				Toast.makeText(getApplicationContext(), "VM State saved", Toast.LENGTH_LONG).show();
+//			}
+//		}, 1000);
 
 		Log.v("Listener", "Time listener thread exited...");
 
@@ -241,22 +245,56 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	public void pausedVM() {
 
-		LimboActivity.vmexecutor.paused = 1;
-		((LimboActivity) LimboActivity.activity).saveStateVMDB();
+        LimboActivity.vmexecutor.paused = 1;
+        ((LimboActivity) LimboActivity.activity).saveStateVMDB();
 
-		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
-				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						if (LimboActivity.vmexecutor != null) {
+        new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        if (LimboActivity.vmexecutor != null) {
                             LimboActivity.vmexecutor.stopvm(0);
-						} else if (activity.getParent() != null) {
-							activity.getParent().finish();
-						} else {
-							activity.finish();
-						}
-					}
-				}).show();
-	}
+                        } else if (activity.getParent() != null) {
+                            activity.getParent().finish();
+                        } else {
+                            activity.finish();
+                        }
+                    }
+                }).show();
+    }
+
+    public void pausedErrorVM() {
+
+
+        new AlertDialog.Builder(this).setTitle("Error").setMessage("Could not pause VM. View log for details")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        Thread t = new Thread(new Runnable() {
+                            public void run() {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                                onHMP();
+                                String commandStop = "cont\n";
+                                for (int i = 0; i < commandStop.length(); i++)
+                                    vncCanvas.sendText(commandStop.charAt(i) + "");
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                                onVNC();
+                            }
+                        });
+                        t.start();
+
+
+                    }
+                }).show();
+    }
 
 	DrivesDialogBox drives = null;
 
@@ -715,9 +753,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					}
 				}
 
-				LimboActivity.vmexecutor.paused = 1;
-				((LimboActivity) LimboActivity.activity).saveStateVMDB();
-
 				onHMP();
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
@@ -914,8 +949,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 			// Get the state of saving the VM memory only
 			pause_state = LimboActivity.vmexecutor.get_pause_state();
-			Log.d(TAG, "save_state = " + save_state);
-			Log.d(TAG, "pause_state = " + pause_state);
+			//Log.d(TAG, "save_state = " + save_state);
+			//Log.d(TAG, "pause_state = " + pause_state);
 		}
 		if (pause_state.equals("SAVING")) {
 			return pause_state;
@@ -932,7 +967,15 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			}, 100);
 			return pause_state;
 
-		}
+		} else if (pause_state.equals("ERROR")) {
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    pausedErrorVM();
+                }
+            }, 100);
+            return pause_state;
+        }
 		return save_state;
 	}
 

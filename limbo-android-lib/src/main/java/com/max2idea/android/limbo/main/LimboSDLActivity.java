@@ -45,6 +45,7 @@ import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
+import org.json.JSONObject;
 import org.libsdl.app.ClearRenderer;
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
@@ -430,7 +431,11 @@ public class LimboSDLActivity extends SDLActivity {
 		while (timeQuit != true) {
 			status = checkCompletion();
 			// Log.v("timeListener", "Status: " + status);
-			if (status == null || status.equals("") || status.equals("DONE")) {
+			if (status == null
+                    || status.equals("")
+                    || status.equals("DONE")
+                    || status.equals("ERROR")
+                    ) {
 				Log.v("Inside", "Saving state is done: " + status);
 				stopTimeListener();
 				return;
@@ -1066,6 +1071,25 @@ public class LimboSDLActivity extends SDLActivity {
 				}).show();
 	}
 
+
+    public void pausedErrorVM(String errStr) {
+
+
+        new AlertDialog.Builder(this).setTitle("Error").setMessage(errStr)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        Thread t = new Thread(new Runnable() {
+                            public void run() {
+                                String command = QmpClient.cont();
+                                String msg = QmpClient.sendCommand(command);
+                            }
+                        });
+                        t.start();
+                    }
+                }).show();
+    }
+
 	private String checkCompletion() {
 		String save_state = "";
 		String pause_state = "";
@@ -1075,8 +1099,8 @@ public class LimboSDLActivity extends SDLActivity {
 
 			// Get the state of saving the VM memory only
 			pause_state = LimboActivity.vmexecutor.get_pause_state();
-			Log.d(TAG, "save_state = " + save_state);
-			Log.d(TAG, "pause_state = " + pause_state);
+//			Log.d(TAG, "save_state = " + save_state);
+//			Log.d(TAG, "pause_state = " + pause_state);
 		}
 		if (pause_state.equals("SAVING")) {
 			return pause_state;
@@ -1093,7 +1117,15 @@ public class LimboSDLActivity extends SDLActivity {
 			}, 100);
 			return pause_state;
 
-		}
+		} else if (pause_state.equals("ERROR")) {
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    pausedErrorVM("Could not pause VM. View log file for details");
+                }
+            }, 100);
+            return pause_state;
+        }
 		return save_state;
 	}
 
@@ -1352,12 +1384,12 @@ public class LimboSDLActivity extends SDLActivity {
 			ex.printStackTrace();
 			Log.v("SaveVM", "Time listener thread error: " + ex.getMessage());
 		}
-		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				Toast.makeText(getApplicationContext(), "VM State saved", Toast.LENGTH_LONG).show();
-			}
-		}, 1000);
+//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+//			@Override
+//			public void run() {
+//				Toast.makeText(getApplicationContext(), "VM State saved", Toast.LENGTH_LONG).show();
+//			}
+//		}, 1000);
 
 		Log.v("Listener", "Time listener thread exited...");
 
@@ -1449,8 +1481,10 @@ public class LimboSDLActivity extends SDLActivity {
 					Log.i(TAG, msg);
 				command = QmpClient.migrate(false, false, uri);
 				msg = QmpClient.sendCommand(command);
-				if (msg != null)
-					Log.i(TAG, msg);
+				if (msg != null) {
+                    Log.i(TAG, msg);
+                    processMigrationResponse(msg);
+                }
 
 				// XXX: We cant be sure that the machine state is completed
 				// saving
@@ -1476,7 +1510,37 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
-	private class VMListener extends AsyncTask<Void, Void, Void> {
+    private void processMigrationResponse(String response) {
+        String errorStr = null;
+        try {
+            JSONObject object = new JSONObject(response);
+            errorStr = object.getString("error");
+        }catch (Exception ex) {
+
+        }
+            if (errorStr != null) {
+                String descStr = null;
+
+                try {
+                    JSONObject descObj = new JSONObject(errorStr);
+                    descStr = descObj.getString("desc");
+                }catch (Exception ex) {
+
+                }
+                final String descStr1 = descStr;
+
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        pausedErrorVM(descStr1!=null?descStr1:"Could not pause VM. View log for details");
+                    }
+                }, 100);
+
+            }
+
+    }
+
+    private class VMListener extends AsyncTask<Void, Void, Void> {
 
 		@Override
 		protected Void doInBackground(Void... arg0) {
