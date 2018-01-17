@@ -1265,7 +1265,9 @@ public class LimboActivity extends AppCompatActivity {
 				String sharedFolder = (String) ((ArrayAdapter<?>) mSharedFolder.getAdapter()).getItem(position);
 
 				if (
-						(position == 0 || !mSharedFolderenable.isChecked())) {
+						(position == 0
+                                //|| !mSharedFolderenable.isChecked()
+                        )) {
 					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
 							MachineOpenHelper.SHARED_FOLDER, null);
 					currMachine.shared_folder = null;
@@ -1450,10 +1452,10 @@ public class LimboActivity extends AppCompatActivity {
 				if (currMachine != null
                         ) {
 					if (isChecked) {
-						currMachine.shared_folder = "";
+//						currMachine.shared_folder = "";
 						currMachine.shared_folder_mode = 0;
 						int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.SHARED_FOLDER, "");
+								MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
 						mHDDenable.setChecked(false);
 					} else {
 						currMachine.shared_folder = null;
