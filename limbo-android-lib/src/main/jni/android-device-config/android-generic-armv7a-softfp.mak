@@ -19,7 +19,7 @@ ARCH_CFLAGS += -mfpu=vfpv3-d16
 #ARCH_CFLAGS += -mfpu=vfpv3
 
 # Tuning (Optional)
-ARCH_CFLAGS += -mtune=arm7
+#ARCH_CFLAGS += -mtune=arm7
 
 ARCH_CFLAGS += -lm
 
