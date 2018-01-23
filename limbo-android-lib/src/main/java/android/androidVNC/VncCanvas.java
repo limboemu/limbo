@@ -874,7 +874,7 @@ public class VncCanvas extends ImageView {
                         // Log.v("Limbo", "Right Button Down");
                         pointerMask = MOUSE_BUTTON_RIGHT;
                     } else {
-                        Log.v("Limbo", "Left Button Down: x=" + x + ", y=" + y);
+                        //Log.v("Limbo", "Left Button Down: x=" + x + ", y=" + y);
                         pointerMask = MOUSE_BUTTON_LEFT;
                     }
                 } else if (action == MotionEvent.ACTION_UP) {
