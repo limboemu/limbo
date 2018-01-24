@@ -6,6 +6,7 @@ include $(LIMBO_JNI_ROOT)/android-config.mak
 #include $(NDK_PROJECT_PATH)/jni/png/Android.mk
 #include $(NDK_PROJECT_PATH)/jni/jpeg/Android.mk
 include $(NDK_PROJECT_PATH)/jni/glib/Android.mk
+#include $(NDK_PROJECT_PATH)/jni/iconv/Android.mk
 include $(NDK_PROJECT_PATH)/jni/compat/Android.mk
 #include $(NDK_PROJECT_PATH)/jni/openssl/Android.mk
 #include $(NDK_PROJECT_PATH)/jni/spice/Android.mk

@@ -85,6 +85,7 @@ LOCAL_C_INCLUDES := 			\
 	$(LOCAL_PATH)/android-internal	\
 	$(LOCAL_PATH)/libcharset       	\
 	$(LOCAL_PATH)/gnulib           	\
+	$(LOCAL_PATH)/../../iconv/include          \
 	$(LOCAL_PATH)/pcre
 
 # ./glib private macros, copy from Makefile.am
@@ -109,6 +110,7 @@ LOCAL_CFLAGS += $(ARCH_CFLAGS)
 #FIXME: Need to find out why this is failing
 LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
 LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_SHARED_LIBRARIES += libiconv
 LOCAL_ARM_MODE := $(ARM_MODE)
 
 include $(BUILD_SHARED_LIBRARY)
