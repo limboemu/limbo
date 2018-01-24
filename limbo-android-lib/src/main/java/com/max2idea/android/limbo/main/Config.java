@@ -82,6 +82,9 @@ public class Config {
 	public static final boolean enable_SDL = true;
 	public static final boolean enable_SPICE = false;
 	public static final boolean enable_sound= true;
+
+    //Backend libs
+    public static final boolean enable_iconv= false;
 	
 	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
 	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
