@@ -18,7 +18,7 @@ LOCAL_C_INCLUDES :=			\
 	$(LIMBO_JNI_ROOT)/glib \
 	$(LIMBO_JNI_ROOT)/glib/android
 
-LOCAL_STATIC_LIBRARIES := spice png glib-2.0
+LOCAL_SHARED_LIBRARIES := spice png glib-2.0
 
 LOCAL_LDLIBS := -ldl -llog
 
