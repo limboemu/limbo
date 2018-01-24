@@ -23,6 +23,7 @@ import android.androidVNC.VncCanvas;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -1796,6 +1797,9 @@ public class LimboActivity extends AppCompatActivity {
 	public void onCreate(Bundle savedInstanceState) {
 
 		super.onCreate(savedInstanceState);
+        NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.cancelAll();
+
 		setupStrictMode();
 		setupFolders();
 		OShandler = this.handler;
