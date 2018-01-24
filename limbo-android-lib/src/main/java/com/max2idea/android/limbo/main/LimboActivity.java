@@ -624,7 +624,7 @@ public class LimboActivity extends AppCompatActivity {
 			// disable sound card with VNC
 			vmexecutor.enablevnc = 1;
 			vmexecutor.enablespice = 0;
-			//vmexecutor.sound_card = null;
+			vmexecutor.sound_card = null;
 			vmexecutor.vnc_allow_external = vnc_allow_external;
 			vmexecutor.vnc_passwd = vnc_passwd;
 		} else if (UI == Config.UI_SDL) {
