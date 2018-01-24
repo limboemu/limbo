@@ -545,6 +545,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	LOGV(res_msg);
 	dlclose(handle);
 	handle = NULL;
+	started = 0;
 
     env->ReleaseStringUTFChars(lib_path, lib_path_str);
     if(save_state!=NULL && save_state_name_str != NULL)
@@ -556,7 +557,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	sprintf(res_msg, "VM shutdown");
 	LOGV(res_msg);
     return env->NewStringUTF(res_msg);
-	//exit(1);
 }
 }
 

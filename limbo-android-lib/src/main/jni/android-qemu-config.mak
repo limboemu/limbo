@@ -91,7 +91,7 @@ FDT_INC = -I$(LIMBO_JNI_ROOT)/qemu/dtc/libfdt
 
 #For 2.3.0
 #Misc
-MISC = --disable-tools --disable-libusb --disable-libnfs --disable-tpm 
+MISC = --disable-tools --disable-libnfs --disable-tpm
 MISC +=  --disable-qom-cast-debug
 MISC += --disable-libnfs --disable-libiscsi --disable-docs
 MISC += --disable-rdma --disable-brlapi --disable-curl
