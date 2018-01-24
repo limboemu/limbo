@@ -1,11 +1,11 @@
 package com.max2idea.android.limbo.main;
 
-import java.io.OutputStream;
-
 import android.app.IntentService;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
+
+import java.io.OutputStream;
 
 public class LimboVNCService extends IntentService {
 
@@ -70,7 +70,8 @@ public class LimboVNCService extends IntentService {
 						os.write(vncBytes, offset, count);
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
-					e.printStackTrace();
+                    if(Config.debug)
+					    e.printStackTrace();
 				}
 			}
 

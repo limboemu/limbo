@@ -180,7 +180,8 @@ public class VncCanvas extends ImageView {
 				} catch (Throwable e) {
 					if (maintainConnection) {
 						Log.e(TAG, e.toString());
-						e.printStackTrace();
+                        if(Config.debug)
+						    e.printStackTrace();
 						// Ensure we dismiss the progress dialog
 						// before we fatal error finish
 						if (pd.isShowing()) {
