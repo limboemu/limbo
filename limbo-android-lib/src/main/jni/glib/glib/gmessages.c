@@ -1061,12 +1061,19 @@ g_print (const gchar *format,
       const gchar *charset;
 
       if (g_get_charset (&charset))
+#ifdef __ANDROID__
+	printf(string);
+#else
 	fputs (string, stdout); /* charset is UTF-8 already */
+#endif
       else
 	{
 	  gchar *lstring = strdup_convert (string, charset);
-
+#ifdef __ANDROID__
+	  printf(string);
+#else
 	  fputs (lstring, stdout);
+#endif
 	  g_free (lstring);
 	}
       fflush (stdout);
@@ -1112,12 +1119,21 @@ g_printerr (const gchar *format,
       const gchar *charset;
 
       if (g_get_charset (&charset))
-	fputs (string, stderr); /* charset is UTF-8 already */
+#ifdef __ANDROID__
+    perror(string);
+#else
+    fputs (string, stderr); /* charset is UTF-8 already */
+#endif
       else
 	{
 	  gchar *lstring = strdup_convert (string, charset);
 
-	  fputs (lstring, stderr);
+
+#ifdef __ANDROID__
+      perror(lstring);
+#else
+      fputs (lstring, stderr);
+#endif
 	  g_free (lstring);
 	}
       fflush (stderr);
