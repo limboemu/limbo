@@ -102,6 +102,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_save(
 	sprintf(res_msg, "VM State Saved");
 	LOGV(res_msg);
 
+    env->ReleaseStringUTFChars(snapshot_name, snapshot_name_str);
+
 	return env->NewStringUTF(res_msg);
 }
 
@@ -159,11 +161,14 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_pausevm
 	int res = limbo_migrate(uri_str, error);
 
 	if (res) {
-		LOGE(error);sprintf(res_msg, error);
+		LOGE(error);
+		sprintf(res_msg, error);
 	} else
 		sprintf(res_msg, "VM State Saving Started");
 
 	LOGV(res_msg);
+
+    env->ReleaseStringUTFChars(juri, uri_str);
 
 	return env->NewStringUTF(res_msg);
 }
@@ -192,6 +197,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_vncchan
 	sprintf(res_msg, "VNC Password Changed");
 	LOGV(res_msg);
 
+    env->ReleaseStringUTFChars(jvnc_passwd, vnc_passwd_str);
+
 	return env->NewStringUTF(res_msg);
 }
 
@@ -208,9 +215,16 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 	if (jdev_value != NULL)
 		dev_value = env->GetStringUTFChars(jdev_value, 0);
 
+	LOGI("command: change_dev: %s %s\n", dev, dev_value);
+
 	typedef void (*qmp_change_t)(const char *device, const char *target,
-	bool has_arg, const char *arg, Error **errp);
+	    bool has_arg, const char *arg, Error **errp);
+
+	typedef void (*qemu_mutex_lock_iothread_t)();
+	typedef void (*qemu_mutex_unlock_iothread_t)();
+
 	dlerror();
+
 	qmp_change_t qmp_change = (qmp_change_t) dlsym(handle, "qmp_change");
 	const char *dlsym_error = dlerror();
 	if (dlsym_error) {
@@ -218,11 +232,31 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 		return env->NewStringUTF(res_msg);
 	}
 
-	printf(res_msg, "Changing Device: %s to: %s", dev, dev_value);
-	qmp_change(dev, dev_value, 0, NULL, err);
+    qemu_mutex_lock_iothread_t qemu_mutex_lock_iothread
+        = (qemu_mutex_lock_iothread_t) dlsym(handle, "qemu_mutex_lock_iothread");
+	dlsym_error = dlerror();
+	if (dlsym_error) {
+		LOGE("Cannot load symbol 'qemu_mutex_lock_iothread': %s\n", dlsym_error);
+		return env->NewStringUTF(res_msg);
+	}
 
-	sprintf(res_msg, "Device %s changed to: %s", dev, dev_value);
-	LOGV(res_msg);
+	qemu_mutex_unlock_iothread_t qemu_mutex_unlock_iothread
+	    = (qemu_mutex_unlock_iothread_t) dlsym(handle, "qemu_mutex_unlock_iothread");
+    dlsym_error = dlerror();
+    if (dlsym_error) {
+        LOGE("Cannot load symbol 'qemu_mutex_unlock_iothread': %s\n", dlsym_error);
+    	return env->NewStringUTF(res_msg);
+    }
+
+    printf("Changing Device: %s to %s", dev, dev_value);
+    qemu_mutex_lock_iothread();
+	qmp_change(dev, dev_value, 0, NULL, err);
+	qemu_mutex_unlock_iothread();
+
+    sprintf(res_msg, "Changed Device: %s to %s", dev, dev_value);
+
+    env->ReleaseStringUTFChars(jdev, dev);
+    env->ReleaseStringUTFChars(jdev_value, dev_value);
 
 	return env->NewStringUTF(res_msg);
 }
@@ -237,8 +271,12 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectde
 		dev = env->GetStringUTFChars(jdev, 0);
 
 	typedef void (*qmp_eject_t)(bool has_device, const char *device,
-	bool has_id, const char *id, bool has_force, bool force, Error **errp);
+	    bool has_id, const char *id, bool has_force, bool force, Error **errp);
+	typedef void (*qemu_mutex_lock_iothread_t)();
+    typedef void (*qemu_mutex_unlock_iothread_t)();
+
 	dlerror();
+
 	qmp_eject_t qmp_eject = (qmp_eject_t) dlsym(handle, "qmp_eject");
 	const char *dlsym_error = dlerror();
 	if (dlsym_error) {
@@ -246,13 +284,33 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectde
 		return env->NewStringUTF(res_msg);
 	}
 
-	printf(res_msg, "Ejecting Device: %s", dev);
+    qemu_mutex_lock_iothread_t qemu_mutex_lock_iothread =
+        (qemu_mutex_lock_iothread_t) dlsym(handle, "qemu_mutex_lock_iothread");
+	dlsym_error = dlerror();
+	if (dlsym_error) {
+		LOGE("Cannot load symbol 'qemu_mutex_lock_iothread': %s\n", dlsym_error);
+		return env->NewStringUTF(res_msg);
+	}
+
+	qemu_mutex_unlock_iothread_t qemu_mutex_unlock_iothread
+	    = (qemu_mutex_unlock_iothread_t) dlsym(handle, "qemu_mutex_unlock_iothread");
+    dlsym_error = dlerror();
+    if (dlsym_error) {
+        LOGE("Cannot load symbol 'qemu_mutex_unlock_iothread': %s\n", dlsym_error);
+    	return env->NewStringUTF(res_msg);
+    }
+
+    printf("Ejecting: %s", dev);
+    qemu_mutex_lock_iothread();
 	qmp_eject(1, dev, 0, NULL, 1, 1, err);
+	qemu_mutex_unlock_iothread();
 
-	sprintf(res_msg, "Device %s ejected", dev);
-	LOGV(res_msg);
+    sprintf(res_msg, "Ejected Device: %s", dev);
 
-	return env->NewStringUTF(res_msg);
+    env->ReleaseStringUTFChars(jdev, dev);
+
+    return env->NewStringUTF(res_msg);
+
 }
 
 //Check state for pausing vm
@@ -401,6 +459,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 			const char *param_str = env->GetStringUTFChars(string, 0);
 //			LOGD("Copying param: %d: %s", i, param_str);
 			strcpy(argv[i], param_str);
+			env->ReleaseStringUTFChars(string, param_str);
 		} else if (i<argc+argc_extra_params){
 //			LOGD("Copying extra param: %d: %s", i, argv_extra_params[i - argc]);
 			strcpy(argv[i], argv_extra_params[i - argc]);
@@ -487,8 +546,12 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	dlclose(handle);
 	handle = NULL;
 
-	//XXX: JVM will anyway exit below
-	//	env->ReleaseStringUTFChars(jcdrom_iso_path, cdrom_iso_path_str);
+    env->ReleaseStringUTFChars(lib_path, lib_path_str);
+    if(save_state!=NULL && save_state_name_str != NULL)
+        env->ReleaseStringUTFChars(save_state, save_state_name_str);
+    if(extra_params!=NULL && extra_params_str != NULL)
+        env->ReleaseStringUTFChars(extra_params, extra_params_str);
+
 
 	sprintf(res_msg, "VM shutdown");
 	LOGV(res_msg);

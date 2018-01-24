@@ -19,10 +19,15 @@ Copyright (C) Max Kastanas 2012
 package com.max2idea.android.limbo.utils;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
@@ -37,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Hashtable;
 
 /**
@@ -343,10 +349,82 @@ public class FileUtils {
             intent.setDataAndType(uri, "text/plain");
             activity.startActivity(intent);
         }catch (Exception ex) {
-            UIUtils.toastLong(activity, "Could not find a Text Viewer on your device");
+            UIUtils.toastShort(activity, "Could not find a Text Viewer on your device");
         }
 
 
+    }
+
+    public static boolean fileValid(Context context, String path) {
+
+        if (path == null || path.equals(""))
+            return true;
+        if (path.startsWith("content://") || path.startsWith("/content/")) {
+            int fd = get_fd(context, path);
+            if (fd <= 0)
+                return false;
+        } else {
+            File file = new File(path);
+            return file.exists();
+        }
+        return true;
+    }
+
+    public static HashMap<Integer, ParcelFileDescriptor> fds = new HashMap<Integer, ParcelFileDescriptor>();
+
+    public static int get_fd(final Context context, String path) {
+        int fd = 0;
+        if (path == null)
+            return 0;
+
+        if (path.startsWith("/content") || path.startsWith("content://")) {
+            path = path.replaceFirst("/content", "content:");
+
+            try {
+                ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(Uri.parse(path), "rw");
+                fd = pfd.getFd();
+                fds.put(fd, pfd);
+            } catch (final FileNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(context, "Error: " + e, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        } else {
+            try {
+                File file = new File(path);
+                if (!file.exists())
+                    file.createNewFile();
+                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY);
+                fd = pfd.getFd();
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+        }
+        return fd;
+    }
+
+
+    public static int close_fd(int fd) {
+
+        if (FileUtils.fds.containsKey(fd)) {
+            ParcelFileDescriptor pfd = FileUtils.fds.get(fd);
+            try {
+                pfd.close();
+                FileUtils.fds.remove(fd);
+                return 0; // success for Native side
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+        return -1;
     }
 
 

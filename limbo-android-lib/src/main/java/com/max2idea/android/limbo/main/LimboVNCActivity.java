@@ -317,8 +317,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			if (currDir != null && !currDir.trim().equals("")) {
 				LimboSettingsManager.setLastDir(this, currDir);
 			}
-			if (fileType != null && file != null) {
-				DrivesDialogBox.setDriveAttr(fileType, file, true);
+			if (drives !=null && fileType != null && file != null) {
+				drives.setDriveAttr(fileType, file, true);
 			}
 
 		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
@@ -326,7 +326,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				Uri uri = data.getData();
 				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
 				String file = uri.toString();
-				
+
 				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -337,8 +337,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
 
-				if (DrivesDialogBox.filetype != null && file != null) {
-					DrivesDialogBox.setDriveAttr(DrivesDialogBox.filetype, file, true);
+				if (drives!=null && drives.filetype != null && file != null) {
+					drives.setDriveAttr(drives.filetype, file, true);
 				}
 			}
 
@@ -363,7 +363,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.currMachine);
 				drives.show();
 			} else {
-				UIUtils.toastLong(activity, "No removable devices attached");
+				UIUtils.toastShort(activity, "No removable devices attached");
 			}
 
 		} else if (item.getItemId() == R.id.itemMonitor) {
@@ -673,8 +673,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
-						Toast.makeText(getApplicationContext(), "Please wait while saving HD Snapshot",
-								Toast.LENGTH_LONG).show();
+						UIUtils.toastShort(LimboVNCActivity.this, "Please wait while saving HD Snapshot");
 						// progDialog = ProgressDialog.show(activity, "Please
 						// Wait", "Saving VM
 						// State...", true);
@@ -757,8 +756,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
-						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_LONG)
-								.show();
+                        UIUtils.toastShort(LimboVNCActivity.this, "Please wait while saving VM State");
 					}
 				}, 500);
 				try {
@@ -903,8 +901,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 						|| !LimboActivity.currMachine.hdd_img_path.contains(".qcow2")))
 
 		{
-			Toast.makeText(activity.getApplicationContext(),
-					"No HDD image found, please create a qcow2 image from Limbo console", Toast.LENGTH_LONG).show();
+            UIUtils.toastLong(LimboVNCActivity.this, "No HDD image found, please create a qcow2 image from Limbo console");
 			return;
 		}
 		final AlertDialog alertDialog;

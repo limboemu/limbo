@@ -233,8 +233,8 @@ public class LimboSDLActivity extends SDLActivity {
 			if (currDir != null && !currDir.trim().equals("")) {
 				LimboSettingsManager.setLastDir(this, currDir);
 			}
-			if (fileType != null && file != null) {
-				DrivesDialogBox.setDriveAttr(fileType, file, true);
+			if (fileType != null && file != null && drives!=null) {
+				drives.setDriveAttr(fileType, file, true);
 			}
 
 		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
@@ -253,13 +253,13 @@ public class LimboSDLActivity extends SDLActivity {
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
 
-				if (DrivesDialogBox.filetype != null && file != null) {
+				if (drives != null && drives.filetype != null && file != null) {
 
 					final String fileTmp = file;
 					Thread thread = new Thread(new Runnable() {
 						public void run() {
 
-							DrivesDialogBox.setDriveAttr(DrivesDialogBox.filetype, fileTmp, true);
+							drives.setDriveAttr(drives.filetype, fileTmp, true);
 						}
 					});
 					thread.setPriority(Thread.MIN_PRIORITY);
@@ -482,7 +482,7 @@ public class LimboSDLActivity extends SDLActivity {
 				drives = new DrivesDialogBox(activity, R.style.Transparent, this, LimboActivity.currMachine);
 				drives.show();
 			} else {
-				UIUtils.toastLong(activity, "No removable devices attached");
+				UIUtils.toastShort(activity, "No removable devices attached");
 			}
 		} else if (item.getItemId() == R.id.itemReset) {
 			resetVM();
@@ -504,8 +504,7 @@ public class LimboSDLActivity extends SDLActivity {
 			if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				this.promptBluetoothMouse(activity);
 			} else {
-				Toast.makeText(this.getApplicationContext(), "External Mouse support only for ICS and above",
-						Toast.LENGTH_LONG).show();
+				UIUtils.toastLong(this, "External Mouse support only for ICS and above");
 			}
 
 		} else if (item.getItemId() == R.id.itemSaveState) {
@@ -1017,8 +1016,7 @@ public class LimboSDLActivity extends SDLActivity {
 						|| !LimboActivity.currMachine.hdd_img_path.contains(".qcow2")))
 
 		{
-			Toast.makeText(activity.getApplicationContext(),
-					"No HDD image found, please create a qcow2 image from Limbo console", Toast.LENGTH_LONG).show();
+            UIUtils.toastLong(this, "No HDD image found, please create a qcow2 image from Limbo console");
 			return;
 		}
 		final AlertDialog alertDialog;

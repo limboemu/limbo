@@ -742,26 +742,28 @@ public class VMExecutor {
 		return this.getstate();
 	}
 
-	public String change_dev(String dev, String image_path) {
+	public void change_dev(final String dev, final String image_path) {
 
-		if (image_path == null || image_path.trim().equals("")) {
-			this.busy = true;
-			String res = this.ejectdev(dev);
-			this.busy = false;
-			return res;
-		} else {
-			this.busy = true;
-			String res = this.ejectdev(dev);
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			res = this.changedev(dev, image_path);
-			this.busy = false;
-			return res;
-		}
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
+                if (image_path == null || image_path.trim().equals("")) {
+                    VMExecutor.this.busy = true;
+                    String res = VMExecutor.this.ejectdev(dev);
+                    UIUtils.toastShort(context, res);
+                    VMExecutor.this.busy = false;
+                } else if (FileUtils.fileValid(context, image_path)){
+                    VMExecutor.this.busy = true;
+                    String res = VMExecutor.this.changedev(dev, image_path);
+                    UIUtils.toastShort(context, res);
+                    VMExecutor.this.busy = false;
+                } else {
+                    UIUtils.toastShort(context, "File does not exist");
+                }
+            }
+        });
+        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.start();
+
 
 	}
 
@@ -787,13 +789,13 @@ public class VMExecutor {
 	}
 
 	public int get_fd(String path) {
-		int fd = LimboActivity.get_fd(path);
+		int fd = FileUtils.get_fd(context, path);
 		return fd;
 
 	}
 
 	public int close_fd(int fd) {
-		int res = LimboActivity.close_fd(fd);
+		int res = FileUtils.close_fd(fd);
 		return res;
 
 	}

@@ -41,7 +41,6 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.ParcelFileDescriptor;
 import android.os.PowerManager.WakeLock;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
@@ -96,7 +95,6 @@ import org.apache.http.impl.client.DefaultHttpClient;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -106,7 +104,6 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -135,7 +132,6 @@ public class LimboActivity extends AppCompatActivity {
 	static public ProgressDialog progDialog;
 	public static Machine currMachine = null;
 	public static Handler OShandler;
-	static HashMap<Integer, ParcelFileDescriptor> fds = new HashMap<Integer, ParcelFileDescriptor>();
 	private static Installer a;
 	private static TextWatcher appendChangeListener;
 	private static TextWatcher extraParamsChangeListener;
@@ -244,51 +240,47 @@ public class LimboActivity extends AppCompatActivity {
 			Integer messageType = (Integer) b.get("message_type");
 
 			if (messageType != null && messageType == Config.VM_PAUSED) {
-				Toast.makeText(activity, "VM Paused", Toast.LENGTH_LONG).show();
+                UIUtils.toastShort(LimboActivity.this, "VM Paused");
 
 			}
 			if (messageType != null && messageType == Config.VM_RESUMED) {
-				Toast.makeText(activity, "VM Resuming, Please Wait", Toast.LENGTH_LONG).show();
+                UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
 			}
 			if (messageType != null && messageType == Config.VM_STARTED) {
 				if (!vmStarted) {
-					Toast.makeText(activity, "VM Started\nPause the VM instead so you won't have to boot again!",
-							Toast.LENGTH_LONG).show();
+                    UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
 				} else {
-					Toast.makeText(activity, "Connecting to VM Display", Toast.LENGTH_LONG).show();
+                    UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
 				}
 				enableNonRemovableDeviceOptions(false);
 				mStart.setImageResource(R.drawable.play);
 
 			}
 			if (messageType != null && messageType == Config.VM_STOPPED) {
-				Toast.makeText(activity, "VM Shutdown", Toast.LENGTH_LONG).show();
+                UIUtils.toastShort(LimboActivity.this, "VM Shutdown");
 				mStart.setImageResource(R.drawable.play);
 
 			}
 			if (messageType != null && messageType == Config.VM_RESTARTED) {
-				Toast.makeText(activity, "VM Reset", Toast.LENGTH_LONG).show();
+                UIUtils.toastShort(LimboActivity.this, "VM Reset");
 			}
 			if (messageType != null && messageType == Config.VM_SAVED) {
-				Toast.makeText(activity, "VM Saved", Toast.LENGTH_LONG).show();
+                UIUtils.toastShort(LimboActivity.this, "VM Saved");
 			}
 			if (messageType != null && messageType == Config.VM_NO_QCOW2) {
-				Toast.makeText(activity, "Couldn't find a QCOW2 image\nPlease attach an HDA or HDB image first!",
-						Toast.LENGTH_LONG).show();
+                UIUtils.toastLong(LimboActivity.this, "Couldn't find a QCOW2 image\nPlease attach an HDA or HDB image first!");
 			}
 			if (messageType != null && messageType == Config.VM_NO_KERNEL) {
-				Toast.makeText(activity, "Couldn't find a Kernel image\nPlease attach a Kernel image first!",
-						Toast.LENGTH_LONG).show();
+                UIUtils.toastLong(LimboActivity.this, "Couldn't find a Kernel image\nPlease attach a Kernel image first!");
 			}
 			if (messageType != null && messageType == Config.VM_NO_INITRD) {
-				Toast.makeText(activity, "Couldn't find a initrd image\nPlease attach an initrd image first!",
-						Toast.LENGTH_LONG).show();
+                UIUtils.toastLong(LimboActivity.this, "Couldn't find a initrd image\nPlease attach an initrd image first!");
 			}
 			if (messageType != null && messageType == Config.VM_ARM_NOMACHINE) {
-				Toast.makeText(activity, "Please select an ARM machine type first!", Toast.LENGTH_LONG).show();
+                UIUtils.toastLong(LimboActivity.this, "Please select an ARM machine type first!");
 			}
 			if (messageType != null && messageType == Config.VM_NOTRUNNING) {
-				Toast.makeText(activity, "VM not Running", Toast.LENGTH_SHORT).show();
+                UIUtils.toastShort(LimboActivity.this, "VM not running");
 			}
 			if (messageType != null && messageType == Config.VM_CREATED) {
 				String machineValue = (String) b.get("machine_name");
@@ -346,14 +338,13 @@ public class LimboActivity extends AppCompatActivity {
 				if (progDialog.isShowing()) {
 					progDialog.dismiss();
 				}
-				Toast.makeText(activity, "Machines are exported in " + Config.DBFile, Toast.LENGTH_LONG).show();
+                UIUtils.toastLong(LimboActivity.this, "Machines are exported in " + Config.DBFile);
 			}
 			if (messageType != null && messageType == Config.VM_IMPORT) {
 				if (progDialog.isShowing()) {
 					progDialog.dismiss();
 				}
-				Toast.makeText(activity, " Machines have been imported from " + Config.DBFile, Toast.LENGTH_LONG)
-						.show();
+                UIUtils.toastLong(LimboActivity.this, "Machines have been imported from " + Config.DBFile);
 				populateAttributes();
 			}
 
@@ -648,59 +639,7 @@ public class LimboActivity extends AppCompatActivity {
 
 	}
 
-	public static int get_fd(String path) {
-		int fd = 0;
-		if (path == null)
-			return 0;
 
-		if (path.startsWith("/content") || path.startsWith("content://")) {
-			path = path.replaceFirst("/content", "content:");
-
-			try {
-				ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(Uri.parse(path), "rw");
-				fd = pfd.getFd();
-				fds.put(fd, pfd);
-			} catch (final FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					@Override
-					public void run() {
-						Toast.makeText(LimboActivity.activity, "Error: " + e, Toast.LENGTH_SHORT).show();
-					}
-				});
-			}
-		} else {
-			try {
-				File file = new File(path);
-				if (!file.exists())
-					file.createNewFile();
-				ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY);
-				fd = pfd.getFd();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
-		}
-		return fd;
-	}
-
-	public static int close_fd(int fd) {
-
-		if (fds.containsKey(fd)) {
-			ParcelFileDescriptor pfd = fds.get(fd);
-			try {
-				pfd.close();
-				fds.remove(fd);
-				return 0; // success for Native side
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-		}
-		return -1;
-	}
 
 	public void setUserPressed(boolean pressed) {
 
@@ -1893,11 +1832,19 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 	public void setupNativeLibs() {
+        //iconv is not really needed
+        if(Config.enable_iconv) {
+            System.loadLibrary("iconv");
+        }
+
+        //Glib
 		System.loadLibrary("glib-2.0");
 		System.loadLibrary("gthread-2.0");
 		System.loadLibrary("gobject-2.0");
 		System.loadLibrary("gmodule-2.0");
-		System.loadLibrary("pixman");
+
+        //Pixman for qemu
+        System.loadLibrary("pixman");
 
 		if (Config.enable_SPICE) {
 			System.loadLibrary("crypto");
@@ -1916,10 +1863,13 @@ public class LimboActivity extends AppCompatActivity {
 			// System.loadLibrary("SDL_ttf");
 
 		}
+
+		//main for SDL
 		if (Config.enable_SDL) {
 			System.loadLibrary("main");
 		}
 
+		//Limbo needed for vmexecutor
 		System.loadLibrary("limbo");
 
 		loadQEMULib();
@@ -2393,12 +2343,12 @@ public class LimboActivity extends AppCompatActivity {
 	private void onStartButton() {
 
 		if (this.mMachine.getSelectedItemPosition() == 0 || this.currMachine == null) {
-			UIUtils.toastLong(getApplicationContext(), "Select or Create a Virtual Machine first");
+			UIUtils.toastShort(getApplicationContext(), "Select or Create a Virtual Machine first");
 			return;
 		}
 		String filenotexists = validateFiles();
 		if (filenotexists != null) {
-            UIUtils.toastLong(getApplicationContext(), "Could not find file: " + filenotexists);
+            UIUtils.toastShort(getApplicationContext(), "Could not find file: " + filenotexists);
 			return;
 		}
 		if (currMachine.snapshot_name != null && !currMachine.snapshot_name.toLowerCase().equals("none")
@@ -2560,25 +2510,25 @@ public class LimboActivity extends AppCompatActivity {
 
 		int fd;
 		try {
-			if (!fileValid(currMachine.hda_img_path))
+			if (!FileUtils.fileValid(this, currMachine.hda_img_path))
 				return currMachine.hda_img_path;
-			if (!fileValid(currMachine.hdb_img_path))
+			if (!FileUtils.fileValid(this, currMachine.hdb_img_path))
 				return currMachine.hdb_img_path;
-			if (!fileValid(currMachine.hdc_img_path))
+			if (!FileUtils.fileValid(this, currMachine.hdc_img_path))
 				return currMachine.hdc_img_path;
-			if (!fileValid(currMachine.hdd_img_path))
+			if (!FileUtils.fileValid(this, currMachine.hdd_img_path))
 				return currMachine.hdd_img_path;
-			if (!fileValid(currMachine.fda_img_path))
+			if (!FileUtils.fileValid(this, currMachine.fda_img_path))
 				return currMachine.fda_img_path;
-			if (!fileValid(currMachine.fdb_img_path))
+			if (!FileUtils.fileValid(this, currMachine.fdb_img_path))
 				return currMachine.fdb_img_path;
-			if (!fileValid(currMachine.sd_img_path))
+			if (!FileUtils.fileValid(this, currMachine.sd_img_path))
 				return currMachine.sd_img_path;
-			if (!fileValid(currMachine.cd_iso_path))
+			if (!FileUtils.fileValid(this, currMachine.cd_iso_path))
 				return currMachine.cd_iso_path;
-			if (!fileValid(currMachine.kernel))
+			if (!FileUtils.fileValid(this, currMachine.kernel))
 				return currMachine.kernel;
-			if (!fileValid(currMachine.initrd))
+			if (!FileUtils.fileValid(this, currMachine.initrd))
 				return currMachine.initrd;
 
 		} catch (Exception ex) {
@@ -2587,20 +2537,7 @@ public class LimboActivity extends AppCompatActivity {
 		return null;
 	}
 
-	private boolean fileValid(String path) {
 
-		if (path == null || path.equals(""))
-			return true;
-		if (path.startsWith("content://") || path.startsWith("/content/")) {
-			int fd = get_fd(path);
-			if (fd <= 0)
-				return false;
-		} else {
-			File file = new File(path);
-			return file.exists();
-		}
-		return true;
-	}
 
 	private void onStopButton(boolean exit) {
 		stopVM(exit);
@@ -3277,7 +3214,7 @@ public class LimboActivity extends AppCompatActivity {
 		button.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View view) {
 				if (vmNameTextView.getText().toString().trim().equals(""))
-					UIUtils.toastLong(activity, "Machine name cannot be empty");
+					UIUtils.toastShort(activity, "Machine name cannot be empty");
 				else {
 					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", vmNameTextView.getText().toString());
 					alertDialog.dismiss();
@@ -5595,7 +5532,7 @@ public class LimboActivity extends AppCompatActivity {
 		// Check if SD card is mounted
 		String state = Environment.getExternalStorageState();
 		if (!Environment.MEDIA_MOUNTED.equals(state)) {
-			Toast.makeText(getApplicationContext(), "Error: SD card is not mounted", Toast.LENGTH_LONG).show();
+			UIUtils.toastShort(this, "Error: SD card is not mounted");
 			return;
 		}
 

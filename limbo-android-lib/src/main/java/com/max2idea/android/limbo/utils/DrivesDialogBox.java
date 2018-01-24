@@ -1,14 +1,5 @@
 package com.max2idea.android.limbo.utils;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
-import com.max2idea.android.limbo.main.LimboFileManager;
-import com.max2idea.android.limbo.main.LimboSettingsManager;
-
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -27,8 +18,17 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.main.LimboFileManager;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+
 public class DrivesDialogBox extends Dialog {
-	private static Activity activity;
+	private Activity activity;
 	private Machine currMachine;
 
 	public DrivesDialogBox(Context context, int theme, Activity activity1, Machine currMachine) {
@@ -49,22 +49,22 @@ public class DrivesDialogBox extends Dialog {
 		this.dismiss();
 	}
 
-	public static Spinner mCD;
-	public static LinearLayout mCDLayout;
-	public static LinearLayout mFDALayout;
-	public static LinearLayout mFDBLayout;
-	public static LinearLayout mSDLayout;
-	public static Spinner mFDA;
-	public static Spinner mSD;
-	public static Spinner mFDB;
-	public static Button mOK;
+	public Spinner mCD;
+	public LinearLayout mCDLayout;
+	public LinearLayout mFDALayout;
+	public LinearLayout mFDBLayout;
+	public LinearLayout mSDLayout;
+	public Spinner mFDA;
+	public Spinner mSD;
+	public Spinner mFDB;
+	public Button mOK;
 
-	public static boolean userPressedCDROM = true;
-	public static boolean userPressedFDA = true;
-	public static boolean userPressedFDB = true;
-	public static boolean userPressedSD = true;
+	public boolean userPressedCDROM = true;
+	public boolean userPressedFDA = true;
+	public boolean userPressedFDB = true;
+	public boolean userPressedSD = true;
 
-	public static String filetype;
+	public String filetype;
 
 	private void getWidgets() {
 		mCD = (Spinner) findViewById(R.id.cdromimgval);
@@ -265,7 +265,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	// Set CDROM
-	private static void populateCDRom(String fileType) {
+	private void populateCDRom(String fileType) {
 		userPressedCDROM = false;
 		// Add from History
 		ArrayList<String> oldCDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
@@ -295,7 +295,7 @@ public class DrivesDialogBox extends Dialog {
 		mCD.invalidate();
 	}
 
-	private static void populateSD(String fileType) {
+	private void populateSD(String fileType) {
 		userPressedSD = false;
 		// Add from History
 		ArrayList<String> oldSDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
@@ -325,7 +325,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	// Set Floppy
-	private static void populateFloppy(String fileType) {
+	private void populateFloppy(String fileType) {
 		// Add from History
 		ArrayList<String> oldFDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
 		int length = 0;
@@ -364,7 +364,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static void setDriveAttr(String fileType, String file, boolean userPressed) {
+	public void setDriveAttr(String fileType, String file, boolean userPressed) {
 		
 		addDriveToList(file, fileType);
 		if (fileType != null && fileType.startsWith("cd") && file != null && !file.trim().equals("")) {
@@ -414,7 +414,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void setCDROM(final String cdrom, final boolean userPressed) {
+	private void setCDROM(final String cdrom, final boolean userPressed) {
 		userPressedCDROM = userPressed;
 		LimboActivity.currMachine.cd_iso_path = cdrom;
 		// Log.v("DB", "UserPressed: " + userPressedCDROM + " CDROM=" + cdrom);
@@ -441,7 +441,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void setSD(final String sd, final boolean userPressed) {
+	private void setSD(final String sd, final boolean userPressed) {
 		userPressedSD = userPressed;
 		LimboActivity.currMachine.sd_img_path = sd;
 
@@ -469,7 +469,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void setFDA(final String fda, final boolean userPressed) {
+	private void setFDA(final String fda, final boolean userPressed) {
 		userPressedFDA = userPressed;
 		LimboActivity.currMachine.fda_img_path = fda;
 		// Log.v("DB", "UserPressed: " + userPressedFDA + " FDA=" + fda);
@@ -495,7 +495,7 @@ public class DrivesDialogBox extends Dialog {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void setFDB(final String fdb, final boolean userPressed) {
+	private void setFDB(final String fdb, final boolean userPressed) {
 		userPressedFDB = userPressed;
 		LimboActivity.currMachine.fdb_img_path = fdb;
 		// Log.v("DB", "UserPressed: " + userPressedFDB + " FDB=" + fdb);
@@ -521,7 +521,7 @@ public class DrivesDialogBox extends Dialog {
 		});
 	}
 
-	private static void addDriveToList(String file, String type) {
+	private void addDriveToList(String file, String type) {
 		// Check if exists
 		// Log.v(TAG, "Adding To list: " + type + ":" + file);
 		int res = FavOpenHelper.getInstance(activity).getFavUrlSeq(file, type);
@@ -538,12 +538,13 @@ public class DrivesDialogBox extends Dialog {
 
 	}
 
-	public static void browse(String fileType) {
+	public void browse(String fileType) {
 		// Check if SD card is mounted
 		// Log.v(TAG, "Browsing: " + fileType);
 		String state = Environment.getExternalStorageState();
 		if (!Environment.MEDIA_MOUNTED.equals(state)) {
 			Toast.makeText(activity.getApplicationContext(), "Error: SD card is not mounted", Toast.LENGTH_LONG).show();
+            UIUtils.toastShort(activity, "Error: SD card is not mounted");
 			return;
 		}
 
@@ -571,11 +572,11 @@ public class DrivesDialogBox extends Dialog {
 		}
 	}
 
-	public static Intent getFileManIntent() {
+	public Intent getFileManIntent() {
 		return new Intent(activity, com.max2idea.android.limbo.main.LimboFileManager.class);
 	}
 
-	public static void update(final Machine myMachine, final String colname, final String value) {
+	public void update(final Machine myMachine, final String colname, final String value) {
 
 		Thread thread = new Thread(new Runnable() {
 			public void run() {
