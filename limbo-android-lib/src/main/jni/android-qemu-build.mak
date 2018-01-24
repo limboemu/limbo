@@ -16,6 +16,9 @@ glibs=../../../obj/local/$(APP_ABI)/libglib-2.0.so \
 	../../../obj/local/$(APP_ABI)/libgmodule-2.0.so \
 	../../../obj/local/$(APP_ABI)/libgobject-2.0.so
 
+# Not needed right now
+#iconvlib=../../../obj/local/$(APP_ABI)/libiconv.so
+
 pixmanlib=../../../obj/local/$(APP_ABI)/libpixman.so
 
 compatlib=../../../obj/local/$(APP_ABI)/liblimbocompat.a
@@ -44,6 +47,7 @@ $(QEMU_PROG): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(compatlib) \
 	$(fdtlib) \
 	$(glibs) \
+	$(iconvlib) \
 	$(pixmanlib) \
 	$(sdllibs) \
 	$(sdlaudiolibs) \
