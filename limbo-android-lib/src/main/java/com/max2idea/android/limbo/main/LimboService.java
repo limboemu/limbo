@@ -168,7 +168,7 @@ public class LimboService extends Service {
 				} else if (LimboActivity.currMachine.ui.equals("SDL")) {
 					clientClass = LimboSDLActivity.class;
 				} else {
-					UIUtils.toastLong(service, "Unknown User Interface");
+					UIUtils.toastShort(service, "Unknown User Interface");
 					return;
 				}
 			} else {
@@ -177,7 +177,7 @@ public class LimboService extends Service {
 				clientClass = LimboVNCActivity.class;
 			}
 		} else {
-			UIUtils.toastLong(service, "No Machine selected");
+			UIUtils.toastShort(service, "No Machine selected");
 			return;
 		}
 		Intent intent = new Intent(service.getApplicationContext(), clientClass);

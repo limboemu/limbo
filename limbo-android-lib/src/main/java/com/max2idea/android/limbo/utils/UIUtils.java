@@ -32,6 +32,20 @@ public class UIUtils {
 
 	}
 
+    public static void toastShort(final Context activity, final String errStr) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+
+                Toast toast = Toast.makeText(activity, errStr, Toast.LENGTH_SHORT);
+                toast.setGravity(Gravity.CENTER | Gravity.CENTER, 0, 0);
+                toast.show();
+
+            }
+        });
+
+    }
+
 	public static void setOrientation(Activity activity) {
 		int orientation = LimboSettingsManager.getOrientationSetting(activity);
 		switch (orientation) {
