@@ -26,8 +26,12 @@ ARCH_CFLAGS += -Wno-psabi
 # if doesn't work use -fPIC
 ARCH_CFLAGS += -fpic
 
-# Slower but needed for some devices where stack corruption is more probable
+# Stack protector for better security
+# no-stack-protector provides better performance
+#ARCH_CFLAGS += -fstack-protector-all
 ARCH_CFLAGS += -fstack-protector-strong
+#ARCH_CFLAGS += -fstack-protector
+#ARCH_CFLAGS += -fno-stack-protector
 
 # prevent unwanted optimizations for Qemu
 ARCH_CFLAGS += -fno-strict-aliasing
