@@ -11,8 +11,8 @@ Limbo v2.11.0<br>
 - Better error handling with Pausing VM<br>
 - Fixed issue with enabling Shared Folder<br>
 - Fixed double mouse click under VNC mode<br>
-- Logs can be now viewed only under external Viewer<br>
-- Fixed stlport shared library<br>
+- Logs can now be viewed only under external Text Viewer<br>
+- Fixed stlport shared library link<br>
 - Cleaner Log with more msg errors printed<br>
 - Fixed volume panel under SDL mode<br>
 - Added lid type roms<br>
@@ -21,6 +21,9 @@ Limbo v2.11.0<br>
 - Better Build environment for development<br>
 - Removed configurations for ARM hard fp<br>
 - Support for PowerPC 64 bit emulator<br>
+- Minimum Requirements:<br>
+- Phone/Tablet with ARMv7 or x86 cpu and Android OS 4.2+<br>
+- Phone/Tablet with ARMv8 64bit or x86 64bit cpu and Android OS 5.0+<br>
 <br>
 
 <br>
