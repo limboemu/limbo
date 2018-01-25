@@ -318,7 +318,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				LimboSettingsManager.setLastDir(this, currDir);
 			}
 			if (drives !=null && fileType != null && file != null) {
-				drives.setDriveAttr(fileType, file, true);
+				drives.setDriveAttr(fileType, file);
 			}
 
 		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
@@ -338,7 +338,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				file = ("/" + file).replace(":", "");
 
 				if (drives!=null && drives.filetype != null && file != null) {
-					drives.setDriveAttr(drives.filetype, file, true);
+					drives.setDriveAttr(drives.filetype, file);
 				}
 			}
 

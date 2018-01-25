@@ -234,7 +234,7 @@ public class LimboSDLActivity extends SDLActivity {
 				LimboSettingsManager.setLastDir(this, currDir);
 			}
 			if (fileType != null && file != null && drives!=null) {
-				drives.setDriveAttr(fileType, file, true);
+				drives.setDriveAttr(fileType, file);
 			}
 
 		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
@@ -259,7 +259,7 @@ public class LimboSDLActivity extends SDLActivity {
 					Thread thread = new Thread(new Runnable() {
 						public void run() {
 
-							drives.setDriveAttr(drives.filetype, fileTmp, true);
+							drives.setDriveAttr(drives.filetype, fileTmp);
 						}
 					});
 					thread.setPriority(Thread.MIN_PRIORITY);
