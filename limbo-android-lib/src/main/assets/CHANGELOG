@@ -1,4 +1,29 @@
 <br>
+Limbo v2.11.0<br>
+- Rebased with QEMU 2.11.0<br>
+- Native libraries support for ARMv8 64bit phones/tables<br>
+- Native libraries support for x86 64 bit phones/tables<br>
+- Mouse Calibration for VNC<br>
+- Fixed crash while changing Drives<br>
+- Remove notification after VM shutdown<br>
+- Better Toolbar with Menu Icons<br>
+- Stack Protector for better security<br>
+- Better error handling with Pausing VM<br>
+- Fixed issue with enabling Shared Folder<br>
+- Fixed double mouse click under VNC mode<br>
+- Logs can be now viewed only under external Viewer<br>
+- Fixed stlport shared library<br>
+- Cleaner Log with more msg errors printed<br>
+- Fixed volume panel under SDL mode<br>
+- Added lid type roms<br>
+- strings.xml Ja (by Uhucream)<br>
+- strings.xml Ch (by qingan1996)<br>
+- Better Build environment for development<br>
+- Removed configurations for ARM hard fp<br>
+- Support for PowerPC 64 bit emulator<br>
+<br>
+
+<br>
 Limbo v2.10.0<br>
 - Rebased with QEMU 2.10.0<br>
 - User Interface issue randomly updating values is fixed<br>
