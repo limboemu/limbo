@@ -1105,7 +1105,9 @@ public class VncCanvas extends ImageView {
 
 			if ((evt.getMetaState() & KeyEvent.META_SHIFT_ON) == KeyEvent.META_SHIFT_ON) {
 				// Log.v("meta", "setting shift mask");
-				key = evt.getUnicodeChar();
+                //XXX: Remove the assingment to Unicode as a workaround for fixing the "|" char in qemu
+                //TODO: Though this should get fixed along with revamping the keyboard code translation.
+				//key = evt.getUnicodeChar();
 				metaState = metaState | VncCanvas.SHIFT_MASK;
 			}
 			try {
