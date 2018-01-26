@@ -20,19 +20,43 @@ endif
 # though if it doesn't you can specify it here
 #LIMBO_JNI_ROOT := C:/users/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
 
-# Enable KVM (NOT Tested)
-# Note: KVM headers are available only for android-21 platform and above
-USE_KVM ?= false
-
-# If you want to use SDL (not working for Hard-float device config, see below)
+# If you want to use SDL
 USE_SDL ?= true
 
-# If you want to use SDL Audio (currently not working)
+# If you want to use SDL Audio
 USE_SDL_AUDIO ?= true
 
+# Optimization
+USE_OPTIMIZATION ?= true
+
+# Enable KVM (Currently Disabled, NOT Tested)
+# Note: KVM headers are available only for android-21 platform and above
+#USE_KVM ?= true
 
 
-############## Environment Config
+
+############## Build Environment (toolchain)
+
+# Uncomment all lines below if you use Windows to compile
+NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
+NDK_ENV = windows
+# or Windows 64 bit to compile
+#NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
+#NDK_ENV = windows-x86_64
+
+# Uncomment all lines below if you use Linux to compile
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
+#NDK_ENV = linux-x86
+# or Linux 64bit to compile
+#NDK_ENV = linux-x86_64
+
+# Uncomment all lines below if you use MacOS to compile
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
+#NDK_ENV = darwin-x86
+
+
+
+############## ANDROID DEVICE CONFIGURATION
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
@@ -41,49 +65,7 @@ USE_SDL_AUDIO ?= true
 # Note 3: Building for Android x86 host w/ KVM support requires ndk13 and android-21
 # Note 4: Building for Android x86_64 host requires ndk13 and android-21
 # Note 5: Building for Android ARM64 host requires ndk13 and android-21
- 
-APP_PLATFORM = android-17
-NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
-# Set to true if you use platform-17 and above
-USE_NDK_PLATFORM21 ?= false
-
-# Optimization
-USE_OPTIMIZATION ?= true
-
-# Faster Builds with multiple threads
-BUILD_THREADS=3
-
-
-
-############## Windows Config
-# Uncomment all lines below if you use Windows to compile
-##### ndk 13b for Windows x86
-NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
-NDK_ENV = windows
-# or Windows 64 bit to compile
-#NDK_ENV = windows-x86_64
-
-
-
-############## Linux Config
-# Uncomment all lines below if you use Linux to compile
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
-#NDK_ENV = linux-x86
-# or Linux 64bit to compile
-#NDK_ENV = linux-x86_64
-
-
-
-############## MacOS X Config
-# Uncomment all lines below if you use MacOS to compile
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
-#NDK_ENV = darwin-x86
-
-
-
-############## ANDROID DEVICE CONFIGURATION
-# Choose ONLY ONE:
 
 ######### Armv8 64 bit (Newest ARM phones only, Supports VNC, Needs android-21)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv8.mak

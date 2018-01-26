@@ -1,4 +1,8 @@
-#Needs platform = android-17
+#Needs platform android-17
+APP_PLATFORM = android-17
+
+# Set to true if you use platform-21 and above
+USE_NDK_PLATFORM21 ?= false
 
 #NDK VERSION
 NDK_TOOLCHAIN_VERSION=4.9

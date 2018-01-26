@@ -1,4 +1,6 @@
 # DO NOT MODIFY THIS FILE
+NDK_PLATFORM = platforms/$(APP_PLATFORM)
+
 TARGET_ARCH = 
 
 ifeq ($(APP_ABI),armeabi)
