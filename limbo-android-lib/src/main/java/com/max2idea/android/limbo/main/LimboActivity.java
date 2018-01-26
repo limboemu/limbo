@@ -250,8 +250,6 @@ public class LimboActivity extends AppCompatActivity {
 			if (messageType != null && messageType == Config.VM_STARTED) {
 				if (!vmStarted) {
                     UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
-				} else {
-                    UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
 				}
 				enableNonRemovableDeviceOptions(false);
 				mStart.setImageResource(R.drawable.play);
@@ -2340,6 +2338,8 @@ public class LimboActivity extends AppCompatActivity {
 		mSharedFolder.setEnabled(flag && mSharedFolderenable.isChecked());
 
 		this.mExtraParams.setEnabled(flag);
+
+        this.mVNCAllowExternal.setEnabled(flag);
 	}
 
 	// Main event function
@@ -2427,7 +2427,9 @@ public class LimboActivity extends AppCompatActivity {
 		} else if (mUI.getSelectedItemPosition() == 2) { // SPICE
 			startSPICE();
 		}
-        if (vmexecutor.paused == 1) {
+		if (vmStarted) {
+            //do nothing
+        }else if (vmexecutor.paused == 1) {
             sendHandlerMessage(handler, Config.VM_RESUMED);
             vmStarted = true;
         }
@@ -3548,38 +3550,48 @@ public class LimboActivity extends AppCompatActivity {
 			String ret = vmexecutor.change_vnc_password();
 			promptConnectLocally(activity);
 		} else {
-			Intent intent = getVNCIntent();
-			startActivityForResult(intent, Config.VNC_REQUEST_CODE);
+            connectLocally();
 		}
 
 	}
 
 	public void promptConnectLocally(final Activity activity) {
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("VNC Started");
-		TextView stateView = new TextView(activity);
-		stateView.setText("VNC Server started: " + this.getLocalIpAddress() + ":" + "5901\n"
-				+ "Warning: VNC Connection is Unencrypted and not secure make sure you're on a private network!\n");
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                final AlertDialog alertDialog;
+                alertDialog = new AlertDialog.Builder(activity).create();
+                alertDialog.setTitle("VNC Started");
+                TextView stateView = new TextView(activity);
+                stateView.setText("VNC Server started: " + getLocalIpAddress() + ":" + "5901\n"
+                        + "Warning: VNC Connection is Unencrypted and not secure make sure you're on a private network!\n");
 
-		stateView.setPadding(20, 20, 20, 20);
-		alertDialog.setView(stateView);
+                stateView.setPadding(20, 20, 20, 20);
+                alertDialog.setView(stateView);
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				alertDialog.dismiss();
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEUTRAL, "Connect Locally", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				Intent intent = getVNCIntent();
-				startActivityForResult(intent, Config.VNC_REQUEST_CODE);
-			}
-		});
-		alertDialog.show();
+                alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        alertDialog.dismiss();
+                    }
+                });
+                alertDialog.setButton(DialogInterface.BUTTON_NEUTRAL, "Connect Locally", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        connectLocally();
+                    }
+                });
+                alertDialog.show();
+            }
+        }, 100);
+
 
 	}
+
+	public void connectLocally() {
+        UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
+        Intent intent = getVNCIntent();
+        startActivityForResult(intent, Config.VNC_REQUEST_CODE);
+    }
 
 	public void startsdl() {
 
