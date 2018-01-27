@@ -1076,13 +1076,14 @@ public class VncCanvas extends ImageView {
 				key = 0xff1b;
 				break;
 			default:
-				key = (new KeyEvent(0, 0, evt.getAction(), evt.getKeyCode(), 0, 0)).getUnicodeChar();
-				// Log.v("unicode", "Unicode Char is " + key);
+                key = evt.getUnicodeChar(0);
+				//Log.v("unicode", "Unicode Char for " + evt.getKeyCode() + " is " + key);
 
+                //ΧΧΧ: Workaround for some chars not recognized by QEMU
 				int specialKey = isSpecialKey(key);
 				if (specialKey != -1) {
 					key = specialKey;
-					metaState = 1;
+					metaState = metaState | VncCanvas.SHIFT_MASK;
 				} else {
 					if (keyCode >= 131 && keyCode <= 142) {
 						// Function Key pressed
@@ -1105,9 +1106,6 @@ public class VncCanvas extends ImageView {
 
 			if ((evt.getMetaState() & KeyEvent.META_SHIFT_ON) == KeyEvent.META_SHIFT_ON) {
 				// Log.v("meta", "setting shift mask");
-                //XXX: Remove the assingment to Unicode as a workaround for fixing the "|" char in qemu
-                //TODO: Though this should get fixed along with revamping the keyboard code translation.
-				//key = evt.getUnicodeChar();
 				metaState = metaState | VncCanvas.SHIFT_MASK;
 			}
 			try {
