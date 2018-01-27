@@ -1010,6 +1010,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	@Override
 	public void onConnected() {
         this.resumeVMMonitor();
+        LimboActivity.currMachine.paused = 0;
     }
 
 }

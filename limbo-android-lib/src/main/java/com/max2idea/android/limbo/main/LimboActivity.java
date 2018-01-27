@@ -2157,6 +2157,7 @@ public class LimboActivity extends AppCompatActivity {
         }
         enableNonRemovableDeviceOptions(true);
         enableRemovableDeviceOptions(true);
+        this.mVNCAllowExternal.setEnabled(true);
     }
 
 	protected void showDownloadLinks() {
@@ -2339,7 +2340,6 @@ public class LimboActivity extends AppCompatActivity {
 
 		this.mExtraParams.setEnabled(flag);
 
-        this.mVNCAllowExternal.setEnabled(flag);
 	}
 
 	// Main event function
@@ -2418,14 +2418,22 @@ public class LimboActivity extends AppCompatActivity {
 		if (mUI.getSelectedItemPosition() == 0) { // VNC
 			vmexecutor.enableqmp = 0; // We enable qemu monitor
 			startVNC();
+            //we don't flag the VNC as started yet because we need
+            //  to send cont via QEMU console first
 		} else if (mUI.getSelectedItemPosition() == 1) { // SDL
 			// XXX: We need to enable qmp server to be able to save the state
 			// We could do it via the Monitor but SDL for Android
 			// doesn't support multiple Windows
 			vmexecutor.enableqmp = 1;
 			startSDL();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
+                    0 + "");
 		} else if (mUI.getSelectedItemPosition() == 2) { // SPICE
 			startSPICE();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
+                    0 + "");
 		}
 		if (vmStarted) {
             //do nothing
@@ -2438,9 +2446,7 @@ public class LimboActivity extends AppCompatActivity {
             vmStarted = true;
         }
 
-		currMachine.paused = 0;
-		MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-				0 + "");
+
 
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			public void run() {
@@ -3044,7 +3050,6 @@ public class LimboActivity extends AppCompatActivity {
 
 
 		machineLoaded = true;
-
 		this.setUserPressed(false);
 
 		// Load machine from DB
@@ -3056,7 +3061,7 @@ public class LimboActivity extends AppCompatActivity {
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			public void run() {
 
-
+                mVNCAllowExternal.setChecked(false);
 
 				populateMachineType(currMachine.machine_type);
 				populateCPUs(currMachine.cpu);
@@ -3546,9 +3551,15 @@ public class LimboActivity extends AppCompatActivity {
 			Logger.getLogger(LimboActivity.class.getName()).log(Level.SEVERE, null, ex);
 		}
 
-		if (this.mVNCAllowExternal.isChecked() && vnc_passwd != null && !vnc_passwd.equals("")) {
+        this.mVNCAllowExternal.setEnabled(false);
+
+		if (this.mVNCAllowExternal.isChecked()
+                && vnc_passwd != null && !vnc_passwd.equals("")) {
 			String ret = vmexecutor.change_vnc_password();
-			promptConnectLocally(activity);
+            if(currMachine.paused != 1)
+                promptConnectLocally(activity);
+            else
+                connectLocally();
 		} else {
             connectLocally();
 		}
