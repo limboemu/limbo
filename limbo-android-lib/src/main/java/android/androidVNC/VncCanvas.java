@@ -1076,21 +1076,21 @@ public class VncCanvas extends ImageView {
 				key = 0xff1b;
 				break;
 			default:
-                key = evt.getUnicodeChar(0);
+                key = evt.getUnicodeChar();
 				//Log.v("unicode", "Unicode Char for " + evt.getKeyCode() + " is " + key);
 
                 //ΧΧΧ: Workaround for some chars not recognized by QEMU
 				int specialKey = isSpecialKey(key);
 				if (specialKey != -1) {
 					key = specialKey;
-					metaState = metaState | VncCanvas.SHIFT_MASK;
-				} else {
-					if (keyCode >= 131 && keyCode <= 142) {
-						// Function Key pressed
-						key = 0xFFBE + keyCode - 131;
-					}
-
-				}
+                    metaState = metaState | VncCanvas.SHIFT_MASK;
+				} else if (keyCode >= 131 && keyCode <= 142) {
+					// Function Key pressed
+                    key = 0xFFBE + keyCode - 131;
+				} else if (key == 0){
+                    //Key is a meta combination or unknown
+                    key = evt.getUnicodeChar(0);
+                }
 
 				break;
 			}
@@ -1099,6 +1099,7 @@ public class VncCanvas extends ImageView {
 				// Log.v("meta", "setting ctrl mask");
 				metaState = metaState | VncCanvas.CTRL_MASK;
 			}
+
 			if ((evt.getMetaState() & KeyEvent.META_ALT_ON) == KeyEvent.META_ALT_ON || this.ALT_PRESSED) {
 				// Log.v("meta", "setting alt mask");
 				metaState = metaState | VncCanvas.ALT_MASK;
