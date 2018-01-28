@@ -14,23 +14,35 @@
     along with this program.  If not, see <<a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a>>.
 <br> <br>
 
- ====== THANKS ========
+ ====== THANKS, ACKNOWLEDGMENTS, AND OTHER LICENSES ========
  <br><br>
  "And so, I captured this fancy, where all that we see, or seem, 
  is but a dream within a dream."   -- Edgar Allan Poe
 <br><br>
-Thanks To:
+Limbo contains source code from the following projects each under their own respective licenses:<br>
+<br>
+    QEMU: GPLv2.0 License (patches for Android)<br>
     Fabrice Bellard <a href="http://bellard.org">http://bellard.org</a><br>
-	Qemu team <a href="http://wiki.qemu.org/Main_Page">http://wiki.qemu.org/Main_Page></a><br>
-	Glib team <a href="http://developer.gnome.org">http://developer.gnome.org/glib></a><br>
-	Iconv team <a href="http://www.gnu.org/software/libiconv">http://www.gnu.org/software/libiconv></a><br>
-	Libsdl team <a href="http://www.libsdl.org">http://www.libsdl.org></a><br>
-	Libjpeg team <a href="http://libjpeg.sourceforge.net">http://libjpeg.sourceforge.net></a><br>
-	Libpng team <a href="http://www.libpng.org">http://www.libpng.org></a><br>
-	Mikmod team <a href="http://mikmod.shlomifish.org">http://mikmod.shlomifish.org></a><br>
-	Libtremor team <a href="http://xiph.org/vorbis">http://xiph.org/vorbis></a><br>
-	Freetype team <a href="http://www.freetype.org">http://www.freetype.org></a><br>
-	Android-vnc-viewer team <a href="http://code.google.com/p/android-vnc-viewer">http://code.google.com/p/android-vnc-viewer></a><br>
+	and QEMU project <a href="http://wiki.qemu.org/Main_Page">http://wiki.qemu.org/Main_Page</a><br>
+<br>
+    glib: GPLv2.0 License (modified source code)<br>
+	<a href="http://developer.gnome.org/glib">http://developer.gnome.org/glib</a><br>
+<br>
+	libsdl2.0: zlib License (modified source code)<br>
+	<a href="http://www.libsdl.org">http://www.libsdl.org</a><br>
+<br>
+	android-vnc-viewer: GPLv2.0 License (modified source code)<br>
+	<a href="http://code.google.com/p/android-vnc-viewer">http://code.google.com/p/android-vnc-viewer</a><br>
+<br>
+	pixman: GPLv2.0 License (modified source code)<br>
+	<a href="http://www.pixman.org/">http://www.pixman.org</a><br>
+	and <a href="https://android.googlesource.com/platform/external/pixman/+/master">https://android.googlesource.com/platform/external/pixman/+/master</a><br>
+<br>
+    Linux Kernel: GPLv2.0 License (scsi interface source code)<br>
+    <a href="https://www.kernel.org">https://www.kernel.org</a><br>
+<br>
+	gnome-icon-theme: GPLv2.0 License (icons)<br>
+	<a href="https://ftp.gnome.org/pub/GNOME/sources/gnome-icon-theme">https://ftp.gnome.org/pub/GNOME/sources/gnome-icon-theme</a><br>
 <br>
  ====== SOURCE CODE =======
 <br><br>
