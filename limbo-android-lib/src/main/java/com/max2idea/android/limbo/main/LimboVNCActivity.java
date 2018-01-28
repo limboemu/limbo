@@ -52,6 +52,7 @@ import android.widget.Toast;
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.FileUtils;
+import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
@@ -384,7 +385,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		} else if (item.getItemId() == R.id.itemCenterMouse) {
 			return onMouse();
 		} else if (item.getItemId() == R.id.itemHelp) {
-			this.onMenuHelp();
+			UIUtils.onHelp(this);
 		} else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
         } else if (item.getItemId() == R.id.itemViewLog) {
@@ -976,13 +977,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		return save_state;
 	}
 
-	private static void onMenuHelp() {
-		String url = "https://github.com/limboemu/limbo";
-		Intent i = new Intent(Intent.ACTION_VIEW);
-		i.setData(Uri.parse(url));
-		LimboActivity.activity.startActivity(i);
-
-	}
 
 	public void onBackPressed() {
 
@@ -1011,6 +1005,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public void onConnected() {
         this.resumeVMMonitor();
         LimboActivity.currMachine.paused = 0;
+        MachineOpenHelper.getInstance(activity).update(LimboActivity.currMachine,
+                MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
     }
 
 }

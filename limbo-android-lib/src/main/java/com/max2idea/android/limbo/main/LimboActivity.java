@@ -315,7 +315,7 @@ public class LimboActivity extends AppCompatActivity {
 			if (messageType != null && messageType == Config.UIUTILS_SHOWALERT_HTML) {
 				String title = (String) b.get("title");
 				String body = (String) b.get("body");
-				UIAlertHtml(title, body, activity);
+				UIUtils.UIAlertHtml(title, body, activity);
 			}
 			if (messageType != null && messageType == Config.STATUS_CHANGED) {
 				String status_changed = (String) b.get("status_changed");
@@ -435,7 +435,7 @@ public class LimboActivity extends AppCompatActivity {
 			public void onClick(DialogInterface dialog, int which) {
 				if (isFirstLaunch()) {
 					install();
-					onHelp();
+					UIUtils.onHelp(activity);
 					onChangeLog();
 				}
 				setFirstLaunch();
@@ -457,21 +457,7 @@ public class LimboActivity extends AppCompatActivity {
 		alertDialog.show();
 	}
 
-	public static void UIAlertHtml(String title, String html, Activity activity) {
 
-		AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle(title);
-		WebView webview = new WebView(activity);
-		webview.loadData(html, "text/html", "UTF-8");
-		alertDialog.setView(webview);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				return;
-			}
-		});
-		alertDialog.show();
-	}
 
 	// Generic Message to update UI
 	public static void sendHandlerMessage(Handler handler, int message_type, String message_var, String message_value) {
@@ -528,25 +514,6 @@ public class LimboActivity extends AppCompatActivity {
 		}
 	}
 
-	private static void onHelp() {
-		PackageInfo pInfo = null;
-
-		try {
-			pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
-					PackageManager.GET_META_DATA);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-
-		FileUtils fileutils = new FileUtils();
-		try {
-			showAlertHtml(Config.APP_NAME + " v" + pInfo.versionName, fileutils.LoadFile(activity, "HELP", false),
-					OShandler);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
 
 	private static void onChangeLog() {
 		PackageInfo pInfo = null;
@@ -5677,7 +5644,7 @@ public class LimboActivity extends AppCompatActivity {
 		} else if (item.getItemId() == this.IMPORT) {
 			this.onImportMachines();
 		} else if (item.getItemId() == this.HELP) {
-			this.onHelp();
+			UIUtils.onHelp(this);
 		} else if (item.getItemId() == this.VIEWLOG) {
 			this.onViewLog();
 		} else if (item.getItemId() == this.CHANGELOG) {

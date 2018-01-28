@@ -1,8 +1,12 @@
 package com.max2idea.android.limbo.utils;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.os.Handler;
 import android.os.Looper;
@@ -11,10 +15,14 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Display;
 import android.view.Gravity;
+import android.webkit.WebView;
 import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboSettingsManager;
+
+import java.io.IOException;
 
 public class UIUtils {
 
@@ -113,5 +121,41 @@ public class UIUtils {
         if(screenSize.x < screenSize.y)
             return false;
         return true;
+    }
+
+
+    public static void onHelp(Activity activity) {
+        PackageInfo pInfo = null;
+
+        try {
+            pInfo = activity.getPackageManager().getPackageInfo(activity.getApplicationContext().getPackageName(),
+                    PackageManager.GET_META_DATA);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        FileUtils fileutils = new FileUtils();
+        try {
+            UIAlertHtml(Config.APP_NAME + " v" + pInfo.versionName, fileutils.LoadFile(activity, "HELP", false), activity);
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public static void UIAlertHtml(String title, String html, Activity activity) {
+
+        AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle(title);
+        WebView webview = new WebView(activity);
+        webview.loadData(html, "text/html", "UTF-8");
+        alertDialog.setView(webview);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                return;
+            }
+        });
+        alertDialog.show();
     }
 }

@@ -529,7 +529,7 @@ public class LimboSDLActivity extends SDLActivity {
 			this.setZoomable();
 		} else if (item.getItemId() == this.QUIT) {
 		} else if (item.getItemId() == R.id.itemHelp) {
-			this.onMenuHelp();
+			UIUtils.onHelp(this);
 		}  else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
         } else if (item.getItemId() == R.id.itemViewLog) {
@@ -562,13 +562,6 @@ public class LimboSDLActivity extends SDLActivity {
         }
     }
 
-	private static void onMenuHelp() {
-		String url = "https://github.com/limboemu/limbo";
-		Intent i = new Intent(Intent.ACTION_VIEW);
-		i.setData(Uri.parse(url));
-		LimboActivity.activity.startActivity(i);
-
-	}
 
 	private void onMouse() {
 
