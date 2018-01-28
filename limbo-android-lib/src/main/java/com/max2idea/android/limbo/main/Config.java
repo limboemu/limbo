@@ -84,8 +84,9 @@ public class Config {
 	public static final boolean enable_sound= true;
 
     //Backend libs
-    public static final boolean enable_iconv= false;
-	
+    public static final boolean enable_iconv= false; //not needed for now
+
+    //Do not update these directly, see inherited project java files
 	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
 	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
 	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
@@ -95,8 +96,8 @@ public class Config {
 	public static boolean enable_m68k = false;
 	public static boolean enable_sparc = false;
 	
-	//Enable if you build with KVM support
-	public static final boolean enable_KVM = true;
+	//Enable if you build with KVM support, needes android-21 platform
+	public static final boolean enable_KVM = false;
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
