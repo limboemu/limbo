@@ -74,10 +74,10 @@ NDK_ENV = windows
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-softfp.mak
 
 ######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-17)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86.mak
 
 ######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86_64.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86_64.mak
 
 
 
