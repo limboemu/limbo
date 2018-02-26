@@ -21,6 +21,7 @@ package com.max2idea.android.limbo.main;
 import android.androidVNC.AbstractScaling;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -46,6 +47,9 @@ import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -78,7 +82,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	private Thread timeListenerThread;
 	private ProgressDialog progDialog;
 
-	@Override
+    @Override
 	public void onCreate(Bundle b) {
 
 		UIUtils.setOrientation(this);
@@ -388,6 +392,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			UIUtils.onHelp(this);
 		} else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
+        } else if (item.getItemId() == R.id.itemDisplayRefreshRate) {
+            this.onSelectMenuVNCRefreshRate();
         } else if (item.getItemId() == R.id.itemViewLog) {
             this.onViewLog();
         }
@@ -844,7 +850,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
-	private class VMListener extends AsyncTask<Void, Void, Void> {
+    private class VMListener extends AsyncTask<Void, Void, Void> {
 
 		@Override
 		protected Void doInBackground(Void... arg0) {
@@ -1007,6 +1013,80 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         LimboActivity.currMachine.paused = 0;
         MachineOpenHelper.getInstance(activity).update(LimboActivity.currMachine,
                 MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
+    }
+
+    public void onSelectMenuVNCRefreshRate() {
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Display Refresh Rate (Hz)");
+
+        LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        LinearLayout t = createVNCRefreshRatePanel();
+        t.setLayoutParams(volParams);
+
+        ScrollView s = new ScrollView(activity);
+        s.addView(t);
+        alertDialog.setView(s);
+        alertDialog.setButton(Dialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                alertDialog.cancel();
+            }
+        });
+        alertDialog.show();
+
+    }
+
+
+    public LinearLayout createVNCRefreshRatePanel() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(20, 20, 20, 20);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int currRate = getCurrentVNCRefreshRate();
+
+        final TextView value = new TextView(this);
+        value.setText(currRate+" Hz");
+        layout.addView(value);
+        value.setLayoutParams(params);
+
+        SeekBar rate = new SeekBar(this);
+        rate.setMax(Config.MAX_VNC_REFRESH_RATE);
+
+        rate.setProgress(currRate);
+        rate.setLayoutParams(params);
+
+        ((SeekBar) rate).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+
+            public void onProgressChanged(SeekBar s, int progress, boolean touch) {
+                value.setText(progress+1+" Hz");
+            }
+
+            public void onStartTrackingTouch(SeekBar arg0) {
+
+            }
+
+            public void onStopTrackingTouch(SeekBar arg0) {
+                int progress = arg0.getProgress()+1;
+                LimboActivity.vmexecutor.changevar("vnc_refresh_interval_inc", 1000 / progress);
+                LimboActivity.vmexecutor.changevar("vnc_refresh_interval_base", 1000 / progress);
+
+            }
+        });
+
+
+        layout.addView(rate);
+
+        return layout;
+
+    }
+    public int getCurrentVNCRefreshRate() {
+        return 1000 / LimboActivity.vmexecutor.getvar("vnc_refresh_interval_inc");
     }
 
 }

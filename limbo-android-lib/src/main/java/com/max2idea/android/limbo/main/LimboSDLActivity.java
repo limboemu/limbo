@@ -532,7 +532,9 @@ public class LimboSDLActivity extends SDLActivity {
 			UIUtils.onHelp(this);
 		}  else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
-        } else if (item.getItemId() == R.id.itemViewLog) {
+        } else if (item.getItemId() == R.id.itemDisplayRefreshRate) {
+            this.onSelectMenuGUIRefreshRate();
+		} else if (item.getItemId() == R.id.itemViewLog) {
             this.onViewLog();
         }
 		// this.canvas.requestFocus();
@@ -1615,5 +1617,77 @@ public class LimboSDLActivity extends SDLActivity {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         this.supportInvalidateOptionsMenu();
+    }
+
+    public void onSelectMenuGUIRefreshRate() {
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Display Refresh Rate (Hz)");
+
+        LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        LinearLayout t = createGUIRefreshRatePanel();
+        t.setLayoutParams(volParams);
+
+        ScrollView s = new ScrollView(activity);
+        s.addView(t);
+        alertDialog.setView(s);
+        alertDialog.setButton(Dialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                alertDialog.cancel();
+            }
+        });
+        alertDialog.show();
+
+    }
+
+
+    public LinearLayout createGUIRefreshRatePanel() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(20, 20, 20, 20);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int currRate = getCurrentGUIRefreshRate();
+
+        final TextView value = new TextView(this);
+        value.setText(currRate+" Hz");
+        layout.addView(value);
+        value.setLayoutParams(params);
+
+        SeekBar rate = new SeekBar(this);
+        rate.setMax(Config.MAX_VNC_REFRESH_RATE);
+
+        rate.setProgress(currRate);
+        rate.setLayoutParams(params);
+
+        ((SeekBar) rate).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+
+            public void onProgressChanged(SeekBar s, int progress, boolean touch) {
+                value.setText(progress+1+" Hz");
+            }
+
+            public void onStartTrackingTouch(SeekBar arg0) {
+
+            }
+
+            public void onStopTrackingTouch(SeekBar arg0) {
+                int progress = arg0.getProgress()+1;
+                LimboActivity.vmexecutor.changevar("gui_refresh_interval_default", 1000 / progress);
+            }
+        });
+
+
+        layout.addView(rate);
+
+        return layout;
+
+    }
+    public int getCurrentGUIRefreshRate() {
+        return 1000 / LimboActivity.vmexecutor.getvar("gui_refresh_interval_default");
     }
 }

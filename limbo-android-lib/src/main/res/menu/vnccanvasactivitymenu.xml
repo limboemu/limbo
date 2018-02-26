@@ -45,6 +45,11 @@
         android:title="@string/hide_toolbar"/>
 
     <item
+        android:id="@+id/itemDisplayRefreshRate"
+        android:icon="@drawable/screen"
+        android:title="@string/display_refresh_rate"/>
+
+    <item
         android:id="@+id/itemViewLog"
         android:icon="@android:drawable/ic_menu_view"
         android:title="@string/view_log"/>

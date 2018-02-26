@@ -684,6 +684,10 @@ public class VMExecutor {
 
 	protected native String ejectdev(String dev);
 
+    public native void changevar(String var, int value);
+
+    public native int getvar(String var);
+
 	public String startvm(Context context, int ui) {
 		LimboService.executor = this;
 		Intent i = new Intent(Config.ACTION_START, null, context, LimboService.class);

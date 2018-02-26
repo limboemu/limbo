@@ -261,6 +261,48 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 	return env->NewStringUTF(res_msg);
 }
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changevar(
+		JNIEnv* env, jobject thiz, jstring jvar, jint jvalue) {
+
+	const char *var = NULL;
+	if (jvar != NULL)
+		var = env->GetStringUTFChars(jvar, 0);
+
+	dlerror();
+
+	int value_int = (jint) jvalue;
+	LOGI("change var: %s = %d\n", var, value_int);
+    void * obj = dlsym (handle, var);
+    int * var_ptr = (int *) obj;
+    *var_ptr = value_int;
+
+    env->ReleaseStringUTFChars(jvar, var);
+}
+
+JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvar(
+		JNIEnv* env, jobject thiz, jstring jvar) {
+    char res_msg[MSG_BUFSIZE + 1] = { 0 };
+	const char *var = NULL;
+	if (jvar != NULL)
+		var = env->GetStringUTFChars(jvar, 0);
+
+	dlerror();
+
+    void * obj = dlsym (handle, var);
+    const char *dlsym_error = dlerror();
+    if (dlsym_error) {
+        LOGE("Cannot load symbol %s: %s\n", var, dlsym_error);
+        env->ReleaseStringUTFChars(jvar, var);
+    	return -1;
+    }
+
+    int * var_ptr = (int *) obj;
+    LOGE("Symbol %s: %s, %d\n", var, dlsym_error, *var_ptr);
+
+    env->ReleaseStringUTFChars(jvar, var);
+    return *var_ptr;
+}
+
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectdev(
 		JNIEnv* env, jobject thiz, jstring jdev) {
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
