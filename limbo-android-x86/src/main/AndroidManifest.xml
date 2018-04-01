@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
     android:installLocation="auto"
-    android:versionCode="21100"
-    android:versionName="2.11.0-x86" >
+    android:versionCode="21101"
+    android:versionName="2.11.1-x86-test" >
 
     <uses-sdk
         android:minSdkVersion="21"

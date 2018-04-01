@@ -304,6 +304,16 @@ JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativeTouch(
     Android_OnTouch(touch_device_id_in, pointer_finger_id_in, action, x, y, p);
 }
 
+JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativeMouseReset(
+                                    JNIEnv* env, jclass jcls,
+                                    jint touch_device_id_in, jint pointer_finger_id_in,
+                                    jint action, jfloat x, jfloat y, jfloat p)
+{
+//	LOGV("%s dev=%d, pntr=%d, Action=%d, X,Y=%f,%f P=%f", __func__, touch_device_id_in, pointer_finger_id_in, action, x, y, p);
+
+    Android_OnTouchMouseReset(touch_device_id_in, pointer_finger_id_in, action, x, y, p);
+}
+
 /* Mouse */
 JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativeMouse(
                                     JNIEnv* env, jclass jcls,

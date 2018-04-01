@@ -7,6 +7,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -14,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.ActionBar;
@@ -28,6 +30,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -106,7 +109,6 @@ public class LimboSDLActivity extends SDLActivity {
 	public int disableacpi = 0;
 	public int disablehpet = 0;
 	public int disabletsc = 0;
-	public static int enablebluetoothmouse = 0;
 	public int enableqmp = 0;
 	public int enablevnc = 0;
 	public String vnc_passwd = null;
@@ -131,10 +133,6 @@ public class LimboSDLActivity extends SDLActivity {
 	private static EGLConfig mEGLConfig;
 	private static int mGLMajor, mGLMinor;
 
-	public static int width;
-	public static int height;
-	public static int screen_width;
-	public static int screen_height;
 
 	private static Activity activity1;
 
@@ -160,59 +158,7 @@ public class LimboSDLActivity extends SDLActivity {
 		t.start();
 	}
 
-	private void promptBluetoothMouse(final Activity activity) {
-		
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Enable Bluetooth Mouse");
-
-		LinearLayout mLayout = new LinearLayout(this);
-        mLayout.setPadding(20,20,20,20);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-
-		TextView textView = new TextView(activity);
-		textView.setVisibility(View.VISIBLE);
-		textView.setText(
-				"Step 1: Disable Mouse Acceleration inside the Guest OS.\n\tFor DSL use command: dsl@box:/>xset m 1\n"
-						+ "Step 2: Pair your Bluetooth Mouse and press OK!\n"
-						+ "Step 3: Move your mouse pointer to all desktop corners to calibrate.\n");
-
-        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(textView, textViewParams);
-		alertDialog.setView(mLayout);
-
-		final Handler handler = this.handler;
-
-		// alertDialog.setMessage(body);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-				LimboSDLActivity.singleClick(a, 0);
-				// SDLActivityCommon.onNativeMouseReset(0, 0,
-				// MotionEvent.ACTION_MOVE, vm_width / 2, vm_height / 2, 0);
-				LimboSDLActivity.enablebluetoothmouse = 1;
-
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				LimboSDLActivity.enablebluetoothmouse = 0;
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				LimboSDLActivity.enablebluetoothmouse = 0;
-				return;
-
-			}
-		});
-		alertDialog.show();
-
-	}
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -489,10 +435,11 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemShutdown) {
 			stopVM(false);
 		} else if (item.getItemId() == R.id.itemMouse) {
-			onMouse();
+            onMouseMode();
 		} else if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
 			this.onKeyboard();
-		} else if (item.getItemId() == R.id.itemMonitor) {
+		}
+        else if (item.getItemId() == R.id.itemMonitor) {
 			if (this.monitorMode) {
 				this.onVMConsole();
 			} else {
@@ -500,19 +447,12 @@ public class LimboSDLActivity extends SDLActivity {
 			}
 		} else if (item.getItemId() == R.id.itemVolume) {
 			this.onSelectMenuVol();
-		} else if (item.getItemId() == R.id.itemExternalMouse) {
-			if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-				this.promptBluetoothMouse(activity);
-			} else {
-				UIUtils.toastLong(this, "External Mouse support only for ICS and above");
-			}
-
 		} else if (item.getItemId() == R.id.itemSaveState) {
 			this.promptPause(activity);
 		} else if (item.getItemId() == R.id.itemSaveSnapshot) {
 			this.promptStateName(activity);
 		} else if (item.getItemId() == R.id.itemFitToScreen) {
-			setFitToScreen();
+            onFitToScreen();
 		} else if (item.getItemId() == R.id.itemStretchToScreen) {
 			setStretchToScreen();
 		} else if (item.getItemId() == R.id.itemZoomIn) {
@@ -524,7 +464,7 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemCtrlC) {
 			this.onCtrlC();
 		} else if (item.getItemId() == R.id.itemOneToOne) {
-			this.setOneToOne();
+			this.onNormalScreen();
 		} else if (item.getItemId() == R.id.itemZoomable) {
 			this.setZoomable();
 		} else if (item.getItemId() == this.QUIT) {
@@ -532,22 +472,13 @@ public class LimboSDLActivity extends SDLActivity {
 			UIUtils.onHelp(this);
 		}  else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
-        } else if (item.getItemId() == R.id.itemDisplayRefreshRate) {
-            this.onSelectMenuGUIRefreshRate();
+        } else if (item.getItemId() == R.id.itemDisplay) {
+            this.onSelectMenuSDLDisplay();
 		} else if (item.getItemId() == R.id.itemViewLog) {
             this.onViewLog();
         }
 		// this.canvas.requestFocus();
 
-//		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-//			ActionBar bar = this.getSupportActionBar();
-//			if (bar != null) {
-//				if (bar.isShowing()) {
-//					bar.hide();
-//				} else
-//					bar.show();
-//			}
-//		}
 
         this.supportInvalidateOptionsMenu();
 		return true;
@@ -565,14 +496,142 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
 
-	private void onMouse() {
+    private void onMouseMode() {
 
-		MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-		LimboSDLActivity.singleClick(a, 0);
-		// SDLActivityCommon.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE,
-		// vm_width / 2, vm_height / 2, 0);
-		Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_SHORT).show();
-	}
+        String [] items = {"Trackpad Mouse (Phone)",
+                "Touchscreen/Bluetooth Mouse (Tablet/Desktop)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+        };
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle("Mouse");
+        mBuilder.setSingleChoiceItems(items, Config.mouseMode.ordinal(), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                switch(i){
+                    case 0:
+                        setUIModeMobile();
+                        break;
+                    case 1:
+                        setUIModeDesktop(LimboSDLActivity.this, false);
+                        break;
+                    default:
+                        break;
+                }
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+
+    }
+
+
+
+    public void calibration() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                try {
+
+                    int origX = 0;
+                    int origY = 0;
+                    MotionEvent event = null;
+
+                    for(int i = 0; i< 4*20; i++) {
+                        int x = 0+i*50;
+                        int y = 0+i*50;
+                        if(i%4==1){
+                            x= mSurface.getWidth();
+                        }else if (i%4==2) {
+                            y= mSurface.getHeight();
+                        }else if (i%4==3) {
+                            x=0;
+                        }
+
+                        event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                                SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+                                x,y, 0);
+                        Thread.sleep(50);
+                        SDLActivity.onNativeTouch(event.getDeviceId(), 1, MotionEvent.ACTION_MOVE,
+                                x , y , 0);
+
+
+                    }
+
+                    Thread.sleep(50);
+                    event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                            SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+                            origX,origY, 0);
+                    SDLActivity.onNativeTouch(event.getDeviceId(), 1, MotionEvent.ACTION_MOVE,
+                            origX, origY , 0);
+
+                }catch(Exception ex) {
+
+                }
+            }
+        });
+        t.start();
+    }
+
+    private void setUIModeMobile(){
+
+        UIUtils.setOrientation(this);
+        MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+        LimboSDLActivity.singleClick(a, 0);
+        Config.mouseMode = Config.MouseMode.Trackpad;
+        Toast.makeText(this.getApplicationContext(), "Mouse Trackpad enabled", Toast.LENGTH_SHORT).show();
+        onFitToScreen();
+        calibration();
+        supportInvalidateOptionsMenu();
+    }
+
+    private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
+
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Touchscreen/Desktop Mode");
+
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20,20,20,20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setText(this.getString(R.string.desktopInstructions));
+
+        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mLayout.addView(textView, textViewParams);
+        alertDialog.setView(mLayout);
+
+        final Handler handler = this.handler;
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+
+                MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+                LimboSDLActivity.singleClick(a, 0);
+                SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+                SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
+                Config.mouseMode = Config.MouseMode.External;
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                ActionBar bar = LimboSDLActivity.this.getSupportActionBar();
+                if (bar != null) {
+                    bar.show();
+                }
+                Toast.makeText(LimboSDLActivity.this, "External Mouse enabled", Toast.LENGTH_SHORT).show();
+                onNormalScreen();
+                calibration();
+                supportInvalidateOptionsMenu();
+                alertDialog.dismiss();
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                alertDialog.dismiss();
+            }
+        });
+        alertDialog.show();
+
+    }
 
 	private void onCtrlAltDel() {
 		
@@ -703,27 +762,27 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = true;
 				LimboSDLActivity.fitToScreen = false;
-				sendCtrlAtlKey(KeyEvent.KEYCODE_6);
+				sendCtrlAtlKey(KeyEvent.KEYCODE_U);
 			}
 		}).start();
 
 	}
 
-	private static void setFitToScreen() {
+	private static void onFitToScreen() {
 		
 
 		new Thread(new Runnable() {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = false;
 				LimboSDLActivity.fitToScreen = true;
-				sendCtrlAtlKey(KeyEvent.KEYCODE_5);
+				sendCtrlAtlKey(KeyEvent.KEYCODE_U);
 
 			}
 		}).start();
 
 	}
 
-	private void setOneToOne() {
+	private void onNormalScreen() {
 		
 		new Thread(new Runnable() {
 			public void run() {
@@ -794,6 +853,13 @@ public class LimboSDLActivity extends SDLActivity {
 		// Log.v("Limbo", "Inside Options Created");
 		getMenuInflater().inflate(R.menu.sdlactivitymenu, menu);
 
+        int maxMenuItemsShown = 4;
+        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
+        if(UIUtils.isLandscapeOrientation(this)) {
+            maxMenuItemsShown = 6;
+            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
+        }
+
 		// if (vncCanvas.scaling != null) {
 		// menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
 		// }
@@ -810,43 +876,23 @@ public class LimboSDLActivity extends SDLActivity {
 
 		// Remove external mouse for now
 		menu.removeItem(menu.findItem(R.id.itemExternalMouse).getItemId());
+        //menu.removeItem(menu.findItem(R.id.itemUIMode).getItemId());
 
         menu.removeItem(menu.findItem(R.id.itemCtrlAltDel).getItemId());
         menu.removeItem(menu.findItem(R.id.itemCtrlC).getItemId());
 
-        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity) || Config.mouseMode == Config.MouseMode.External) {
             menu.removeItem(menu.findItem(R.id.itemHideToolbar).getItemId());
+            maxMenuItemsShown--;
         }
 
         if (soundcard==null || soundcard.equals("None")) {
             menu.removeItem(menu.findItem(R.id.itemVolume).getItemId());
+            maxMenuItemsShown--;
         }
 
-		// if (this.monitorMode) {
-		// menu.findItem(R.id.itemMonitor).setTitle("VM Console");
-		//
-		// } else {
-		// menu.findItem(R.id.itemMonitor).setTitle("Monitor Console");
-		//
-		// }
-		//
-		// // Menu inputMenu = menu.findItem(R.id.itemInputMode).getSubMenu();
-		//
-		// if (this.mouseOn) { // Panning is disable for now
-		// menu.findItem(R.id.itemMouse).setTitle("Pan (Mouse Off)");
-		// menu.findItem(R.id.itemMouse).setIcon(R.drawable.pan);
-		// } else {
-		// menu.findItem(R.id.itemMouse).setTitle("Enable Mouse");
-		// menu.findItem(R.id.itemMouse).setIcon(R.drawable.mouse);
-		//
-		// }
 
-        int maxMenuItemsShown = 4;
-        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
-        if(UIUtils.isLandscapeOrientation(this)) {
-            maxMenuItemsShown = 6;
-            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
-        }
+
         for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
             MenuItemCompat.setShowAsAction(menu.getItem(i), actionShow);
         }
@@ -1122,14 +1168,13 @@ public class LimboSDLActivity extends SDLActivity {
 		return save_state;
 	}
 
-	private static boolean fitToScreen = Config.enable_qemu_fullScreen;
-	private static boolean stretchToScreen = false; // Start with fitToScreen
+	public static boolean fitToScreen = Config.enable_qemu_fullScreen;
+    public static boolean stretchToScreen = false;
 
 	// Setup
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
         activity = this;
-		UIUtils.setOrientation(this);
 
 		if (LimboSettingsManager.getFullscreen(this))
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -1167,6 +1212,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		this.resumeVM();
 
+        UIUtils.setOrientation(this);
 	}
 
 	public SDLSurface getSDLSurface() {
@@ -1186,7 +1232,9 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
-	private void createUI(int w, int h) {
+
+
+    private void createUI(int w, int h) {
 		
 		// Set up the surface
 		mSurface = getSDLSurface();
@@ -1206,6 +1254,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		setContentView(R.layout.main_sdl);
 
+        sdlLayout = (LinearLayout) activity.findViewById(R.id.sdl_layout);
 		RelativeLayout mLayout = (RelativeLayout) findViewById(R.id.sdl);
 		RelativeLayout.LayoutParams surfaceParams = new RelativeLayout.LayoutParams(width, height);
 		surfaceParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
@@ -1294,19 +1343,9 @@ public class LimboSDLActivity extends SDLActivity {
 
 		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
 
-		// if (status == null || status.equals("") || status.equals("DONE"))
-		// SDLActivity.nativeResume();
 
-		// mSurface.reSize();
-		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-		// @Override
-		// public void run() {
-		// UIUtils.setOrientation(activity);
-		// }
-		// }, 1000);
 
 		super.onResume();
-		onMouse();
 	}
 
 	// static void resume() {
@@ -1552,9 +1591,13 @@ public class LimboSDLActivity extends SDLActivity {
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		boolean res = this.mSurface.onTouchProcess(this.mSurface, event);
+        boolean res = false;
+        if(Config.mouseMode == Config.MouseMode.External){
+            return res;
+        }
+		res = this.mSurface.onTouchProcess(this.mSurface, event);
 		res = this.mSurface.onTouchEventProcess(event);
-		return false;
+		return true;
 	}
 
 	private void resumeVM() {
@@ -1582,12 +1625,6 @@ public class LimboSDLActivity extends SDLActivity {
 					String msg = QmpClient.sendCommand(command);
 					if (msg != null)
 						Log.i(TAG, msg);
-					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-						@Override
-						public void run() {
-							onMouse();
-						}
-					}, 500);
 				}
 			}
 		});
@@ -1602,7 +1639,7 @@ public class LimboSDLActivity extends SDLActivity {
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
 			ActionBar bar = this.getSupportActionBar();
 			if (bar != null) {
-				if (bar.isShowing()) {
+				if (bar.isShowing() && Config.mouseMode == Config.MouseMode.Trackpad) {
 					bar.hide();
 				} else
 					bar.show();
@@ -1619,16 +1656,16 @@ public class LimboSDLActivity extends SDLActivity {
         this.supportInvalidateOptionsMenu();
     }
 
-    public void onSelectMenuGUIRefreshRate() {
+    public void onSelectMenuSDLDisplay() {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Display Refresh Rate (Hz)");
+        alertDialog.setTitle("Display");
 
         LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-        LinearLayout t = createGUIRefreshRatePanel();
+        LinearLayout t = createVNCDisplayPanel();
         t.setLayoutParams(volParams);
 
         ScrollView s = new ScrollView(activity);
@@ -1645,22 +1682,36 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
 
-    public LinearLayout createGUIRefreshRatePanel() {
+    public LinearLayout createVNCDisplayPanel() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(20, 20, 20, 20);
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        int currRate = getCurrentGUIRefreshRate();
+        int currRate = getCurrentSDLRefreshRate();
+
+        LinearLayout buttonsLayout = new LinearLayout(this);
+        buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
+        buttonsLayout.setGravity(Gravity.CENTER_HORIZONTAL);
+        Button displayMode = new Button (this);
+
+        displayMode.setText("Scale Type");
+        displayMode.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                onDisplayMode();
+            }
+        });
+        buttonsLayout.addView(displayMode);
+        layout.addView(buttonsLayout);
 
         final TextView value = new TextView(this);
-        value.setText(currRate+" Hz");
+        value.setText("Refresh Rate: " + currRate+" Hz");
         layout.addView(value);
         value.setLayoutParams(params);
 
         SeekBar rate = new SeekBar(this);
-        rate.setMax(Config.MAX_VNC_REFRESH_RATE);
+        rate.setMax(Config.MAX_DISPLAY_REFRESH_RATE);
 
         rate.setProgress(currRate);
         rate.setLayoutParams(params);
@@ -1668,7 +1719,7 @@ public class LimboSDLActivity extends SDLActivity {
         ((SeekBar) rate).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
             public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-                value.setText(progress+1+" Hz");
+                value.setText("Refresh Rate: " + (progress+1)+" Hz");
             }
 
             public void onStartTrackingTouch(SeekBar arg0) {
@@ -1677,7 +1728,7 @@ public class LimboSDLActivity extends SDLActivity {
 
             public void onStopTrackingTouch(SeekBar arg0) {
                 int progress = arg0.getProgress()+1;
-                LimboActivity.vmexecutor.changevar("gui_refresh_interval_default", 1000 / progress);
+                LimboActivity.vmexecutor.setsdlrefreshrate(1000 / progress);
             }
         });
 
@@ -1687,7 +1738,49 @@ public class LimboSDLActivity extends SDLActivity {
         return layout;
 
     }
-    public int getCurrentGUIRefreshRate() {
-        return 1000 / LimboActivity.vmexecutor.getvar("gui_refresh_interval_default");
+
+    public int getCurrentSDLRefreshRate() {
+        return 1000 / LimboActivity.vmexecutor.getsdlrefreshrate();
+    }
+
+
+
+    private void onDisplayMode() {
+
+        String [] items = {
+                "Normal (One-To-One)",
+                "Fit To Screen"
+                //"Full Screen" //Stretched
+        };
+        int currentScaleType = LimboSDLActivity.fitToScreen? 1 : 0;
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle("Display Mode");
+        mBuilder.setSingleChoiceItems(items, currentScaleType, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                switch(i){
+                    case 0:
+                        onNormalScreen();
+                        break;
+                    case 1:
+                        if(Config.mouseMode == Config.MouseMode.External){
+                            UIUtils.toastShort(LimboSDLActivity.this, "Scale type Disabled under Touchscreen/Desktop Mode");
+                            dialog.dismiss();
+                            return;
+                        }
+                        onFitToScreen();
+                        break;
+                    case 2:
+                        //fullScreen(); //Stretch
+                        break;
+                    default:
+                        break;
+                }
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+
     }
 }

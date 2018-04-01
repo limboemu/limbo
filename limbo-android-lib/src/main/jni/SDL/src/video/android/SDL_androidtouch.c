@@ -88,6 +88,15 @@ void Android_QuitTouch(void)
     separate_mouse_and_touch = SDL_FALSE;
 }
 
+#ifdef __LIMBO__
+int x_curr_pos =0, y_curr_pos = 0;
+void Android_OnTouchMouseReset(int touch_device_id_in, int pointer_finger_id_in, int action, float x, float y, float p) {
+	x_curr_pos=0;
+	y_curr_pos=0;
+	Android_OnTouch(touch_device_id_in, pointer_finger_id_in, action, x, y, p);
+}
+#endif //__LIMBO__
+
 void Android_OnTouch(int touch_device_id_in, int pointer_finger_id_in, int action, float x, float y, float p)
 {
     SDL_TouchID touchDeviceId = 0;
@@ -138,13 +147,24 @@ void Android_OnTouch(int touch_device_id_in, int pointer_finger_id_in, int actio
 #ifndef __LIMBO__
         	if (!pointerFingerID) {
                 if (!separate_mouse_and_touch) {
-                    Android_GetWindowCoordinates(x, y, &window_x, &window_y);
 #else
+                    Android_GetWindowCoordinates(x, y, &window_x, &window_y);
                     /* send moved event */
 
-                    //XXX: Limbo: we send a relative position
-                    //TODO: We should enable also non-relative position for bluetooth mouse connected to Android
-                    SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 1, (int) x, (int) y);
+                    //XXX: Limbo: we send a mouse motion event
+                    if(pointer_finger_id_in==1) { //Absolute position
+                    	x_curr_pos = x;
+                    	y_curr_pos = y;
+                    	SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 0, x_curr_pos, y_curr_pos);
+                    	//LOGV("%s, SDL Absolute Move: x=(%d), y=(%d)", __func__, x_curr_pos, y_curr_pos);
+                    } else { //Relative position
+                        x_curr_pos += (int) x;
+                    	y_curr_pos += (int) y;
+                    	SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 1, (int) x, (int) y);
+                    	//LOGV("%s, SDL Relative Move: x=(%f), y=(%f)", __func__, x , y);
+                    }
+
+
 #endif
 #ifndef __LIMBO__
                     SDL_SendMouseMotion(Android_Window, SDL_TOUCH_MOUSEID, 0, window_x, window_y);
@@ -172,7 +192,7 @@ void Android_OnTouch(int touch_device_id_in, int pointer_finger_id_in, int actio
 #ifndef __LIMBO__
             /* Non primary pointer up */
             SDL_SendTouch(touchDeviceId, fingerId, SDL_FALSE, x, y, p);
-#endif __LIMBO__
+#endif //__LIMBO__
             break;
 
         default:

@@ -27,13 +27,6 @@
 //
 package android.androidVNC;
 
-import java.io.IOException;
-import java.util.Objects;
-import java.util.zip.Inflater;
-
-import com.antlersoft.android.bc.BCFactory;
-import com.max2idea.android.limbo.main.Config;
-
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -48,10 +41,21 @@ import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Display;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import com.antlersoft.android.bc.BCFactory;
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboVNCActivity;
+
+import org.libsdl.app.SDLActivity;
+
+import java.io.IOException;
+import java.util.zip.Inflater;
 
 public class VncCanvas extends ImageView {
 
@@ -75,7 +79,7 @@ public class VncCanvas extends ImageView {
 	boolean afterMenu;
 	// Color Model settings
 	private COLORMODEL pendingColorModel = COLORMODEL.C24bit;
-	private COLORMODEL colorModel = null;
+	public COLORMODEL colorModel = null;
 	private int bytesPerPixel = 0;
 	private int[] colorPalette = null;
 	// VNC protocol connection
@@ -142,6 +146,9 @@ public class VncCanvas extends ImageView {
 	void initializeVncCanvas(ConnectionBean bean, final Runnable setModes) {
 		connection = bean;
 		this.pendingColorModel = COLORMODEL.valueOf(bean.getColorModel());
+
+        setOnGenericMotionListener(new VNCGenericMotionListener_API12());
+        setOnTouchListener(new VNCOnTouchListener());
 
 		// Startup the RFB thread with a nifty progess dialog
 		final ProgressDialog pd = ProgressDialog.show(getContext(), "Connecting to VM Console", "Please wait...", true,
@@ -864,23 +871,56 @@ public class VncCanvas extends ImageView {
 	 * @return true if event was actually sent
 	 */
 	public boolean processPointerEvent(MotionEvent evt, boolean downEvent, boolean useRightButton) {
+        boolean useMiddleButton = false;
+
+        if(evt.getButtonState() == MotionEvent.BUTTON_SECONDARY){
+            useRightButton = true;
+        } else  if(evt.getButtonState() == MotionEvent.BUTTON_TERTIARY){
+            useMiddleButton = true;
+        }
+
 		return processPointerEvent((int) evt.getX(), (int) evt.getY(), evt.getAction(), evt.getMetaState(), downEvent,
-				useRightButton);
+				useRightButton, useMiddleButton, false);
 	}
 
-	boolean processPointerEvent(int x, int y, int action, int modifiers, boolean mouseIsDown, boolean useRightButton) {
+	boolean processPointerEvent(int x, int y, int action,
+                                int modifiers, boolean mouseIsDown, boolean useRightButton,
+                                boolean useMiddleButton, boolean scrollUp) {
+        //Log.v("Limbo", "processPointerEvent: " + x + ", " + y + ", "
+        //    + action + ", " + modifiers + ", " + mouseIsDown + ", "
+        //        + useRightButton + ", " + useMiddleButton + ", " + scrollUp
+        //);
             if (rfb != null && rfb.inNormalProtocol) {
                 if (action == MotionEvent.ACTION_DOWN || (mouseIsDown && action == MotionEvent.ACTION_MOVE)) {
                     if (useRightButton) {
                         // Log.v("Limbo", "Right Button Down");
-                        pointerMask = MOUSE_BUTTON_RIGHT;
-                    } else {
+                        pointerMask |= MOUSE_BUTTON_RIGHT;
+                    } else if (useMiddleButton) {
+                        pointerMask |= MOUSE_BUTTON_MIDDLE;
+                    }else {
                         //Log.v("Limbo", "Left Button Down: x=" + x + ", y=" + y);
-                        pointerMask = MOUSE_BUTTON_LEFT;
+                        pointerMask |= MOUSE_BUTTON_LEFT;
                     }
+                } else if (action == MotionEvent.ACTION_SCROLL) {
+                    // Log.v("Limbo", "Button Up");
+                    if(scrollUp)
+                        pointerMask |= MOUSE_BUTTON_SCROLL_UP;
+                    else
+                        pointerMask |= MOUSE_BUTTON_SCROLL_DOWN;
                 } else if (action == MotionEvent.ACTION_UP) {
                     // Log.v("Limbo", "Button Up");
-                    pointerMask = 0;
+                    //pointerMask = 0;
+                    if (useRightButton) {
+                        // Log.v("Limbo", "Right Button Down");
+                        pointerMask &= ~MOUSE_BUTTON_RIGHT;
+                    } else if (useMiddleButton) {
+                        pointerMask &= ~MOUSE_BUTTON_MIDDLE;
+                    }else {
+                        //Log.v("Limbo", "Left Button Down: x=" + x + ", y=" + y);
+                        //XXX: Mouse middle click cannot always be detected so we
+                        //  reset all buttons (left, middle, click) to be safe
+                        pointerMask = 0;
+                    }
                 }
                 bitmapData.invalidateMousePosition();
                 mouseX = x;
@@ -898,6 +938,10 @@ public class VncCanvas extends ImageView {
                 bitmapData.invalidateMousePosition();
                 try {
                     rfb.writePointerEvent(mouseX, mouseY, modifiers, pointerMask);
+                    if (action == MotionEvent.ACTION_SCROLL) {
+                        rfb.writePointerEvent(mouseX, mouseY, 0, 0);
+                        pointerMask = 0;
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -1907,6 +1951,121 @@ public class VncCanvas extends ImageView {
 	public void connected() {
         VncCanvasActivity activity = (VncCanvasActivity) VncCanvas.this.getContext();
         activity.onConnected();
+
+    }
+
+
+    class VNCOnTouchListener implements View.OnTouchListener {
+
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            // TODO Auto-generated method stub
+            //Log.i("VNCOnTouchListener", "onTouch");
+            if(Config.mouseMode == Config.MouseMode.Trackpad) {
+                return false;
+            }
+            return processPointerEvent(event, event.getAction() == MotionEvent.ACTION_DOWN);
+        }
+
+
+    }
+
+    class VNCGenericMotionListener_API12 implements View.OnGenericMotionListener {
+        private VncCanvas mSurface;
+
+        // Generic Motion (mouse hover, joystick...) events go here
+        @Override
+        public boolean onGenericMotion(View v, MotionEvent event) {
+            float x, y;
+            int action;
+
+            switch (event.getSource()) {
+                case InputDevice.SOURCE_JOYSTICK:
+                case InputDevice.SOURCE_GAMEPAD:
+                case InputDevice.SOURCE_DPAD:
+                    SDLActivity.handleJoystickMotionEvent(event);
+                    return true;
+
+                case InputDevice.SOURCE_MOUSE:
+                    if(Config.mouseMode == Config.MouseMode.Trackpad)
+                        break;
+
+                    action = event.getActionMasked();
+                    //Log.d("SDL", "onGenericMotion, action = " + action + "," + event.getX() + ", " + event.getY());
+                    switch (action) {
+                        case MotionEvent.ACTION_SCROLL:
+                            x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0);
+                            y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0);
+                            //Log.d("SDL", "Mouse Scroll: " +event.getX() + ":" + event.getY() + " => " +  x + "," + y);
+
+                            //TODO:
+                            //SDLActivity.onNativeMouse(0, action, x, y);
+                            //processPointerEvent(event,false);
+
+                            // Log.v("Limbo", "Button Up");
+                            boolean scrollUp=false;
+                            if (y > 0)
+                                scrollUp = true;
+                            else if (y < 0)
+                                scrollUp = false;
+
+                            return processPointerEvent((int) event.getX(), (int) event.getY(), event.getAction(), event.getMetaState(), false,
+                                    false, false, scrollUp);
+                            //return true;
+
+                        case MotionEvent.ACTION_HOVER_MOVE:
+                            if(Config.processMouseHistoricalEvents) {
+                                final int historySize = event.getHistorySize();
+                                for (int h = 0; h < historySize; h++) {
+                                    float ex = event.getHistoricalX(h);
+                                    float ey = event.getHistoricalY(h);
+                                    float ep = event.getHistoricalPressure(h);
+                                    processHoverMouse(event, ex, ey, ep, action);
+                                }
+                            }
+
+                            float ex = event.getX();
+                            float ey = event.getY();
+                            float ep = event.getPressure();
+                            processHoverMouse(event, ex, ey, ep, action);
+                            return true;
+
+                        case MotionEvent.ACTION_UP:
+
+                        default:
+                            break;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+
+            // Event was not managed
+            return false;
+        }
+
+        private void processHoverMouse(MotionEvent event, float x,float y,float p, int action) {
+
+            //Log.d("VncCanvas", "Mouse Hover: " + x + "," + y);
+
+            if(Config.mouseMode == Config.MouseMode.External) {
+
+//                float x_margin = (SDLActivity.width - LimboSDLActivity.vm_width * LimboSDLActivity.height / (float) LimboSDLActivity.vm_height) / 2;
+//                if (x < x_margin) {
+//                    return;
+//                } else if (x > SDLActivity.width - x_margin) {
+//                    return;
+//                }
+
+                //TODO:
+                //SDLActivity.onNativeMouse(0, action, x, y);
+                processPointerEvent(event, false, false);
+            }
+//            else if (Config.mouseMode == Config.MouseMode.External_Alt){
+//                processHoverMouseAlt(x, y, p, action);
+//            }
+        }
 
     }
 }

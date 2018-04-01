@@ -684,9 +684,12 @@ public class VMExecutor {
 
 	protected native String ejectdev(String dev);
 
-    public native void changevar(String var, int value);
+    public native void setsdlrefreshrate(int value);
+    public native void setvncrefreshrate(int value);
 
-    public native int getvar(String var);
+    public native int getsdlrefreshrate();
+    public native int getvncrefreshrate();
+
 
 	public String startvm(Context context, int ui) {
 		LimboService.executor = this;

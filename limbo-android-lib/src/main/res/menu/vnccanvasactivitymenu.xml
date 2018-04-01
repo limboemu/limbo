@@ -15,18 +15,12 @@
         android:icon="@drawable/drives"
         android:title="@string/drives"/>
 
-    <item
-        android:id="@+id/itemHelp"
-        android:icon="@drawable/help"
-        android:title="@string/help">
-    </item>
-
 
     <item
-        android:id="@+id/itemColorMode"
+        android:id="@+id/itemDisplay"
         android:icon="@drawable/screen"
-        android:title="@string/color_mode">
-    </item>
+        android:title="@string/display"/>
+
 
     <item
         android:id="@+id/itemMonitor"
@@ -35,30 +29,16 @@
     </item>
 
     <item
-        android:id="@+id/itemFullScreen"
-        android:icon="@android:drawable/ic_menu_zoom"
-        android:title="@string/toggle_full_screen"/>
-
-    <item
         android:id="@+id/itemHideToolbar"
         android:icon="@drawable/pan"
         android:title="@string/hide_toolbar"/>
-
-    <item
-        android:id="@+id/itemDisplayRefreshRate"
-        android:icon="@drawable/screen"
-        android:title="@string/display_refresh_rate"/>
-
-    <item
-        android:id="@+id/itemViewLog"
-        android:icon="@android:drawable/ic_menu_view"
-        android:title="@string/view_log"/>
 
     <item
         android:id="@+id/itemDisconnect"
         android:icon="@drawable/disconnect"
         android:title="@string/disconnect">
     </item>
+
 
     <item
         android:id="@+id/itemSaveState"
@@ -75,7 +55,32 @@
         android:title="@string/shutdown"/>
 
 
+    <item
+        android:id="@+id/itemViewLog"
+        android:icon="@android:drawable/ic_menu_info_details"
+        android:title="@string/view_log"/>
+
+    <item
+        android:id="@+id/itemHelp"
+        android:icon="@drawable/help"
+        android:title="@string/help">
+    </item>
+
+
     <!--XXXX: Not needed-->
+
+    <item
+        android:id="@+id/itemColorMode"
+        android:icon="@drawable/screen"
+        android:title="@string/color_mode">
+    </item>
+
+
+    <item
+        android:id="@+id/itemFullScreen"
+        android:icon="@android:drawable/ic_menu_zoom"
+        android:title="@string/toggle_full_screen"/>
+
     <item
         android:id="@+id/itemInputMode"
         android:icon="@android:drawable/ic_input_get"

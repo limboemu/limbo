@@ -1016,7 +1016,7 @@ public class LimboActivity extends AppCompatActivity {
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
 				String cd = (String) ((ArrayAdapter<?>) mCD.getAdapter()).getItem(position);
 				if (
-						position == 0 && mCDenable.isChecked()) {
+				        position == 0 && mCDenable.isChecked()) {
 					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, "");
 					currMachine.cd_iso_path = "";
 				} else if (
@@ -3732,11 +3732,11 @@ public class LimboActivity extends AppCompatActivity {
 		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		arrList.add("Orientation (Auto)");
+		arrList.add("Auto");
 		arrList.add("Landscape");
 		arrList.add("Landscape Reverse");
-		// arrList.add("Portrait");
-		// arrList.add("Portrait Reverse");
+		arrList.add("Portrait");
+        arrList.add("Portrait Reverse");
 
 		orientationAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
 		orientationAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);

@@ -1,8 +1,5 @@
 package org.libsdl.app;
 
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboSDLActivity;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -15,6 +12,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
 import android.os.Vibrator;
+import android.support.v7.app.ActionBar;
 import android.util.Log;
 import android.view.Display;
 import android.view.GestureDetector;
@@ -25,6 +23,10 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.LinearLayout;
+
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboSDLActivity;
 
 /**
  * SDLSurface. This is what we draw on, so we need to know when it's created in
@@ -59,7 +61,6 @@ public class SDLSurface extends GLSurfaceView
 
 		// getHolder().setFormat(PixelFormat.RGBA_8888);
 		getHolder().addCallback(this);
-		reSize();
 		// getHolder().setType(SurfaceHolder.SURFACE_TYPE_HARDWARE);
 
 		setFocusable(true);
@@ -72,9 +73,7 @@ public class SDLSurface extends GLSurfaceView
 		mDisplay = ((WindowManager) activity.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 		mSensorManager = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
 
-		// if (Build.VERSION.SDK_INT >= 12) {
-		// setOnGenericMotionListener(new SDLGenericMotionListener_API12());
-		// }
+		setOnGenericMotionListener(new SDLGenericMotionListener_API12());
 
 		// Some arbitrary defaults to avoid a potential division by zero
 		mWidth = 1.0f;
@@ -85,39 +84,66 @@ public class SDLSurface extends GLSurfaceView
 	@Override
 	public void onConfigurationChanged(Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
-		reSize();
+		reSize(true);
 	}
 
 	public static boolean initialized = false;
 
 	//
-	public void reSize() {
-		
+	public void reSize(boolean config) {
+
 		Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
 		int height = 0;
 		int width = 0;
 
 		Point size = new Point();
 		display.getSize(size);
-		width = size.x;
-		height = size.y;
+		int screen_width = size.x;
+		int screen_height = size.y;
 
-		float currentRatio = (float) width / height;
-		if (this.getHeight() != 0)
-			currentRatio = (float) this.getWidth() / this.getHeight();
+        ActionBar bar = ((SDLActivity) activity).getSupportActionBar();
+
+
+        LinearLayout sdlLayout = ((SDLActivity) activity).sdlLayout;
+        if(sdlLayout != null) {
+            width = sdlLayout.getWidth();
+            height = sdlLayout.getHeight();
+        }
+
+        //native resolution for use with external mouse
+        if(Config.mouseMode == Config.MouseMode.External
+                || (!LimboSDLActivity.stretchToScreen && !LimboSDLActivity.fitToScreen)) {
+            width = SDLActivity.vm_width;
+            height = SDLActivity.vm_height;
+        }
+
+        if(config){
+            int temp = width;
+            width = height;
+            height = temp;
+        }
 
 		if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-			if (!initialized) {
-				getHolder().setFixedSize(width, (int) (height / 2));
-			} else
-				getHolder().setFixedSize(width, (int) (width / currentRatio));
+
+            if(Config.mouseMode != Config.MouseMode.External) {
+                if (bar != null && bar.isShowing()) {
+                    width += bar.getHeight();
+                }
+                if (!initialized) {
+                    getHolder().setFixedSize(width, (int) (height / 2));
+                } else {
+                    getHolder().setFixedSize(width, (int) (width / (SDLActivity.vm_width / (float) SDLActivity.vm_height)));
+                }
+            }
 		} else if (SDLActivity.mSingleton.getResources()
 				.getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-			if (Config.enableSDLAlwaysFullscreen)
-				getHolder().setFixedSize(width, height);
-			else
-				getHolder().setFixedSize(width, height / 2);
+			if (Config.enableSDLAlwaysFullscreen) {
+                getHolder().setFixedSize(width, height);
+            }
+			else {
+                getHolder().setFixedSize(width / 2, height);
+            }
 		}
 		initialized = true;
 
@@ -161,7 +187,8 @@ public class SDLSurface extends GLSurfaceView
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.v("SDL", "surfaceChanged(" + width + "x" + height + ")");
-
+        SDLActivity.width = width;
+        SDLActivity.height = height;
 		int sdlFormat = 0x15151002; // SDL_PIXELFORMAT_RGB565 by default
 		switch (format) {
 		case PixelFormat.RGBA_8888:
@@ -261,6 +288,10 @@ public class SDLSurface extends GLSurfaceView
 		if (SDLActivity.mHasFocus) {
 			SDLActivity.handleResume();
 		}
+
+		//redraw the surface after a rotation
+		SDLActivity.dummyTouch();
+
 	}
 
 	// Key events
@@ -275,9 +306,15 @@ public class SDLSurface extends GLSurfaceView
 		if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && event.getAction() == KeyEvent.ACTION_DOWN) {
 			MotionEvent e = MotionEvent.obtain(1000, 1000, MotionEvent.ACTION_DOWN, 0, 0, 0, 0, 0, 0, 0,
 					InputDevice.SOURCE_TOUCHSCREEN, 0);
-			rightClick(e);
+			rightClick(e, 0);
 			return true;
-		}
+		} else // We emulate middle click with volume up
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && event.getAction() == KeyEvent.ACTION_DOWN) {
+                MotionEvent e = MotionEvent.obtain(1000, 1000, MotionEvent.ACTION_DOWN, 0, 0, 0, 0, 0, 0, 0,
+                        InputDevice.SOURCE_TOUCHSCREEN, 0);
+                middleClick(e, 0);
+                return true;
+            }
 
 		if (event.getKeyCode() == KeyEvent.KEYCODE_MENU)
 			return false;
@@ -386,19 +423,19 @@ public class SDLSurface extends GLSurfaceView
 			return gestureDetector.onTouchEvent(event);
 	}
 
-	public boolean rightClick(final MotionEvent e) {
+	public boolean rightClick(final MotionEvent e, final int i) {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				Log.d("SDL", "Mouse Right Click");
-				SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, e.getX(),
-						e.getY(), e.getPressure());
+				SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, e.getX(i),
+						e.getY(i), e.getPressure(i));
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException ex) {
 					Log.v("SDLSurface", "Interrupted: " + ex);
 				}
-				SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, e.getX(),
-						e.getY(), e.getPressure());
+				SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, e.getX(i),
+						e.getY(i), e.getPressure(i));
 			}
 		});
 		t.start();
@@ -406,14 +443,33 @@ public class SDLSurface extends GLSurfaceView
 
 	}
 
+    public boolean middleClick(final MotionEvent e, final int i) {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                Log.d("SDL", "Mouse Middle Click");
+                SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, e.getX(i),
+                        e.getY(i), e.getPressure(i));
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ex) {
+                    Log.v("SDLSurface", "Interrupted: " + ex);
+                }
+                SDLActivity.onNativeTouch(e.getDeviceId(), Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, e.getX(i),
+                        e.getY(i), e.getPressure(i));
+            }
+        });
+        t.start();
+        return true;
+
+    }
+
 	private class GestureListener extends GestureDetector.SimpleOnGestureListener {
 
 		@Override
 		public boolean onDown(MotionEvent event) {
-			// Log.v("onDown",
-			// "Action=" + event.getAction() + ", X,Y=" + event.getX()
+			// Log.v("onDown", "Action=" + event.getAction() + ", X,Y=" + event.getX()
 			// + "," + event.getY() + " P=" + event.getPressure());
-			return true;
+            return true;
 		}
 
 		@Override
@@ -421,6 +477,9 @@ public class SDLSurface extends GLSurfaceView
 			// Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y="
 			// + event.getX() + "," + event.getY() + " P="
 			// + event.getPressure());
+            if(MotionEvent.TOOL_TYPE_FINGER != event.getToolType(0))
+                return;
+
 			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 			if (v.hasVibrator()) {
@@ -432,22 +491,24 @@ public class SDLSurface extends GLSurfaceView
 		}
 
 		public boolean onSingleTapConfirmed(MotionEvent event) {
-			// float x = e.getX();
-			// float y = e.getY();
+			 float x1 = event.getX();
+			 float y1 = event.getY();
 
-			// Log.d("onSingleTapConfirmed", "Tapped at: (" + x + "," + y +
-			// ")");
+			 Log.d("onSingleTapConfirmed", "Tapped at: (" + x1 + "," + y1 +
+			 ")");
+
 			for (int i = 0; i < event.getPointerCount(); i++) {
 				int action = event.getAction();
 				float x = event.getX(i);
 				float y = event.getY(i);
 				float p = event.getPressure(i);
 
-				// Log.v("onSingleTapConfirmed", "Action=" + action + ", X,Y=" +
-				// x
-				// + "," + y + " P=" + p);
-				LimboSDLActivity.singleClick(event, i);
-
+				 //Log.v("onSingleTapConfirmed", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
+                if (event.getAction() == event.ACTION_DOWN
+                        && MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0)) {
+                    //Log.d("SDL", "onTouch Down: " + event.getButtonState());
+                    LimboSDLActivity.singleClick(event, i);
+                }
 			}
 			return true;
 
@@ -456,10 +517,10 @@ public class SDLSurface extends GLSurfaceView
 		// event when double tap occurs
 		@Override
 		public boolean onDoubleTap(MotionEvent event) {
-			// float x = e.getX();
-			// float y = e.getY();
+			Log.d("onDoubleTap", "Tapped at: (" + event.getX() + "," + event.getY() + ")");
 
-			// Log.d("onDoubleTap", "Tapped at: (" + x + "," + y + ")");
+            if(Config.mouseMode == Config.MouseMode.External && MotionEvent.TOOL_TYPE_MOUSE == event.getToolType(0))
+                return true;
 
 			for (int i = 0; i < event.getPointerCount(); i++) {
 				int action = event.getAction();
@@ -467,8 +528,7 @@ public class SDLSurface extends GLSurfaceView
 				float y = event.getY(i);
 				float p = event.getPressure(i);
 
-				// Log.v("onDoubleTap", "Action=" + action + ", X,Y=" + x + ","
-				// + y + " P=" + p);
+				// Log.v("onDoubleTap", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
 				doubleClick(event, i);
 			}
 
@@ -480,7 +540,7 @@ public class SDLSurface extends GLSurfaceView
 		
 		Thread t = new Thread(new Runnable() {
 			public void run() {
-				// Log.d("SDL", "Mouse Double Click");
+				//Log.d("SDL", "Mouse Double Click");
 				for (int i = 0; i < 2; i++) {
 					SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0,
 							0);
@@ -548,7 +608,12 @@ public class SDLSurface extends GLSurfaceView
 	}
 
 	public boolean onTouch(View v, MotionEvent event) {
-		return false;
+        boolean res = false;
+        if(Config.mouseMode == Config.MouseMode.External){
+            res = onTouchProcess(v,event);
+            res = onTouchEventProcess(event);
+        }
+        return res;
 	}
 
 	// Touch events
@@ -561,9 +626,16 @@ public class SDLSurface extends GLSurfaceView
 		float y = event.getY(0);
 		float p = event.getPressure(0);
 
-		if (event.getAction() == MotionEvent.ACTION_MOVE) {
+        int sdlMouseButton = 0;
+        if(event.getButtonState() == MotionEvent.BUTTON_PRIMARY)
+            sdlMouseButton = Config.SDL_MOUSE_LEFT;
+        else if(event.getButtonState() == MotionEvent.BUTTON_SECONDARY)
+            sdlMouseButton = Config.SDL_MOUSE_RIGHT;
+        else if(event.getButtonState() == MotionEvent.BUTTON_TERTIARY)
+            sdlMouseButton = Config.SDL_MOUSE_MIDDLE;
 
-			// for (int i = 0; i < event.getPointerCount(); i++) {
+
+        if (event.getAction() == MotionEvent.ACTION_MOVE) {
 
 			if (mouseUp) {
 				old_x = x;
@@ -571,22 +643,131 @@ public class SDLSurface extends GLSurfaceView
 				mouseUp = false;
 			}
 			if (action == MotionEvent.ACTION_MOVE) {
-				// Log.d("SDL", "onTouch Moving by=" + action + ", X,Y=" + (x -
-				// old_x) + "," + (y - old_y) + " P=" + p);
-				SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_MOVE,
-						(x - old_x) * sensitivity_mult, (y - old_y) * sensitivity_mult, p);
+                if(Config.mouseMode == Config.MouseMode.External) {
+                    Log.d("SDL", "onTouch Absolute Move by=" + action + ", X,Y=" + (x) + "," + (y) + " P=" + p);
+                    SDLActivity.onNativeTouch(event.getDeviceId(), 1, MotionEvent.ACTION_MOVE,
+                            x * sensitivity_mult, y * sensitivity_mult, p);
+                }else {
+                    Log.d("SDL", "onTouch Relative Moving by=" + action + ", X,Y=" + (x -
+                            old_x) + "," + (y - old_y) + " P=" + p);
+                    SDLActivity.onNativeTouch(event.getDeviceId(), 0, MotionEvent.ACTION_MOVE,
+                            (x - old_x) * sensitivity_mult, (y - old_y) * sensitivity_mult, p);
+                }
 
 			}
 			// save current
 			old_x = x;
 			old_y = y;
 
-		} else if (event.getAction() == event.ACTION_UP) {
-			// Log.d("SDL", "onTouch Up");
-			SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
+		}
+		else if (event.getAction() == event.ACTION_UP ) {
+            //Log.d("SDL", "onTouch Up: " + sdlMouseButton);
+            //XXX: it seems that the Button state is not available when Button up so
+            //  we should release all mouse buttons to be safe since we don't know which one fired the event
+            if(sdlMouseButton!=0){
+                SDLActivity.onNativeTouch(event.getDeviceId(), sdlMouseButton, MotionEvent.ACTION_UP, 0, 0, p);
+            }else {
+                SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, p);
+                SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, 0, 0, p);
+                SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, 0, 0, p);
+            }
 			mouseUp = true;
 		}
-		return false;
+		else if (event.getAction() == event.ACTION_DOWN && Config.mouseMode == Config.MouseMode.External) {
+            Log.d("SDL", "onTouch Down: " + sdlMouseButton);
+            //XXX: we need this to detect external mouse button down
+            if(sdlMouseButton > 0)
+                SDLActivity.onNativeTouch(event.getDeviceId(), sdlMouseButton, MotionEvent.ACTION_DOWN, 0, 0, p);
+        }
+        return true;
 	}
 
+
+
+    class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
+        private SDLSurface mSurface;
+
+        @Override
+        public boolean onGenericMotion(View v, MotionEvent event) {
+            float x, y;
+            int action;
+
+            switch (event.getSource()) {
+                case InputDevice.SOURCE_JOYSTICK:
+                case InputDevice.SOURCE_GAMEPAD:
+                case InputDevice.SOURCE_DPAD:
+                    SDLActivity.handleJoystickMotionEvent(event);
+                    return true;
+
+                case InputDevice.SOURCE_MOUSE:
+                    if(Config.mouseMode == Config.MouseMode.Trackpad)
+                        break;
+
+                    action = event.getActionMasked();
+                    Log.d("SDL", "onGenericMotion, action = " + action + "," + event.getX() + ", " + event.getY());
+                    switch (action) {
+                        case MotionEvent.ACTION_SCROLL:
+                            x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0);
+                            y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0);
+                            Log.d("SDL", "Mouse Scroll: " + x + "," + y);
+                            SDLActivity.onNativeMouse(0, action, x, y);
+                            return true;
+
+                        case MotionEvent.ACTION_HOVER_MOVE:
+                            if(Config.processMouseHistoricalEvents) {
+                                final int historySize = event.getHistorySize();
+                                for (int h = 0; h < historySize; h++) {
+                                    float ex = event.getHistoricalX(h);
+                                    float ey = event.getHistoricalY(h);
+                                    float ep = event.getHistoricalPressure(h);
+                                    processHoverMouse(ex, ey, ep, action);
+                                }
+                            }
+
+                            float ex = event.getX();
+                            float ey = event.getY();
+                            float ep = event.getPressure();
+                            processHoverMouse(ex, ey, ep, action);
+                            return true;
+
+                        case MotionEvent.ACTION_UP:
+
+                        default:
+                            break;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+
+            // Event was not managed
+            return false;
+        }
+
+        private void processHoverMouse(float x,float y,float p, int action) {
+
+            Log.d("SDL", "Mouse Hover: " + x + "," + y);
+
+            if(Config.mouseMode == Config.MouseMode.External) {
+                SDLActivity.onNativeMouse(0, action, x, y);
+            }
+        }
+
+    }
+
+    protected void processHoverMouseAlt(float x,float y,float p, int action) {
+        if (action == MotionEvent.ACTION_HOVER_MOVE) {
+			//Log.v("onGenericMotion", "Moving to (X,Y)=(" + x
+					//* LimboSDLActivity.width_mult + "," + y
+					//* LimboSDLActivity.height_mult + ")");
+            LimboSDLActivity.onNativeTouch(0, 1, MotionEvent.ACTION_MOVE,
+                    x, y, p);
+        }
+
+        // save current
+        old_x = x * LimboSDLActivity.width_mult;
+        old_y = y * LimboSDLActivity.height_mult;
+        return;
+    }
 }

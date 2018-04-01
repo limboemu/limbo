@@ -1,17 +1,5 @@
 package org.libsdl.app;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -27,6 +15,7 @@ import android.media.AudioTrack;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
@@ -48,6 +37,19 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.main.LimboSDLActivity;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * SDL Activity
@@ -118,8 +120,12 @@ public class SDLActivity extends AppCompatActivity {
 	// XXX: LIMBO
 	public static int vm_width;
 	public static int vm_height;
-	// public static float width_mult = (float) 1.0;
-	// public static float height_mult = (float) 1.0;
+    public static int width;
+    public static int height;
+    public static int screen_width;
+    public static int screen_height;
+	public static float width_mult = (float) 1.0;
+	public static float height_mult = (float) 1.0;
 
 	private static int maxBufferSize;
 
@@ -131,33 +137,31 @@ public class SDLActivity extends AppCompatActivity {
 
 	public static void setSDLResolution(int width, int height) {
 
-		vm_width = width;
-		vm_height = height;
+        if (SDLActivity.vm_width == 0)
+            SDLActivity.vm_width = width;
 
-		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-		// @Override
-		// public void run() {
-		// int newWidth = mSurface.getWidth();
-		// int newHeight = mSurface.getHeight();
-		// if(mSingleton.getResources().getConfiguration().orientation ==
-		// Configuration.ORIENTATION_PORTRAIT){
-		// //Adjust the Height
-		// newHeight = (int) ((float) newWidth * vm_height / (float) vm_width);
-		// } else if(mSingleton.getResources().getConfiguration().orientation ==
-		// Configuration.ORIENTATION_LANDSCAPE){
-		// //Adjust the Width
-		// newWidth = (int) ((float) newHeight * vm_width / (float) vm_height);
-		//
-		// //TODO: If it's not fullscreen we might want to adjust the height
-		// instead so the surface align on top
-		//
-		// }
-		//
-		// Log.v("setSDLResolution", "Resizing Surface to " + newWidth + "x" +
-		// newHeight);
-		// mSurface.getHolder().setFixedSize(newWidth, newHeight);
-		// }
-		// }, 0);
+        if (SDLActivity.vm_height == 0)
+            SDLActivity.vm_height = height;
+
+        // Update multiplier for Mouse positioning
+
+        SDLActivity.width_mult = 1; //(float) SDLActivity.vm_width / (float) width; //* SDLActivity.width_mult;
+
+        SDLActivity.height_mult = 1; //(float) SDLActivity.vm_height / (float) height; //* SDLActivity.height_mult;
+
+        vm_width = width;
+        vm_height = height;
+
+        Log.v("setSDLResolution", "Scaling to " + vm_width + "x" + vm_height
+                + ", width_mult = " + SDLActivity.width_mult
+                + ", height_mult = " + SDLActivity.height_mult);
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mSurface.reSize(false);
+            }
+        }, 100);
 
 	}
 
@@ -191,6 +195,8 @@ public class SDLActivity extends AppCompatActivity {
 		mIsSurfaceReady = false;
 		mHasFocus = true;
 	}
+
+    public LinearLayout sdlLayout;
 
 	// Setup
 	@Override
@@ -431,7 +437,13 @@ public class SDLActivity extends AppCompatActivity {
 		return false;
 	}
 
-	/**
+    public static void dummyTouch() {
+        //XXX: fake event to redraw the surface
+        int action = MotionEvent.ACTION_MOVE;
+        SDLActivity.onNativeTouch(0, 0, action, 1,1, 1);
+    }
+
+    /**
 	 * A Handler class for Messages from native SDL applications. It uses
 	 * current Activities as target (e.g. for the title). static to prevent
 	 * implicit references to enclosing object.
@@ -526,6 +538,9 @@ public class SDLActivity extends AppCompatActivity {
 	public static native void onNativeMouse(int button, int action, float x, float y);
 
 	public static native void onNativeTouch(int touchDevId, int pointerFingerId, int action, float x, float y, float p);
+
+    public static native void onNativeMouseReset(int touch_device_id_in,
+                                                 int pointer_finger_id_in, int action, float x, float y, float p);
 
 	public static native void onNativeAccel(float x, float y, float z);
 
@@ -1423,50 +1438,4 @@ class SDLJoystickHandler_API12 extends SDLJoystickHandler {
 
 }
 
-class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
-	private SDLSurface mSurface;
 
-	// Generic Motion (mouse hover, joystick...) events go here
-	@Override
-	public boolean onGenericMotion(View v, MotionEvent event) {
-		float x, y;
-		int action;
-
-		switch (event.getSource()) {
-		case InputDevice.SOURCE_JOYSTICK:
-		case InputDevice.SOURCE_GAMEPAD:
-		case InputDevice.SOURCE_DPAD:
-			SDLActivity.handleJoystickMotionEvent(event);
-			return true;
-
-		case InputDevice.SOURCE_MOUSE:
-			action = event.getActionMasked();
-			switch (action) {
-			case MotionEvent.ACTION_SCROLL:
-				x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0);
-				y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0);
-				Log.d("SDL", "Mouse Scroll: " + x + "," + y);
-				SDLActivity.onNativeMouse(0, action, x, y);
-				return true;
-
-			case MotionEvent.ACTION_HOVER_MOVE:
-				x = event.getX(0);
-				y = event.getY(0);
-				Log.d("SDL", "Mouse Hover: " + x + "," + y);
-				SDLActivity.onNativeMouse(0, action, x, y);
-				return true;
-
-			default:
-				break;
-			}
-			break;
-
-		default:
-			break;
-		}
-
-		// Event was not managed
-		return false;
-	}
-
-}

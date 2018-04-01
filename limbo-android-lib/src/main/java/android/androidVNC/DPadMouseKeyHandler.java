@@ -80,7 +80,8 @@ class DPadMouseKeyHandler {
 				}
 
 			});
-			canvas.processPointerEvent(canvas.mouseX + x, canvas.mouseY + y, MotionEvent.ACTION_MOVE, evt.getMetaState(), mouseDown, canvas.cameraButtonDown);
+			canvas.processPointerEvent(canvas.mouseX + x, canvas.mouseY + y, MotionEvent.ACTION_MOVE, evt.getMetaState(),
+                    mouseDown, canvas.cameraButtonDown, false, false);
 			
 		}
 		return result;
@@ -101,7 +102,8 @@ class DPadMouseKeyHandler {
 		case KeyEvent.KEYCODE_DPAD_CENTER:
 			if (mouseDown) {
 				mouseDown = false;
-				result = canvas.processPointerEvent(canvas.mouseX, canvas.mouseY, MotionEvent.ACTION_UP, evt.getMetaState(), mouseDown, canvas.cameraButtonDown);
+				result = canvas.processPointerEvent(canvas.mouseX, canvas.mouseY, MotionEvent.ACTION_UP, evt.getMetaState(),
+                        mouseDown, canvas.cameraButtonDown, false, false);
 			} else {
 				result = true;
 			}

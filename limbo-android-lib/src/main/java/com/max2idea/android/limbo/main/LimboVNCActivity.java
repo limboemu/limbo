@@ -26,6 +26,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -38,14 +39,18 @@ import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.ActionBar;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -85,8 +90,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
     @Override
 	public void onCreate(Bundle b) {
 
-		UIUtils.setOrientation(this);
-
 		if (LimboSettingsManager.getFullscreen(this))
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -101,7 +104,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		setDefaulViewMode();
 
-		onMouse();
+        setUIModeMobile();
 
 
 
@@ -118,6 +121,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		this.toggleFullScreen();
 
 		setLayout(getResources().getConfiguration());
+
+        UIUtils.setOrientation(this);
 	}
 
 	@Override
@@ -131,21 +136,27 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		View vnc_canvas = (View) this.findViewById(R.id.vnc_canvas_layout);
 		View zoom = (View) this.findViewById(R.id.zoom_layout);
 
-		LinearLayout.LayoutParams vnc_params = (LinearLayout.LayoutParams) vnc_canvas.getLayoutParams();
+		LinearLayout.LayoutParams vnc_layout_params = (LinearLayout.LayoutParams) vnc_canvas.getLayoutParams();
+        LinearLayout.LayoutParams vnc_params = (LinearLayout.LayoutParams) vnc_canvas.getLayoutParams();
 		LinearLayout.LayoutParams zoom_params = (LinearLayout.LayoutParams) zoom.getLayoutParams();
 
 		if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
 
-			vnc_params.weight = 0.5f;
-			zoom_params.weight = 0.5f;
+            vnc_layout_params.weight = 0.2f;
+			zoom_params.weight = 0.8f;
+            vnc_layout_params.height = LinearLayout.LayoutParams.WRAP_CONTENT;
+            vnc_layout_params.width = LinearLayout.LayoutParams.MATCH_PARENT;
 
-		} else if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
 
-			vnc_params.weight = 1f;
+        } else if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+
+            vnc_layout_params.weight = 1f;
 			zoom_params.weight = 0f;
+            vnc_layout_params.height = LinearLayout.LayoutParams.MATCH_PARENT;
+            vnc_layout_params.width = LinearLayout.LayoutParams.MATCH_PARENT;
 
 		}
-		vnc_canvas.setLayoutParams(vnc_params);
+		vnc_canvas.setLayoutParams(vnc_layout_params);
 		zoom.setLayoutParams(zoom_params);
 
         this.supportInvalidateOptionsMenu();
@@ -387,31 +398,154 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			return toggleFullScreen();
 		} else if (item.getItemId() == this.QUIT) {
 		} else if (item.getItemId() == R.id.itemCenterMouse) {
-			return onMouse();
-		} else if (item.getItemId() == R.id.itemHelp) {
+            onMouseMode();
+		}
+        else if (item.getItemId() == R.id.itemHelp) {
 			UIUtils.onHelp(this);
 		} else if (item.getItemId() == R.id.itemHideToolbar) {
             this.onHideToolbar();
-        } else if (item.getItemId() == R.id.itemDisplayRefreshRate) {
-            this.onSelectMenuVNCRefreshRate();
+        } else if (item.getItemId() == R.id.itemDisplay) {
+            this.onSelectMenuVNCDisplay();
         } else if (item.getItemId() == R.id.itemViewLog) {
             this.onViewLog();
         }
-        // this.vncCanvas.requestFocus();
 
-//		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-//			ActionBar bar = this.getSupportActionBar();
-//			if (bar != null) {
-//				if (bar.isShowing()) {
-//					bar.hide();
-//				} else
-//					bar.show();
-//			}
-//		}
         this.supportInvalidateOptionsMenu();
 
 		return true;
 	}
+
+    private void onMouseMode() {
+
+        String [] items = {"Trackpad Mouse (Phone)",
+                "Touchscreen/Bluetooth Mouse (Tablet/Desktop)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+        };
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle("Mouse");
+        mBuilder.setSingleChoiceItems(items, Config.mouseMode.ordinal(), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                switch(i){
+                    case 0:
+                        setUIModeMobile();
+                        break;
+                    case 1:
+                        setUIModeDesktop(LimboVNCActivity.this, false);
+                        break;
+                    default:
+                        break;
+                }
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+
+    }
+
+    private void onDisplayMode() {
+
+        String [] items = {
+                "Normal (One-To-One)",
+                "Fit To Screen"
+                //"Full Screen" //Stretched
+        };
+        int currentScaleType = vncCanvas.getScaleType() == ImageView.ScaleType.FIT_CENTER? 1 : 0;
+
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle("Display Mode");
+        mBuilder.setSingleChoiceItems(items, currentScaleType, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                switch(i){
+                    case 0:
+                        onNormalScreen();
+                        onMouse();
+                        break;
+                    case 1:
+                        if(Config.mouseMode == Config.MouseMode.External){
+                            UIUtils.toastShort(LimboVNCActivity.this, "Scale type Disabled under Desktop Mode");
+                            dialog.dismiss();
+                            return;
+                        }
+                        onFitToScreen();
+                        onMouse();
+                        break;
+                    default:
+                        break;
+                }
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+
+    }
+
+    private void setUIModeMobile(){
+
+        UIUtils.setOrientation(this);
+        MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+
+        Config.mouseMode = Config.MouseMode.Trackpad;
+        onFitToScreen();
+        onMouse();
+
+        Toast.makeText(LimboVNCActivity.this, "Trackpad Mode Enabled", Toast.LENGTH_SHORT).show();
+        supportInvalidateOptionsMenu();
+    }
+
+    private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
+
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Touchscreen/Desktop");
+
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20,20,20,20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setText(this.getString(R.string.desktopInstructions));
+
+        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mLayout.addView(textView, textViewParams);
+        alertDialog.setView(mLayout);
+
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+
+                MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+                Config.mouseMode = Config.MouseMode.External;
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                ActionBar bar = LimboVNCActivity.this.getSupportActionBar();
+                if (bar != null) {
+                    bar.show();
+                }
+                Toast.makeText(LimboVNCActivity.this, "External Mouse enabled", Toast.LENGTH_SHORT).show();
+                onNormalScreen();
+                AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);
+                showPanningState();
+
+                onMouse();
+
+                //vncCanvas.reSize(false);
+                supportInvalidateOptionsMenu();
+                alertDialog.dismiss();
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                alertDialog.dismiss();
+            }
+        });
+        alertDialog.show();
+
+    }
+
 
     public void onViewLog() {
         FileUtils.viewLimboLog(this);
@@ -449,10 +583,38 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		connection.setInputMode(inputHandler.getName());
 		connection.setFollowMouse(true);
 		mouseOn = true;
+        AbstractScaling.getById(R.id.itemFitToScreen).setScaleTypeForActivity(this);
 		showPanningState();
+
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        params.gravity = Gravity.CENTER;
+        this.vncCanvas.setLayoutParams(params);
 		return true;
 
 	}
+
+    private boolean onNormalScreen() {
+
+        inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
+        connection.setInputMode(inputHandler.getName());
+        connection.setFollowMouse(true);
+        mouseOn = true;
+        AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(this);
+        showPanningState();
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.gravity = Gravity.TOP;
+        this.vncCanvas.setLayoutParams(params);
+        return true;
+
+    }
 
 	private boolean onMouse() {
 
@@ -474,7 +636,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			// mouseOn = false;
 		}
 
-        Toast.makeText(this.getApplicationContext(), "Mouse Trackpad Mode enabled", Toast.LENGTH_SHORT).show();
 		//Start calibration
         calibration();
 
@@ -544,6 +705,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public boolean setupMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.vnccanvasactivitymenu, menu);
 
+        int maxMenuItemsShown = 4;
+        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
+        if(UIUtils.isLandscapeOrientation(this)) {
+            maxMenuItemsShown = 6;
+            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
+        }
+
 		if (vncCanvas.scaling != null) {
 			menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
 		}
@@ -566,9 +734,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         menu.removeItem(menu.findItem(R.id.itemScaling).getItemId());
         menu.removeItem(menu.findItem(R.id.itemCtrlAltDel).getItemId());
         menu.removeItem(menu.findItem(R.id.itemCtrlC).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemColorMode).getItemId());
+        menu.removeItem(menu.findItem(R.id.itemFullScreen).getItemId());
 
-        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+        if (LimboSettingsManager.getAlwaysShowMenuToolbar(activity) || Config.mouseMode == Config.MouseMode.External) {
             menu.removeItem(menu.findItem(R.id.itemHideToolbar).getItemId());
+            maxMenuItemsShown--;
         }
 
 		// Menu inputMenu = menu.findItem(R.id.itemInputMode).getSubMenu();
@@ -590,12 +761,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		//
 		// }
 
-        int maxMenuItemsShown = 4;
-        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
-        if(UIUtils.isLandscapeOrientation(this)) {
-            maxMenuItemsShown = 8;
-            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
-        }
+
 		for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
 			MenuItemCompat.setShowAsAction(menu.getItem(i), actionShow);
 		}
@@ -737,7 +903,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
-							onMouse();
+                            setUIModeMobile();
 						}
 					}, 500);
 
@@ -990,7 +1156,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
 			ActionBar bar = this.getSupportActionBar();
 			if (bar != null) {
-				if (bar.isShowing()) {
+				if (bar.isShowing() && Config.mouseMode == Config.MouseMode.Trackpad) {
 					bar.hide();
 				} else
 					bar.show();
@@ -1015,16 +1181,16 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
     }
 
-    public void onSelectMenuVNCRefreshRate() {
+    public void onSelectMenuVNCDisplay() {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Display Refresh Rate (Hz)");
+        alertDialog.setTitle("Display");
 
         LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-        LinearLayout t = createVNCRefreshRatePanel();
+        LinearLayout t = createVNCDisplayPanel();
         t.setLayoutParams(volParams);
 
         ScrollView s = new ScrollView(activity);
@@ -1041,7 +1207,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
     }
 
 
-    public LinearLayout createVNCRefreshRatePanel() {
+    public LinearLayout createVNCDisplayPanel() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(20, 20, 20, 20);
@@ -1050,13 +1216,39 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         int currRate = getCurrentVNCRefreshRate();
 
+        LinearLayout buttonsLayout = new LinearLayout(this);
+        buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
+        buttonsLayout.setGravity(Gravity.CENTER_HORIZONTAL);
+        Button displayMode = new Button (this);
+
+        displayMode.setText("Scale Type");
+        displayMode.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                onDisplayMode();
+            }
+        });
+        buttonsLayout.addView(displayMode);
+
+
+        Button colors = new Button(this);
+        colors.setText("Color Mode");
+        colors.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                selectColorModel();
+
+            }
+        });
+        buttonsLayout.addView(colors);
+
+        layout.addView(buttonsLayout);
+
         final TextView value = new TextView(this);
-        value.setText(currRate+" Hz");
+        value.setText("Refresh Rate: " + currRate+" Hz");
         layout.addView(value);
         value.setLayoutParams(params);
 
         SeekBar rate = new SeekBar(this);
-        rate.setMax(Config.MAX_VNC_REFRESH_RATE);
+        rate.setMax(Config.MAX_DISPLAY_REFRESH_RATE);
 
         rate.setProgress(currRate);
         rate.setLayoutParams(params);
@@ -1064,7 +1256,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         ((SeekBar) rate).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
             public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-                value.setText(progress+1+" Hz");
+                value.setText("Refresh Rate: " + (progress+1)+" Hz");
             }
 
             public void onStartTrackingTouch(SeekBar arg0) {
@@ -1073,8 +1265,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
             public void onStopTrackingTouch(SeekBar arg0) {
                 int progress = arg0.getProgress()+1;
-                LimboActivity.vmexecutor.changevar("vnc_refresh_interval_inc", 1000 / progress);
-                LimboActivity.vmexecutor.changevar("vnc_refresh_interval_base", 1000 / progress);
+                LimboActivity.vmexecutor.setvncrefreshrate(1000 / progress);
 
             }
         });
@@ -1086,7 +1277,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
     }
     public int getCurrentVNCRefreshRate() {
-        return 1000 / LimboActivity.vmexecutor.getvar("vnc_refresh_interval_inc");
+        return 1000 / LimboActivity.vmexecutor.getvncrefreshrate();
     }
 
 }

@@ -50,9 +50,8 @@ import android.widget.ZoomControls;
 
 import com.antlersoft.android.bc.BCFactory;
 import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
-
-import org.libsdl.app.SDLActivity;
 
 import java.util.List;
 import java.util.logging.Level;
@@ -452,6 +451,9 @@ public class VncCanvasActivity extends AppCompatActivity {
 			if (e.getAction() == MotionEvent.ACTION_CANCEL)
 				return true;
 
+            if(Config.mouseMode == Config.MouseMode.External) {
+                return true;
+            }
 			// if (e.getPointerCount() > 1) {
 			// // Log.v("Limbo", "Detected 2 finger tap in onTouchEvent");
 			// rightClick(e);
@@ -558,6 +560,30 @@ public class VncCanvasActivity extends AppCompatActivity {
 			return true;
 
 		}
+
+        private boolean middleClick(final MotionEvent e) {
+            Thread t = new Thread(new Runnable() {
+                public void run() {
+                    remoteMouseStayPut(e);
+                    // One
+                    // Log.v("Double Click", "One");
+                    //vncCanvas.processPointerEvent(e, true, false);
+                    vncCanvas.processPointerEvent((int) e.getX(), (int) e.getY(), e.getAction(), 0, true, false, true, false);
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(VncCanvasActivity.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    e.setAction(MotionEvent.ACTION_UP);
+                    //vncCanvas.processPointerEvent(e, false, false);
+                    vncCanvas.processPointerEvent((int) e.getX(), (int) e.getY(), e.getAction(), 0, false, false, true, false);
+                }
+            });
+            // t.setPriority(Thread.MAX_PRIORITY);
+            t.start();
+            return true;
+
+        }
 
 		/*
 		 * (non-Javadoc) double tap: do two left mouse right mouse clicks on
@@ -1043,7 +1069,12 @@ public class VncCanvasActivity extends AppCompatActivity {
 					0);
 			((TouchpadInputHandler) this.inputHandler).rightClick(e);
 			return true;
-		} else if (keyCode == KeyEvent.KEYCODE_MENU) {
+		} else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            MotionEvent e = MotionEvent.obtain(1000, 1000, MotionEvent.ACTION_DOWN, vncCanvas.mouseX, vncCanvas.mouseY,
+                    0);
+            ((TouchpadInputHandler) this.inputHandler).middleClick(e);
+            return true;
+        } else if (keyCode == KeyEvent.KEYCODE_MENU) {
 			return super.onKeyDown(keyCode, evt);
 		}
 
@@ -1091,7 +1122,7 @@ public class VncCanvasActivity extends AppCompatActivity {
 		return inputHandler.onTouchEvent(event);
 	}
 
-	private void selectColorModel() {
+	protected void selectColorModel() {
 		// Stop repainting the desktop
 		// because the display is composited!
 		vncCanvas.disableRepaints();

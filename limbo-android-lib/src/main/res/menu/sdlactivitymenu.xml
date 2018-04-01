@@ -17,35 +17,26 @@
     </item>
 
     <item
+        android:id="@+id/itemDisplay"
+        android:icon="@drawable/screen"
+        android:title="@string/display"/>
+
+    <item
         android:id="@+id/itemVolume"
         android:icon="@drawable/audiocard"
         android:title="@string/volume">
     </item>
-    <item
-        android:id="@+id/itemHelp"
-        android:icon="@drawable/help"
-        android:title="@string/help"/>
+
     <item
         android:id="@+id/itemMonitor"
         android:icon="@drawable/terminal"
         android:title="@string/monitor">
     </item>
 
-
     <item
         android:id="@+id/itemHideToolbar"
         android:icon="@drawable/pan"
         android:title="@string/hide_toolbar"/>
-
-    <item
-        android:id="@+id/itemDisplayRefreshRate"
-        android:icon="@drawable/screen"
-        android:title="@string/display_refresh_rate"/>
-
-    <item
-        android:id="@+id/itemViewLog"
-        android:icon="@android:drawable/ic_menu_view"
-        android:title="@string/view_log"/>
 
     <item
         android:id="@+id/itemSaveState"
@@ -60,6 +51,17 @@
         android:id="@+id/itemShutdown"
         android:icon="@drawable/shutdown"
         android:title="@string/shutdown"/>
+
+
+    <item
+        android:id="@+id/itemViewLog"
+        android:icon="@android:drawable/ic_menu_info_details"
+        android:title="@string/view_log"/>
+
+    <item
+        android:id="@+id/itemHelp"
+        android:icon="@drawable/help"
+        android:title="@string/help"/>
 
     <!--XXXX: Not needed-->
     <item

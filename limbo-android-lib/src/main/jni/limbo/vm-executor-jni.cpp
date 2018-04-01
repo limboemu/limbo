@@ -261,12 +261,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changed
 	return env->NewStringUTF(res_msg);
 }
 
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changevar(
-		JNIEnv* env, jobject thiz, jstring jvar, jint jvalue) {
 
-	const char *var = NULL;
-	if (jvar != NULL)
-		var = env->GetStringUTFChars(jvar, 0);
+void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue){
 
 	dlerror();
 
@@ -275,16 +271,23 @@ JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_changevar(
     void * obj = dlsym (handle, var);
     int * var_ptr = (int *) obj;
     *var_ptr = value_int;
-
-    env->ReleaseStringUTFChars(jvar, var);
 }
 
-JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvar(
-		JNIEnv* env, jobject thiz, jstring jvar) {
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setvncrefreshrate(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+    set_qemu_var(env, thiz, "vnc_refresh_interval_inc", jvalue);
+    set_qemu_var(env, thiz, "vnc_refresh_interval_base", jvalue);
+}
+
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setsdlrefreshrate(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+    set_qemu_var(env, thiz, "gui_refresh_interval_default", jvalue);
+}
+
+
+int get_qemu_var(JNIEnv* env, jobject thiz, const char * var) {
     char res_msg[MSG_BUFSIZE + 1] = { 0 };
-	const char *var = NULL;
-	if (jvar != NULL)
-		var = env->GetStringUTFChars(jvar, 0);
 
 	dlerror();
 
@@ -292,15 +295,28 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvar(
     const char *dlsym_error = dlerror();
     if (dlsym_error) {
         LOGE("Cannot load symbol %s: %s\n", var, dlsym_error);
-        env->ReleaseStringUTFChars(jvar, var);
     	return -1;
     }
 
     int * var_ptr = (int *) obj;
-    LOGE("Symbol %s: %s, %d\n", var, dlsym_error, *var_ptr);
+    //LOGD("Set Var %s: %s, %d\n", var, dlsym_error, *var_ptr);
 
-    env->ReleaseStringUTFChars(jvar, var);
     return *var_ptr;
+}
+
+JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getsdlrefreshrate(
+		JNIEnv* env, jobject thiz) {
+
+    int res = get_qemu_var(env, thiz, "gui_refresh_interval_default");
+    return res;
+}
+
+
+JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefreshrate(
+		JNIEnv* env, jobject thiz) {
+
+    int res = get_qemu_var(env, thiz, "vnc_refresh_interval_inc");
+    return res;
 }
 
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_ejectdev(

@@ -121,7 +121,7 @@ public class Config {
 	public static String state_filename = "vm.state";
 	public static String QMPServer = "localhost"; 
 	public static int QMPPort = 4444;
-    public static int MAX_VNC_REFRESH_RATE = 100; //Hz
+    public static int MAX_DISPLAY_REFRESH_RATE = 100; //Hz
 	
 	// App Config
 	public static final String downloadLink = "http://limboemulator.weebly.com/downloads";
@@ -170,7 +170,9 @@ public class Config {
 	public static final int VNC_SEND_BYTES_OFFSET = 3;
 	
 	public static Hashtable<String, String> osImages = new Hashtable<String, String>();
-
-
-
+    public static boolean processMouseHistoricalEvents = false;
+    public static enum MouseMode {
+        Trackpad, External
+    }
+    public static MouseMode mouseMode = MouseMode.Trackpad;
 }
