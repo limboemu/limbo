@@ -1801,6 +1801,10 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 	public void setupNativeLibs() {
+
+        //Some devices need stl loaded upfront
+        System.loadLibrary("stlport_shared");
+
         //iconv is not really needed
         if(Config.enable_iconv) {
             System.loadLibrary("iconv");
