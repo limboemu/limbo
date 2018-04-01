@@ -97,6 +97,22 @@ public class LimboSettingsManager extends PreferenceActivity {
 		edit.putInt("keyboard", orientation);
 		edit.commit();
 	}
+
+    public static int getMouseSetting(Activity activity) {
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        int orientation = prefs.getInt("mouse", 0);
+        // UIUtils.log("Getting First time: " + firstTime);
+        return orientation;
+    }
+
+    public static void setMouseSetting(Activity activity, int mouse) {
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putInt("mouse", mouse);
+        edit.commit();
+    }
 	
 	public static boolean getPromptUpdateVersion(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);

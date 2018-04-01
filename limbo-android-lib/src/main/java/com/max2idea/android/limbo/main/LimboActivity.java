@@ -202,6 +202,7 @@ public class LimboActivity extends AppCompatActivity {
 	private Spinner mSnapshot;
 	private Spinner mOrientation;
 	private Spinner mKeyboard;
+    private Spinner mMouse;
 	private ImageButton mStart;
 	private ImageButton mStop;
 	private ImageButton mRestart;
@@ -234,6 +235,7 @@ public class LimboActivity extends AppCompatActivity {
 	private ArrayAdapter<String> snapshotAdapter;
 	private ArrayAdapter<String> orientationAdapter;
 	private ArrayAdapter<String> keyboardAdapter;
+    private ArrayAdapter<String> mouseAdapter;
 	public Handler handler = new Handler() {
 		@Override
 		public synchronized void handleMessage(Message msg) {
@@ -1681,6 +1683,16 @@ public class LimboActivity extends AppCompatActivity {
 			public void onNothingSelected(AdapterView<?> parentView) {
 			}
 		});
+
+        mMouse.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                String mouseCfg = (String) ((ArrayAdapter<?>) mMouse.getAdapter()).getItem(position);
+                LimboSettingsManager.setMouseSetting(activity, position);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
 	}
 
 	protected synchronized void setDNSServer(String string) {
@@ -1751,6 +1763,7 @@ public class LimboActivity extends AppCompatActivity {
 		mEnableKVM.setOnCheckedChangeListener(null);
 		mOrientation.setOnItemSelectedListener(null);
 		mKeyboard.setOnItemSelectedListener(null);
+        mMouse.setOnItemSelectedListener(null);
 		mExtraParams.removeTextChangedListener(extraParamsChangeListener);
 
 	}
@@ -2030,6 +2043,7 @@ public class LimboActivity extends AppCompatActivity {
 		this.populateUI();
 		this.populateOrientation();
 		this.populateKeyboardLayout();
+        this.populateMouse();
 	}
 
 	public void onFirstLaunch() {
@@ -2280,6 +2294,7 @@ public class LimboActivity extends AppCompatActivity {
 			this.mEnableKVM.setEnabled(flag);
 
 		this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
+        this.mMouse.setEnabled(Config.enableMouseOption && flag);
 
 		this.mUI.setEnabled(flag);
 
@@ -2376,6 +2391,10 @@ public class LimboActivity extends AppCompatActivity {
 
 		// Keyboard layout
 		vmexecutor.keyboard_layout = getLanguageCode(mKeyboard.getSelectedItemPosition());
+
+        // Keyboard layout
+        vmexecutor.mouse_conf = mMouse.getSelectedItemPosition();
+
 		// Append only when kernel is set
 
 		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
@@ -2681,6 +2700,8 @@ public class LimboActivity extends AppCompatActivity {
 		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
 
 		this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
+
+        this.mMouse = (Spinner) findViewById(R.id.mouseval);
 
 		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
 
@@ -3775,6 +3796,26 @@ public class LimboActivity extends AppCompatActivity {
 			this.mKeyboard.setSelection(pos);
 		}
 	}
+
+    private void populateMouse() {
+
+        String[] arraySpinner = {};
+
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        arrList.add("PS/2");
+        arrList.add("USB");
+        arrList.add("Tablet");
+
+        mouseAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        mouseAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mMouse.setAdapter(mouseAdapter);
+        this.mMouse.invalidate();
+
+        int pos = LimboSettingsManager.getMouseSetting(activity);
+        if (pos >= 0) {
+            this.mMouse.setSelection(pos);
+        }
+    }
 
 	private void populateSoundcardConfig() {
 

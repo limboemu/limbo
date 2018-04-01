@@ -65,6 +65,7 @@ public class VMExecutor {
 	public String name;
 	public int enablespice = 0;
 	public String keyboard_layout = Config.defaultKeyboardLayout;
+    public int mouse_conf = 0;
 	public String shared_folder_path;
 	public int shared_folder_readonly = 1;
 	String [] params =null;
@@ -625,6 +626,15 @@ public class VMExecutor {
 			paramsList.add("-k");
 			paramsList.add(keyboard_layout);
 		}
+
+        if (mouse_conf > 0) {
+            paramsList.add("-usb");
+            paramsList.add("-device");
+            if(mouse_conf == 1)
+                paramsList.add("usb-mouse");
+            if(mouse_conf == 2)
+                paramsList.add("usb-tablet");
+        }
 
 		paramsList.add("-smp");
 		paramsList.add(this.cpuNum+"");

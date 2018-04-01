@@ -274,11 +274,41 @@
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="right|center_vertical"
                                 android:gravity="right|center_vertical"
-                                android:text="Keyboard Layout"
+                                android:text="Emulate Keyboard"
                                 android:textSize="15dip" />
 
                             <Spinner
                                 android:id="@+id/keyboardval"
+                                android:layout_width="fill_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
+                                android:gravity="right"
+                                android:singleLine="true"
+                                android:text=""
+                                android:textSize="15dip" />
+                        </LinearLayout>
+
+
+                        <LinearLayout
+                            android:id="@+id/mouse"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="right|center_vertical"
+                            android:gravity="right|center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="10dip" >
+
+                            <TextView
+                                android:id="@+id/mousestr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="right|center_vertical"
+                                android:gravity="right|center_vertical"
+                                android:text="Emulate Mouse"
+                                android:textSize="15dip" />
+
+                            <Spinner
+                                android:id="@+id/mouseval"
                                 android:layout_width="fill_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center_vertical"

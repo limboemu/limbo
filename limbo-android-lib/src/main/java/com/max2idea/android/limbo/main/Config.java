@@ -146,9 +146,9 @@ public class Config {
 	public static String isosImagesURL = "http://limboemulator.weebly.com/guides";
 	
 	
-	//FIXME: disable for now 
-	public static final boolean enableKeyboardLayoutOption = true; 
-	
+
+	public static final boolean enableKeyboardLayoutOption = true;
+    public static final boolean enableMouseOption = true;
 	
 	// Features
 	protected static final boolean enableSaveVMmonitor = true; // we use the
