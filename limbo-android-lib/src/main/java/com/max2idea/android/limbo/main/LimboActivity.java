@@ -3362,6 +3362,8 @@ public class LimboActivity extends AppCompatActivity {
 
 				final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
 				getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                // Protect from qemu thinking it's a protocol
+                file = ("/" + file).replace(":", "");
 				setDriveAttr(filetype, file);
 
 			}
