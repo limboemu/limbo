@@ -3,6 +3,16 @@
 include android-config.mak
 
 #### QEMU advance options
+
+# we need to specify our own pixman library
+# For 2.3.0, 2.7.0, 2.9.1 pixman is included in QEMU so we request this explicitly
+#PIXMAN
+PIXMAN = --with-system-pixman
+
+# For QEMU 2.11.0 and above
+#MISC += --disable-capstone
+
+
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
 # gthread is not working right AFAIK
@@ -91,7 +101,7 @@ FDT_INC = -I$(LIMBO_JNI_ROOT)/qemu/dtc/libfdt
 
 #For 2.3.0
 #Misc
-MISC = --disable-tools --disable-libnfs --disable-tpm
+MISC += --disable-tools --disable-libnfs --disable-tpm
 MISC +=  --disable-qom-cast-debug
 MISC += --disable-libnfs --disable-libiscsi --disable-docs
 MISC += --disable-rdma --disable-brlapi --disable-curl
@@ -105,7 +115,6 @@ MISC += --disable-blobs
 MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
-MISC += --disable-capstone
 
 #Trying nop doesn't work
 #MISC += --enable-trace-backends=nop
@@ -122,17 +131,14 @@ VIRT = --disable-virtfs
 #AIO (Not supported yet)
 LINUX_AIO = --disable-linux-aio
 
-#For 2.3.0
-#PIXMAN
-#PIXMAN = --with-system-pixman
 
 #Enable debugging for QEMU
 DEBUG =
-#ifeq ($(NDK_DEBUG), 1)
-#	DEBUG = --enable-debug
-#else
-#	DEBUG = --disable-debug-tcg --disable-debug-info  --disable-sparse
-#endif
+ifeq ($(NDK_DEBUG), 1)
+	DEBUG = --enable-debug
+else
+	DEBUG = --disable-debug-tcg --disable-debug-info  --disable-sparse
+endif
 
 #KVM
 ifeq ($(USE_KVM),true)
@@ -171,6 +177,14 @@ else ifeq ($(APP_ABI), x86_64)
     QEMU_HOST_CPU = x86_64
 endif
 
+QEMU_LDFLAGS="\
+	-L$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI) \
+	-lcompat-limbo \
+	-lglib-2.0 \
+	-lpixman-1 \
+	$(INCLUDE_SYMS) \
+	"
+
 config:
 	echo TOOLCHAIN DIR: $(TOOLCHAIN_DIR)
 	echo NDK ROOT: $(NDK_ROOT) 
@@ -203,7 +217,8 @@ config:
 	$(AUDIO) \
 	$(COROUTINE_POOL) \
 	$(MISC) \
-	--cross-prefix=$(TOOLCHAIN_PREFIX) \
+	--cross-prefix=$(TOOLCHAIN_PREFIX)- \
+	--extra-ldflags=$(QEMU_LDFLAGS) \
 	--extra-cflags=\
 	"\
 	$(SYSTEM_INCLUDE) \
@@ -214,11 +229,12 @@ config:
 	-I$(LIMBO_JNI_ROOT)/glib/io \
 	-I$(LIMBO_JNI_ROOT)/glib/android \
 	-I$(LIMBO_JNI_ROOT)/pixman \
+	-I$(LIMBO_JNI_ROOT)/pixman/pixman \
 	-I$(LIMBO_JNI_ROOT)/scsi \
 	-I$(LIMBO_JNI_ROOT)/png \
 	-I$(LIMBO_JNI_ROOT)/jpeg \
 	-I$(LIMBO_JNI_ROOT) \
-	-I$(LIMBO_JNI_ROOT)/SDL/include  \
+	-I$(LIMBO_JNI_ROOT)/SDL2/include  \
 	-I$(LIMBO_JNI_ROOT)/compat  \
 	-I$(LIMBO_JNI_ROOT)/spice-protocol  \
 	-I$(LIMBO_JNI_ROOT)/spice/server  \

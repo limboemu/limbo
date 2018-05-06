@@ -26,32 +26,26 @@ USE_SDL ?= true
 # If you want to use SDL Audio
 USE_SDL_AUDIO ?= true
 
-# Optimization
+# Optimization (set to false when debugging)
 USE_OPTIMIZATION ?= true
 
-# Enable KVM (Currently Disabled, NOT Tested)
+# Enable KVM (NOT Tested)
 # Note: KVM headers are available only for android-21 platform and above
-#USE_KVM ?= true
+USE_KVM ?= true
 
-
+# Build threads
+BUILD_THREADS = 3
 
 ############## Build Environment (toolchain)
 
-# Uncomment all lines below if you use Windows to compile
-NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86/android-ndk-r13b
-NDK_ENV = windows
-# or Windows 64 bit to compile
-#NDK_ROOT = C:/tools/bin/android-ndk-r13-windows-x86_64/android-ndk-r13
-#NDK_ENV = windows-x86_64
-
 # Uncomment all lines below if you use Linux to compile
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
+NDK_ROOT = /home/dev/tools/android-ndk-r13b
 #NDK_ENV = linux-x86
 # or Linux 64bit to compile
-#NDK_ENV = linux-x86_64
+NDK_ENV = linux-x86_64
 
 # Uncomment all lines below if you use MacOS to compile
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r13b
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r12b
 #NDK_ENV = darwin-x86
 
 
@@ -60,24 +54,24 @@ NDK_ENV = windows
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
-# Note 1: Building for Android ARM host requires ndk13 and android-17
-# Note 2: Building for Android x86 host requires ndk13 and android-17
+# Note 1: Building for Android ARM host requires ndk13 and android-21
+# Note 2: Building for Android x86 host requires ndk13 and android-21
 # Note 3: Building for Android x86 host w/ KVM support requires ndk13 and android-21
 # Note 4: Building for Android x86_64 host requires ndk13 and android-21
 # Note 5: Building for Android ARM64 host requires ndk13 and android-21
 
 
 ######### Armv8 64 bit (Newest ARM phones only, Supports VNC, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv8.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-armv8.mak
 
-######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-17)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-armv7a-softfp.mak
+######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-21)
+include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
 
-######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-17)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86.mak
+######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-21)
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
 
 ######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-generic-x86_64.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-x86_64.mak
 
 
 

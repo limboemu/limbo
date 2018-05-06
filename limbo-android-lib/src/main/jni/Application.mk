@@ -1,13 +1,19 @@
 LIMBO_JNI_ROOT := $(CURDIR)/jni
 
-APP_STL := stlport_shared
+#STL port
+#APP_STL := stlport_shared
+
 include $(LIMBO_JNI_ROOT)/android-config.mak
 
 #Suppress Format errors from logutils.h macros
 APP_CFLAGS += -Wno-format-security
 
-#Release
-#APP_OPTIM := release
+#Debug/Release
+ifeq ($(NDK_DEBUG),1)
+    APP_OPTIM := debug
+else
+    APP_OPTIM := release
+endif
 
 #Don't remove this 
 APP_CFLAGS += $(ARCH_CFLAGS)
