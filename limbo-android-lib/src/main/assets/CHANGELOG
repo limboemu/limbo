@@ -1,4 +1,20 @@
 <br>
+Limbo v3.0.0 alpha<br>
+- Rebased with QEMU 2.9.1 due to crashes with recent QEMU versions<br>
+- Desktop Mode for Android-x86, Chromebooks, DeX station<br>
+- External Mouse (USB/Bluetooth) enabled<br>
+- Emulated Mouse (PS/2, USB, Tablet)<br>
+- KVM Support fixed for x86 and ARM supported kernels (android ndk sigtimedwait)<br>
+- Updated library deps (glib,SDL2,libffi,pixman)<br>
+- Moved bios roms and keymaps to cache storage<br>
+- Added Android ndk support for libiconv,libintl<br>
+- Moved to Android Studio 3.1.1<br>
+- Environment Build only on Ubuntu (no more support for cygwin)<br>
+- Better drop-in procedures for lib deps and better config Makefiles<br>
+- Support for Korean Language (by obbcth)<br>
+
+
+<br>
 Limbo v2.11.0<br>
 - Rebased with QEMU 2.11.0<br>
 - Native libraries support for ARMv8 64bit phones/tables<br>
