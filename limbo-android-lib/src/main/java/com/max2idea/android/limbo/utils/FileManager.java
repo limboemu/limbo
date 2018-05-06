@@ -31,6 +31,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -42,6 +43,8 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import android.provider.DocumentsContract;
 
 /**
  *
@@ -242,11 +245,30 @@ public class FileManager extends ListActivity {
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        
-        intent.setType("*/*");
+
+		intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+
+		intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+
+		intent.setType("*/*");
 
 		context.startActivityForResult(intent, Config.REQUEST_SDCARD_CODE);
 	}
+
+	public static void promptDirAccess(Activity context) {
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+
+		intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+		intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+		intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+
+		intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+
+		intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+
+		context.startActivityForResult(intent, Config.REQUEST_SDCARD_DIR_CODE);
+	}
+
 
 	public static String getMimeType(String url) {
 		String type = null;

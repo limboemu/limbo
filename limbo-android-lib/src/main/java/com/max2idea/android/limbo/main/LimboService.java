@@ -83,7 +83,6 @@ public class LimboService extends Service {
 				public void run() {
 										
 					String res = executor.startvm();
-					Log.d(TAG, res);
                     if(ui == Config.UI_VNC){
                         if(LimboVNCActivity.activity != null)
                             LimboVNCActivity.activity.finish();
@@ -106,6 +105,7 @@ public class LimboService extends Service {
 
 				}
 			});
+            t.setName("VMExecutor");
 			t.start();
 
 		}
@@ -156,6 +156,7 @@ public class LimboService extends Service {
 
 			}
 		});
+		t.setName("LimboLogger");
 		t.start();
 	}
 

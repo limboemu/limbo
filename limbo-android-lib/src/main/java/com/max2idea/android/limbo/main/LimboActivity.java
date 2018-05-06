@@ -86,6 +86,7 @@ import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.OSDialogBox;
+import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
 import org.apache.http.HttpEntity;
@@ -93,6 +94,8 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -126,6 +129,7 @@ public class LimboActivity extends AppCompatActivity {
 	private static final int VIEWLOG = 8;
 	private static final int CREATE = 9;
 	private static final int ISOSIMAGES = 10;
+	private static final int DISCARD_VM_STATE = 11;
 	public static boolean vmStarted = false;
 	public static LimboActivity activity = null;
 	public static VMExecutor vmexecutor;
@@ -137,13 +141,14 @@ public class LimboActivity extends AppCompatActivity {
 	private static TextWatcher appendChangeListener;
 	private static TextWatcher extraParamsChangeListener;
 	private static TextWatcher dnsChangeListener;
-	private static String output;
 	private static String vnc_passwd = null;
 	private static int vnc_allow_external = 0;
 	public View parent;
 	public TextView mOutput;
 	public AutoScrollView mLyricsScroll;
 	private boolean machineLoaded;
+
+
     //Widgets
 	private ImageView mStatus;
 	private EditText mDNS;
@@ -295,7 +300,7 @@ public class LimboActivity extends AppCompatActivity {
 					progDialog.dismiss();
 				}
 				Toast.makeText(activity, "Image Created: " + imageValue, Toast.LENGTH_SHORT).show();
-				setDriveAttr(hdValue, Config.machinedir + currMachine.machinename + "/" + imageValue);
+				setDriveAttr(hdValue, imageValue);
 
 			}
 			if (messageType != null && messageType == Config.SNAPSHOT_CREATED) {
@@ -418,25 +423,32 @@ public class LimboActivity extends AppCompatActivity {
 		edit.commit();
 	}
 
-	static private void install() {
+	static private void install(boolean force) {
 		progDialog = ProgressDialog.show(activity, "Please Wait", "Installing Files...", true);
 		a = new Installer();
+		a.force = force;
 		a.execute();
 	}
 
-    public static void UIAlertLicense(String title, String html, final Activity activity) {
+    public static void UIAlertLicense(String title, String body, final Activity activity) {
 
 		AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
 		alertDialog.setTitle(title);
-		WebView webview = new WebView(activity);
-		webview.loadData(html, "text/html", "UTF-8");
-		alertDialog.setView(webview);
 
+		TextView textView = new TextView(activity);
+		textView.setText(body);
+		textView.setTextSize(10);
+		textView.setPadding(20,20,20,20);
+
+		ScrollView scrollView = new ScrollView(activity);
+		scrollView.addView(textView);
+
+		alertDialog.setView(scrollView);
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "I Acknowledge", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				if (isFirstLaunch()) {
-					install();
+					install(true);
 					UIUtils.onHelp(activity);
 					onChangeLog();
 				}
@@ -555,8 +567,8 @@ public class LimboActivity extends AppCompatActivity {
 		handler.sendMessage(msg1);
 	}
 
-	static private void onInstall() {
-		FileInstaller.installFiles(activity);
+	static private void onInstall(boolean force) {
+		FileInstaller.installFiles(activity, force);
 	}
 
 	public static String getVnc_passwd() {
@@ -752,7 +764,7 @@ public class LimboActivity extends AppCompatActivity {
 				} else {
 					mVNCAllowExternal.setEnabled(false);
 					if (mSnapshot.getSelectedItemPosition() == 0) {
-						if (Config.enable_sound)
+						if (Config.enable_SDL_sound)
 							mSoundCardConfig.setEnabled(true);
 					}
 				}
@@ -1373,6 +1385,9 @@ public class LimboActivity extends AppCompatActivity {
 				}
 
 				triggerUpdateSpinner(mSharedFolder);
+				if (isChecked) {
+					promptSharedFolder(activity);
+				}
 			}
 
 		});
@@ -1697,11 +1712,11 @@ public class LimboActivity extends AppCompatActivity {
 
 	protected synchronized void setDNSServer(String string) {
 
-		File resolvConf = new File(Config.basefiledir + "/etc/resolv.conf");
+		File resolvConf = new File(Config.getBasefileDir(this) + "/etc/resolv.conf");
 		FileOutputStream fileStream = null;
 		try {
 			fileStream = new FileOutputStream(resolvConf);
-			String str = "nameserver " + string;
+			String str = "nameserver " + string + "\n\n";
 			byte[] data = str.getBytes();
 			fileStream.write(data);
 		} catch (Exception ex) {
@@ -1788,10 +1803,21 @@ public class LimboActivity extends AppCompatActivity {
 		execTimeListener();
 		if (this.isFirstLaunch()) {
 			onFirstLaunch();
+		} else {
+				install(false);
 		}
 		setupNativeLibs();
 		setupToolbar();
 		checkUpdate();
+		checkLog();
+
+	}
+
+	private void checkLog(){
+		if(FileUtils.getExitCode(this) != 1){
+			FileUtils.setExitCode(this, 1);
+			UIUtils.promptShowLog(this);
+		}
 	}
 
 	private void setupFolders() {
@@ -1799,12 +1825,12 @@ public class LimboActivity extends AppCompatActivity {
 			public void run() {
 
 				// Create Temp folder
-				File folder = new File(Config.tmpFolder);
+				File folder = new File(Config.getTmpFolder(LimboActivity.this));
 				if (!folder.exists())
 					folder.mkdirs();
 
 				// Create shared folder
-				File shared_folder = new File(Config.sharedFolder);
+				File shared_folder = new File(Config.getSharedFolder(LimboActivity.this));
 				if (!shared_folder.exists())
 					shared_folder.mkdirs();
 
@@ -1816,44 +1842,35 @@ public class LimboActivity extends AppCompatActivity {
 	public void setupNativeLibs() {
 
         //Some devices need stl loaded upfront
-        System.loadLibrary("stlport_shared");
+        //System.loadLibrary("stlport_shared");
 
-        //iconv is not really needed
-        if(Config.enable_iconv) {
-            System.loadLibrary("iconv");
-        }
+		//Compatibility lib
+		System.loadLibrary("compat-limbo");
+
+        //Glib deps
+        System.loadLibrary("compat-iconv");
+		System.loadLibrary("compat-intl");
+
 
         //Glib
 		System.loadLibrary("glib-2.0");
-		System.loadLibrary("gthread-2.0");
-		System.loadLibrary("gobject-2.0");
-		System.loadLibrary("gmodule-2.0");
 
         //Pixman for qemu
-        System.loadLibrary("pixman");
+        System.loadLibrary("pixman-1");
 
+        //Spice server
 		if (Config.enable_SPICE) {
 			System.loadLibrary("crypto");
 			System.loadLibrary("ssl");
 			System.loadLibrary("spice");
 		}
 
-		// //Load SDL libraries
+		// //Load SDL library
 		if (Config.enable_SDL) {
 			System.loadLibrary("SDL2");
-			System.loadLibrary("SDL2_image");
-		}
-		if (Config.enable_sound) {
-			// System.loadLibrary("mikmod");
-			System.loadLibrary("SDL2_mixer");
-			// System.loadLibrary("SDL_ttf");
-
 		}
 
-		//main for SDL
-		if (Config.enable_SDL) {
-			System.loadLibrary("main");
-		}
+		System.loadLibrary("compat-SDL2-ext");
 
 		//Limbo needed for vmexecutor
 		System.loadLibrary("limbo");
@@ -1948,7 +1965,7 @@ public class LimboActivity extends AppCompatActivity {
 				new Handler(Looper.getMainLooper()).post(new Runnable() {
 					@Override
 					public void run() {
-						promptNewVersion(activity, versionStr);
+						UIUtils.promptNewVersion(activity, versionStr);
 					}
 				});
 			}
@@ -1978,39 +1995,7 @@ public class LimboActivity extends AppCompatActivity {
 		}
 	}
 
-	public void promptNewVersion(final Activity activity, String version) {
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("New Version " + version);
-		TextView stateView = new TextView(activity);
-		stateView.setText("There is a new version available with fixes and new features. Do you want to update?");
-		stateView.setPadding(20, 20, 20, 20);
-		alertDialog.setView(stateView);
-
-		// alertDialog.setMessage(body);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Get New Version",
-				new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-
-						// UIUtils.log("Searching...");
-						Intent fileIntent = new Intent(Intent.ACTION_VIEW);
-						fileIntent.setData(Uri.parse(Config.downloadLink));
-						activity.startActivity(fileIntent);
-					}
-				});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Don't Show Again",
-				new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-
-						// UIUtils.log("Searching...");
-						LimboSettingsManager.setPromptUpdateVersion(activity, false);
-
-					}
-				});
-		alertDialog.show();
-
-	}
 
 
 
@@ -2058,6 +2043,9 @@ public class LimboActivity extends AppCompatActivity {
                     mMachine.setEnabled(true);
                     mMachine.setSelection(0);
                     vmStarted = false;
+
+                    //set the exit code
+					FileUtils.setExitCode(LimboActivity.this, 1);
 
                     //XXX: We exit here to force unload the native libs
                     System.exit(1);
@@ -2281,7 +2269,7 @@ public class LimboActivity extends AppCompatActivity {
 			this.mNetDevices.setEnabled(flag);
 		this.mVGAConfig.setEnabled(flag);
 
-		if (Config.enable_sound)
+		if (Config.enable_SDL_sound)
 			if (currMachine != null && currMachine.ui != null && currMachine.ui.equals("SDL"))
 				this.mSoundCardConfig.setEnabled(flag);
 			else
@@ -2331,15 +2319,23 @@ public class LimboActivity extends AppCompatActivity {
 	// Main event function
 	// Retrives values from saved preferences
 	private void onStartButton() {
+//		//Wait till it settles down
+//
+//		try {
+//			Thread.sleep(2000);
+//		}catch(Exception ex) {
+//
+//		}
 
 		if (this.mMachine.getSelectedItemPosition() == 0 || this.currMachine == null) {
 			UIUtils.toastShort(getApplicationContext(), "Select or Create a Virtual Machine first");
 			return;
 		}
-		String filenotexists = validateFiles();
-		if (filenotexists != null) {
-            UIUtils.toastShort(getApplicationContext(), "Could not find file: " + filenotexists);
-			return;
+		try {
+			validateFiles();
+		}catch (Exception ex) {
+			UIUtils.toastLong(this, ex.toString());
+				return;
 		}
 		if (currMachine.snapshot_name != null && !currMachine.snapshot_name.toLowerCase().equals("none")
 				&& !currMachine.snapshot_name.toLowerCase().equals("") && currMachine.soundcard != null
@@ -2400,13 +2396,11 @@ public class LimboActivity extends AppCompatActivity {
 		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
 			vmexecutor.append = mAppend.getText().toString();
 
-		vmexecutor.print();
-		output = "Starting VM...";
 		vmexecutor.paused = currMachine.paused;
 
 
 		if (mUI.getSelectedItemPosition() == 0) { // VNC
-			vmexecutor.enableqmp = 0; // We enable qemu monitor
+			vmexecutor.enableqmp = 1; // We enable qemu monitor
 			startVNC();
             //we don't flag the VNC as started yet because we need
             //  to send cont via QEMU console first
@@ -2425,6 +2419,9 @@ public class LimboActivity extends AppCompatActivity {
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
                     0 + "");
 		}
+
+		execTimeListener();
+
 		if (vmStarted) {
             //do nothing
         }else if (vmexecutor.paused == 1) {
@@ -2508,35 +2505,24 @@ public class LimboActivity extends AppCompatActivity {
 
 	}
 
-	private String validateFiles() {
+	private boolean validateFiles() {
 
-		int fd;
-		try {
-			if (!FileUtils.fileValid(this, currMachine.hda_img_path))
-				return currMachine.hda_img_path;
-			if (!FileUtils.fileValid(this, currMachine.hdb_img_path))
-				return currMachine.hdb_img_path;
-			if (!FileUtils.fileValid(this, currMachine.hdc_img_path))
-				return currMachine.hdc_img_path;
-			if (!FileUtils.fileValid(this, currMachine.hdd_img_path))
-				return currMachine.hdd_img_path;
-			if (!FileUtils.fileValid(this, currMachine.fda_img_path))
-				return currMachine.fda_img_path;
-			if (!FileUtils.fileValid(this, currMachine.fdb_img_path))
-				return currMachine.fdb_img_path;
-			if (!FileUtils.fileValid(this, currMachine.sd_img_path))
-				return currMachine.sd_img_path;
-			if (!FileUtils.fileValid(this, currMachine.cd_iso_path))
-				return currMachine.cd_iso_path;
-			if (!FileUtils.fileValid(this, currMachine.kernel))
-				return currMachine.kernel;
-			if (!FileUtils.fileValid(this, currMachine.initrd))
-				return currMachine.initrd;
 
-		} catch (Exception ex) {
-			return "Unknown";
-		}
-		return null;
+
+			if (!FileUtils.fileValid(this, currMachine.hda_img_path)
+			|| !FileUtils.fileValid(this, currMachine.hdb_img_path)
+			|| !FileUtils.fileValid(this, currMachine.hdc_img_path)
+			|| !FileUtils.fileValid(this, currMachine.hdd_img_path)
+			|| !FileUtils.fileValid(this, currMachine.fda_img_path)
+			|| !FileUtils.fileValid(this, currMachine.fdb_img_path)
+			|| !FileUtils.fileValid(this, currMachine.sd_img_path)
+			|| !FileUtils.fileValid(this, currMachine.cd_iso_path)
+			|| !FileUtils.fileValid(this, currMachine.kernel)
+			|| !FileUtils.fileValid(this, currMachine.initrd)
+					)
+				return false;
+
+		return true;
 	}
 
 
@@ -2547,9 +2533,16 @@ public class LimboActivity extends AppCompatActivity {
 
 	private void onRestartButton() {
 
+		execTimeListener();
+
 		if (vmexecutor == null) {
-			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-			return;
+			if (this.currMachine != null && this.currMachine.paused == 1) {
+				promptDiscardVMState();
+				return;
+			} else {
+				sendHandlerMessage(handler, Config.VM_NOTRUNNING);
+				return;
+			}
 		}
 
 		new AlertDialog.Builder(this).setTitle("Reset VM")
@@ -2942,7 +2935,9 @@ public class LimboActivity extends AppCompatActivity {
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
 		textView.setPadding(20,20,20,20);		textView.setText(
-				"Warning! Enabling KVM is an UNTESTED and EXPERIMENTAL feature. If you experience crashes disable this option. Do you want to continue?");
+				"Warning! Enabling KVM under Limbo is not fully tested. " +
+						"\nYou should have a device with a KVM supported kernel. If you don't know what this is press Cancel." +
+						"\nIf you experience crashes disable this option. Do you want to continue?");
 
 		alertDialog.setView(textView);
 		final Handler handler = this.handler;
@@ -2964,6 +2959,44 @@ public class LimboActivity extends AppCompatActivity {
 				mEnableKVM.setChecked(false);
 			}
 		});
+		alertDialog.show();
+	}
+
+	private void promptSharedFolder(final Activity activity) {
+
+		final AlertDialog alertDialog;
+		alertDialog = new AlertDialog.Builder(activity).create();
+		alertDialog.setTitle("Enable Shared Folder!");
+
+		TextView textView = new TextView(activity);
+		textView.setVisibility(View.VISIBLE);
+		textView.setPadding(20,20,20,20);		textView.setText(
+				"Warning! Enabling Shared folder is a buggy feature does not work well under Limbo. " +
+						"\nMake sure you have a backup of your files under the shared directory. " +
+						"\nPausing the Virtual Machine is not supported with this feature." +
+						"\nIf you experience crashes disable this option. Do you want to continue?");
+
+		alertDialog.setView(textView);
+		final Handler handler = this.handler;
+
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+
+			}
+		});
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				mSharedFolderenable.setChecked(false);
+				return;
+			}
+		});
+		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+			@Override
+			public void onCancel(DialogInterface dialog) {
+				mSharedFolderenable.setChecked(false);
+			}
+		});
+		alertDialog.setCancelable(false);
 		alertDialog.show();
 	}
 
@@ -3117,7 +3150,7 @@ public class LimboActivity extends AppCompatActivity {
 				enableNonRemovableDeviceOptions(true);
 				enableRemovableDeviceOptions(true);
 
-				if (Config.enable_sound) {
+				if (Config.enable_SDL_sound) {
 					if (currMachine.ui != null && currMachine.ui.equals("SDL")) {
 						mSoundCardConfig.setEnabled(true);
 					} else
@@ -3228,79 +3261,110 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 	public void promptImageName(final Activity activity, String hd) {
-		final String hd_string = hd;
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Image Name");
+        final String hd_string = hd;
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Image Name");
 
-		LinearLayout mLayout = new LinearLayout(this);
-		mLayout.setPadding(20, 20, 20, 20);
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20, 20, 20, 20);
         mLayout.setOrientation(LinearLayout.VERTICAL);
 
-		final EditText imageNameView = new EditText(activity);
-		imageNameView.setEnabled(true);
-		imageNameView.setVisibility(View.VISIBLE);
-		imageNameView.setSingleLine();
+        final EditText imageNameView = new EditText(activity);
+        imageNameView.setEnabled(true);
+        imageNameView.setVisibility(View.VISIBLE);
+        imageNameView.setSingleLine();
         LinearLayout.LayoutParams imageNameViewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(imageNameView, imageNameViewParams);
+        mLayout.addView(imageNameView, imageNameViewParams);
 
-		final Spinner size = new Spinner(this);
+        final Spinner size = new Spinner(this);
         LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-		String[] arraySpinner = new String[3];
-		arraySpinner[0] = "5 GB (Growable)";
-		arraySpinner[1] = "10 GB (Growable)";
-		arraySpinner[2] = "20 GB (Growable)";
+        String[] arraySpinner = new String[3];
+        arraySpinner[0] = "5 GB (Growable)";
+        arraySpinner[1] = "10 GB (Growable)";
+        arraySpinner[2] = "20 GB (Growable)";
 
-		ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, R.layout.custom_spinner_item, arraySpinner);
-		sizeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		size.setAdapter(sizeAdapter);
-		mLayout.addView(size, spinnerParams);
+        ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, R.layout.custom_spinner_item, arraySpinner);
+        sizeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        size.setAdapter(sizeAdapter);
+        mLayout.addView(size, spinnerParams);
 
-		alertDialog.setView(mLayout);
+        alertDialog.setView(mLayout);
 
-		final Handler handler = this.handler;
+        final Handler handler = this.handler;
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				int sizeSel = size.getSelectedItemPosition();
-				String templateImage = "hd1g.qcow2";
-				if (sizeSel == 0) {
-					templateImage = "hd5g.qcow2";
-				} else if (sizeSel == 1) {
-					templateImage = "hd10g.qcow2";
-				} else if (sizeSel == 2) {
-					templateImage = "hd20g.qcow2";
+		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
+		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Change Directory", (DialogInterface.OnClickListener) null);
+
+        alertDialog.show();
+
+        Button positiveButton = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        positiveButton.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View view) {
+				if (FileUtils.getImagesDir(LimboActivity.this) == null) {
+                    changeImagesDir();
+                    return;
+                }
+
+                int sizeSel = size.getSelectedItemPosition();
+                String templateImage = "hd1g.qcow2";
+                if (sizeSel == 0) {
+                    templateImage = "hd5g.qcow2";
+                } else if (sizeSel == 1) {
+                    templateImage = "hd10g.qcow2";
+                } else if (sizeSel == 2) {
+                    templateImage = "hd20g.qcow2";
+                }
+
+
+                //progDialog = ProgressDialog.show(activity, "Please Wait", "Creating HD Image...", true);
+
+                String image = imageNameView.getText().toString();
+                if (!image.endsWith(".qcow2")) {
+                    image += ".qcow2";
+                }
+                boolean res = createImg(templateImage, image, hd_string);
+                if (res){
+                	//progDialog.dismiss();
+					alertDialog.dismiss();
 				}
+            }
+        });
 
+        Button negativeButton = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        negativeButton.setOnClickListener(new View.OnClickListener() {
 
-				progDialog = ProgressDialog.show(activity, "Please Wait", "Creating HD Image...", true);
+            @Override
+            public void onClick(View view) {
+                changeImagesDir();
 
-				String image = imageNameView.getText().toString();
-				if (!image.endsWith(".qcow2")) {
-					image += ".qcow2";
-				}
-				createImg(templateImage, image, hd_string);
-
-			}
-		});
-		alertDialog.show();
+            }
+        });
 
 	}
 
+	public void changeImagesDir() {
+			UIUtils.toastLong(LimboActivity.this, "Choose a directory to create your image");
+			LimboFileManager.promptDirAccess(LimboActivity.this);
+	}
 	protected boolean createImg(String templateImage, String destImage, String hd_string) {
 
-		boolean fileCreated = FileInstaller.installFile(activity, templateImage,
-				Config.machinedir + currMachine.machinename, "hdtemplates", destImage);
-		try {
-			sendHandlerMessage(handler, Config.IMG_CREATED, new String[] { "image_name", "hd" },
-					new String[] { destImage, hd_string });
-		} catch (Exception e) {
-			e.printStackTrace();
+		String imagesDir = FileUtils.getImagesDir(this);
+		Uri imagesDirUri = Uri.parse(imagesDir);
+
+		Uri fileCreatedUri = FileInstaller.installFileSDCard(activity, templateImage,
+				imagesDirUri, "hdtemplates", destImage);
+		if(fileCreatedUri!=null) {
+			sendHandlerMessage(handler, Config.IMG_CREATED, new String[]{"image_name", "hd"},
+					new String[]{fileCreatedUri.toString(), hd_string});
+			return true;
 		}
-		return fileCreated;
+		return false;
 	}
 
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -3378,10 +3442,20 @@ public class LimboActivity extends AppCompatActivity {
 				Uri uri = data.getData();
 				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
 				String file = uri.toString();
-
+				if(!file.contains("com.android.externalstorage.documents"))
+				{
+					UIUtils.showFileNotSupported(this);
+					return;
+				}
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 
-				final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+				final int takeFlags = data.getFlags()
+						& (
+						Intent.FLAG_GRANT_READ_URI_PERMISSION |
+								Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+				);
 				getContentResolver().takePersistableUriPermission(uri, takeFlags);
                 // Protect from qemu thinking it's a protocol
                 file = ("/" + file).replace(":", "");
@@ -3389,8 +3463,26 @@ public class LimboActivity extends AppCompatActivity {
 
 			}
 
-		}
+		} else if (requestCode == Config.REQUEST_SDCARD_DIR_CODE) {
+			if (data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+				Uri uri = data.getData();
+				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
+				String file = uri.toString();
+				if(!file.contains("com.android.externalstorage.documents")
+				|| file.endsWith("primary"))
+				{
+					UIUtils.showFileNotSupported(this);
+					return;
+				}
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
+				final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+				getContentResolver().takePersistableUriPermission(uri, takeFlags);
+				FileUtils.setImagesDir(this, uri.toString());
+
+			}
+
+		}
 
 	}
 
@@ -3545,11 +3637,18 @@ public class LimboActivity extends AppCompatActivity {
 			Logger.getLogger(LimboActivity.class.getName()).log(Level.SEVERE, null, ex);
 		}
 
-        this.mVNCAllowExternal.setEnabled(false);
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				mVNCAllowExternal.setEnabled(false);
+			}
+		});
+
 
 		if (this.mVNCAllowExternal.isChecked()
                 && vnc_passwd != null && !vnc_passwd.equals("")) {
-			String ret = vmexecutor.change_vnc_password();
+			vmexecutor.change_vnc_password();
+
             if(currMachine.paused != 1)
                 promptConnectLocally(activity);
             else
@@ -3611,7 +3710,7 @@ public class LimboActivity extends AppCompatActivity {
 	public void restartvm() {
 		if (vmexecutor != null) {
 
-			output = vmexecutor.stopvm(1);
+			vmexecutor.stopvm(1);
             vmStarted = true;
 			sendHandlerMessage(handler, Config.VM_RESTARTED);
 
@@ -3631,7 +3730,7 @@ public class LimboActivity extends AppCompatActivity {
 				sendHandlerMessage(handler, Config.VM_NO_QCOW2);
 			} else {
 
-				output = vmexecutor.savevm("test_snapshot");
+				vmexecutor.savevm("test_snapshot");
 				sendHandlerMessage(handler, Config.VM_SAVED);
 			}
 		} else {
@@ -3643,7 +3742,7 @@ public class LimboActivity extends AppCompatActivity {
 
 	public void resumevm() {
 		if (vmexecutor != null) {
-			output = vmexecutor.resumevm();
+			vmexecutor.resumevm();
 			sendHandlerMessage(handler, Config.VM_RESTARTED);
 		} else {
 
@@ -5560,7 +5659,7 @@ public class LimboActivity extends AppCompatActivity {
 		ArrayList<String> arraySpinner = new ArrayList<String>();
 		arraySpinner.add("None");
 		//arraySpinner.add(Config.sharedFolder + " (read-only)");
-		arraySpinner.add(Config.sharedFolder + " (read-write)");  //Hard Disks are always Read/Write
+		arraySpinner.add(Config.getSharedFolder(this) + " (read-write)");  //Hard Disks are always Read/Write
 
 		sharedFolderAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
 		sharedFolderAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
@@ -5599,6 +5698,8 @@ public class LimboActivity extends AppCompatActivity {
 			LimboFileManager.promptSDCardAccess(activity, fileType);
 		}
 	}
+
+
 
 	public Intent getFileManIntent() {
 		return new Intent(LimboActivity.this, com.max2idea.android.limbo.main.LimboFileManager.class);
@@ -5657,6 +5758,7 @@ public class LimboActivity extends AppCompatActivity {
 		menu.add(0, INSTALL, 0, "Install Roms").setIcon(R.drawable.install);
 		menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.cpu);
 		menu.add(0, DELETE, 0, "Delete Machine").setIcon(R.drawable.delete);
+		menu.add(0, DISCARD_VM_STATE, 0, "Discard Saved State").setIcon(R.drawable.delete);
 		menu.add(0, ISOSIMAGES, 0, "ISOs & HD Images").setIcon(R.drawable.cdrom);
 		menu.add(0, VIEWLOG, 0, "View Log").setIcon(android.R.drawable.ic_menu_view);
 		menu.add(0, EXPORT, 0, "Export Machines").setIcon(R.drawable.exportvms);
@@ -5679,9 +5781,12 @@ public class LimboActivity extends AppCompatActivity {
 
 		super.onOptionsItemSelected(item);
 		if (item.getItemId() == this.INSTALL) {
-			this.install();
+			this.install(true);
 		} else if (item.getItemId() == this.DELETE) {
 			this.onDeleteMachine();
+		} else if (item.getItemId() == this.DISCARD_VM_STATE) {
+			if(currMachine!=null && currMachine.paused==1)
+				promptDiscardVMState();
 		} else if (item.getItemId() == this.CREATE) {
 			this.promptMachineName(this);
 		} else if (item.getItemId() == this.ISOSIMAGES) {
@@ -5717,26 +5822,30 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 
+	public void promptDiscardVMState(){
+		new AlertDialog.Builder(this).setTitle("Discard VM State")
+				.setMessage("The VM is Paused. If you discard the state you might lose data. Continue?")
+				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int which) {
+						currMachine.paused = 0;
+						MachineOpenHelper.getInstance(activity).update(currMachine,
+								MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
+						sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "READY");
+						enableNonRemovableDeviceOptions(true);
+						enableRemovableDeviceOptions(true);
+
+					}
+				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+			}
+		}).show();
+	}
 
 	public void stopVM(boolean exit) {
+		execTimeListener();
 		if (vmexecutor == null && !exit) {
 			if (this.currMachine != null && this.currMachine.paused == 1) {
-				new AlertDialog.Builder(this).setTitle("Discard VM State")
-						.setMessage("The VM is Paused. If you discard the state you might lose data. Continue?")
-						.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-							public void onClick(DialogInterface dialog, int which) {
-								currMachine.paused = 0;
-								MachineOpenHelper.getInstance(activity).update(currMachine,
-										MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
-								sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "READY");
-								enableNonRemovableDeviceOptions(true);
-								enableRemovableDeviceOptions(true);
-
-							}
-						}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-							public void onClick(DialogInterface dialog, int which) {
-							}
-						}).show();
+				promptDiscardVMState();
 				return;
 			} else {
 				sendHandlerMessage(handler, Config.VM_NOTRUNNING);
@@ -5800,7 +5909,8 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 	public void timeListener() {
-		while (timeQuit != true) {
+		//XXX: No timers just ping a few times
+		for(int i=0; i<3; i++){
 			if (vmexecutor != null) {
 				String status = checkStatus();
 				if (!status.equals(currStatus)) {
@@ -5850,22 +5960,36 @@ public class LimboActivity extends AppCompatActivity {
 
 	private String checkStatus() {
 		String state = "READY";
-		if (vmexecutor != null && vmexecutor.libLoaded && vmexecutor.get_state().equals("RUNNING")) {
+		if (vmexecutor != null && vmexecutor.libLoaded && vmexecutor.get_state().toUpperCase().equals("RUNNING")) {
 			state = "RUNNING";
 		} else if (vmexecutor != null) {
-			String save_state = vmexecutor.get_save_state();
-			String pause_state = vmexecutor.get_pause_state();
+			String res = QmpClient.sendCommand(QmpClient.query_migrate());
+            String pause_state = "";
+            if(res!=null && !res.equals("")) {
+                //Log.d(TAG, "Migrate status: " + res);
+                try {
+                    JSONObject resObj = new JSONObject(res);
+                    String resInfo = resObj.getString("return");
+                    JSONObject resInfoObj = new JSONObject(resInfo);
+                    pause_state = resInfoObj.getString("status");
+                } catch (JSONException e) {
+                    if (Config.debug)
+                        e.printStackTrace();
+                }
+            }
 
 			// Shutdown if paused done
-			if (pause_state.equals("SAVING")) {
-				return pause_state;
-			} else if (pause_state.equals("DONE")) {
+			if(pause_state == null) {
+				state = "READY";
+			}else if (pause_state.equals("ACTIVE")) {
+				return "SAVING";
+			} else if (pause_state.equals("COMPLETED")) {
 				if (LimboActivity.vmexecutor != null) {
 					LimboActivity.vmexecutor.stopvm(0);
 				}
-			} else if (save_state.equals("SAVING")) {
-				state = save_state;
-			} else {
+			} else if(pause_state.toUpperCase().equals("FAILED")){
+                Log.e(TAG, "Error: " + res);
+            } else {
 				state = "READY";
 			}
 		} else {
@@ -5876,10 +6000,11 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
     private static class Installer extends AsyncTask<Void, Void, Void> {
+		public boolean force;
 
 		@Override
 		protected Void doInBackground(Void... arg0) {
-			onInstall();
+			onInstall(force);
 			if (progDialog.isShowing()) {
 				progDialog.dismiss();
 			}

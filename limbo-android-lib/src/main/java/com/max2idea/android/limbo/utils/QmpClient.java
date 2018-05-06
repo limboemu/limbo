@@ -17,9 +17,9 @@ public class QmpClient {
 	private static final String TAG = "QMPClient";
 	private static String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
 
-	public static String sendCommand(String command) {
+	public synchronized static String sendCommand(String command) {
 		String response = null;
-
+		int trial=0;
 		Socket pingSocket = null;
 		PrintWriter out = null;
 		BufferedReader in = null;
@@ -31,13 +31,24 @@ public class QmpClient {
 			in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
 
 			sendRequest(out, QmpClient.requestCommandMode);
-			response = getResponse(in);
-			sendRequest(out, command);
-			response = getResponse(in);
+			while((response = getResponse(in)).equals("") && trial <10){
 
-		} catch (Exception e) {
+				Thread.sleep(1000);
+				trial++;
+			}
+
+			sendRequest(out, command);
+			trial=0;
+			while((response = getResponse(in)).equals("") && trial < 10){
+				Thread.sleep(1000);
+				trial++;
+			}
+		} catch (java.net.ConnectException e) {
+			Log.e(TAG, "Could not connect: " + e);
+		} catch(Exception e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+//			if(Config.debug)
+				e.printStackTrace();
 		} finally {
 			if (out != null)
 				out.close();
@@ -57,8 +68,8 @@ public class QmpClient {
 	}
 
 	private static void sendRequest(PrintWriter out, String request) {
-		
-		Log.i(TAG, "QMP request" + request);
+
+		//Log.i(TAG, "QMP request" + request);
 		out.println(request);
 	}
 
@@ -71,7 +82,7 @@ public class QmpClient {
             do {
                 line = in.readLine();
                 if (line != null) {
-                    Log.i(TAG, "QMP response: " + line);
+                    //Log.i(TAG, "QMP response: " + line);
                     JSONObject object = new JSONObject(line);
                     String returnStr = null;
                     String errStr = null;
@@ -79,17 +90,19 @@ public class QmpClient {
                     try {
                         returnStr = object.getString("return");
                     } catch (Exception ex) {
-
+						//ex.printStackTrace();
                     }
 
                     if (returnStr != null) {
+						stringBuilder.append(line);
+						stringBuilder.append("\n");
                         break;
                     }
 
                     try {
                         errStr = object.getString("error");
                     } catch (Exception ex) {
-
+						//ex.printStackTrace();
                     }
 
                     stringBuilder.append(line);
@@ -109,6 +122,53 @@ public class QmpClient {
         return stringBuilder.toString();
     }
 
+	private static String getQueryMigrateResponse(BufferedReader in) throws Exception {
+
+		String line;
+		StringBuilder stringBuilder = new StringBuilder("");
+
+		try {
+			do {
+				line = in.readLine();
+				if (line != null) {
+					Log.i(TAG, "QMP query-migrate response: " + line);
+					JSONObject object = new JSONObject(line);
+					String returnStr = null;
+					String errStr = null;
+
+					try {
+						returnStr = object.getString("return");
+					} catch (Exception ex) {
+
+					}
+
+					if (returnStr != null) {
+						break;
+					}
+
+					try {
+						errStr = object.getString("error");
+					} catch (Exception ex) {
+
+					}
+
+					stringBuilder.append(line);
+					stringBuilder.append("\n");
+
+					if (errStr != null) {
+						break;
+					}
+
+
+				} else
+					break;
+			} while (true);
+		} catch (Exception ex) {
+
+		}
+		return stringBuilder.toString();
+	}
+
 	public static String migrate(boolean block, boolean inc, String uri) {
 		
 		// XXX: Detach should not be used via QMP according to docs
@@ -124,6 +184,41 @@ public class QmpClient {
 
 	}
 
+    public static String changevncpasswd(String passwd) {
+
+		return "{\"execute\": \"change\", \"arguments\": { \"device\": \"vnc\", \"target\": \"password\", \"arg\": \"" + passwd +"\" } }";
+
+    }
+
+    public static String ejectdev(String dev) {
+
+        return "{ \"execute\": \"eject\", \"arguments\": { \"device\": \""+ dev +"\" } }";
+
+    }
+
+    public static String changedev(String dev, String value) {
+
+        return "{ \"execute\": \"change\", \"arguments\": { \"device\": \""+dev+"\", \"target\": \"" + value + "\" } }";
+
+    }
+
+
+
+    public static String query_migrate() {
+		return "{ \"execute\": \"query-migrate\" }";
+
+	}
+
+	public static String save_snapshot(String snapshot_name) {
+		return "{\"execute\": \"snapshot-create\", \"arguments\": {\"name\": \""+ snapshot_name+"\"} }";
+
+	}
+
+	public static String query_snapshot() {
+		return "{ \"execute\": \"query-snapshot-status\" }";
+
+	}
+
 	public static String stop() {
 		return "{ \"execute\": \"stop\" }";
 
@@ -131,6 +226,21 @@ public class QmpClient {
 
 	public static String cont() {
 		return "{ \"execute\": \"cont\" }";
+
+	}
+
+	public static String powerDown() {
+		return "{ \"execute\": \"system_powerdown\" }";
+
+	}
+
+	public static String reset() {
+		return "{ \"execute\": \"system_reset\" }";
+
+	}
+
+	public static String getState() {
+		return "{ \"execute\": \"query-status\" }";
 
 	}
 }

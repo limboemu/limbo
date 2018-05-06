@@ -20,6 +20,7 @@ package com.max2idea.android.limbo.main;
 
 import android.androidVNC.COLORMODEL;
 import android.androidVNC.VncCanvasActivity;
+import android.content.Context;
 import android.os.Environment;
 import android.widget.ImageView.ScaleType;
 
@@ -51,6 +52,7 @@ public class Config {
 	public static final int SDL_RESULT_CODE = 1008;
 	public static final int SDL_QUIT_RESULT_CODE = 1009;
 	public static final int REQUEST_SDCARD_CODE = 1010;
+	public static final int REQUEST_SDCARD_DIR_CODE = 1011;
 	public static final int STATUS_NULL = -1;
 	public static final int STATUS_CREATED = 1000;
 	public static final int STATUS_PAUSED = 1001;
@@ -80,8 +82,9 @@ public class Config {
 
 	// GUI Options
 	public static final boolean enable_SDL = true;
+	public static final boolean enable_SDL_sound = true;
 	public static final boolean enable_SPICE = false;
-	public static final boolean enable_sound= true;
+
 
     //Backend libs
     public static final boolean enable_iconv= false; //not needed for now
@@ -97,30 +100,51 @@ public class Config {
 	public static boolean enable_sparc = false;
 	
 	//Enable if you build with KVM support, needes android-21 platform
-	public static final boolean enable_KVM = false;
+	public static final boolean enable_KVM = true;
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
 	public static boolean enableSDLAlwaysFullscreen = true;
-	
-	
-	
+
 	// App config
 	public static final String APP_NAME = "Limbo PC Emulator (QEMU)";
-	public static final String DBFile = Environment.getExternalStorageDirectory() + "/limbo/machines.csv";
-	public static final String basefiledir = Environment.getExternalStorageDirectory() + "/limbo/";
-	public static String sharedFolder = basefiledir + "shared";
-	public static String tmpFolder = basefiledir + "tmp"; // Do not modify
+	public static final String storagedir = Environment.getExternalStorageDirectory().toString();
+	public static final String getCacheDir(Context context){
+		return context.getCacheDir().toString();
+	}
+    public static final String getBasefileDir(Context context) {
+    	return getCacheDir(context) + "/limbo/";
+	}
+	public static final String DBFile = storagedir + "/limbo/machines.csv";
+
+	public static String getSharedFolder (Context context) {
+		return storagedir + "/limbo/shared";
+	}
+	public static String getTmpFolder(Context context) {
+		return getBasefileDir(context) + "var/tmp"; // Do not modify
+	}
+	public static String machineFolder = "machines/";
+	public static String getMachineDir(Context context){
+		return getBasefileDir(context) + machineFolder;
+	}
+	public static String logFilePath = storagedir + "/limbo/limbolog.txt";
+
+
 	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
 	public static boolean enableOpenSL; //future enhancement
 	
-	public static String machinedir = basefiledir + "machines/";
+
 	public static final boolean enableHDCache = false;
 	public static final String defaultDNSServer = "8.8.8.8";
 	public static final String defaultUI = "VNC";
 	public static String state_filename = "vm.state";
+
+	//QMP
 	public static String QMPServer = "localhost"; 
 	public static int QMPPort = 4444;
+	//For debugging purposes, make sure you're on a private network
+	public static boolean enable_QMP_External = false;
+
     public static int MAX_DISPLAY_REFRESH_RATE = 100; //Hz
 	
 	// App Config
@@ -141,7 +165,9 @@ public class Config {
 	public static String defaultKeyboardLayout = "en-us";
 	public static boolean collapseSections = false;
 	public static boolean enableFlashMemoryImages = false;
-	public static String logFilePath = Config.basefiledir + "limbolog.txt";
+	public static boolean enableToggleKeyboard = false;
+
+
 	public static boolean enableMTTCG = false;
 	public static String isosImagesURL = "http://limboemulator.weebly.com/guides";
 	

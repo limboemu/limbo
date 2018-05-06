@@ -21,6 +21,8 @@ package com.max2idea.android.limbo.utils;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.net.Uri;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import com.max2idea.android.limbo.main.Config;
@@ -39,32 +41,33 @@ import java.util.logging.Logger;
  */
 public class FileInstaller {
 
-    public static void installFiles(Activity activity) {
+    public static void installFiles(Activity activity, boolean force) {
 
         Log.v("Installer", "Installing files...");
-        File tmpDir = new File(Config.basefiledir);
+        File tmpDir = new File(Config.getBasefileDir(activity));
         if (!tmpDir.exists()) {
             tmpDir.mkdirs();
         }
 
-        File tmpDir1 = new File(Config.machinedir);
+        File tmpDir1 = new File(Config.getMachineDir(activity));
         if (!tmpDir1.exists()) {
             tmpDir1.mkdirs();
         }
 
 
         //Install base dir
-        File dir = new File(Config.basefiledir);
+        File dir = new File(Config.getBasefileDir(activity));
         if (dir.exists() && dir.isDirectory()) {
             //don't create again
         } else if (dir.exists() && !dir.isDirectory()) {
-            Log.v("Installer", "Could not create Dir, file found: " + Config.basefiledir);
+            Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir(activity));
             return;
         } else if (!dir.exists()) {
             dir.mkdir();
         }
 
-        Log.v("Installer", "Getting Files: ");
+        String destDir = Config.getBasefileDir(activity);
+
         //Get each file in assets under ./roms/ and install in SDCARD
         AssetManager am = activity.getResources().getAssets();
         String[] files = null;
@@ -73,9 +76,11 @@ public class FileInstaller {
         } catch (IOException ex) {
             Logger.getLogger(FileInstaller.class.getName()).log(Level.SEVERE, null, ex);
             Log.v("Installer", "Could not install files: " + ex.getMessage());
+            return;
         }
+
         for (int i = 0; i < files.length; i++) {
-            Log.v("Installer", "File: " + files[i]);
+            //Log.v("Installer", "File: " + files[i]);
             String[] subfiles = null;
             try {
                 subfiles = am.list("roms/" + files[i]);
@@ -84,21 +89,29 @@ public class FileInstaller {
             }
             if (subfiles != null && subfiles.length > 0) {
                 //Install base dir
-                File dir1 = new File(Config.basefiledir + files[i]);
+                File dir1 = new File(Config.getBasefileDir(activity) + files[i]);
                 if (dir1.exists() && dir1.isDirectory()) {
                     //don't create again
                 } else if (dir1.exists() && !dir1.isDirectory()) {
-                    Log.v("Installer", "Could not create Dir, file found: " + Config.basefiledir + files[i]);
+                    Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir(activity) + files[i]);
                     return;
                 } else if (!dir1.exists()) {
                     dir1.mkdir();
                 }
                 for (int k = 0; k < subfiles.length; k++) {
-                    Log.v("Installer", "File: " + files[i] + "/" + subfiles[k]);
-                    installFile(activity, files[i] + "/" + subfiles[k], Config.basefiledir, "roms", null);
+
+                    File file = new File(destDir, files[i] + "/" + subfiles[k]);
+                    if(!file.exists() || force) {
+                        Log.v("Installer", "Installing file: " + file.getPath());
+                        installFile(activity, files[i] + "/" + subfiles[k], destDir, "roms", null);
+                    }
                 }
             } else {
-                installFile(activity, files[i], Config.basefiledir, "roms", null);
+                File file = new File(destDir, files[i]);
+                if(!file.exists() || force) {
+                    Log.v("Installer", "Installing file: " + file.getPath());
+                    installFile(activity, files[i], Config.getBasefileDir(activity), "roms", null);
+                }
             }
         }
 //        InputStream is = am.open(srcFile);
@@ -133,5 +146,66 @@ public class FileInstaller {
             Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
             return false;
         }
+    }
+
+    public static Uri installFileSDCard(Context activity, String srcFile,
+                                            Uri destDir, String assetsDir, String destFile) {
+
+        DocumentFile destFileF = null;
+        OutputStream os = null;
+        InputStream is = null;
+        Uri uri = null;
+
+        try {
+
+            DocumentFile dir = DocumentFile.fromTreeUri(activity, destDir);
+            AssetManager am = activity.getResources().getAssets(); // get the local asset manager
+            is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
+
+            if(destFile==null)
+                destFile=srcFile;
+
+            //Create the file if doesn't exist
+            destFileF = dir.findFile(destFile);
+            if(destFileF == null) {
+                destFileF = dir.createFile("application/octet-stream", destFile);
+            }
+            else {
+                    UIUtils.toastShort(activity, "File exists, choose another filename");
+                    return null;
+            }
+
+            //Write to the dest
+            os = activity.getContentResolver().openOutputStream(destFileF.getUri());
+            //OutputStream os = new FileOutputStream(destDir + "/" + destFile);
+            byte[] buf = new byte[8092];
+            int n;
+            while ((n = is.read(buf)) > 0) {
+                os.write(buf, 0, n);
+            }
+
+            //success
+            uri = destFileF.getUri();
+
+        } catch (Exception ex) {
+            Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
+        } finally {
+            if(os!=null) {
+                try {
+                    os.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if(is!=null) {
+                try {
+                    is.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+        return uri;
     }
 }

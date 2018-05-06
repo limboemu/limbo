@@ -368,11 +368,12 @@ public class DrivesDialogBox extends Dialog {
 
 		if (fileType != null && fileType.startsWith("cd") && file != null && !file.trim().equals("")) {
 			update(LimboActivity.currMachine, MachineOpenHelper.CDROM, file);
-			if (((ArrayAdapter<String>) mCD.getAdapter()).getPosition(file) < 0) {
-				((ArrayAdapter<String>) mCD.getAdapter()).add(file);
-			}
+
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 public void run() {
+					if (((ArrayAdapter<String>) mCD.getAdapter()).getPosition(file) < 0) {
+						((ArrayAdapter<String>) mCD.getAdapter()).add(file);
+					}
                     setCDROM(file);
                     int res = mCD.getSelectedItemPosition();
                     if (res == 1) {
@@ -383,11 +384,12 @@ public class DrivesDialogBox extends Dialog {
 
 		} else if (fileType != null && fileType.startsWith("sd") && file != null && !file.trim().equals("")) {
 			update(LimboActivity.currMachine, MachineOpenHelper.SD, file);
-			if (((ArrayAdapter<String>) mSD.getAdapter()).getPosition(file) < 0) {
-				((ArrayAdapter<String>) mSD.getAdapter()).add(file);
-			}
+
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 public void run() {
+					if (((ArrayAdapter<String>) mSD.getAdapter()).getPosition(file) < 0) {
+						((ArrayAdapter<String>) mSD.getAdapter()).add(file);
+					}
                     setSD(file);
                     int res = mFDB.getSelectedItemPosition();
                     if (res == 1) {
@@ -400,11 +402,12 @@ public class DrivesDialogBox extends Dialog {
 		} else if (fileType != null && fileType.startsWith("fd") && file != null && !file.trim().equals("")) {
 			if (fileType.startsWith("fda")) {
 				update(LimboActivity.currMachine, MachineOpenHelper.FDA, file);
-				if (((ArrayAdapter<String>) mFDA.getAdapter()).getPosition(file) < 0) {
-					((ArrayAdapter<String>) mFDA.getAdapter()).add(file);
-				}
+
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     public void run() {
+						if (((ArrayAdapter<String>) mFDA.getAdapter()).getPosition(file) < 0) {
+							((ArrayAdapter<String>) mFDA.getAdapter()).add(file);
+						}
                         setFDA(file);
                         int res = mFDA.getSelectedItemPosition();
                         if (res == 1) {
@@ -415,11 +418,12 @@ public class DrivesDialogBox extends Dialog {
 
 			} else if (fileType.startsWith("fdb")) {
 				update(LimboActivity.currMachine, MachineOpenHelper.FDB, file);
-				if (((ArrayAdapter<String>) mFDB.getAdapter()).getPosition(file) < 0) {
-					((ArrayAdapter<String>) mFDB.getAdapter()).add(file);
-				}
+
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     public void run() {
+						if (((ArrayAdapter<String>) mFDB.getAdapter()).getPosition(file) < 0) {
+							((ArrayAdapter<String>) mFDB.getAdapter()).add(file);
+						}
                         setFDB(file);
                         int res = mFDB.getSelectedItemPosition();
                         if (res == 1) {

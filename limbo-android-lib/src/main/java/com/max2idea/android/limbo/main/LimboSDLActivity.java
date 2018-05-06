@@ -1,5 +1,6 @@
 package com.max2idea.android.limbo.main;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -9,6 +10,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Point;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -16,11 +19,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.Vibrator;
 import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBar;
+
 import android.util.Log;
+import android.view.Display;
+import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -29,9 +36,7 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
@@ -44,14 +49,14 @@ import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
-import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
+import org.json.JSONException;
 import org.json.JSONObject;
-import org.libsdl.app.ClearRenderer;
+
 import org.libsdl.app.SDLActivity;
-import org.libsdl.app.SDLSurface;
+import org.libsdl.app.SDLControllerManager;
 
 import java.io.File;
 import java.util.logging.Level;
@@ -66,7 +71,7 @@ import javax.microedition.khronos.egl.EGLSurface;
  * SDL Activity
  */
 public class LimboSDLActivity extends SDLActivity {
-
+	public static final String TAG = "LimboSDLActivity";
 	public static final int KEYBOARD = 10000;
 	public static final int QUIT = 10001;
 	public static final int HELP = 10002;
@@ -89,7 +94,6 @@ public class LimboSDLActivity extends SDLActivity {
 	public String fda_img_path = null;
 	public String fdb_img_path = null;
 	public String cpu = null;
-	public String TAG = "VMExecutor";
 
 	public int aiomaxthreads = 1;
 	// Default Settings
@@ -115,13 +119,12 @@ public class LimboSDLActivity extends SDLActivity {
 	public int vnc_allow_external = 0;
 	public String qemu_dev = null;
 	public String qemu_dev_value = null;
-	public String base_dir = Config.basefiledir;
+	public String base_dir = null;
 	public String dns_addr = null;
 	private boolean once = true;
 	private boolean zoomable = false;
 	private String status = null;
 
-	public static Handler handler;
 
 	// This is what SDL runs in. It invokes SDL_main(), eventually
 	private static Thread mSDLThread;
@@ -146,13 +149,18 @@ public class LimboSDLActivity extends SDLActivity {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				// Log.d("SDL", "Mouse Single Click");
-				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 0, 0, 0);
 				try {
-					Thread.sleep(100);
+					Thread.sleep(200);
 				} catch (InterruptedException ex) {
 					// Log.v("singletap", "Could not sleep");
 				}
-				SDLActivity.onNativeTouch(event.getDeviceId(), Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, 0, 0);
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1,0, 0);
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException ex) {
+					// Log.v("singletap", "Could not sleep");
+				}
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 1, 0, 0);
 			}
 		});
 		t.start();
@@ -189,12 +197,23 @@ public class LimboSDLActivity extends SDLActivity {
 				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
 				String file = uri.toString();
 
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				if(!file.contains("com.android.externalstorage.documents"))
+				{
+					UIUtils.showFileNotSupported(this);
+					return;
+				}
 
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                    final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                }
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+
+				final int takeFlags = data.getFlags()
+						& (
+						Intent.FLAG_GRANT_READ_URI_PERMISSION |
+								Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+				);
+                getContentResolver().takePersistableUriPermission(uri, takeFlags);
+
 
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
@@ -319,32 +338,26 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
+	public static void delayKey(int ms) {
+		try {
+			Thread.sleep(ms);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	public static void sendCtrlAtlKey(int code) {
-
 		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_LEFT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ALT_LEFT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyDown(code);
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_LEFT);
+		delayKey(100);
+		if(code>=0)
+			SDLActivity.onNativeKeyDown(code);
+		delayKey(100);
+		if(code>=0)
+			SDLActivity.onNativeKeyUp(code);
+		delayKey(100);
 		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ALT_LEFT);
-		SDLActivity.onNativeKeyUp(code);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_LEFT);
 	}
 
 	public void stopTimeListener() {
@@ -373,15 +386,16 @@ public class LimboSDLActivity extends SDLActivity {
 		super.onDestroy();
 	}
 
-	public void timeListener() {
+
+	public void checkStatus() {
 		while (timeQuit != true) {
-			status = checkCompletion();
-			// Log.v("timeListener", "Status: " + status);
+			String status = checkCompletion();
+			Log.v(TAG, "Status: " + status);
 			if (status == null
-                    || status.equals("")
-                    || status.equals("DONE")
-                    || status.equals("ERROR")
-                    ) {
+					//|| status.equals("")
+					|| status.toUpperCase().equals("COMPLETED")
+					|| status.toUpperCase().equals("FAILED")
+					) {
 				Log.v("Inside", "Saving state is done: " + status);
 				stopTimeListener();
 				return;
@@ -396,12 +410,13 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
+
 	public void startTimeListener() {
 		this.stopTimeListener();
 		timeQuit = false;
 		try {
 			Log.v("Listener", "Time Listener Started...");
-			timeListener();
+			checkStatus();
 			synchronized (lockTime) {
 				while (timeQuit == false) {
 					lockTime.wait();
@@ -417,6 +432,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	public DrivesDialogBox drives = null;
+	public static boolean toggleKeyboardFlag = true;
 
 	@Override
 	public boolean onOptionsItemSelected(final MenuItem item) {
@@ -437,7 +453,7 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemMouse) {
             onMouseMode();
 		} else if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
-			this.onKeyboard();
+			toggleKeyboardFlag = UIUtils.onKeyboard(this, toggleKeyboardFlag);
 		}
         else if (item.getItemId() == R.id.itemMonitor) {
 			if (this.monitorMode) {
@@ -450,9 +466,10 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemSaveState) {
 			this.promptPause(activity);
 		} else if (item.getItemId() == R.id.itemSaveSnapshot) {
-			this.promptStateName(activity);
+			//TODO:
+			//this.promptStateName(activity);
 		} else if (item.getItemId() == R.id.itemFitToScreen) {
-            onFitToScreen();
+            onFitToScreen(true);
 		} else if (item.getItemId() == R.id.itemStretchToScreen) {
 			setStretchToScreen();
 		} else if (item.getItemId() == R.id.itemZoomIn) {
@@ -464,7 +481,7 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemCtrlC) {
 			this.onCtrlC();
 		} else if (item.getItemId() == R.id.itemOneToOne) {
-			this.onNormalScreen();
+			this.onNormalScreen(true);
 		} else if (item.getItemId() == R.id.itemZoomable) {
 			this.setZoomable();
 		} else if (item.getItemId() == this.QUIT) {
@@ -480,7 +497,7 @@ public class LimboSDLActivity extends SDLActivity {
 		// this.canvas.requestFocus();
 
 
-        this.supportInvalidateOptionsMenu();
+        this.invalidateOptionsMenu();
 		return true;
 	}
 
@@ -489,7 +506,7 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
     public void onHideToolbar(){
-        ActionBar bar = this.getSupportActionBar();
+        ActionBar bar = this.getActionBar();
         if (bar != null) {
             bar.hide();
         }
@@ -499,7 +516,7 @@ public class LimboSDLActivity extends SDLActivity {
     private void onMouseMode() {
 
         String [] items = {"Trackpad Mouse (Phone)",
-                "Touchscreen/Bluetooth Mouse (Tablet/Desktop)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+                "Touchscreen or Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
         };
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
         mBuilder.setTitle("Mouse");
@@ -511,7 +528,7 @@ public class LimboSDLActivity extends SDLActivity {
                         setUIModeMobile();
                         break;
                     case 1:
-                        setUIModeDesktop(LimboSDLActivity.this, false);
+                    	setUIModeDesktop(LimboSDLActivity.this, false);
                         break;
                     default:
                         break;
@@ -524,63 +541,77 @@ public class LimboSDLActivity extends SDLActivity {
 
     }
 
+	public boolean checkVMResolutionFits() {
+		if(vm_width < ((LimboSDLSurface) mSurface).getWidth()
+				&& vm_height< ((LimboSDLSurface) mSurface).getHeight())
+			return true;
 
+		return false;
+	}
 
     public void calibration() {
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                try {
-
-                    int origX = 0;
-                    int origY = 0;
-                    MotionEvent event = null;
-
-                    for(int i = 0; i< 4*20; i++) {
-                        int x = 0+i*50;
-                        int y = 0+i*50;
-                        if(i%4==1){
-                            x= mSurface.getWidth();
-                        }else if (i%4==2) {
-                            y= mSurface.getHeight();
-                        }else if (i%4==3) {
-                            x=0;
-                        }
-
-                        event = MotionEvent.obtain(SystemClock.uptimeMillis(),
-                                SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
-                                x,y, 0);
-                        Thread.sleep(50);
-                        SDLActivity.onNativeTouch(event.getDeviceId(), 1, MotionEvent.ACTION_MOVE,
-                                x , y , 0);
-
-
-                    }
-
-                    Thread.sleep(50);
-                    event = MotionEvent.obtain(SystemClock.uptimeMillis(),
-                            SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
-                            origX,origY, 0);
-                    SDLActivity.onNativeTouch(event.getDeviceId(), 1, MotionEvent.ACTION_MOVE,
-                            origX, origY , 0);
-
-                }catch(Exception ex) {
-
-                }
-            }
-        });
-        t.start();
+		//XXX: Don't need to calibrate for SDL trackpad.
+		// For external Mouse the user should move their mouse according to instructions
+//        Thread t = new Thread(new Runnable() {
+//            public void run() {
+//            	int relative = Config.mouseMode == Config.MouseMode.External? 0: 1;
+//                try {
+//
+//                    int origX = vm_width/2;
+//                    int origY = vm_height/2;
+//                    int maxX = ((LimboSDLSurface) mSurface).getWidth();
+//
+//                    MotionEvent event = null;
+//
+//                    //TODO: need to calculate the widht and height without accessing SDLSurface
+//                    for(int i = 0; i< 4*20; i++) {
+//                        int x = 0+i*50;
+//                        int y = 0+i*50;
+//                        if(i%4==1){
+//                        	if(x>maxX)
+//                            	x=
+//                        }else if (i%4==2) {
+//							y= ((LimboSDLSurface) mSurface).getHeight();
+//                        }else if (i%4==3) {
+//                            x=0;
+//                        }
+//
+////                        event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+////                                SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+////                                x,y, 0);
+//                        Thread.sleep(50);
+//                        LimboActivity.vmexecutor.onLimboMouse(0, MotionEvent.ACTION_MOVE, 0, x , y );
+//
+//
+//                    }
+//
+//                    Thread.sleep(50);
+////                    event = MotionEvent.obtain(SystemClock.uptimeMillis(),
+////                            SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
+////                            origX,origY, 0);
+//                    LimboActivity.vmexecutor.onLimboMouse(0, MotionEvent.ACTION_MOVE, 0, origX, origY );
+//
+//                }catch(Exception ex) {
+//
+//                }
+//            }
+//        });
+//        t.start();
     }
 
     private void setUIModeMobile(){
 
         UIUtils.setOrientation(this);
         MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-        LimboSDLActivity.singleClick(a, 0);
+
+		//TODO: needed?
+        //LimboSDLActivity.singleClick(a, 0);
         Config.mouseMode = Config.MouseMode.Trackpad;
-        Toast.makeText(this.getApplicationContext(), "Mouse Trackpad enabled", Toast.LENGTH_SHORT).show();
-        onFitToScreen();
+		LimboActivity.vmexecutor.setRelativeMouseMode(1);
+        Toast.makeText(this.getApplicationContext(), "Trackpad Enabled", Toast.LENGTH_SHORT).show();
+        onFitToScreen(true);
         calibration();
-        supportInvalidateOptionsMenu();
+        invalidateOptionsMenu();
     }
 
     private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
@@ -588,7 +619,7 @@ public class LimboSDLActivity extends SDLActivity {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Touchscreen/Desktop Mode");
+        alertDialog.setTitle("Desktop Mode/Touchscreen");
 
         LinearLayout mLayout = new LinearLayout(this);
         mLayout.setPadding(20,20,20,20);
@@ -596,31 +627,44 @@ public class LimboSDLActivity extends SDLActivity {
 
         TextView textView = new TextView(activity);
         textView.setVisibility(View.VISIBLE);
-        textView.setText(this.getString(R.string.desktopInstructions));
+		String desktopInstructions = this.getString(R.string.desktopInstructions);
+		if(!checkVMResolutionFits()){
+			String resolutionWarning = "Warning: Machine resolution "
+					+ vm_width+ "x" + vm_height +
+					" is too high for Desktop Mode. " +
+					"Scaling will be used and Mouse Alignment will not be accurate. " +
+					"Reduce display resolution for better experience\n\n";
+			desktopInstructions = resolutionWarning + desktopInstructions;
+		}
+		textView.setText(desktopInstructions);
 
-        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+		ScrollView scrollView = new ScrollView(this);
+		scrollView.addView(textView);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        mLayout.addView(textView, textViewParams);
+        mLayout.addView(scrollView, params);
+
         alertDialog.setView(mLayout);
 
-        final Handler handler = this.handler;
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
 
                 MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-                LimboSDLActivity.singleClick(a, 0);
-                SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
-                SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
+
+                //TODO: needed?
+                //LimboSDLActivity.singleClick(a, 0);
+
+                //TODO: not needed?
+                //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+                //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
+
                 Config.mouseMode = Config.MouseMode.External;
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-                ActionBar bar = LimboSDLActivity.this.getSupportActionBar();
-                if (bar != null) {
-                    bar.show();
-                }
-                Toast.makeText(LimboSDLActivity.this, "External Mouse enabled", Toast.LENGTH_SHORT).show();
-                onNormalScreen();
+                LimboActivity.vmexecutor.setRelativeMouseMode(0);
+                Toast.makeText(LimboSDLActivity.this, "External Mouse Enabled", Toast.LENGTH_SHORT).show();
+                onNormalScreen(true);
                 calibration();
-                supportInvalidateOptionsMenu();
+                invalidateOptionsMenu();
                 alertDialog.dismiss();
             }
         });
@@ -634,83 +678,21 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
 	private void onCtrlAltDel() {
-		
-		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ALT_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_FORWARD_DEL);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_FORWARD_DEL);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ALT_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 
+		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_RIGHT);
+		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ALT_RIGHT);
+		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_FORWARD_DEL);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_FORWARD_DEL);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ALT_RIGHT);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_RIGHT);
 	}
 
 	private void onCtrlC() {
-		
-		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_C);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_C);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_RIGHT);
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 
+		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_RIGHT);
+		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_C);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_C);
+		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_RIGHT);
 	}
 
 	public void resetVM() {
@@ -755,47 +737,111 @@ public class LimboSDLActivity extends SDLActivity {
 				}).show();
 	}
 
-	private static void setStretchToScreen() {
-		
+	private void setStretchToScreen() {
+
 
 		new Thread(new Runnable() {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = true;
 				LimboSDLActivity.fitToScreen = false;
-				sendCtrlAtlKey(KeyEvent.KEYCODE_U);
+
+				//XXX: wait till backend settles
+				// do not remove this wait since it
+				// makes sure that no mouse motion
+				// will not crash SDL
+				isResizing = true;
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                sendCtrlAtlKey(KeyEvent.KEYCODE_U);
+
 			}
 		}).start();
 
 	}
 
-	private static void onFitToScreen() {
-		
-
+	private void onFitToScreen(final boolean force) {
+		UIUtils.setOrientation(this);
+        ActionBar bar = LimboSDLActivity.this.getActionBar();
+        if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
+            bar.hide();
+        }
 		new Thread(new Runnable() {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = false;
 				LimboSDLActivity.fitToScreen = true;
+
+				//XXX: wait till backend settles
+				// do not remove this wait since it
+				// makes sure that no mouse motion
+				// will not crash SDL
+				isResizing = true;
+				if(force){
+					vm_width =0;
+					vm_height=0;
+				}
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                Log.d(TAG, "onFitToScreen");
 				sendCtrlAtlKey(KeyEvent.KEYCODE_U);
+
 
 			}
 		}).start();
 
 	}
 
-	private void onNormalScreen() {
-		
+	private static void toggleKeyboardAndMouse() {
+		//XXX: We need this to grab the keyboard and the mouse
+		//  after resizes on the UI (ctrl-alt-u)
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		Log.d(TAG, "toggleKeyboardAndMouse");
+		sendCtrlAtlKey(-1);
+	}
+
+	private void onNormalScreen(final boolean force) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        ActionBar bar = LimboSDLActivity.this.getActionBar();
+        if (bar != null) {
+            bar.show();
+        }
 		new Thread(new Runnable() {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = false;
 				LimboSDLActivity.fitToScreen = false;
+
+				//XXX: wait till backend settles
+				// do not remove this wait since it
+				// makes sure that no mouse motion
+				// will not crash SDL
+				isResizing = true;
+				if(force){
+					vm_width =0;
+					vm_height=0;
+				}
+				try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
 				sendCtrlAtlKey(KeyEvent.KEYCODE_U);
+
 			}
 		}).start();
 
 	}
 
 	private void setFullScreen() {
-		
+
 
 		new Thread(new Runnable() {
 			public void run() {
@@ -806,7 +852,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	private void setZoomIn() {
-		
+
 		new Thread(new Runnable() {
 			public void run() {
 				LimboSDLActivity.stretchToScreen = false;
@@ -818,7 +864,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	private void setZoomOut() {
-		
+
 
 		new Thread(new Runnable() {
 			public void run() {
@@ -832,7 +878,7 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	private void setZoomable() {
-		
+
 		zoomable = true;
 
 	}
@@ -921,69 +967,6 @@ public class LimboSDLActivity extends SDLActivity {
 		sendCtrlAtlKey(KeyEvent.KEYCODE_1);
 	}
 
-	private void onSaveState(final String stateName) {
-		// onMonitor();
-		// try {
-		// Thread.sleep(1000);
-		// } catch (InterruptedException ex) {
-		// Logger.getLogger(LimboVNCActivity.class.getName()).log(
-		// Level.SEVERE, null, ex);
-		// }
-		// vncCanvas.sendText("savevm " + stateName + "\n");
-		// Toast.makeText(this.getApplicationContext(),
-		// "Please wait while saving VM State", Toast.LENGTH_LONG).show();
-		new Thread(new Runnable() {
-			public void run() {
-				Log.v("SDL", "Saving VM1");
-				nativePause();
-				// LimboActivity.vmexecutor.saveVM1(stateName);
-
-				nativeResume();
-
-			}
-		}).start();
-
-		// try {
-		// Thread.sleep(1000);
-		// } catch (InterruptedException ex) {
-		// Logger.getLogger(LimboVNCActivity.class.getName()).log(
-		// Level.SEVERE, null, ex);
-		// }
-		// onSDL();
-		((LimboActivity) LimboActivity.activity).saveSnapshotDB(stateName);
-
-		progDialog = ProgressDialog.show(activity, "Please Wait", "Saving VM State...", true);
-		SaveVM a = new SaveVM();
-		a.execute();
-
-	}
-
-	public void saveStateDB(String snapshot_name) {
-		LimboActivity.currMachine.snapshot_name = snapshot_name;
-		int ret = MachineOpenHelper.getInstance(activity).deleteMachine(LimboActivity.currMachine);
-		ret = MachineOpenHelper.getInstance(activity).insertMachine(LimboActivity.currMachine);
-
-	}
-
-	private void onSaveState1(String stateName) {
-		// Log.v("onSaveState1", stateName);
-		monitorMode = true;
-		sendCtrlAtlKey(KeyEvent.KEYCODE_2);
-		try {
-			Thread.sleep(3000);
-		} catch (InterruptedException ex) {
-			Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-		}
-		sendText("savevm " + stateName + "\n");
-		saveStateDB(stateName);
-		try {
-			Thread.sleep(3000);
-		} catch (InterruptedException ex) {
-			Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-		}
-		sendCommand(COMMAND_SAVEVM, "vm");
-
-	}
 
 	// FIXME: We need this to able to catch complex characters strings like
 	// grave and send it as text
@@ -992,13 +975,33 @@ public class LimboSDLActivity extends SDLActivity {
 		if (event.getAction() == KeyEvent.ACTION_MULTIPLE && event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
 			sendText(event.getCharacters().toString());
 			return true;
-		} else
+		}  else if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN) {
+			this.onBackPressed();
+			return true;
+		} if (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_DOWN) {
+			// We emulate right click with volume down
+			if(event.getAction() == KeyEvent.ACTION_DOWN) {
+				MotionEvent e = MotionEvent.obtain(1000, 1000, MotionEvent.ACTION_DOWN, 0, 0, 0, 0, 0, 0, 0,
+						InputDevice.SOURCE_TOUCHSCREEN, 0);
+				rightClick(e, 0);
+			}
+			return true;
+		} else if (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_UP) {
+			// We emulate middle click with volume up
+			if(event.getAction() == KeyEvent.ACTION_DOWN) {
+				MotionEvent e = MotionEvent.obtain(1000, 1000, MotionEvent.ACTION_DOWN, 0, 0, 0, 0, 0, 0, 0,
+						InputDevice.SOURCE_TOUCHSCREEN, 0);
+				middleClick(e, 0);
+			}
+			return true;
+		} else {
 			return super.dispatchKeyEvent(event);
+		}
 
 	}
 
 	private static void sendText(String string) {
-		
+
 		// Log.v("sendText", string);
 		KeyCharacterMap keyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
 		KeyEvent[] keyEvents = keyCharacterMap.getEvents(string.toCharArray());
@@ -1015,81 +1018,6 @@ public class LimboSDLActivity extends SDLActivity {
 			}
 	}
 
-	private class SaveVM extends AsyncTask<Void, Void, Void> {
-
-		@Override
-		protected Void doInBackground(Void... arg0) {
-			// Log.v("handler", "Save VM");
-			startTimeListener();
-			return null;
-		}
-
-		@Override
-		protected void onPostExecute(Void test) {
-			try {
-				if (progDialog.isShowing()) {
-					progDialog.dismiss();
-				}
-				monitorMode = false;
-				sendCtrlAtlKey(KeyEvent.KEYCODE_1);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-		}
-	}
-
-	private void fullScreen() {
-		// AbstractScaling.getById(R.id.itemFitToScreen).setScaleTypeForActivity(
-		// this);
-		// showPanningState();
-	}
-
-	public void promptStateName(final Activity activity) {
-		// Log.v("promptStateName", "ask");
-		if ((LimboActivity.currMachine.hda_img_path == null
-				|| !LimboActivity.currMachine.hda_img_path.contains(".qcow2"))
-				&& (LimboActivity.currMachine.hdb_img_path == null
-						|| !LimboActivity.currMachine.hdb_img_path.contains(".qcow2"))
-				&& (LimboActivity.currMachine.hdc_img_path == null
-						|| !LimboActivity.currMachine.hdc_img_path.contains(".qcow2"))
-				&& (LimboActivity.currMachine.hdd_img_path == null
-						|| !LimboActivity.currMachine.hdd_img_path.contains(".qcow2")))
-
-		{
-            UIUtils.toastLong(this, "No HDD image found, please create a qcow2 image from Limbo console");
-			return;
-		}
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Snapshot/State Name");
-		final EditText stateView = new EditText(activity);
-		if (LimboActivity.currMachine.snapshot_name != null) {
-			stateView.setText(LimboActivity.currMachine.snapshot_name);
-		}
-		stateView.setEnabled(true);
-		stateView.setVisibility(View.VISIBLE);
-		stateView.setSingleLine();
-		alertDialog.setView(stateView);
-
-		// alertDialog.setMessage(body);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-
-				progDialog = ProgressDialog.show(activity, "Please Wait", "Saving VM State...", true);
-				new Thread(new Runnable() {
-					public void run() {
-						// Log.v("promptStateName", a.getText().toString());
-						onSaveState1(stateView.getText().toString());
-					}
-				}).start();
-
-				return;
-			}
-		});
-		alertDialog.show();
-
-	}
 
 	public void pausedVM() {
 
@@ -1099,6 +1027,11 @@ public class LimboSDLActivity extends SDLActivity {
 		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
 				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
+						//close fd
+						//XXX: This is probably not needed since the qemu backend will close the fd
+//						if(LimboActivity.vmexecutor.current_fd >0)
+//							FileUtils.close_fd(LimboActivity.vmexecutor.current_fd);
+
 						if (LimboActivity.vmexecutor != null) {
                             LimboActivity.vmexecutor.stopvm(0);
 						} else if (activity.getParent() != null) {
@@ -1134,16 +1067,38 @@ public class LimboSDLActivity extends SDLActivity {
 		String pause_state = "";
 		if (LimboActivity.vmexecutor != null) {
 			// Get the state of saving full disk snapshot
-			save_state = LimboActivity.vmexecutor.get_save_state();
+//			save_state = LimboActivity.vmexecutor.get_save_state();
+//
+//			// Get the state of saving the VM memory only
+//			pause_state = LimboActivity.vmexecutor.get_pause_state();
+			//Log.d(TAG, "save_state = " + save_state);
+			//Log.d(TAG, "pause_state = " + pause_state);
 
-			// Get the state of saving the VM memory only
-			pause_state = LimboActivity.vmexecutor.get_pause_state();
-//			Log.d(TAG, "save_state = " + save_state);
-//			Log.d(TAG, "pause_state = " + pause_state);
+			String command = QmpClient.query_migrate();
+			String res = QmpClient.sendCommand(command);
+
+
+			if(res!=null && !res.equals("")) {
+				//Log.d(TAG, "Migrate status: " + res);
+				try {
+					JSONObject resObj = new JSONObject(res);
+					String resInfo = resObj.getString("return");
+					JSONObject resInfoObj = new JSONObject(resInfo);
+					pause_state = resInfoObj.getString("status");
+				} catch (JSONException e) {
+					if(Config.debug)
+						e.printStackTrace();
+				}
+				if(pause_state!=null && pause_state.toUpperCase().equals("FAILED")){
+					Log.e(TAG, "Error: " + res);
+				}
+			}
 		}
-		if (pause_state.equals("SAVING")) {
+
+
+		if (pause_state.toUpperCase().equals("ACTIVE")) {
 			return pause_state;
-		} else if (pause_state.equals("DONE")) {
+		} else if (pause_state.toUpperCase().equals("COMPLETED")) {
 			// FIXME: We wait for 5 secs to complete the state save not ideal
 			// for large OSes
 			// we should find a way to detect when QMP is really done so we
@@ -1156,15 +1111,15 @@ public class LimboSDLActivity extends SDLActivity {
 			}, 100);
 			return pause_state;
 
-		} else if (pause_state.equals("ERROR")) {
-            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    pausedErrorVM("Could not pause VM. View log file for details");
-                }
-            }, 100);
-            return pause_state;
-        }
+		} else if (pause_state.toUpperCase().equals("FAILED")) {
+			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					pausedErrorVM("Could not pause VM. View log file for details");
+				}
+			}, 100);
+			return pause_state;
+		}
 		return save_state;
 	}
 
@@ -1175,20 +1130,24 @@ public class LimboSDLActivity extends SDLActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
         activity = this;
+		base_dir = Config.getBasefileDir(this);
 
 		if (LimboSettingsManager.getFullscreen(this))
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
 		super.onCreate(savedInstanceState);
+        setupVolume();
+
+		mSingleton = this;
 
 		Log.v("SDL", "Max Mem = " + Runtime.getRuntime().maxMemory());
-		this.handler = commandHandler;
+
 		this.activity1 = this;
 
 		if (LimboActivity.currMachine == null) {
 			Log.v("SDLAcivity", "No VM selected!");
-		}else 
+		}else
 			setParams(LimboActivity.currMachine);
 
 		// So we can call stuff from static callbacks
@@ -1196,15 +1155,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		createUI(0, 0);
 
-		Toast toast = Toast.makeText(activity, "Press Volume Down for Right Click", Toast.LENGTH_SHORT);
-		toast.setGravity(Gravity.TOP | Gravity.CENTER, 0, 0);
-		toast.show();
-		// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-		// @Override
-		// public void run() {
-		// UIUtils.setOrientation(activity);
-		// }
-		// }, 2000);
+		UIUtils.toastShortTop(activity, "Press Volume Down for Right Click");
 
 		UIUtils.setupToolBar(this);
 
@@ -1213,17 +1164,20 @@ public class LimboSDLActivity extends SDLActivity {
 		this.resumeVM();
 
         UIUtils.setOrientation(this);
+
+
 	}
 
-	public SDLSurface getSDLSurface() {
-		
-		if (mSurface == null)
-			mSurface = new SDLSurface(activity);
-		return mSurface;
-	}
+	//TODO: not needed?
+//	public SDLSurface getSDLSurface() {
+//
+//		if (mSurface == null)
+//			mSurface = new SDLSurface(activity);
+//		return mSurface;
+//	}
 
 	private void setScreenSize() {
-		
+
 		// WindowManager wm = (WindowManager) this
 		// .getSystemService(Context.WINDOW_SERVICE);
 		// Display display = wm.getDefaultDisplay();
@@ -1233,15 +1187,15 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 
-
     private void createUI(int w, int h) {
-		
-		// Set up the surface
-		mSurface = getSDLSurface();
-		mSurface.setRenderer(new ClearRenderer());
 
-		// mSurface.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-		// setContentView(mSurface);
+		// Set up the surface
+		//TODO:
+		mSurface = new LimboSDLSurface(this);
+
+		//TODO: needed?
+		//mSurface.setRenderer(new ClearRenderer());
+
 
 		int width = w;
 		int height = h;
@@ -1254,15 +1208,20 @@ public class LimboSDLActivity extends SDLActivity {
 
 		setContentView(R.layout.main_sdl);
 
-        sdlLayout = (LinearLayout) activity.findViewById(R.id.sdl_layout);
+		//TODO:
+        mLayout = (LinearLayout) activity.findViewById(R.id.sdl_layout);
+
 		RelativeLayout mLayout = (RelativeLayout) findViewById(R.id.sdl);
 		RelativeLayout.LayoutParams surfaceParams = new RelativeLayout.LayoutParams(width, height);
 		surfaceParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
 		surfaceParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 
+		//TODO: reassign?
 		mLayout.addView(mSurface, surfaceParams);
 
-		SurfaceHolder holder = mSurface.getHolder();
+		//TODO: not needed?
+		//SurfaceHolder holder = mSurface.getHolder();
+
 		setScreenSize();
 	}
 
@@ -1273,11 +1232,6 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
-	private void onKeyboard() {
-		InputMethodManager inputMgr = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-		// inputMgr.toggleSoftInput(0, 0);
-		inputMgr.showSoftInput(this.mSurface, InputMethodManager.SHOW_FORCED);
-	}
 
 	public void onSelectMenuVol() {
 
@@ -1312,14 +1266,20 @@ public class LimboSDLActivity extends SDLActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
 
 		SeekBar vol = new SeekBar(this);
+
+		int volume = 0;
+
+		//TODO:
 		vol.setMax(maxVolume);
-		int volume = getCurrentVolume();
+		volume = getCurrentVolume();
+
 		vol.setProgress(volume);
 		vol.setLayoutParams(volparams);
 
 		((SeekBar) vol).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
 			public void onProgressChanged(SeekBar s, int progress, boolean touch) {
+				//TODO:
                 setVolume(progress);
 			}
 
@@ -1388,7 +1348,7 @@ public class LimboSDLActivity extends SDLActivity {
 		alertDialog.setTitle("Pause VM");
 		TextView stateView = new TextView(activity);
 		stateView.setText("This make take a while depending on the RAM size used");
-		stateView.setPadding(10, 10, 10, 10);
+		stateView.setPadding(20, 20, 20, 20);
 		alertDialog.setView(stateView);
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Pause", new DialogInterface.OnClickListener() {
@@ -1399,93 +1359,6 @@ public class LimboSDLActivity extends SDLActivity {
 		});
 		alertDialog.show();
 	}
-
-	public void startSaveVMListener() {
-		stopTimeListener();
-		timeQuit = false;
-		try {
-			Log.v("Listener", "Time Listener Started...");
-			timeListener();
-			synchronized (lockTime) {
-				while (timeQuit == false) {
-					lockTime.wait();
-				}
-				lockTime.notifyAll();
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			Log.v("SaveVM", "Time listener thread error: " + ex.getMessage());
-		}
-//		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-//			@Override
-//			public void run() {
-//				Toast.makeText(getApplicationContext(), "VM State saved", Toast.LENGTH_LONG).show();
-//			}
-//		}, 1000);
-
-		Log.v("Listener", "Time listener thread exited...");
-
-	}
-
-	// Currently not working due to SDL can only support 1 window for Android
-	private void onHMP() {
-		monitorMode = true;
-		sendCtrlAtlKey(KeyEvent.KEYCODE_2);
-
-	}
-	// private void onPauseVM() {
-	// Thread t = new Thread(new Runnable() {
-	// public void run() {
-	// // Delete any previous state file
-	// if (LimboActivity.vmexecutor.save_state_name != null) {
-	// File file = new File(LimboActivity.vmexecutor.save_state_name);
-	// if (file.exists()) {
-	// file.delete();
-	// }
-	// }
-	//
-	// LimboActivity.vmexecutor.paused = 1;
-	// ((LimboActivity) LimboActivity.activity).saveStateVMDB();
-	//
-	// onHMP();
-	// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-	// @Override
-	// public void run() {
-	// Toast.makeText(getApplicationContext(), "Please wait while saving VM
-	// State", Toast.LENGTH_LONG)
-	// .show();
-	// }
-	// }, 500);
-	// try {
-	// Thread.sleep(500);
-	// } catch (InterruptedException ex) {
-	// Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE,
-	// null, ex);
-	// }
-	//
-	// String commandStop = "stop\n";
-	// for (int i = 0; i < commandStop.length(); i++)
-	// sendText(commandStop.charAt(i) + "");
-	//
-	// String commandMigrate = "migrate fd:"
-	// +
-	// LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name)
-	// + "\n";
-	// for (int i = 0; i < commandMigrate.length(); i++)
-	// sendText(commandMigrate.charAt(i) + "");
-	//
-	// new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-	// @Override
-	// public void run() {
-	// VMListener a = new VMListener();
-	// a.execute();
-	// }
-	// }, 0);
-	// }
-	// });
-	// t.start();
-	//
-	// }
 
 	private void onPauseVM() {
 		Thread t = new Thread(new Runnable() {
@@ -1506,27 +1379,19 @@ public class LimboSDLActivity extends SDLActivity {
 					}
 				}, 0);
 
-				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
+				LimboActivity.vmexecutor.current_fd = LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
+
+				String uri = "fd:" + LimboActivity.vmexecutor.current_fd;
 				String command = QmpClient.stop();
 				String msg = QmpClient.sendCommand(command);
-				if (msg != null)
-					Log.i(TAG, msg);
+//				if (msg != null)
+//					Log.i(TAG, msg);
 				command = QmpClient.migrate(false, false, uri);
 				msg = QmpClient.sendCommand(command);
 				if (msg != null) {
-                    Log.i(TAG, msg);
+//                    Log.i(TAG, msg);
                     processMigrationResponse(msg);
                 }
-
-				// XXX: We cant be sure that the machine state is completed
-				// saving
-				// new Handler(Looper.getMainLooper()).postDelayed(new
-				// Runnable() {
-				// @Override
-				// public void run() {
-				// pausedVM();
-				// }
-				// }, 1000);
 
 				// XXX: Instead we poll to see if migration is complete
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
@@ -1548,7 +1413,8 @@ public class LimboSDLActivity extends SDLActivity {
             JSONObject object = new JSONObject(response);
             errorStr = object.getString("error");
         }catch (Exception ex) {
-
+			if(Config.debug)
+				ex.printStackTrace();
         }
             if (errorStr != null) {
                 String descStr = null;
@@ -1557,7 +1423,8 @@ public class LimboSDLActivity extends SDLActivity {
                     JSONObject descObj = new JSONObject(errorStr);
                     descStr = descObj.getString("desc");
                 }catch (Exception ex) {
-
+					if(Config.debug)
+						ex.printStackTrace();
                 }
                 final String descStr1 = descStr;
 
@@ -1576,7 +1443,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		@Override
 		protected Void doInBackground(Void... arg0) {
-			startSaveVMListener();
+			startTimeListener();
 			return null;
 		}
 
@@ -1595,36 +1462,38 @@ public class LimboSDLActivity extends SDLActivity {
         if(Config.mouseMode == Config.MouseMode.External){
             return res;
         }
-		res = this.mSurface.onTouchProcess(this.mSurface, event);
-		res = this.mSurface.onTouchEventProcess(event);
+        //TODO:
+		res = ((LimboSDLSurface) this.mSurface).onTouchProcess(this.mSurface, event);
+		res = ((LimboSDLSurface) this.mSurface).onTouchEventProcess(event);
 		return true;
 	}
 
 	private void resumeVM() {
+		if(LimboActivity.vmexecutor == null){
+			return;
+		}
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				if (LimboActivity.vmexecutor.paused == 1) {
 
 					try {
-						Thread.sleep(3000);
+						Thread.sleep(4000);
 					} catch (InterruptedException ex) {
 						Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
 					}
 					LimboActivity.vmexecutor.paused = 0;
-					// new Handler(Looper.getMainLooper()).postDelayed(new
-					// Runnable() {
-					// @Override
-					// public void run() {
-					// Toast.makeText(getApplicationContext(), "Please wait
-					// while resuming VM State",
-					// Toast.LENGTH_SHORT).show();
-					// }
-					// }, 500);
 
 					String command = QmpClient.cont();
 					String msg = QmpClient.sendCommand(command);
-					if (msg != null)
-						Log.i(TAG, msg);
+//					if (msg != null)
+//						Log.i(TAG, msg);
+
+					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+						@Override
+						public void run() {
+							setUIModeMobile();
+						}
+					}, 500);
 				}
 			}
 		});
@@ -1637,7 +1506,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getSupportActionBar();
+			ActionBar bar = this.getActionBar();
 			if (bar != null) {
 				if (bar.isShowing() && Config.mouseMode == Config.MouseMode.Trackpad) {
 					bar.hide();
@@ -1653,7 +1522,7 @@ public class LimboSDLActivity extends SDLActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        this.supportInvalidateOptionsMenu();
+        this.invalidateOptionsMenu();
     }
 
     public void onSelectMenuSDLDisplay() {
@@ -1665,7 +1534,7 @@ public class LimboSDLActivity extends SDLActivity {
         LinearLayout.LayoutParams volParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-        LinearLayout t = createVNCDisplayPanel();
+        LinearLayout t = createSDLDisplayPanel();
         t.setLayoutParams(volParams);
 
         ScrollView s = new ScrollView(activity);
@@ -1682,7 +1551,7 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
 
-    public LinearLayout createVNCDisplayPanel() {
+    public LinearLayout createSDLDisplayPanel() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(20, 20, 20, 20);
@@ -1696,7 +1565,7 @@ public class LimboSDLActivity extends SDLActivity {
         buttonsLayout.setGravity(Gravity.CENTER_HORIZONTAL);
         Button displayMode = new Button (this);
 
-        displayMode.setText("Scale Type");
+        displayMode.setText("Display Mode");
         displayMode.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 onDisplayMode();
@@ -1706,7 +1575,7 @@ public class LimboSDLActivity extends SDLActivity {
         layout.addView(buttonsLayout);
 
         final TextView value = new TextView(this);
-        value.setText("Refresh Rate: " + currRate+" Hz");
+        value.setText("Idle Refresh Rate: " + currRate+" Hz");
         layout.addView(value);
         value.setLayoutParams(params);
 
@@ -1719,7 +1588,7 @@ public class LimboSDLActivity extends SDLActivity {
         ((SeekBar) rate).setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
 
             public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-                value.setText("Refresh Rate: " + (progress+1)+" Hz");
+                value.setText("Idle Refresh Rate: " + (progress+1)+" Hz");
             }
 
             public void onStartTrackingTouch(SeekBar arg0) {
@@ -1728,7 +1597,9 @@ public class LimboSDLActivity extends SDLActivity {
 
             public void onStopTrackingTouch(SeekBar arg0) {
                 int progress = arg0.getProgress()+1;
-                LimboActivity.vmexecutor.setsdlrefreshrate(1000 / progress);
+                int refreshMs = 1000 / progress;
+                Log.v(TAG, "Changing idle refresh rate: (ms)" + refreshMs);
+                LimboActivity.vmexecutor.setsdlrefreshrate(refreshMs);
             }
         });
 
@@ -1760,15 +1631,15 @@ public class LimboSDLActivity extends SDLActivity {
             public void onClick(DialogInterface dialog, int i) {
                 switch(i){
                     case 0:
-                        onNormalScreen();
+                        onNormalScreen(true);
                         break;
                     case 1:
                         if(Config.mouseMode == Config.MouseMode.External){
-                            UIUtils.toastShort(LimboSDLActivity.this, "Scale type Disabled under Touchscreen/Desktop Mode");
+                            UIUtils.toastShort(LimboSDLActivity.this, "Fit to Screen Disabled under Desktop Mode");
                             dialog.dismiss();
                             return;
                         }
-                        onFitToScreen();
+                        onFitToScreen(true);
                         break;
                     case 2:
                         //fullScreen(); //Stretch
@@ -1783,4 +1654,614 @@ public class LimboSDLActivity extends SDLActivity {
         alertDialog.show();
 
     }
+
+
+    @Override
+	protected synchronized void runSDLMain(){
+
+		//We go through the vm executor
+		LimboActivity.startvm(LimboActivity.activity, Config.UI_SDL);
+
+		//XXX: we hold the thread because SDLActivity will exit
+		try {
+			wait();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static int vm_width;
+	public static int vm_height;
+
+	public static void onVMResolutionChanged(int w, int h)
+	{
+		boolean refreshDisplay = false;
+
+		if(w!=vm_width || h!=vm_height)
+			refreshDisplay = true;
+		vm_width = w;
+		vm_height = h;
+
+		Log.v(TAG, "VM resolution changed to " + vm_width + "x" + vm_height);
+
+
+		if(refreshDisplay) {
+			((LimboSDLSurface) mSurface).refreshDisplay();
+			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					((LimboSDLSurface) mSurface).reSize(false);
+				}
+			}, 100);
+		}
+
+	}
+
+	public static boolean isResizing = false;
+
+	public class LimboSDLSurface extends ExSDLSurface implements View.OnKeyListener, View.OnTouchListener {
+
+		public boolean initialized = false;
+
+		public LimboSDLSurface(Context context) {
+			super(context);
+			setOnKeyListener(this);
+			setOnTouchListener(this);
+			gestureDetector = new GestureDetector(activity, new GestureListener());
+			setOnGenericMotionListener(new SDLGenericMotionListener_API12());
+		}
+
+		public void surfaceChanged(SurfaceHolder holder,
+								   int format, int width, int height) {
+			super.surfaceChanged(holder, format, width, height);
+
+		}
+
+		@Override
+		public void surfaceCreated(SurfaceHolder holder) {
+			super.surfaceCreated(holder);
+		}
+
+		public void refreshDisplay(){
+			runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					if(fitToScreen){
+						onFitToScreen(false);
+					}else {
+						onNormalScreen(false);
+					}
+				}
+			});
+
+		}
+
+		@Override
+		public void onConfigurationChanged(Configuration newConfig) {
+			super.onConfigurationChanged(newConfig);
+			//refreshDisplay();
+			reSize(true);
+		}
+
+
+
+		public synchronized void reSize(boolean config) {
+			//XXX: notify the UI not to process mouse motion
+			isResizing = true;
+
+			Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
+			int height = 0;
+			int width = 0;
+
+			Point size = new Point();
+			display.getSize(size);
+			int screen_width = size.x;
+			int screen_height = size.y;
+
+			ActionBar bar = ((SDLActivity) activity).getActionBar();
+
+
+			if(LimboSDLActivity.mLayout != null) {
+				width = LimboSDLActivity.mLayout.getWidth();
+				height = LimboSDLActivity.mLayout.getHeight();
+			}
+
+			//native resolution for use with external mouse
+			if(Config.mouseMode == Config.MouseMode.External
+					|| (!LimboSDLActivity.stretchToScreen && !LimboSDLActivity.fitToScreen)) {
+				width = LimboSDLActivity.vm_width;
+				height = LimboSDLActivity.vm_height;
+			}
+
+			if(config){
+				int temp = width;
+				width = height;
+				height = temp;
+			}
+
+			if (SDLActivity.mSingleton.getResources()
+					.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+
+				if(Config.mouseMode != Config.MouseMode.External) {
+					if (bar != null && bar.isShowing()) {
+						width += bar.getHeight();
+					}
+					if (!initialized) {
+						getHolder().setFixedSize(width, (int) (height / 2));
+					} else {
+						getHolder().setFixedSize(width, (int) (width / (LimboSDLActivity.vm_width / (float) LimboSDLActivity.vm_height)));
+					}
+				}
+			} else if (SDLActivity.mSingleton.getResources()
+					.getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+				if (Config.enableSDLAlwaysFullscreen) {
+					getHolder().setFixedSize(width, height);
+				}
+				else {
+					getHolder().setFixedSize(width / 2, height);
+				}
+			}
+			initialized = true;
+			Thread t = new Thread(new Runnable() {
+				public void run() {
+					try {
+						Thread.sleep(3000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					//XXX: Notify the UI to start processing
+					// mouse motion
+					isResizing = false;
+					new Thread(new Runnable() {
+						public void run() {
+
+							toggleKeyboardAndMouse();
+
+						}
+					}).start();
+				}
+			});
+			t.start();
+
+		}
+
+		// XXX: SDL is missing some key codes in sdl2-keymap.h
+		// So we create them with a Shift Modifier
+		private boolean handleMissingKeys(int keyCode, int action) {
+
+			int keyCodeTmp = keyCode;
+			switch (keyCode) {
+				case 77:
+					keyCodeTmp = 9;
+					break;
+				case 81:
+					keyCodeTmp = 70;
+					break;
+				case 17:
+					keyCodeTmp = 15;
+					break;
+				case 18:
+					keyCodeTmp = 10;
+					break;
+				default:
+					return false;
+
+			}
+			if (action == KeyEvent.ACTION_DOWN) {
+				SDLActivity.onNativeKeyDown(59);
+				SDLActivity.onNativeKeyDown(keyCodeTmp);
+			} else {
+				SDLActivity.onNativeKeyUp(59);
+				SDLActivity.onNativeKeyUp(keyCodeTmp);
+			}
+			return true;
+
+		}
+
+
+
+
+		@Override
+		public boolean onKey(View v, int keyCode, KeyEvent event) {
+
+			if ((keyCode == KeyEvent.KEYCODE_BACK) || (keyCode == KeyEvent.KEYCODE_FORWARD)) {
+				// dismiss android back and forward keys
+				return true;
+			} else if (event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
+				return false;
+			} else if (event.getAction() == KeyEvent.ACTION_DOWN) {
+				// Log.v("SDL", "key down: " + keyCode);
+				if (!handleMissingKeys(keyCode, event.getAction()))
+					SDLActivity.onNativeKeyDown(keyCode);
+				return true;
+			} else if (event.getAction() == KeyEvent.ACTION_UP) {
+				// Log.v("SDL", "key up: " + keyCode);
+				if (!handleMissingKeys(keyCode, event.getAction()))
+					SDLActivity.onNativeKeyUp(keyCode);
+				return true;
+			} else {
+				return super.onKey(v, keyCode, event);
+			}
+
+		}
+
+		// Touch events
+		public boolean onTouchProcess(View v, MotionEvent event) {
+			// Log.v("onTouch",
+			// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
+			// + event.getY() + " P=" + event.getPressure());
+			int action = event.getAction();
+			float x = event.getX(0);
+			float y = event.getY(0);
+			float p = event.getPressure(0);
+
+			int relative = Config.mouseMode == Config.MouseMode.External? 0: 1;
+
+			int sdlMouseButton = 0;
+			if(event.getButtonState() == MotionEvent.BUTTON_PRIMARY)
+				sdlMouseButton = Config.SDL_MOUSE_LEFT;
+			else if(event.getButtonState() == MotionEvent.BUTTON_SECONDARY)
+				sdlMouseButton = Config.SDL_MOUSE_RIGHT;
+			else if(event.getButtonState() == MotionEvent.BUTTON_TERTIARY)
+				sdlMouseButton = Config.SDL_MOUSE_MIDDLE;
+
+
+			if (event.getAction() == MotionEvent.ACTION_MOVE) {
+
+				if (mouseUp) {
+					old_x = x;
+					old_y = y;
+					mouseUp = false;
+				}
+				if (action == MotionEvent.ACTION_MOVE) {
+					if(Config.mouseMode == Config.MouseMode.External) {
+						//Log.d("SDL", "onTouch Absolute Move by=" + action + ", X,Y=" + (x) + "," + (y) + " P=" + p);
+						LimboActivity.vmexecutor.onLimboMouse(0, MotionEvent.ACTION_MOVE,0, x , y );
+					}else {
+						//Log.d("SDL", "onTouch Relative Moving by=" + action + ", X,Y=" + (x -
+//                            old_x) + "," + (y - old_y) + " P=" + p);
+						LimboActivity.vmexecutor.onLimboMouse(0, MotionEvent.ACTION_MOVE,1, (x - old_x)  * sensitivity_mult, (y - old_y) * sensitivity_mult);
+					}
+
+				}
+				// save current
+				old_x = x;
+				old_y = y;
+
+			}
+			else if (event.getAction() == event.ACTION_UP ) {
+				//Log.d("SDL", "onTouch Up: " + sdlMouseButton);
+				//XXX: it seems that the Button state is not available when Button up so
+				//  we should release all mouse buttons to be safe since we don't know which one fired the event
+				if(sdlMouseButton == Config.SDL_MOUSE_MIDDLE
+						||sdlMouseButton == Config.SDL_MOUSE_RIGHT
+						) {
+					LimboActivity.vmexecutor.onLimboMouse(sdlMouseButton, MotionEvent.ACTION_UP, relative, x, y);
+				} else if (sdlMouseButton != 0) {
+					LimboActivity.vmexecutor.onLimboMouse(sdlMouseButton, MotionEvent.ACTION_UP, relative, x, y);
+				} else { // if we don't have inforamtion about which button we can make some guesses
+
+					//Or only the last one pressed
+					if (lastMouseButtonDown > 0) {
+						if(lastMouseButtonDown == Config.SDL_MOUSE_MIDDLE
+								||lastMouseButtonDown == Config.SDL_MOUSE_RIGHT
+								) {
+							LimboActivity.vmexecutor.onLimboMouse(lastMouseButtonDown, MotionEvent.ACTION_UP, relative,x, y);
+						}else
+							LimboActivity.vmexecutor.onLimboMouse(lastMouseButtonDown, MotionEvent.ACTION_UP, relative, x, y);
+					} else {
+						//ALl buttons
+						if (Config.mouseMode == Config.MouseMode.Trackpad) {
+							LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 1, 0, 0);
+						} else if (Config.mouseMode == Config.MouseMode.External) {
+							LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 0, x, y);
+							LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, 0, x, y);
+							LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, 0, x, y);
+						}
+					}
+				}
+				lastMouseButtonDown = -1;
+				mouseUp = true;
+			}
+			else if (event.getAction() == event.ACTION_DOWN
+					&& Config.mouseMode == Config.MouseMode.External
+					) {
+
+				//XXX: Some touch events for touchscreen mode are primary so we force left mouse button
+				if(sdlMouseButton == 0 && MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0)) {
+					sdlMouseButton = Config.SDL_MOUSE_LEFT;
+				}
+
+				LimboActivity.vmexecutor.onLimboMouse(sdlMouseButton, MotionEvent.ACTION_DOWN, relative, x, y);
+				lastMouseButtonDown = sdlMouseButton;
+			}
+			return true;
+		}
+
+		public boolean onTouch(View v, MotionEvent event) {
+			boolean res = false;
+			if(Config.mouseMode == Config.MouseMode.External){
+				res = onTouchProcess(v,event);
+				res = onTouchEventProcess(event);
+			}
+			return res;
+		}
+
+		public boolean onTouchEvent(MotionEvent event) {
+			return false;
+		}
+
+		public boolean onTouchEventProcess(MotionEvent event) {
+			// Log.v("onTouchEvent",
+			// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
+			// + event.getY() + " P=" + event.getPressure());
+			// MK
+			if (event.getAction() == MotionEvent.ACTION_CANCEL)
+				return true;
+
+			if (!firstTouch) {
+				firstTouch = true;
+			}
+			if (event.getPointerCount() > 1) {
+
+				// XXX: Limbo Legacy enable Right Click with 2 finger touch
+				// Log.v("Right Click",
+				// "Action=" + event.getAction() + ", X,Y=" + event.getX()
+				// + "," + event.getY() + " P=" + event.getPressure());
+				// rightClick(event);
+				return true;
+			} else
+				return gestureDetector.onTouchEvent(event);
+		}
+	}
+
+	public AudioManager am;
+	protected int maxVolume;
+
+	protected void setupVolume() {
+		if (am == null) {
+			am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
+			maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+		}
+	}
+
+	public void setVolume(int volume) {
+		if(am!=null)
+			am.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
+	}
+
+	protected int getCurrentVolume() {
+		int volumeTmp = 0;
+		if(am!=null)
+			volumeTmp = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+		return volumeTmp;
+	}
+
+
+	//XXX: We want to suspend only when app is calling onPause()
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+
+	}
+
+	public boolean rightClick(final MotionEvent e, final int i) {
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+				Log.d("SDL", "Mouse Right Click");
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, 1, -1, -1);
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException ex) {
+//					Log.v("SDLSurface", "Interrupted: " + ex);
+				}
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, 1, -1, -1);
+			}
+		});
+		t.start();
+		return true;
+
+	}
+
+	public boolean middleClick(final MotionEvent e, final int i) {
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+                Log.d("SDL", "Mouse Middle Click");
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, 1,-1, -1);
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException ex) {
+//                    Log.v("SDLSurface", "Interrupted: " + ex);
+				}
+				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, 1,-1, -1);
+			}
+		});
+		t.start();
+		return true;
+
+	}
+
+	private void doubleClick(final MotionEvent event, final int pointer_id) {
+
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+				//Log.d("SDL", "Mouse Double Click");
+				for (int i = 0; i < 2; i++) {
+					LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1, 0, 0);
+					try {
+						Thread.sleep(50);
+					} catch (InterruptedException ex) {
+						// Log.v("doubletap", "Could not sleep");
+					}
+					LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, 1,0, 0);
+					try {
+						Thread.sleep(50);
+					} catch (InterruptedException ex) {
+						// Log.v("doubletap", "Could not sleep");
+					}
+				}
+			}
+		});
+		t.start();
+	}
+
+
+	int lastMouseButtonDown = -1;
+	public float old_x = 0;
+	public float old_y = 0;
+	private boolean mouseUp = true;
+	private float sensitivity_mult = (float) 1.0;
+	private boolean firstTouch = false;
+
+
+
+	private class GestureListener extends GestureDetector.SimpleOnGestureListener {
+
+		@Override
+		public boolean onDown(MotionEvent event) {
+			// Log.v("onDown", "Action=" + event.getAction() + ", X,Y=" + event.getX()
+			// + "," + event.getY() + " P=" + event.getPressure());
+			return true;
+		}
+
+		@Override
+		public void onLongPress(MotionEvent event) {
+			// Log.d("SDL", "Long Press Action=" + event.getAction() + ", X,Y="
+			// + event.getX() + "," + event.getY() + " P="
+			// + event.getPressure());
+			if(Config.mouseMode == Config.MouseMode.External)
+				return;
+
+			LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1, 0, 0);
+			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+			if (v.hasVibrator()) {
+				v.vibrate(100);
+			}
+		}
+
+		public boolean onSingleTapConfirmed(MotionEvent event) {
+			float x1 = event.getX();
+			float y1 = event.getY();
+
+			if(Config.mouseMode == Config.MouseMode.External)
+				return true;
+
+//			 Log.d("onSingleTapConfirmed", "Tapped at: (" + x1 + "," + y1 +
+//			 ")");
+
+			for (int i = 0; i < event.getPointerCount(); i++) {
+				int action = event.getAction();
+				float x = event.getX(i);
+				float y = event.getY(i);
+				float p = event.getPressure(i);
+
+				//Log.v("onSingleTapConfirmed", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
+				if (event.getAction() == event.ACTION_DOWN
+						&& MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0)) {
+					//Log.d("SDL", "onTouch Down: " + event.getButtonState());
+					LimboSDLActivity.singleClick(event, i);
+				}
+			}
+			return true;
+
+		}
+
+		// event when double tap occurs
+		@Override
+		public boolean onDoubleTap(MotionEvent event) {
+//			Log.d("onDoubleTap", "Tapped at: (" + event.getX() + "," + event.getY() + ")");
+
+			if(Config.mouseMode == Config.MouseMode.External
+				//&& MotionEvent.TOOL_TYPE_MOUSE == event.getToolType(0)
+					)
+				return true;
+
+			for (int i = 0; i < event.getPointerCount(); i++) {
+				int action = event.getAction();
+				float x = event.getX(i);
+				float y = event.getY(i);
+				float p = event.getPressure(i);
+
+				// Log.v("onDoubleTap", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
+				doubleClick(event, i);
+			}
+
+			return true;
+		}
+	}
+
+	class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
+		private LimboSDLSurface mSurface;
+
+		@Override
+		public boolean onGenericMotion(View v, MotionEvent event) {
+			float x, y;
+			int action;
+
+			switch (event.getSource()) {
+				case InputDevice.SOURCE_JOYSTICK:
+				case InputDevice.SOURCE_GAMEPAD:
+				case InputDevice.SOURCE_DPAD:
+					SDLControllerManager.handleJoystickMotionEvent(event);
+					return true;
+
+				case InputDevice.SOURCE_MOUSE:
+					if(Config.mouseMode == Config.MouseMode.Trackpad)
+						break;
+
+					action = event.getActionMasked();
+//                    Log.d("SDL", "onGenericMotion, action = " + action + "," + event.getX() + ", " + event.getY());
+					switch (action) {
+						case MotionEvent.ACTION_SCROLL:
+							x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0);
+							y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0);
+//                            Log.d("SDL", "Mouse Scroll: " + x + "," + y);
+							LimboActivity.vmexecutor.onLimboMouse(0, action, 0, x, y);
+							return true;
+
+						case MotionEvent.ACTION_HOVER_MOVE:
+							if(Config.processMouseHistoricalEvents) {
+								final int historySize = event.getHistorySize();
+								for (int h = 0; h < historySize; h++) {
+									float ex = event.getHistoricalX(h);
+									float ey = event.getHistoricalY(h);
+									float ep = event.getHistoricalPressure(h);
+									processHoverMouse(ex, ey, ep, action);
+								}
+							}
+
+							float ex = event.getX();
+							float ey = event.getY();
+							float ep = event.getPressure();
+							processHoverMouse(ex, ey, ep, action);
+							return true;
+
+						case MotionEvent.ACTION_UP:
+
+						default:
+							break;
+					}
+					break;
+
+				default:
+					break;
+			}
+
+			// Event was not managed
+			return false;
+		}
+
+		private void processHoverMouse(float x,float y,float p, int action) {
+
+
+
+			if(Config.mouseMode == Config.MouseMode.External) {
+				//Log.d("SDL", "Mouse Hover: " + x + "," + y);
+				LimboActivity.vmexecutor.onLimboMouse(0, action, 0, x, y);
+			}
+		}
+
+	}
+
+	GestureDetector gestureDetector;
+
 }

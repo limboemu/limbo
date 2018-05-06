@@ -21,11 +21,13 @@ package com.max2idea.android.limbo.utils;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -35,6 +37,7 @@ import com.max2idea.android.limbo.main.LimboActivity;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -50,6 +53,7 @@ import java.util.Hashtable;
  * @author dev
  */
 public class FileUtils {
+	private final static String TAG = "FileUtils";
 
 	public String LoadFile(Activity activity, String fileName, boolean loadFromRawFolder) throws IOException {
 		// Create a InputStream to read the file into
@@ -280,7 +284,6 @@ public class FileUtils {
 		String dataDir = LimboActivity.activity.getApplicationInfo().dataDir;
 		PackageManager m = LimboActivity.activity.getPackageManager();
 		String packageName = LimboActivity.activity.getPackageName();
-		Log.v("VMExecutor", "Found packageName: " + packageName);
 	
 		if(dataDir == null) {
 			dataDir = "/data/data/" + packageName;
@@ -370,37 +373,59 @@ public class FileUtils {
         return true;
     }
 
-    public static HashMap<Integer, ParcelFileDescriptor> fds = new HashMap<Integer, ParcelFileDescriptor>();
+    public static HashMap<Integer, FileInfo> fds = new HashMap<Integer, FileInfo>();
 
+	public static class FileInfo{
+		String path;
+		String npath;
+		ParcelFileDescriptor pfd;
+
+
+		public FileInfo(String path, String npath, ParcelFileDescriptor pfd) {
+			this.npath = npath;
+			this.path = path;
+			this.pfd = pfd;
+		}
+	}
+
+	//TODO: we should pass the modes from the backend and translate them
+	// instead of blindly using "rw". ie ISOs should be read only.
     public static int get_fd(final Context context, String path) {
         int fd = 0;
         if (path == null)
             return 0;
 
+
+		//Log.d(TAG, "Opening Filepath: " + path);
         if (path.startsWith("/content") || path.startsWith("content://")) {
-            path = path.replaceFirst("/content", "content:");
+            String npath = path.replaceFirst("/content", "content:");
+
+
+			String mode = "rw";
+			if(path.toLowerCase().endsWith(".iso"))
+				mode = "r";
 
             try {
-                ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(Uri.parse(path), "rw");
+                ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(Uri.parse(npath), mode);
                 fd = pfd.getFd();
-                fds.put(fd, pfd);
+				//Log.d(TAG, "Opening DocumentFile: " + npath + ", FD: " + fd);
+                fds.put(fd, new FileInfo(path, npath, pfd));
             } catch (final FileNotFoundException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(context, "Error: " + e, Toast.LENGTH_SHORT).show();
-                    }
-                });
             }
         } else {
             try {
+            	int mode = ParcelFileDescriptor.MODE_READ_WRITE;
+				if(path.toLowerCase().endsWith(".iso"))
+					mode = ParcelFileDescriptor.MODE_READ_ONLY;
+
                 File file = new File(path);
                 if (!file.exists())
                     file.createNewFile();
-                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY);
+                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file, mode);
                 fd = pfd.getFd();
+				//Log.d(TAG, "Opening File: " + path + ", FD: " + fd);
             } catch (Exception e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -413,19 +438,75 @@ public class FileUtils {
 
     public static int close_fd(int fd) {
 
+    	//Log.d(TAG, "Closing FD: " + fd);
         if (FileUtils.fds.containsKey(fd)) {
-            ParcelFileDescriptor pfd = FileUtils.fds.get(fd);
-            try {
+
+            FileInfo info = FileUtils.fds.get(fd);
+			ParcelFileDescriptor pfd = info.pfd;
+			try {
+				pfd.getFileDescriptor().sync();
+			} catch (IOException e) {
+				Log.e(TAG, "Error Syncing DocumentFile FD: " + fd + " : " + e);
+				e.printStackTrace();
+			}
+
+			try {
+				//Log.d(TAG, "Closing DocumentFile: " + info.npath + ", FD: " + fd);
+				pfd.getFileDescriptor().sync();
                 pfd.close();
                 FileUtils.fds.remove(fd);
                 return 0; // success for Native side
             } catch (IOException e) {
+				Log.e(TAG, "Error Closing DocumentFile FD: " + fd + " : " + e);
                 e.printStackTrace();
             }
 
-        }
+
+        } else {
+			try {
+
+				ParcelFileDescriptor pfd = ParcelFileDescriptor.fromFd(fd);
+				//Log.d(TAG, "Closing File FD: " + fd);
+				try {
+					pfd.getFileDescriptor().sync();
+				} catch (IOException e) {
+					Log.e(TAG, "Error Syncing File FD: " + fd + " : " + e);
+					e.printStackTrace();
+				}
+
+				pfd.close();
+				return 0;
+			} catch (Exception e) {
+				Log.e(TAG, "Error Closing File FD: " + fd + " : " + e);
+				e.printStackTrace();
+			}
+		}
         return -1;
     }
 
+    public static String getImagesDir(Context context){
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		String imagesDir = prefs.getString("imagesDir", null);
+		return imagesDir;
+	}
 
+	public static void setImagesDir(Context context, String imagesPath) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putString("imagesDir", imagesPath);
+		edit.commit();
+	}
+
+	public static int getExitCode(Context context){
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		int exitCode = prefs.getInt("exitCode", 1);
+		return exitCode;
+	}
+
+	public static void setExitCode(Context context, int exitCode) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		SharedPreferences.Editor edit = prefs.edit();
+		edit.putInt("exitCode", exitCode);
+		edit.commit();
+	}
 }

@@ -19,6 +19,7 @@
 package com.max2idea.android.limbo.main;
 
 import android.androidVNC.AbstractScaling;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -37,7 +38,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBar;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -68,6 +68,9 @@ import com.max2idea.android.limbo.utils.UIUtils;
 import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 //import com.max2idea.android.limbo.main.R;
 
@@ -159,7 +162,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		vnc_canvas.setLayoutParams(vnc_layout_params);
 		zoom.setLayoutParams(zoom_params);
 
-        this.supportInvalidateOptionsMenu();
+        this.invalidateOptionsMenu();
 	}
 
 	public void stopTimeListener() {
@@ -189,13 +192,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public void checkStatus() {
 		while (timeQuit != true) {
 			String status = checkCompletion();
-			Log.v("Inside", "Status: " + status);
+			Log.v("TAG", "Status: " + status);
 			if (status == null
-                    || status.equals("")
-                    || status.equals("DONE")
-                    || status.equals("ERROR")
+                    //|| status.equals("")
+                    || status.toUpperCase().equals("COMPLETED")
+                    || status.toUpperCase().equals("FAILED")
                     ) {
-				Log.v("Inside", "Saving state is done: " + status);
+				//Log.v(TAG, "Saving state is done: " + status);
 				stopTimeListener();
 				return;
 			}
@@ -279,30 +282,23 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 }).show();
     }
 
-    public void pausedErrorVM() {
+    public void pausedErrorVM(String errStr) {
 
 
-        new AlertDialog.Builder(this).setTitle("Error").setMessage("Could not pause VM. View log for details")
+        new AlertDialog.Builder(this).setTitle("Error").setMessage(errStr)
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
 
                         Thread t = new Thread(new Runnable() {
                             public void run() {
-                                try {
-                                    Thread.sleep(1000);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                onHMP();
-                                String commandStop = "cont\n";
-                                for (int i = 0; i < commandStop.length(); i++)
-                                    vncCanvas.sendText(commandStop.charAt(i) + "");
-                                try {
-                                    Thread.sleep(1000);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                onVNC();
+								//XXX: we now use QMP
+								Thread t = new Thread(new Runnable() {
+									public void run() {
+										String command = QmpClient.cont();
+										String msg = QmpClient.sendCommand(command);
+									}
+								});
+								t.start();
                             }
                         });
                         t.start();
@@ -343,12 +339,22 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
 				String file = uri.toString();
 
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				if(!file.contains("com.android.externalstorage.documents"))
+				{
+					UIUtils.showFileNotSupported(this);
+					return;
+				}
 
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                    final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                }
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+
+				final int takeFlags = data.getFlags()
+						& (
+						Intent.FLAG_GRANT_READ_URI_PERMISSION |
+								Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+				);
+				getContentResolver().takePersistableUriPermission(uri, takeFlags);
 
 				// Protect from qemu thinking it's a protocol
 				file = ("/" + file).replace(":", "");
@@ -368,7 +374,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public boolean onOptionsItemSelected(final MenuItem item) {
 		super.onOptionsItemSelected(item);
 		if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
-			this.onKeyboard();
+			toggleKeyboardFlag = UIUtils.onKeyboard(this, toggleKeyboardFlag);
 		} else if (item.getItemId() == R.id.itemReset) {
 			onRestartVM();
 		} else if (item.getItemId() == R.id.itemShutdown) {
@@ -386,7 +392,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			if (this.monitorMode) {
 				this.onVNC();
 			} else {
-				this.onHMP();
+				this.onMonitor();
 			}
 		} else if (item.getItemId() == R.id.itemSaveState) {
 			this.promptPause(activity);
@@ -410,7 +416,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
             this.onViewLog();
         }
 
-        this.supportInvalidateOptionsMenu();
+        this.invalidateOptionsMenu();
 
 		return true;
 	}
@@ -418,7 +424,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
     private void onMouseMode() {
 
         String [] items = {"Trackpad Mouse (Phone)",
-                "Touchscreen/Bluetooth Mouse (Tablet/Desktop)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+				"Touchscreen or Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
         };
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
         mBuilder.setTitle("Mouse");
@@ -443,6 +449,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
     }
 
+	public boolean checkVMResolutionFits() {
+		if(vncCanvas.rfb.framebufferWidth < vncCanvas.getWidth()
+				&& vncCanvas.rfb.framebufferHeight < vncCanvas.getHeight())
+			return true;
+
+		return false;
+	}
     private void onDisplayMode() {
 
         String [] items = {
@@ -464,7 +477,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                         break;
                     case 1:
                         if(Config.mouseMode == Config.MouseMode.External){
-                            UIUtils.toastShort(LimboVNCActivity.this, "Scale type Disabled under Desktop Mode");
+                            UIUtils.toastShort(LimboVNCActivity.this, "Fit to Screen disabled under Desktop mode");
                             dialog.dismiss();
                             return;
                         }
@@ -484,15 +497,15 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
     private void setUIModeMobile(){
 
-        UIUtils.setOrientation(this);
+
         MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
         Config.mouseMode = Config.MouseMode.Trackpad;
         onFitToScreen();
         onMouse();
 
-        Toast.makeText(LimboVNCActivity.this, "Trackpad Mode Enabled", Toast.LENGTH_SHORT).show();
-        supportInvalidateOptionsMenu();
+        UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
+        invalidateOptionsMenu();
     }
 
     private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
@@ -500,7 +513,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Touchscreen/Desktop");
+        alertDialog.setTitle("Desktop mode/Touchscreen");
 
         LinearLayout mLayout = new LinearLayout(this);
         mLayout.setPadding(20,20,20,20);
@@ -508,7 +521,17 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
         TextView textView = new TextView(activity);
         textView.setVisibility(View.VISIBLE);
-        textView.setText(this.getString(R.string.desktopInstructions));
+
+        String desktopInstructions = this.getString(R.string.desktopInstructions);
+        if(!checkVMResolutionFits()){
+			String resolutionWarning = "Warning: Machine resolution "
+					+ vncCanvas.rfb.framebufferWidth + "x" + vncCanvas.rfb.framebufferHeight +
+					" is too high for Desktop Mode. " +
+					"Scaling will be used and Mouse Alignment will not be accurate. " +
+					"Reduce display resolution for better experience\n\n";
+			desktopInstructions = resolutionWarning + desktopInstructions;
+		}
+        textView.setText(desktopInstructions);
 
         LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -520,12 +543,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
                 MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
                 Config.mouseMode = Config.MouseMode.External;
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-                ActionBar bar = LimboVNCActivity.this.getSupportActionBar();
-                if (bar != null) {
-                    bar.show();
-                }
-                Toast.makeText(LimboVNCActivity.this, "External Mouse enabled", Toast.LENGTH_SHORT).show();
+                Toast.makeText(LimboVNCActivity.this, "External Mouse Enabled", Toast.LENGTH_SHORT).show();
                 onNormalScreen();
                 AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);
                 showPanningState();
@@ -533,7 +551,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 onMouse();
 
                 //vncCanvas.reSize(false);
-                supportInvalidateOptionsMenu();
+                invalidateOptionsMenu();
                 alertDialog.dismiss();
             }
         });
@@ -579,6 +597,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	private boolean onFitToScreen() {
+
+		UIUtils.setOrientation(this);
+        ActionBar bar = this.getActionBar();
+        if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
+            bar.hide();
+        }
+
 		inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
 		connection.setInputMode(inputHandler.getName());
 		connection.setFollowMouse(true);
@@ -598,6 +623,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
     private boolean onNormalScreen() {
+
+		//Force only landscape
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        ActionBar bar = LimboVNCActivity.this.getActionBar();
+        if (bar != null) {
+            bar.show();
+        }
 
         inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
         connection.setInputMode(inputHandler.getName());
@@ -787,17 +819,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		t.start();
 	}
 
-	private void onKeyboard() {
-		// Prevent crashes from activating mouse when machine is paused
-		if (LimboActivity.vmexecutor.paused == 1)
-			return;
+	public static boolean toggleKeyboardFlag = true;
 
-		InputMethodManager inputMgr = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-		// inputMgr.toggleSoftInput(0, 0);
-		inputMgr.showSoftInput(this.vncCanvas, InputMethodManager.SHOW_FORCED);
-	}
-
-	private void onHMP() {
+	private void onMonitor() {
 		monitorMode = true;
 		vncCanvas.sendMetaKey1(50, 6);
 
@@ -820,11 +844,12 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
+	//FIXME: need to use QMP instead
 	private void onSaveSnapshot(final String stateName) {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				((LimboActivity) LimboActivity.activity).saveSnapshotDB(stateName);
-				onHMP();
+				onMonitor();
 				try {
 					Thread.sleep(500);
 				} catch (InterruptedException ex) {
@@ -860,7 +885,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
-	private void resumeVMMonitor() {
+	private void resumeVM() {
 		if(LimboActivity.vmexecutor == null){
 			return;
 		}
@@ -874,32 +899,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					}
 					if(vncCanvas == null)
 					    return;
-					onHMP();
-					// new Handler(Looper.getMainLooper()).postDelayed(new
-					// Runnable() {
-					// @Override
-					// public void run() {
-					// Toast.makeText(getApplicationContext(), "Please wait
-					// while resuming VM State",
-					// Toast.LENGTH_LONG).show();
-					// }
-					// }, 500);
-					try {
-						Thread.sleep(2000);
-					} catch (InterruptedException ex) {
-						Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-					}
 
-					String commandStop = "cont\n";
-					for (int i = 0; i < commandStop.length(); i++)
-						vncCanvas.sendText(commandStop.charAt(i) + "");
-					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException ex) {
-						Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-					}
-					onVNC();
 					LimboActivity.vmexecutor.paused = 0;
+					String command = QmpClient.cont();
+					String msg = QmpClient.sendCommand(command);
+//					if (msg != null)
+//						Log.i(TAG, msg);
+
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
@@ -914,53 +920,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
-	private void onPauseVMMonitor() {
-		Thread t = new Thread(new Runnable() {
-			public void run() {
-				// Delete any previous state file
-				if (LimboActivity.vmexecutor.save_state_name != null) {
-					File file = new File(LimboActivity.vmexecutor.save_state_name);
-					if (file.exists()) {
-						file.delete();
-					}
-				}
-
-				onHMP();
-				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-					@Override
-					public void run() {
-                        UIUtils.toastShort(LimboVNCActivity.this, "Please wait while saving VM State");
-					}
-				}, 500);
-				try {
-					Thread.sleep(500);
-				} catch (InterruptedException ex) {
-					Logger.getLogger(LimboVNCActivity.class.getName()).log(Level.SEVERE, null, ex);
-				}
-
-				String commandStop = "stop\n";
-				for (int i = 0; i < commandStop.length(); i++)
-					vncCanvas.sendText(commandStop.charAt(i) + "");
-
-				String commandMigrate = "migrate fd:"
-						+ LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name) + "\n";
-				for (int i = 0; i < commandMigrate.length(); i++)
-					vncCanvas.sendText(commandMigrate.charAt(i) + "");
-
-				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						VMListener a = new VMListener();
-						a.execute();
-					}
-				}, 0);
-			}
-		});
-		t.start();
-
-	}
-
-	private void onPauseVMQMP() {
+	private void onPauseVM() {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				// Delete any previous state file
@@ -980,41 +940,62 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 				}, 0);
 
 				String uri = "fd:" + LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
-				// String uri = "exec:cat>" +
-				// LimboActivity.vmexecutor.save_state_name;
-				// final String msg = LimboActivity.vmexecutor.pausevm(uri);
 				String command = QmpClient.stop();
 				String msg = QmpClient.sendCommand(command);
-				if (msg != null)
-					Log.i(TAG, msg);
-
+//				if (msg != null)
+//					Log.i(TAG, msg);
 				command = QmpClient.migrate(false, false, uri);
 				msg = QmpClient.sendCommand(command);
-				if (msg != null)
-					Log.i(TAG, msg);
+				if (msg != null) {
+//					Log.i(TAG, msg);
+					processMigrationResponse(msg);
+				}
 
 				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 					@Override
 					public void run() {
-						pausedVM();
+						VMListener a = new VMListener();
+						a.execute();
 					}
-				}, 1000);
-
-				// new Handler(Looper.getMainLooper()).postDelayed(new
-				// Runnable() {
-				// @Override
-				// public void run() {
-				// Toast.makeText(getApplicationContext(), msg,
-				// Toast.LENGTH_SHORT).show();
-				// VMListener a = new VMListener();
-				// a.execute();
-				// }
-				// }, 0);
+				}, 0);
 			}
 		});
 		t.start();
 
 	}
+
+	private void processMigrationResponse(String response) {
+		String errorStr = null;
+		try {
+			JSONObject object = new JSONObject(response);
+			errorStr = object.getString("error");
+		}catch (Exception ex) {
+			if(Config.debug)
+				ex.printStackTrace();
+		}
+		if (errorStr != null) {
+			String descStr = null;
+
+			try {
+				JSONObject descObj = new JSONObject(errorStr);
+				descStr = descObj.getString("desc");
+			}catch (Exception ex) {
+				if(Config.debug)
+					ex.printStackTrace();
+			}
+			final String descStr1 = descStr;
+
+			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					pausedErrorVM(descStr1!=null?descStr1:"Could not pause VM. View log for details");
+				}
+			}, 100);
+
+		}
+
+	}
+
 
     private class VMListener extends AsyncTask<Void, Void, Void> {
 
@@ -1049,13 +1030,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Pause", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-
-
-				if (LimboActivity.vmexecutor.enableqmp == 1)
-					onPauseVMQMP();
-				else
-					onPauseVMMonitor();
-
+					onPauseVM();
 				return;
 			}
 		});
@@ -1063,6 +1038,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	}
 
+	//TODO: Snapshot is not supported right now
 	public void promptStateName(final Activity activity) {
 		if (//
 		(LimboActivity.currMachine.hda_img_path == null || !LimboActivity.currMachine.hda_img_path.contains(".qcow2"))
@@ -1097,10 +1073,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					// XXX: Safer for now via the Monitor console
 					onSaveSnapshot(stateView.getText().toString());
 				} else {
-					// FIXME: This saves the vm natively but cannot resume the
-					// vm
-					LimboActivity.vmexecutor.save(LimboActivity.vmexecutor.snapshot_name);
-
+					QmpClient.sendCommand(QmpClient.save_snapshot(LimboActivity.vmexecutor.snapshot_name));
 				}
 
 				return;
@@ -1115,16 +1088,38 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		String pause_state = "";
 		if (LimboActivity.vmexecutor != null) {
 			// Get the state of saving full disk snapshot
-			save_state = LimboActivity.vmexecutor.get_save_state();
-
-			// Get the state of saving the VM memory only
-			pause_state = LimboActivity.vmexecutor.get_pause_state();
+//			save_state = LimboActivity.vmexecutor.get_save_state();
+//
+//			// Get the state of saving the VM memory only
+//			pause_state = LimboActivity.vmexecutor.get_pause_state();
 			//Log.d(TAG, "save_state = " + save_state);
 			//Log.d(TAG, "pause_state = " + pause_state);
+
+			String command = QmpClient.query_migrate();
+			String res = QmpClient.sendCommand(command);
+			if(res!=null && !res.equals("")) {
+				//Log.d(TAG, "Migrate status: " + res);
+
+				try {
+					JSONObject resObj = new JSONObject(res);
+					String resInfo = resObj.getString("return");
+					JSONObject resInfoObj = new JSONObject(resInfo);
+					pause_state = resInfoObj.getString("status");
+				} catch (JSONException e) {
+					if(Config.debug)
+						e.printStackTrace();
+				}
+
+				if(pause_state!=null && pause_state.toUpperCase().equals("FAILED")){
+					Log.e(TAG, "Error: " + res);
+				}
+			}
 		}
-		if (pause_state.equals("SAVING")) {
+
+
+		if (pause_state.toUpperCase().equals("ACTIVE")) {
 			return pause_state;
-		} else if (pause_state.equals("DONE")) {
+		} else if (pause_state.toUpperCase().equals("COMPLETED")) {
 			// FIXME: We wait for 5 secs to complete the state save not ideal
 			// for large OSes
 			// we should find a way to detect when QMP is really done so we
@@ -1137,11 +1132,11 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 			}, 100);
 			return pause_state;
 
-		} else if (pause_state.equals("ERROR")) {
+		} else if (pause_state.toUpperCase().equals("FAILED")) {
             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    pausedErrorVM();
+					pausedErrorVM("Could not pause VM. View log file for details");
                 }
             }, 100);
             return pause_state;
@@ -1154,7 +1149,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getSupportActionBar();
+			ActionBar bar = this.getActionBar();
 			if (bar != null) {
 				if (bar.isShowing() && Config.mouseMode == Config.MouseMode.Trackpad) {
 					bar.hide();
@@ -1167,7 +1162,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	public void onHideToolbar(){
-			ActionBar bar = this.getSupportActionBar();
+			ActionBar bar = this.getActionBar();
 			if (bar != null) {
 					bar.hide();
 			}
@@ -1175,7 +1170,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	@Override
 	public void onConnected() {
-        this.resumeVMMonitor();
+        this.resumeVM();
         LimboActivity.currMachine.paused = 0;
         MachineOpenHelper.getInstance(activity).update(LimboActivity.currMachine,
                 MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
@@ -1221,7 +1216,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         buttonsLayout.setGravity(Gravity.CENTER_HORIZONTAL);
         Button displayMode = new Button (this);
 
-        displayMode.setText("Scale Type");
+        displayMode.setText("Display Mode");
         displayMode.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 onDisplayMode();
@@ -1243,7 +1238,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         layout.addView(buttonsLayout);
 
         final TextView value = new TextView(this);
-        value.setText("Refresh Rate: " + currRate+" Hz");
+        value.setText("Display Refresh Rate: " + currRate+" Hz");
         layout.addView(value);
         value.setLayoutParams(params);
 
@@ -1265,7 +1260,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
             public void onStopTrackingTouch(SeekBar arg0) {
                 int progress = arg0.getProgress()+1;
-                LimboActivity.vmexecutor.setvncrefreshrate(1000 / progress);
+				int refreshMs = 1000 / progress;
+				Log.v(TAG, "Changing display refresh rate (ms): " + refreshMs);
+                LimboActivity.vmexecutor.setvncrefreshrate(refreshMs);
 
             }
         });
