@@ -27,107 +27,100 @@ extern "C" {
 #include <string.h>
 #include <android/log.h>
 
-//XXX: Keep in mind this needs to have the following prop
-// on your device/emulator otherwise it might crash app
-//$ adb shell stop
-//$ adb shell setprop log.redirect-stdio true
-//$ adb shell start
-
+//Reroute print* logging for Android
+// Define this to get stdout stderr messages on the adb logcat
 #define DEBUG_OUTPUT 1
+
+//Truncate long source filepaths
 #define DEBUG_SHOW_BASENAME 1
-//#define DEBUG_OUTPUT_EXTRA 1
+
+//Optional: Define ENABLE_OVERRIDE_QEMU_LOG to provide extra information on stdout stderr like the file and line number
+// that the errors are coming from otherwise you're only getting the messages/logs in logcat.
+// To enable this you need to comment out the macros and implementations in
+//  qemu/error-report.h, util/qemu-error.c, qemu/audio/sdlaudio.c, stubs/error-printf.c
+//#define ENABLE_OVERRIDE_QEMU_LOG 1
 
 #ifdef DEBUG_SHOW_BASENAME
-#define __FILENAME__ strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__
+#define __FILENAME1__ strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__
 #else
-#define __FILENAME__ __FILE__
+#define __FILENAME1__ __FILE__
 #endif
 
 #define STR1(x) #x
 #define STR(x) STR1(x)
-#define TAG __FILENAME__ ":" STR(__LINE__)
+#define TAG __FILENAME1__ ":" STR(__LINE__)
 
 #ifdef DEBUG_OUTPUT
 
-//Custom
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG ,__VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG,__VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG,__VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG,__VA_ARGS__)
 
+//fprintf and vfprintf should be rerouted for stdout and stderr only
+static inline int limbo_fprintf(FILE *stream, const char *format, ...){
+    int res = 0;
+    va_list ap;
+    va_start(ap, format);
+    if(stream == stderr) res = __android_log_vprint(ANDROID_LOG_ERROR, TAG, format, ap);
+    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_VERBOSE, TAG,format, ap);
+    else res = vfprintf(stream, format, ap);
+    va_end(ap);
+    return res;
+}
+#define fprintf(...) limbo_fprintf(__VA_ARGS__)
+
+static inline int limbo_vfprintf(FILE *stream, const char *format, va_list ap){
+    int res = 0;
+    if(stream == stderr) res = __android_log_vprint(ANDROID_LOG_ERROR, TAG, format, ap);
+    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_VERBOSE, TAG,format, ap);
+    else res = vfprintf(stream, format, ap);
+    return res;
+}
+#define vfprintf(...) limbo_vfprintf(__VA_ARGS__)
+
+
 //Generic
-#define printf(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
-#define fprintf(stdout, ...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
-#define vfprintf(stdout, ...)  __android_log_vprint(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
-#define perror(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define printf(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define vprintf(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define perror(x) __android_log_print(ANDROID_LOG_ERROR, TAG, x)
 
-//SDL logging
-#define SDL_Log_REAL(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-#define SDL_LogVerbose_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-#define SDL_LogDebug_REAL(category, ...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
-#define SDL_LogInfo_REAL(category, ...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
-#define SDL_LogWarn_REAL(category, ...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
-#define SDL_LogError_REAL(category, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-#define SDL_LogCritical_REAL(category, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-#define SDL_LogMessage_REAL(category, ...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-
-//GLib Logging
-#define g_error(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-
-//QEMU Logging
+//QEMU Logging rerouting
+#ifdef ENABLE_OVERRIDE_QEMU_LOG
 #define sdl_logerr(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_report(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_printf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_vprintf(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-#define error_printf_unless_qmp(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-#define error_vprintf_unless_qmp(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define error_vreport(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define warn_vreport(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define info_vreport(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define warn_report(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define info_report(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#endif
 
-#else // Suppress all logging activity
-//#error Suppressing
+#else
+
+// Suppress all logging activity
 #define LOGV(...)  ((void)0)
 #define LOGD(...) ((void)0)
 #define LOGE(...) ((void)0)
 #define LOGW(...) ((void)0)
 #define LOGI(...) ((void)0)
-#define printf(...) ((void)0)
-#define fprintf(stdout, ...) ((void)0)
-#define vprintf(stdout, ...) ((void)0)
-#define perror(...) ((void)0)
+
+#ifdef ENABLE_OVERRIDE_QEMU_LOG
 #define sdl_logerr(...) ((void)0)
-#define dolog(...) ((void)0)
 #define error_report(...) ((void)0)
 #define error_printf(...) ((void)0)
 #define error_vprintf(...) ((void)0)
-#define error_printf_unless_qmp(...) ((void)0)
-#define error_vprintf_unless_qmp(...) ((void)0)
 #define error_vreport(...) ((void)0)
+#define warn_vreport(...) ((void)0)
+#define info_vreport(...) ((void)0)
+#define warn_report(...) ((void)0)
+#define info_report(...) ((void)0)
+#endif
 
 #endif //end DEBUG_OUTPUT
-
-//Extra Debug (lots of data)
-#ifdef DEBUG_OUTPUT_EXTRA
-#error DEBUG_OUTPUT_EXTRA is turned ON!
-#define LOGD_AIO(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#define LOGD_TRD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#define LOGD_CPUS(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#define LOGD_VL(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#define LOGD_TMR(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#define LOGD_MLP(...) __android_log_print(ANDROID_LOG_DEBUG, TAG,__VA_ARGS__)
-#else // Suppress all logging
-#define LOGD_AIO(...) ((void)0)
-#define LOGD_TRD(...) ((void)0)
-#define LOGD_CPUS(...) ((void)0)
-#define LOGD_VL(...) ((void)0)
-#define LOGD_TMR(...) ((void)0)
-#define LOGD_MLP(...) ((void)0)
-
-#endif  //end DEBUG_OUTPUT_EXTRA
 
 #ifdef	__cplusplus
 	}
