@@ -12,7 +12,7 @@ public class LimboEmuActivity extends LimboActivity {
 		Config.enable_PPC = true;
         Config.enable_PPC64 = true;
 		//Config.enableMTTCG = true;
-		Config.machinedir = Config.machinedir + "other/ppc_machines/";
+        Config.machineFolder = Config.machineFolder + "other/ppc_machines/";
 		
 		Config.osImages.put("Debian PowerPC Linux", "http://limboemulator.weebly.com/debian-powerpc-linux.html");
 		

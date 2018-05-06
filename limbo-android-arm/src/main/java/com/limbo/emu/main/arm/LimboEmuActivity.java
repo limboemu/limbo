@@ -10,7 +10,7 @@ public class LimboEmuActivity extends LimboActivity {
 	public void onCreate(Bundle bundle){
 		Config.enable_ARM = true;
 		//Config.enableMTTCG = true;
-		Config.machinedir = Config.machinedir + "other/arm_machines/";
+		Config.machineFolder = Config.machineFolder + "other/arm_machines/";
 		
 		Config.osImages.put("Debian ARM Linux", "http://limboemulator.weebly.com/debian-arm-linux.html");
 		

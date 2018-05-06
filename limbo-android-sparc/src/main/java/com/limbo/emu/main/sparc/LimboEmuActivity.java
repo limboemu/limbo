@@ -10,7 +10,7 @@ public class LimboEmuActivity extends LimboActivity {
 
     public void onCreate(Bundle bundle) {
         Config.enable_sparc = true;
-        Config.machinedir = Config.machinedir + "other/sparc_machines/";
+        Config.machineFolder = Config.machineFolder + "other/sparc_machines/";
 
         Config.osImages.put("Debian Sparc Linux", "http://limboemulator.weebly.com/debian-sparc-linux.html");
 
