@@ -1,6 +1,0 @@
-Name: GThread Uninstalled
-Description: Thread support for GLib, Not Installed
-Requires: glib-2.0-uninstalled
-Version: @VERSION@
-Libs: ${pc_top_builddir}/${pcfiledir}/gthread/libgthread-2.0.la @G_THREAD_LIBS@
-Cflags: -I${pc_top_builddir}/${pcfiledir}/@srcdir@ @G_THREAD_CFLAGS@

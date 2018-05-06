@@ -1,6 +1,0 @@
-<schemalist>
-  <schema id='y'/>
-  <schema id='x' list-of='y'>
-    <key name='foo' type='s'/>
-  </schema>
-</schemalist>

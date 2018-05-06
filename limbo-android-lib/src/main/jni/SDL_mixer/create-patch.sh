@@ -1,1 +1,0 @@
-git diff -- . ':(exclude)pixman/pixman/pixman-arm-detect-win32.asm' ':(exclude)roms/vgabios/tests/testbios.c' > qemu-2.9.0.b.patch

@@ -1,1 +1,0 @@
-# Build script for MPW shell	# Create object code folders (if necessary)If !`Exists -d :obj:`	NewFolder objEndIf !`Exists -d :objppc:`	NewFolder objppcEnd	# MakeMake -f libmikmod.make ALL >libmikmod.makeoutExecute libmikmod.makeoutEcho "# Build complete!"	

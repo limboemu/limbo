@@ -1,4 +1,0 @@
-PASS '<!-- a comment -->'
-ELEMENT 'foo'
-  TEXT ''
-END 'foo'

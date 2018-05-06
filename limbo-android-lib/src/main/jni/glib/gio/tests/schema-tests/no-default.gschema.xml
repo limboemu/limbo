@@ -1,6 +1,0 @@
-<schemalist>
-  <schema id="no-default" path="/tests/">
-    <key name="test" type="s">
-    </key>
-  </schema>
-</schemalist>

@@ -1,7 +1,0 @@
-Name: GObject Uninstalled
-Description: Object/type system for GLib, Not Installed
-Requires: glib-2.0-uninstalled,gthread-2.0-uninstalled
-Version: @VERSION@
-Libs: ${pc_top_builddir}/${pcfiledir}/gobject/libgobject-2.0.la
-## cflags contains builddir in addition to srcdir because of gmarshal.h
-Cflags: -I${pc_top_builddir}/${pcfiledir}/@srcdir@ -I${pc_top_builddir}/${pcfiledir}
