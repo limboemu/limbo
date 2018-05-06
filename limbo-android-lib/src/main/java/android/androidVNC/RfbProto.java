@@ -26,22 +26,19 @@
 
 package android.androidVNC;
 
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.util.Log;
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-//- import java.awt.*;
-//- import java.awt.event.*;
 import java.net.Socket;
 
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboService;
-import com.max2idea.android.limbo.main.LimboVNCService;
-
-import android.content.Intent;
-import android.os.Bundle;
+//- import java.awt.*;
+//- import java.awt.event.*;
 //- import java.util.zip.*;
-import android.util.Log;
 
 /**
  * Access the RFB protocol through a socket.
@@ -187,48 +184,70 @@ public class RfbProto {
   //  the network message queue intact
 	class LimboOutputStream {
 
-		OutputStream os;
+      OutputStream os;
+      HandlerThread rfbQueueThread = null;
+      Handler handler = null;
 
-		public LimboOutputStream(OutputStream sos) {
-			// TODO Auto-generated constructor stub
+      public LimboOutputStream(OutputStream sos) {
 			os = sos;
-			LimboVNCService.os = os;
+
+            rfbQueueThread = new HandlerThread("RfbQueue");
+          rfbQueueThread.start();
+            handler = new Handler(rfbQueueThread.getLooper());
 		}
 
-		public void write(final int arg0) throws IOException {
-			if (LimboService.service != null) {
-				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
-				Bundle b = new Bundle();
-				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTE);
-				b.putInt(Config.VNC_BYTE, arg0);
-				i.putExtras(b);
-				LimboService.service.startService(i);
-			}
+		public void write(final int data) throws IOException {
+            final int data0 = data;
+
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        sos.write(data0);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
 		}
 
 		public void write(final byte[] bytes) throws IOException {
-			if (LimboService.service != null) {
-				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
-				Bundle b = new Bundle();
-				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTES);
-				b.putByteArray(Config.VNC_BYTES, bytes);
-				i.putExtras(b);
-				LimboService.service.startService(i);
-			}
+            final byte [] buffer0 = java.util.Arrays.copyOf(bytes, bytes.length);
+
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        sos.write(buffer0);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
 		}
 
 		public void write(final byte[] buffer, final int offset, final int count) throws IOException {
-			if (LimboService.service != null) {
-				Intent i = new Intent(Config.SEND_VNC_DATA, null, LimboService.service, LimboVNCService.class);
-				Bundle b = new Bundle();
-				b.putInt(Config.VNC_DATA_TYPE, Config.VNC_SEND_BYTES_OFFSET);
-				b.putByteArray(Config.VNC_BYTES, buffer);
-				b.putInt(Config.VNC_OFFSET, offset);
-				b.putInt(Config.VNC_COUNT, count);
-				i.putExtras(b);
-				LimboService.service.startService(i);
-			}
+            final byte [] buffer0 = java.util.Arrays.copyOf(buffer, count);
+            final int offset0 = offset;
+            final int count0 = count;
+
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        sos.write(buffer0, offset0, count0);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
 		}
+
+		public void close() {
+          rfbQueueThread.interrupt();
+          handler.removeCallbacks(null);
+          handler.getLooper().quit();
+        }
 
 	}
   
@@ -326,6 +345,13 @@ public class RfbProto {
  
 
   synchronized void close() {
+
+    try {
+      os.close();
+    } catch (Exception ex) {
+      ex.printStackTrace();
+    }
+
     try {
       sock.close();
       closed = true;
@@ -340,6 +366,8 @@ public class RfbProto {
     } catch (Exception e) {
       e.printStackTrace();
     }
+
+
   }
 
   synchronized boolean closed() {

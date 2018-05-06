@@ -57,7 +57,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class VncCanvasActivity extends AppCompatActivity {
+public class VncCanvasActivity extends Activity {
 
 	static Display display = null;
 	public static Activity activity;
@@ -1058,6 +1058,7 @@ public class VncCanvasActivity extends AppCompatActivity {
 		if (isFinishing()) {
 			vncCanvas.closeConnection();
 			vncCanvas.onDestroy();
+
 
 		}
 	}

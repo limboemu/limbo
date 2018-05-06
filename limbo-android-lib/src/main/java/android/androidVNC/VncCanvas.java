@@ -1983,9 +1983,7 @@ public class VncCanvas extends ImageView {
                 case InputDevice.SOURCE_JOYSTICK:
                 case InputDevice.SOURCE_GAMEPAD:
                 case InputDevice.SOURCE_DPAD:
-                    SDLActivity.handleJoystickMotionEvent(event);
                     return true;
-
                 case InputDevice.SOURCE_MOUSE:
                     if(Config.mouseMode == Config.MouseMode.Trackpad)
                         break;
@@ -1999,7 +1997,7 @@ public class VncCanvas extends ImageView {
                             //Log.d("SDL", "Mouse Scroll: " +event.getX() + ":" + event.getY() + " => " +  x + "," + y);
 
                             //TODO:
-                            //SDLActivity.onNativeMouse(0, action, x, y);
+                            //SDLActivity.onSDLNativeMouse(0, action, x, y);
                             //processPointerEvent(event,false);
 
                             // Log.v("Limbo", "Button Up");
@@ -2059,7 +2057,7 @@ public class VncCanvas extends ImageView {
 //                }
 
                 //TODO:
-                //SDLActivity.onNativeMouse(0, action, x, y);
+                //SDLActivity.onSDLNativeMouse(0, action, x, y);
                 processPointerEvent(event, false, false);
             }
 //            else if (Config.mouseMode == Config.MouseMode.External_Alt){
