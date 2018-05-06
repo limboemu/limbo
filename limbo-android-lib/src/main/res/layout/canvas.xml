@@ -5,7 +5,7 @@
     android:background="#000000"
     android:orientation="vertical" >
 
-    <android.support.v7.widget.Toolbar
+    <Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
