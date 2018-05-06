@@ -15,10 +15,11 @@ https://github.com/limboemu/limbo
 
     Android SDK
     Android NDK r13b/GCC 4.9
-    Android Studio
-    Android device with Android OS 4.2 and above
-    Cygwin (if you compile for Windows)
-    flex, bison, libtool (optional)
+    Android Studio (3.1.1 prefered)
+    Android device with Android OS 5.0 (Lollipop) and above
+    Linux Desktop pc (Ubuntu prefered)
+    Make sure you have the following packages installed, if not run:
+    sudo apt-install get make, autoconf, automake, git, python, binutils, libtool-bin, pkg-config, flex, bison
 
 ===============================================================================
 
@@ -35,47 +36,77 @@ https://github.com/limboemu/limbo
     Examples:
     For bash:
     export PATH=$PATH:/home/dev/tools/android/android-ndk-r13b
-    
-    c. Get QEMU (ignore any errors while extracting)
+
+5. Get and Patch libraries
+
+    #Make sure you're under the jni directory
     cd ./limbo-android-lib/src/main/jni
-	wget http://download.qemu-project.org/qemu-2.11.0.tar.xz -P /cygdrive/c/temp/
-    tar -xJf /cygdrive/c/temp/qemu-2.11.0.tar.xz
-    mv qemu-2.11.0 qemu
 
-	d. Apply QEMU patch for Limbo:
+    ##### Get QEMU
+	wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
+    tar -xJf /tmp/qemu-2.9.1.tar.xz
+    mv qemu-2.9.1 qemu
+
+    ##### GET glib
+    wget https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz -P /tmp/
+    tar -xJf /tmp/glib-2.56.1.tar.xz
+    mv glib-2.56.1.tar.xz glib
+
+    ##### GET libffi
+    wget https://sourceware.org/pub/libffi/libffi-3.2.1.tar.gz -P /tmp/
+    tar -xzf /tmp/libffi-3.2.1.tar.gz
+    mv libffi-3.2.1.tar.gz libffi
+
+    ##### GET pixman
+    wget https://www.cairographics.org/releases/pixman-0.34.0.tar.gz -P /tmp/
+    tar -xzf /tmp/pixman-0.34.0.tar.gz
+    mv pixman-0.34.0 pixman
+
+    ##### GET SDL2
+    wget https://www.libsdl.org/release/SDL2-2.0.8.tar.gz -P /tmp/
+    tar -xzf /tmp/SDL2-2.0.8.tar.gz
+    mv SDL2-2.0.8 SDL2
+
+    After this you should have this structure:
+    jni
+        android-device-config
+        compat
+        glib
+        libffi
+        limbo
+        patches
+        pixman
+        qemu
+        SDL2
+
+
+    ### Apply QEMU patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/qemu/
-	dos2unix ../qemu-patches/qemu.patch
-	patch -p1 < ../qemu-patches/qemu.patch
+	dos2unix ../patches/qemu.patch
+	patch -p1 < ../patches/qemu-2.9.1.patch
 
-	Note: Use only if you need to create your own patch for any version
-	diff -ru --no-dereference /cygdrive/c/temp/qemu-x.x.x . | grep -v '^Only in' > ../qemu-patches/qemu-x.x.x.patch
-
-    e. For linux/MacOSX make sure the configure script under .../qemu/configure is executable
+    ### For linux/MacOSX make sure the configure script under .../qemu/configure is executable
     cd ./limbo-android-lib/src/main/jni/
     chmod u+x qemu/configure
 
-    f. fix script permissions, run:
+    ### fix script permissions, run:
     cd ./limbo-android-lib/src/main/jni/
     dos2unix fix_script_permissions.sh
     chmod u+x fix_script_permissions.sh
     ./fix_script_permissions.sh
 
+    Optional: To create your own patch for any version:
+    diff -ru --no-dereference /tmp/qemu-x.x.x . | grep -v '^Only in' > ../patches/qemu-x.x.x.patch
+
 ===============================================================================
 5. Build
 
 	a. To build the NDK part of the app make sure you're under the jni directory:
-    
-    WARNING! If you use Windows/Cygwin Make sure your project is in a directory ONLY under the C: drive!
-    
-    If you use Windows use Cygwin Prompt otherwise use your terminal (Linux/Macos)
-        > cd /cygdrive/c/users/youraccount/limbo/limbo-android-lib/src/main/jni
-        
-        or if you use linux:
-        > cd /home/youraccount/.../limbo-android-lib/src/main/jni
+        cd /home/youraccount/.../limbo-android-lib/src/main/jni
         
          
-	If you build on Windows platform make sure you update the android-config.mak file:
-    NDK_ROOT = C:/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
+	Make sure you update the android-config.mak file:
+    NDK_ROOT = /home/dev/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
         
     If you want to build the x86, ARM,Sparc,PowerPC Emulator update android-config.mak file with one of these:
     TARGET_LIST = x86_64-softmmu
@@ -83,40 +114,59 @@ https://github.com/limboemu/limbo
     TARGET_LIST = sparc-softmmu
 	TARGET_LIST = ppc-softmmu
 
-	or multiple guest architectures to save time compiling:
+	or multiple guest architectures to save time during compilation:
 	TARGET_LIST = x86_64-softmmu,arm-softmmu
 
-    b. From Android Studio Import BOTH the Android library limbo-android-lib AND the submodule for the guest
+    b. From Android Studio import BOTH the Android library limbo-android-lib AND the submodule for the guest
     	architecture you need (x86,arm,ppc,sparc) ie limbo-android-x86.
-		You will also need the Android Support Library should be included in the build.gradle files.
     	
     c. Build the static and shared libraries under ../limbo-android-lib/src/main/jni:
-        i. Update android-config.mak:
-            include android-generic-armv7a.mak for arm phones
-            Or android-ndkr8-x86.mak for x86 phones (zenfone)
-        ii. > make clean
-        iii. > make config
-        iv.  > make release
 
-        # sync the guest libs and assets for x86, arm, sparc, or ppc emulator
-        v. > make install-x86
-        (make install-arm, etc..)
+        Update android-config.mak:
+            include android-armv7a.mak for arm phones
+            Or android-x86.mak for x86 devices (zenfone 2, Chromebook, Android-x86)
+
+        make ndk
+        make config
+        make release
+        make install-x86
+
+        If you want to build for arm, sparc, or ppc emulator use instead:
+        make install-arm, -sparc, -ppc
+
+   		You should now have the following directory structures:
+
+   		limbo-android-lib/src/main/jniLibs/armeabi
+   		    libcompat-iconv.so
+   		    libcompat-intl.so
+   		    libcompat-limbo.so
+   		    libcompat-SDL2-ext.so
+   		    libglib-2.0.so
+   		    liblimbo.so
+   		    libpixman-1.so
+   		    libSDL2.so
+
+   		limbo-android-x86/src/main/jniLibs/armeabi/
+   		    libqemu-system-x86_64.so
 
     d. Build the Android apk for the corresponding guest using Android Studio.
         Make sure the *.so libraries are zipped in the final .apk
 
     e. If you want to build the debugging version:
-   		i. Add debuggable flag in AndroidManifest.xml:
-   		    android:debuggable="false"
-   		ii. Set variables in Config.java:
+   		Set variables in Config.java:
    			    debug = true;
-   			    debugMode = DebugMode.X86_64; //or any other arch
-   		iii. Modify android-config.mak and point to a configuration
+   			    debugMode = DebugMode.X86_64; //or any other guest arch
+   		Modify android-config.mak and point to a configuration
    			with no optimization:
    			USE_OPTIMIZATION ?= false
-   		iv. Sync the libraries and gdbserver/gdb.setup
-   		    > make install-x86
-   		v. From Android studio Build> Make Project and Run > Debug
+
+   		    make clean
+   		    make ndk-debug
+   		    make config-debug
+   		    make debug
+   		    make install-x86
+
+   		From Android studio Build> Make Project and Run > Debug
    			
     f. To start debugging the native code for a particular guest arch type:
    			for x86 guest:
@@ -133,17 +183,29 @@ https://github.com/limboemu/limbo
     	
 ===============================================================================
 6. Development
-	a. Changes pertinent to compatibility with Android/bionic are tagged in C as preprocessor define __ANDROID__
+
+	a. Changes pertinent to compatibility with Android/bionic are in the patch files as preprocessor define __ANDROID__
+
 	b. Similarly other changes pertinent to LIMBO are tagged with __LIMBO__
+
 	c. Important configuration makefiles:
-		android-config.mak (for setting up toolchain variables)
-		android-qemu-config.mak (for configuring QEMU options)
-	d. Android Makefiles can be found as Android.mk and Application.mk
+	    limbo-android-lib/src/main/jni/android-device/config/*.mak
+		limbo-android-lib/src/main/jni/android-config.mak (for setting up toolchain variables)
+		limbo-android-lib/src/main/jni/android-qemu-config.mak (for configuring QEMU options)
+
+	d. Important Makefiles:
+	    limbo-android-lib/src/main/jni/Android.mk
+	    limbo-android-lib/src/main/jni/Application.mk
+	    limbo-android-lib/src/main/jni/android-setup-toolchain.mak
+	    limbo-android-lib/src/main/jni/android-qemu-build.mak
+
 	e. Device specific flags can be found under directory android-device-config/
+
 	f. Frontend UI options configuration see: Config.java
     	
 ===============================================================================
 7. Run
+
 	a. Installing a full Qwerty keyboard for Android like Hacker's keyboard 
 		from the Google Android store. Make sure you use Transparent theme 
 		and Direct Draw found under Theme settings.
