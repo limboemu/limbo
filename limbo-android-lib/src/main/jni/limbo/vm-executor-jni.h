@@ -28,7 +28,7 @@
 typedef struct Error Error;
 
 void print_stack_trace(int signum);
-void setup_jni(JNIEnv* env, jobject thiz);
+void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir);
 
 #endif
 

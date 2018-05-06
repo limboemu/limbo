@@ -24,8 +24,9 @@ LOCAL_LDLIBS := -ldl -llog
 
 LOCAL_CFLAGS += $(ARCH_CFLAGS)
 LOCAL_CFLAGS += -fexceptions
-LOCAL_CFLAGS += -include $(FIXUTILS_MEM) -include $(LOGUTILS)
-LOCAL_STATIC_LIBRARIES += liblimbocompat
+LOCAL_CFLAGS +=  -include $(LOGUTILS) -D__STDC_CONSTANT_MACROS
 LOCAL_ARM_MODE := $(ARM_MODE)
+
+LOCAL_SHARED_LIBRARIES := -lcompaticonv -lcompatintl
 
 include $(BUILD_SHARED_LIBRARY)
