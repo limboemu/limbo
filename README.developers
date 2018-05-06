@@ -19,7 +19,7 @@ https://github.com/limboemu/limbo
     Android device with Android OS 5.0 (Lollipop) and above
     Linux Desktop pc (Ubuntu prefered)
     Make sure you have the following packages installed, if not run:
-    sudo apt-install get make, autoconf, automake, git, python, binutils, libtool-bin, pkg-config, flex, bison
+    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison
 
 ===============================================================================
 
@@ -42,6 +42,8 @@ https://github.com/limboemu/limbo
     #Make sure you're under the jni directory
     cd ./limbo-android-lib/src/main/jni
 
+    #Note: if some of these file links don't download with wget use your browser to download them
+
     ##### Get QEMU
 	wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-2.9.1.tar.xz
@@ -50,12 +52,12 @@ https://github.com/limboemu/limbo
     ##### GET glib
     wget https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz -P /tmp/
     tar -xJf /tmp/glib-2.56.1.tar.xz
-    mv glib-2.56.1.tar.xz glib
+    mv glib-2.56.1 glib
 
     ##### GET libffi
     wget https://sourceware.org/pub/libffi/libffi-3.2.1.tar.gz -P /tmp/
     tar -xzf /tmp/libffi-3.2.1.tar.gz
-    mv libffi-3.2.1.tar.gz libffi
+    mv libffi-3.2.1 libffi
 
     ##### GET pixman
     wget https://www.cairographics.org/releases/pixman-0.34.0.tar.gz -P /tmp/
@@ -82,7 +84,7 @@ https://github.com/limboemu/limbo
 
     ### Apply QEMU patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/qemu/
-	dos2unix ../patches/qemu.patch
+	dos2unix ../patches/qemu-2.9.1.patch
 	patch -p1 < ../patches/qemu-2.9.1.patch
 
     ### For linux/MacOSX make sure the configure script under .../qemu/configure is executable
@@ -126,6 +128,7 @@ https://github.com/limboemu/limbo
             include android-armv7a.mak for arm phones
             Or android-x86.mak for x86 devices (zenfone 2, Chromebook, Android-x86)
 
+        make clean
         make ndk
         make config
         make release
@@ -134,7 +137,7 @@ https://github.com/limboemu/limbo
         If you want to build for arm, sparc, or ppc emulator use instead:
         make install-arm, -sparc, -ppc
 
-   		You should now have the following directory structures:
+   		You should now have the following libraries build under:
 
    		limbo-android-lib/src/main/jniLibs/armeabi
    		    libcompat-iconv.so
@@ -160,6 +163,7 @@ https://github.com/limboemu/limbo
    			with no optimization:
    			USE_OPTIMIZATION ?= false
 
+        Type:
    		    make clean
    		    make ndk-debug
    		    make config-debug
@@ -170,16 +174,16 @@ https://github.com/limboemu/limbo
    			
     f. To start debugging the native code for a particular guest arch type:
    			for x86 guest:
-   			> make ndk-gdb PKG_NAME=com.limbo.emu.main
+   			make ndk-gdb PKG_NAME=com.limbo.emu.main
    			
    			for arm guest:
-   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
+   			make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
    			
    			for sparc guest:
-   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
+   			make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
    			
    			for ppc guest:
-   			> make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
+   			make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
     	
 ===============================================================================
 6. Development

@@ -13,12 +13,13 @@ ifeq ($(findstring CYGWIN,$(shell uname -s)),CYGWIN)
     endif
 endif
 
-############### This is the only part of the file you need to change before when compiling.
+############### Make Changes below this line ##############
+
 ############## Project Config
 
-#The script will figure out the current directory on its own
-# though if it doesn't you can specify it here
-#LIMBO_JNI_ROOT := C:/users/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
+#The section above this will figure out the current directory on its own
+# though if it doesn't you can specify it here:
+#LIMBO_JNI_ROOT := /home/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
 
 # If you want to use SDL
 USE_SDL ?= true
