@@ -1,0 +1,316 @@
+diff -ru --no-dereference /tmp/qemu-2.9.1/block/vvfat.c ./block/vvfat.c
+--- /tmp/qemu-2.9.1/block/vvfat.c	2017-09-07 19:28:14.000000000 +0300
++++ ./block/vvfat.c	2018-04-28 19:49:32.642000000 +0300
+@@ -72,6 +72,10 @@
+
+ #endif
+
++#ifdef __LIMBO__
++int size_clusters = 0;
++#endif //__LIMBO__
++
+ /* dynamic array functions */
+ typedef struct array_t {
+     char* pointer;
+@@ -2916,7 +2920,13 @@
+
+     for (i = sector2cluster(s, sector_num);
+ 	    i <= sector2cluster(s, sector_num + nb_sectors - 1); i++)
+-	if (i >= 0)
++#ifdef __LIMBO__
++		//FIXME: Limbo: For some reason the sector_num is lesser than the fake_sectors
++		// for now we add this check so qemu doesn't hang during a write operation
++	if (i >= 0 && i < size_clusters)
++#else
++ 	if (i >= 0)
++#endif //__LIMBO__
+ 	    s->used_clusters[i] |= USED_ALLOCATED;
+
+ DLOG(checkpoint());
+@@ -3009,6 +3019,11 @@
+     int size = sector2cluster(s, s->sector_count);
+     QDict *options;
+
++//Limbo:
++#ifdef __LIMBO__
++    size_clusters = size;
++#endif //__LIMBO__
++
+     s->used_clusters = calloc(size, 1);
+
+     array_init(&(s->commits), sizeof(commit_t));
+diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
+--- /tmp/qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
++++ ./configure	2018-04-21 20:51:53.724230467 +0300
+@@ -1831,7 +1831,8 @@
+ # pkg-config probe
+
+ if ! has "$pkg_config_exe"; then
+-  error_exit "pkg-config binary '$pkg_config_exe' not found"
++  #error_exit "pkg-config binary '$pkg_config_exe' not found"
++  echo Ingoring pkg-config probe
+ fi
+
+ ##########################################
+@@ -2601,7 +2602,8 @@
+   sdlversion=$($sdlconfig --version)
+ else
+   if test "$sdl" = "yes" ; then
+-    feature_not_found "sdl" "Install SDL devel"
++    #feature_not_found "sdl" "Install SDL devel"
++    echo Ignore SDL Devel
+   fi
+   sdl=no
+ fi
+@@ -2643,12 +2645,16 @@
+     fi # static link
+   else # sdl not found
+     if test "$sdl" = "yes" ; then
+-      feature_not_found "sdl" "Install SDL devel"
++      #feature_not_found "sdl" "Install SDL devel"
++      echo Ignoring SDL probe
+     fi
+     sdl=no
+   fi # sdl compile test
+ fi
+
++#Override SDL
++sdl=yes
++
+ if test "$sdl" = "yes" ; then
+   cat > $TMPC <<EOF
+ #include <SDL.h>
+@@ -3078,7 +3084,7 @@
+ else
+     glib_req_ver=2.22
+ fi
+-glib_modules=gthread-2.0
++#glib_modules=gthread-2.0
+ if test "$modules" = yes; then
+     glib_modules="$glib_modules gmodule-2.0"
+ fi
+@@ -4090,7 +4096,7 @@
+
+ if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
+         "$aix" != "yes" -a "$haiku" != "yes" ; then
+-    libs_softmmu="-lutil $libs_softmmu"
++    echo Ignoring: libs_softmmu="-lutil $libs_softmmu"
+ fi
+
+ ##########################################
+diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/console.h
+--- /tmp/qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
++++ ./include/ui/console.h	2018-04-30 10:37:12.736000000 +0300
+@@ -27,7 +27,12 @@
+ #define QEMU_CAPS_LOCK_LED   (1 << 2)
+
+ /* in ms */
++#ifdef __LIMBO__
++extern int gui_refresh_interval_default;
++#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
++#else
+ #define GUI_REFRESH_INTERVAL_DEFAULT    30
++#endif //__LIMBO__
+ #define GUI_REFRESH_INTERVAL_IDLE     3000
+
+ /* Color number is match to standard vga palette */
+diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile ./Makefile
+--- /tmp/qemu-2.9.1/Makefile	2017-09-07 19:28:14.000000000 +0300
++++ ./Makefile	2018-04-20 12:06:00.321014000 +0300
+@@ -203,7 +203,7 @@
+
+ LIBS+=-lz $(LIBS_TOOLS)
+
+-HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
++#HELPERS-$(CONFIG_LINUX) = qemu-bridge-helper$(EXESUF)
+
+ ifdef BUILD_DOCS
+ DOCS=qemu-doc.html qemu-doc.txt qemu.1 qemu-img.1 qemu-nbd.8 qemu-ga.8
+@@ -281,7 +281,7 @@
+                 trace-obj-y)
+
+ ifneq ($(wildcard config-host.mak),)
+-include $(SRC_PATH)/tests/Makefile.include
++#include $(SRC_PATH)/tests/Makefile.include
+ endif
+
+ all: $(DOCS) $(TOOLS) $(HELPERS-y) recurse-all modules
+@@ -378,7 +378,7 @@
+ qemu-nbd$(EXESUF): qemu-nbd.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+ qemu-io$(EXESUF): qemu-io.o $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+
+-qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
++#qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
+
+ fsdev/virtfs-proxy-helper$(EXESUF): fsdev/virtfs-proxy-helper.o fsdev/9p-marshal.o fsdev/9p-iov-marshal.o $(COMMON_LDADDS)
+ fsdev/virtfs-proxy-helper$(EXESUF): LIBS += -lcap
+diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile.target ./Makefile.target
+--- /tmp/qemu-2.9.1/Makefile.target	2017-09-07 19:28:14.000000000 +0300
++++ ./Makefile.target	2018-04-21 00:52:33.104921230 +0300
+@@ -204,8 +204,10 @@
+ COMMON_LDADDS = $(trace-obj-y) ../libqemuutil.a ../libqemustub.a
+
+ # build either PROG or PROGW
+-$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS)
+-	$(call LINK, $(filter-out %.mak, $^))
++#$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS)
++#	$(call LINK, $(filter-out %.mak, $^))
++include ../../android-qemu-build.mak
++
+ ifdef CONFIG_DARWIN
+ 	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
+ 	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
+diff -ru --no-dereference /tmp/qemu-2.9.1/monitor.c ./monitor.c
+--- /tmp/qemu-2.9.1/monitor.c	2017-09-07 19:28:14.000000000 +0300
++++ ./monitor.c	2018-04-20 19:57:02.547072000 +0300
+@@ -1869,6 +1869,14 @@
+ {
+     mon_fd_t *monfd;
+
++#ifdef __LIMBO__
++    //FIXME: The lookup for the fd fails below
++    //  so for now we treat the fdname as the actual fd
++    int fd_tmp = atoi(fdname);
++    if(fd_tmp  > 0)
++    	return fd_tmp;
++#endif //__LIMBO__
++
+     QLIST_FOREACH(monfd, &mon->fds, next) {
+         int fd;
+
+diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
+--- /tmp/qemu-2.9.1/slirp/misc.c	2017-09-07 19:28:14.000000000 +0300
++++ ./slirp/misc.c	2018-04-20 12:05:14.890310000 +0300
+@@ -60,7 +60,7 @@
+ }
+
+
+-#ifdef _WIN32
++#if defined ( _WIN32 ) | defined ( __ANDROID__ )
+
+ int
+ fork_exec(struct socket *so, const char *ex, int do_pty)
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
+--- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/console.c	2018-04-30 10:36:54.068000000 +0300
+@@ -34,6 +34,10 @@
+ #define DEFAULT_BACKSCROLL 512
+ #define CONSOLE_CURSOR_PERIOD 500
+
++#ifdef __LIMBO__
++int gui_refresh_interval_default = 30;
++#endif //__LIMBO__
++
+ typedef struct TextAttributes {
+     uint8_t fgcol:4;
+     uint8_t bgcol:4;
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
+--- /tmp/qemu-2.9.1/ui/sdl2-2d.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/sdl2-2d.c	2018-04-29 10:59:15.610000000 +0300
+@@ -66,7 +66,15 @@
+
+     SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
+                       surface_stride(surf));
+-    SDL_RenderCopy(scon->real_renderer, scon->texture, &rect, &rect);
++    #if defined( __ANDROID__) && defined (__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++    	//Android OPENGL ES needs full screen redraw to remove artifacts
++    	// anyway this should be efficient since hardware should detect only the changes
++        //SDL_SetRenderDrawColor( scon->real_renderer, 0, 0, 0, 255 );
++        SDL_RenderClear( scon->real_renderer );
++        SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
++    #else
++         SDL_RenderCopy(scon->real_renderer, scon->texture, &rect, &rect);
++    #endif //__ANDROID__
+     SDL_RenderPresent(scon->real_renderer);
+ }
+
+@@ -127,6 +135,12 @@
+                                       surface_width(new_surface),
+                                       surface_height(new_surface));
+     sdl2_2d_redraw(scon);
++
++#ifdef __LIMBO__
++    //TODO: Need to send the resolution to Limbo
++    Android_JNI_SetVMResolution(surface_width(new_surface), surface_height(new_surface));
++#endif //__ANDROID__
++
+ }
+
+ void sdl2_2d_refresh(DisplayChangeListener *dcl)
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
+--- /tmp/qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/sdl2.c	2018-04-30 10:29:30.936000000 +0300
+@@ -90,7 +90,15 @@
+                                          surface_width(scon->surface),
+                                          surface_height(scon->surface),
+                                          flags);
++#if defined(__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__)
++    //LIMBO: We can force SOFTWARE rendering when some devices don't HARDWARE acceleration
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_SOFTWARE);
++#elif defined(__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_ACCELERATED);
++#else
+     scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
++#endif
++
+     if (scon->opengl) {
+         scon->winctx = SDL_GL_GetCurrentContext();
+     }
+@@ -768,6 +776,7 @@
+         gui_noframe = 1;
+     }
+
++#ifndef __ANDROID__
+ #ifdef __linux__
+     /* on Linux, SDL may use fbcon|directfb|svgalib when run without
+      * accessible $DISPLAY to open X11 window.  This is often the case
+@@ -780,6 +789,7 @@
+      */
+     setenv("SDL_VIDEODRIVER", "x11", 0);
+ #endif
++#endif
+
+     flags = SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE;
+     if (SDL_Init(flags)) {
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/vnc.c ./ui/vnc.c
+--- /tmp/qemu-2.9.1/ui/vnc.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/vnc.c	2018-04-21 20:59:56.608230467 +0300
+@@ -47,8 +47,19 @@
+ #include "qemu/cutils.h"
+ #include "io/dns-resolver.h"
+
++//LIMBO: we can override the refresh rate for VNC here
++#ifdef __LIMBO__
++int vnc_refresh_interval_base = 30;
++#define VNC_REFRESH_INTERVAL_BASE vnc_refresh_interval_base
++
++int vnc_refresh_interval_inc = 30;
++#define VNC_REFRESH_INTERVAL_INC vnc_refresh_interval_inc
++#else
++
+ #define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
+ #define VNC_REFRESH_INTERVAL_INC  50
++#endif //__LIMBO__
++
+ #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
+ static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
+ static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
+diff -ru --no-dereference /tmp/qemu-2.9.1/util/qemu-openpty.c ./util/qemu-openpty.c
+--- /tmp/qemu-2.9.1/util/qemu-openpty.c	2017-09-07 19:28:14.000000000 +0300
++++ ./util/qemu-openpty.c	2018-04-20 12:05:14.938334000 +0300
+@@ -107,7 +107,9 @@
+         termios_p->c_cc[VTIME] = 0;
+ }
+ #endif
+-
++#ifdef __ANDROID__
++int qemu_openpty_raw(int *aslave, char *pty_name){return -1;}
++#else
+ int qemu_openpty_raw(int *aslave, char *pty_name)
+ {
+     int amaster;
+@@ -135,3 +137,4 @@
+
+     return amaster;
+ }
++#endif
