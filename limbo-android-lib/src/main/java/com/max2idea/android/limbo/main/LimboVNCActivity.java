@@ -424,7 +424,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
     private void onMouseMode() {
 
         String [] items = {"Trackpad Mouse (Phone)",
-				"Touchscreen or Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+				"Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
         };
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
         mBuilder.setTitle("Mouse");
@@ -513,7 +513,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Desktop mode/Touchscreen");
+        alertDialog.setTitle("Desktop mode");
 
         LinearLayout mLayout = new LinearLayout(this);
         mLayout.setPadding(20,20,20,20);

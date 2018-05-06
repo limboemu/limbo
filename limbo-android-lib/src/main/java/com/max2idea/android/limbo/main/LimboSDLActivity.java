@@ -516,7 +516,7 @@ public class LimboSDLActivity extends SDLActivity {
     private void onMouseMode() {
 
         String [] items = {"Trackpad Mouse (Phone)",
-                "Touchscreen or Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+                "Bluetooth/USB Mouse (Desktop mode)", //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
         };
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
         mBuilder.setTitle("Mouse");
@@ -619,7 +619,7 @@ public class LimboSDLActivity extends SDLActivity {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Desktop Mode/Touchscreen");
+        alertDialog.setTitle("Desktop Mode");
 
         LinearLayout mLayout = new LinearLayout(this);
         mLayout.setPadding(20,20,20,20);
@@ -799,11 +799,6 @@ public class LimboSDLActivity extends SDLActivity {
 	private static void toggleKeyboardAndMouse() {
 		//XXX: We need this to grab the keyboard and the mouse
 		//  after resizes on the UI (ctrl-alt-u)
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 		Log.d(TAG, "toggleKeyboardAndMouse");
 		sendCtrlAtlKey(-1);
 	}
@@ -1805,20 +1800,14 @@ public class LimboSDLActivity extends SDLActivity {
 			Thread t = new Thread(new Runnable() {
 				public void run() {
 					try {
-						Thread.sleep(3000);
+						Thread.sleep(2000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
 					//XXX: Notify the UI to start processing
 					// mouse motion
+					toggleKeyboardAndMouse();
 					isResizing = false;
-					new Thread(new Runnable() {
-						public void run() {
-
-							toggleKeyboardAndMouse();
-
-						}
-					}).start();
 				}
 			});
 			t.start();
