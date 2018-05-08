@@ -773,7 +773,7 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				((LimboSDLSurface) mSurface).doResize(false);
 			}
-		}, 1000);
+		}, 1500);
 	}
 
 	private void setZoomIn() {
