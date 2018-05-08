@@ -2014,30 +2014,20 @@ public class LimboActivity extends AppCompatActivity {
 		onLicense();
 	}
 
-    public void cleanup() {
-        LimboActivity.vmexecutor = null;
-        if(this.mMachine!=null) {
-            new Handler(Looper.getMainLooper()).post(new Runnable() {
-                public void run() {
-                    mMachine.setEnabled(true);
-                    mMachine.setSelection(0);
-                    vmStarted = false;
+	public void cleanup() {
+		LimboActivity.vmexecutor = null;
+		if (this.mMachine != null) {
+			vmStarted = false;
 
-                    //set the exit code
-					FileUtils.setExitCode(LimboActivity.this, 1);
+			//set the exit code
+			FileUtils.setExitCode(LimboActivity.this, 1);
 
-					//XXX: SDL seems to lock the keyboard events
-                    // unless we finish the starting activity
-					activity.finish();
+			//XXX: SDL seems to lock the keyboard events
+			// unless we finish the starting activity
+			activity.finish();
 
-					vmStarted = false;
-
-                    //XXX: We exit here to force unload the native libs
-                    System.exit(1);
-                }
-            });
-        }
-    }
+		}
+	}
 
     private void createMachine(String machineValue) {
 

@@ -94,14 +94,9 @@ public class LimboService extends Service {
                         //do nothing
                     }
 
-                    releaseLocks();
+					LimboActivity.activity.cleanup();
+
                     stopService();
-                    LimboActivity.activity.cleanup();
-//                    NotificationManager notificationManager = (NotificationManager) service.getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
-//                    notificationManager.cancelAll();
-                    //service.stopSelf();
-					// LimboActivity.sendHandlerMessage(LimboActivity.OShandler,
-					// Const.VM_STOPPED);
 
 				}
 			});
@@ -256,8 +251,29 @@ public class LimboService extends Service {
     }
 
     public static void stopService() {
-        service.stopForeground(true);
-		service.stopSelf();
+
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+				releaseLocks();
+				service.stopForeground(true);
+				service.stopSelf();
+
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+
+				Log.v(TAG, "Exit");
+				//XXX: We exit here to force unload the native libs
+				System.exit(0);
+
+			}
+		});
+		t.setName("VMExecutor");
+		t.start();
+
+
 	}
 
 }
