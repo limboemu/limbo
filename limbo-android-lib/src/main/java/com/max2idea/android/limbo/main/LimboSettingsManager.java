@@ -116,7 +116,7 @@ public class LimboSettingsManager extends PreferenceActivity {
 	
 	public static boolean getPromptUpdateVersion(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getBoolean("updateVersionPrompt", true);
+		return prefs.getBoolean("updateVersionPrompt", Config.defaultCheckNewVersion);
 	}
 	
 

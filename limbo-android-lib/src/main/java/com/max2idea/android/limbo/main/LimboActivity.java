@@ -89,11 +89,6 @@ import com.max2idea.android.limbo.utils.OSDialogBox;
 import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -102,9 +97,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -1935,18 +1932,14 @@ public class LimboActivity extends AppCompatActivity {
 			return;
 		}
 
-		HttpClient client;
-		HttpGet get = null;
-		HttpResponse response;
-		HttpEntity entity = null;
+		HttpURLConnection conn;
 		InputStream is = null;
 		try {
-			client = new DefaultHttpClient();
-			get = new HttpGet(Config.downloadUpdateLink);
-			response = client.execute(get);
-			entity = response.getEntity();
+			URL url = new URL(Config.downloadUpdateLink);
+			conn = (HttpURLConnection) url.openConnection();
 
-			is = entity.getContent();
+			conn.connect();
+			is = conn.getInputStream();
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
 			int read = 0;
@@ -1980,18 +1973,14 @@ public class LimboActivity extends AppCompatActivity {
 					e.printStackTrace();
 				}
 			}
-			if (entity != null) {
+			if (is != null) {
 				try {
-					entity.consumeContent();
+					is.close();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			if (get != null) {
-				get.abort();
-			}
-
 		}
 	}
 

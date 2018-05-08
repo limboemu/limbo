@@ -201,4 +201,7 @@ public class Config {
         Trackpad, External
     }
     public static MouseMode mouseMode = MouseMode.Trackpad;
+
+    //Change to true in prod if you want to be notified by default for new versions
+	public static boolean defaultCheckNewVersion = true;
 }
