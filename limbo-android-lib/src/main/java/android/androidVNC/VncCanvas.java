@@ -879,6 +879,14 @@ public class VncCanvas extends ImageView {
             useMiddleButton = true;
         }
 
+		if(Config.mouseMode == Config.MouseMode.External
+				&& MotionEvent.TOOL_TYPE_FINGER == evt.getToolType(0))
+			return true;
+
+		if(Config.mouseMode == Config.MouseMode.Trackpad
+				&& MotionEvent.TOOL_TYPE_MOUSE == evt.getToolType(0))
+			return true;
+
 		return processPointerEvent((int) evt.getX(), (int) evt.getY(), evt.getAction(), evt.getMetaState(), downEvent,
 				useRightButton, useMiddleButton, false);
 	}
