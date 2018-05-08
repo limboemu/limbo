@@ -248,17 +248,7 @@ public class LimboActivity extends AppCompatActivity {
                 UIUtils.toastShort(LimboActivity.this, "VM Paused");
 
 			}
-			if (messageType != null && messageType == Config.VM_RESUMED) {
-                UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
-			}
-			if (messageType != null && messageType == Config.VM_STARTED) {
-				if (!vmStarted) {
-                    UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
-				}
-				enableNonRemovableDeviceOptions(false);
-				mStart.setImageResource(R.drawable.play);
 
-			}
 			if (messageType != null && messageType == Config.VM_STOPPED) {
                 UIUtils.toastShort(LimboActivity.this, "VM Shutdown");
 				mStart.setImageResource(R.drawable.play);
@@ -2036,6 +2026,12 @@ public class LimboActivity extends AppCompatActivity {
                     //set the exit code
 					FileUtils.setExitCode(LimboActivity.this, 1);
 
+					//XXX: SDL seems to lock the keyboard events
+                    // unless we finish the starting activity
+					activity.finish();
+
+					vmStarted = false;
+
                     //XXX: We exit here to force unload the native libs
                     System.exit(1);
                 }
@@ -2387,6 +2383,25 @@ public class LimboActivity extends AppCompatActivity {
 
 		vmexecutor.paused = currMachine.paused;
 
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				if (vmStarted) {
+					//do nothing
+				}else if (vmexecutor.paused == 1) {
+					UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
+					vmStarted = true;
+				} else {
+					if (!vmStarted) {
+						UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
+					}
+					enableNonRemovableDeviceOptions(false);
+					mStart.setImageResource(R.drawable.play);
+					vmStarted = true;
+				}
+			}
+		});
+
 
 		if (mUI.getSelectedItemPosition() == 0) { // VNC
 			vmexecutor.enableqmp = 1; // We enable qemu monitor
@@ -2410,19 +2425,6 @@ public class LimboActivity extends AppCompatActivity {
 		}
 
 		execTimeListener();
-
-		if (vmStarted) {
-            //do nothing
-        }else if (vmexecutor.paused == 1) {
-            sendHandlerMessage(handler, Config.VM_RESUMED);
-            vmStarted = true;
-        }
-        else {
-            sendHandlerMessage(handler, Config.VM_STARTED);
-            vmStarted = true;
-        }
-
-
 
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			public void run() {
