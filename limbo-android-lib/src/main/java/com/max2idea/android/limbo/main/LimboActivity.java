@@ -2959,13 +2959,19 @@ public class LimboActivity extends AppCompatActivity {
 
 		TextView textView = new TextView(activity);
 		textView.setVisibility(View.VISIBLE);
-		textView.setPadding(20,20,20,20);		textView.setText(
-				"Warning! Enabling Shared folder is a buggy feature does not work well under Limbo. " +
-						"\nMake sure you have a backup of your files under the shared directory. " +
+		textView.setPadding(20,20,20,20);
+		textView.setText(
+				"Warning! Enabling Shared folder is buggy under Limbo. " +
+						"\nIf you use Storage Cleaning apps exclude this folder. " +
+						"\nMake sure you keep a backup of your files. " +
 						"\nPausing the Virtual Machine is not supported with this feature." +
-						"\nIf you experience crashes disable this option. Do you want to continue?");
+						"\nIf you experience crashes disable this option. " +
+						"\nDo you want to continue?");
 
-		alertDialog.setView(textView);
+		ScrollView scrollView = new ScrollView(activity);
+		scrollView.addView(textView);
+
+		alertDialog.setView(scrollView);
 		final Handler handler = this.handler;
 
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
