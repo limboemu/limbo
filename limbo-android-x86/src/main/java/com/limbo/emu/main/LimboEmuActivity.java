@@ -10,7 +10,9 @@ public class LimboEmuActivity extends LimboActivity {
     public void onCreate(Bundle bundle) {
         Config.enable_X86 = true;
         Config.enable_X86_64 = true;
+        Config.enable_KVM = false;
         //Config.enableMTTCG = true;
+        Config.logFilePath = Config.storagedir + "/limbo/limbo-x86-log.txt";
 
         Config.osImages.put("DSL Linux", "http://limboemulator.weebly.com/dsl-linux.html");
         Config.osImages.put("Debian Linux", "http://limboemulator.weebly.com/debian-linux.html");

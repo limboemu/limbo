@@ -658,7 +658,12 @@ public class VMExecutor {
 	public void addDrives(ArrayList<String> paramsList) {
 		if (hda_img_path != null) {
 			paramsList.add("-drive"); //empty
-			String param = "index=0,if=ide";
+			String param = "index=0";
+			if(Config.enable_hd_if) {
+				param +=",if=";
+				param += Config.hd_if_type;
+			}
+			param +=",media=disk";
 			if (!hda_img_path .equals("")) {
 				param += ",file="+hda_img_path ;
 			}
@@ -667,7 +672,12 @@ public class VMExecutor {
 
 		if (hdb_img_path != null) {
 			paramsList.add("-drive"); //empty
-			String param = "index=1,if=ide";
+			String param = "index=1";
+			if(Config.enable_hd_if) {
+				param +=",if=";
+				param += Config.hd_if_type;
+			}
+			param +=",media=disk";
 			if (!hdb_img_path .equals("")) {
 				param += ",file="+hdb_img_path ;
 			}
@@ -676,7 +686,12 @@ public class VMExecutor {
 
 		if (hdc_img_path != null) {
 			paramsList.add("-drive"); //empty
-			String param = "index=2,if=ide";
+			String param = "index=2";
+			if(Config.enable_hd_if) {
+				param +=",if=";
+				param += Config.hd_if_type;
+			}
+			param +=",media=disk";
 			if (!hdc_img_path .equals("")) {
 				param += ",file="+hdc_img_path ;
 			}
@@ -685,7 +700,12 @@ public class VMExecutor {
 
 		if (hdd_img_path != null) {
 			paramsList.add("-drive"); //empty
-			String param = "index=3,if=ide";
+			String param = "index=3";
+			if(Config.enable_hd_if) {
+				param +=",if=";
+				param += Config.hd_if_type;
+			}
+			param +=",media=disk";
 			if (!hdd_img_path .equals("")) {
 				param += ",file="+hdd_img_path ;
 			}
@@ -694,7 +714,12 @@ public class VMExecutor {
 
 		if (cd_iso_path!= null) {
 			paramsList.add("-drive"); //empty
-			String param = "index=2,media=cdrom";
+			String param = "index=2";
+			if(Config.enable_hd_if) {
+				param +=",if=";
+				param += Config.hd_if_type;
+			}
+			param +=",media=cdrom";
 			if (!cd_iso_path.equals("")) {
 				param += ",file="+cd_iso_path;
 			}
@@ -730,8 +755,14 @@ public class VMExecutor {
 
 		if (shared_folder_path != null) { //We use hdd to mount any virtual fat drives
 			paramsList.add("-drive"); //empty
-			String driveParams = "index=3,media=disk,format=raw,file=fat:";
-//			if(shared_folder_readonly == 0)
+			String driveParams = "index=3";
+			driveParams += ",media=disk";
+			if(Config.enable_hd_if) {
+				driveParams +=",if=";
+				driveParams += Config.hd_if_type;
+			}
+			driveParams+=",format=raw";
+			driveParams+=",file=fat:";
 			driveParams+="rw:"; //Always Read/Write
 			driveParams+=shared_folder_path;
 			paramsList.add(driveParams);

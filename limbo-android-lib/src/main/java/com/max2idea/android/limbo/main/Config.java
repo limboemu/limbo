@@ -100,7 +100,7 @@ public class Config {
 	public static boolean enable_sparc = false;
 	
 	//Enable if you build with KVM support, needes android-21 platform
-	public static final boolean enable_KVM = true;
+	public static boolean enable_KVM = false;
 	
 	public static final boolean enable_qemu_fullScreen = true;
 	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
@@ -201,6 +201,9 @@ public class Config {
         Trackpad, External
     }
     public static MouseMode mouseMode = MouseMode.Trackpad;
+
+    public static boolean enable_hd_if = true;
+	public static String hd_if_type = "ide";
 
     //Change to true in prod if you want to be notified by default for new versions
 	public static boolean defaultCheckNewVersion = true;
