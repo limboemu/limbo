@@ -1666,7 +1666,7 @@ public class LimboSDLActivity extends SDLActivity {
 		public synchronized void doResize(boolean reverse) {
 			//XXX: notify the UI not to process mouse motion
 			isResizing = true;
-			Log.v(TAG, "doResize");
+			//Log.v(TAG, "doResize");
 
 			Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
 			int height = 0;
@@ -1759,12 +1759,12 @@ public class LimboSDLActivity extends SDLActivity {
 			} else if (event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
 				return false;
 			} else if (event.getAction() == KeyEvent.ACTION_DOWN) {
-				Log.v("SDL", "key down: " + keyCode);
+				//Log.v("SDL", "key down: " + keyCode);
 				if (!handleMissingKeys(keyCode, event.getAction()))
 					SDLActivity.onNativeKeyDown(keyCode);
 				return true;
 			} else if (event.getAction() == KeyEvent.ACTION_UP) {
-				Log.v("SDL", "key up: " + keyCode);
+				//Log.v("SDL", "key up: " + keyCode);
 				if (!handleMissingKeys(keyCode, event.getAction()))
 					SDLActivity.onNativeKeyUp(keyCode);
 				return true;
