@@ -80,7 +80,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
 # Uncomment to build for the guest architecture
 # Supported
 #QEMU_TARGET_LIST = i386-softmmu
-QEMU_TARGET_LIST = x86_64-softmmu
+#QEMU_TARGET_LIST = x86_64-softmmu
 #QEMU_TARGET_LIST = arm-softmmu
 #QEMU_TARGET_LIST = ppc-softmmu
 #QEMU_TARGET_LIST = ppc64-softmmu
@@ -89,6 +89,7 @@ QEMU_TARGET_LIST = x86_64-softmmu
 
 # Or create multiple archs
 #QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu,sparc-softmmu
+QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu
 
 
 ################ No modifications below this line are necessary #####################

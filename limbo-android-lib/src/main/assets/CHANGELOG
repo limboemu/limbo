@@ -13,6 +13,7 @@ Limbo v3.0.0 alpha<br>
 - Support for Korean Language (by obbcth)<br>
 - Env supports Android Studio 3.1.1 and above<br>
 - Environment build supports only Ubuntu from now on (no more support for Win/cygwin)<br>
+- Releases only for ARM and x86 devices from now on (though you can still build sparc/ppc)<br>
 - Better drop-in procedures for lib deps and better config Makefiles<br>
 <br>
 
