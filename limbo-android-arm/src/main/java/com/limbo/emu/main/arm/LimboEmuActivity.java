@@ -9,7 +9,7 @@ public class LimboEmuActivity extends LimboActivity {
 
 	public void onCreate(Bundle bundle){
 		Config.enable_ARM = true;
-		Config.enable_KVM = false;
+		Config.enable_KVM = true;
 		Config.hd_if_type = "scsi";
 		//Config.enableMTTCG = true;
 		Config.logFilePath = Config.storagedir + "/limbo/limbo-arm-log.txt";
