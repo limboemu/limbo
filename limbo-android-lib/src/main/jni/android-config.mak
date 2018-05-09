@@ -66,10 +66,10 @@ NDK_ENV = linux-x86_64
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-armv8.mak
 
 ######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
+#include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
 
 ######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
+include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
 
 ######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
 #include $(LIMBO_JNI_ROOT)/android-device-config/android-x86_64.mak
