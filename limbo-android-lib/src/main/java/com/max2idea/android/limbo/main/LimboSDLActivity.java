@@ -1777,13 +1777,14 @@ public class LimboSDLActivity extends SDLActivity {
 		// Touch events
 		public boolean onTouchProcess(View v, MotionEvent event) {
 
-			if(Config.mouseMode == Config.MouseMode.External
-				&& MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0))
-				return true;
-
-			if(Config.mouseMode == Config.MouseMode.Trackpad
-					&& MotionEvent.TOOL_TYPE_MOUSE == event.getToolType(0))
-				return true;
+            //XXX: not reliable with laptop trackpads
+//			if(Config.mouseMode == Config.MouseMode.External
+//				&& MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0))
+//				return true;
+//
+//			if(Config.mouseMode == Config.MouseMode.Trackpad
+//					&& MotionEvent.TOOL_TYPE_MOUSE == event.getToolType(0))
+//				return true;
 
 			// Log.v("onTouch",
 			// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
