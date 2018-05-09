@@ -2026,6 +2026,10 @@ public class LimboActivity extends AppCompatActivity {
 			// unless we finish the starting activity
 			activity.finish();
 
+			Log.v(TAG, "Exit");
+			//XXX: We exit here to force unload the native libs
+			System.exit(0);
+
 		}
 	}
 

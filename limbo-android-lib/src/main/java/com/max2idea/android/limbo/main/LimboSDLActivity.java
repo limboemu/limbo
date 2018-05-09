@@ -45,6 +45,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
@@ -386,6 +387,8 @@ public class LimboSDLActivity extends SDLActivity {
 			Log.v("SDL", "Finished waiting for SDL thread");
 		}
 		this.stopTimeListener();
+
+		LimboActivity.vmexecutor.doStopVM(0);
 		super.onDestroy();
 	}
 
@@ -688,12 +691,13 @@ public class LimboSDLActivity extends SDLActivity {
 						+ "have already shutdown the Operating system from within the VM. Continue?")
 				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
-						new Thread(new Runnable() {
-							public void run() {
-								Log.v("SDL", "VM is stopped");
-								nativeQuit();
-							}
-						}).start();
+						LimboActivity.vmexecutor.stopvm(0);
+//						new Thread(new Runnable() {
+//							public void run() {
+//								Log.v("SDL", "VM is stopped");
+//								nativeQuit();
+//							}
+//						}).start();
 
 					}
 				}).setNegativeButton("No", new DialogInterface.OnClickListener() {

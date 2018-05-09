@@ -798,9 +798,28 @@ public class VMExecutor {
 	public void stopvm(final int restart) {
 		Log.v(TAG, "Stopping the VM");
 		this.restart = restart;
+
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
+				doStopVM(restart);
+			}
+		}).start();
+	}
+
+	public void doStopVM(final int restart) {
+
+				if(restart==0) {
+					LimboService.stopService();
+
+					//XXX: Wait till service goes down
+					try {
+						Thread.sleep(2000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+
 				if(restart != 0){
 					QmpClient.sendCommand(QmpClient.reset());
 				} else {
@@ -809,9 +828,6 @@ public class VMExecutor {
 					//QmpClient.sendCommand(QmpClient.powerDown());
 					stop(restart);
 				}
-			}
-		}).start();
-
 	}
 
 	public String savevm(String statename) {

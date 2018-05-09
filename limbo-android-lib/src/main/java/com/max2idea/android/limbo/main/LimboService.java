@@ -81,22 +81,14 @@ public class LimboService extends Service {
 
 			Thread t = new Thread(new Runnable() {
 				public void run() {
-										
+
+					//Start vm
 					String res = executor.startvm();
-                    if(ui == Config.UI_VNC){
-                        if(LimboVNCActivity.activity != null)
-                            LimboVNCActivity.activity.finish();
 
-                    } else if(ui == Config.UI_SDL){
-                        if(LimboSDLActivity.activity!= null)
-                            LimboSDLActivity.activity.finish();
-                    } else if(ui == Config.UI_SPICE){
-                        //do nothing
-                    }
-
+					//VM has exited
 					LimboActivity.activity.cleanup();
 
-                    stopService();
+
 
 				}
 			});
@@ -257,16 +249,6 @@ public class LimboService extends Service {
 				releaseLocks();
 				service.stopForeground(true);
 				service.stopSelf();
-
-				try {
-					Thread.sleep(4000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-
-				Log.v(TAG, "Exit");
-				//XXX: We exit here to force unload the native libs
-				System.exit(0);
 
 			}
 		});
