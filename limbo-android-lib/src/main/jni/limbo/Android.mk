@@ -27,6 +27,6 @@ LOCAL_CFLAGS += -fexceptions
 LOCAL_CFLAGS +=  -include $(LOGUTILS) -D__STDC_CONSTANT_MACROS
 LOCAL_ARM_MODE := $(ARM_MODE)
 
-LOCAL_SHARED_LIBRARIES := -lcompaticonv -lcompatintl
+LOCAL_SHARED_LIBRARIES := compat-musl
 
 include $(BUILD_SHARED_LIBRARY)

@@ -40,11 +40,13 @@ void * loadLib(const char * lib_path_str) {
 
 	char res_msg[MAX_STRING_LEN];
 	sprintf(res_msg, "Loading lib: %s", lib_path_str);
-	LOGV(res_msg);
+	LOGV("%s", res_msg);
 	void *ldhandle = dlopen(lib_path_str, RTLD_LAZY);
 	return ldhandle;
 
 }
+
+static __thread int tls_var;
 
 extern "C" void run_tests();
 
@@ -147,7 +149,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
         sprintf(res_msg, "VM Stop Request");
 	}
 
-	LOGV(res_msg);
+	LOGV("%s", res_msg);
 
 	started = restart_int;
 
@@ -165,7 +167,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	if (started) {
 		sprintf(res_msg, "VM Already started");
-		LOGV(res_msg);
+		LOGV("%s", res_msg);
 		return env->NewStringUTF(res_msg);
 	}
 
@@ -198,7 +200,8 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 
 	started = 1;
-	LOGV("Starting VM...");
+	printf("Starting VM...");
+
 
 //LOAD LIB
 	const char *lib_path_str = NULL;
@@ -212,7 +215,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	if (!handle) {
 		sprintf(res_msg, "Error opening lib: %s :%s", lib_path_str, dlerror());
-		LOGV(res_msg);
+		LOGV("%s", res_msg);
 		return env->NewStringUTF(res_msg);
 	}
 #endif
@@ -227,18 +230,17 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	main_t qemu_main = (main_t) dlsym(handle, "main");
 	const char *dlsym_error = dlerror();
 	if (dlsym_error) {
-	    sprintf(res_msg, dlsym_error);
 		LOGE("Cannot load qemu symbol 'main': %s\n", dlsym_error);
 		dlclose(handle);
 		handle = NULL;
-		return env->NewStringUTF(res_msg);
+		return env->NewStringUTF(dlsym_error);
 	}
 
 	qemu_main(argc, argv);
 
 	//UNLOAD LIB
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
-	LOGV(res_msg);
+	LOGV("%s", res_msg);
 	dlclose(handle);
 	handle = NULL;
 	started = 0;
@@ -247,7 +249,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 
 	sprintf(res_msg, "VM shutdown");
-	LOGV(res_msg);
+	LOGV("%s", res_msg);
     return env->NewStringUTF(res_msg);
 }
 }
