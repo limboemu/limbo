@@ -87,6 +87,11 @@ https://github.com/limboemu/limbo
 	dos2unix ../patches/qemu-2.9.1.patch
 	patch -p1 < ../patches/qemu-2.9.1.patch
 
+    ### Apply glib patch for Limbo:
+	cd ./limbo-android-lib/src/main/jni/glib/
+	dos2unix ../patches/glib-2.56.1.patch
+	patch -p1 < ../patches/glib-2.56.1.patch
+
     ### For linux/MacOSX make sure the configure script under .../qemu/configure is executable
     cd ./limbo-android-lib/src/main/jni/
     chmod u+x qemu/configure
