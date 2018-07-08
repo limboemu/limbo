@@ -109,7 +109,9 @@ public class Config {
 	// App config
 	public static final String APP_NAME = "Limbo PC Emulator (QEMU)";
 	public static final String storagedir = Environment.getExternalStorageDirectory().toString();
-	public static final String getCacheDir(Context context){
+    public static boolean enableSMPOnlyOnKVM = true; //Some OSes don't like emulated multi cores
+
+    public static final String getCacheDir(Context context){
 		return context.getCacheDir().toString();
 	}
     public static final String getBasefileDir(Context context) {
@@ -142,7 +144,7 @@ public class Config {
 	//QMP
 	public static String QMPServer = "localhost"; 
 	public static int QMPPort = 4444;
-	//For debugging purposes, make sure you're on a private network
+	//Enable only for debugging purposes, make sure you're on a private network
 	public static boolean enable_QMP_External = false;
 
     public static int MAX_DISPLAY_REFRESH_RATE = 100; //Hz
