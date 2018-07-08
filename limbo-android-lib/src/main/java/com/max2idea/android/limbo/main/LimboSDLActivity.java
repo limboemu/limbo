@@ -716,7 +716,8 @@ public class LimboSDLActivity extends SDLActivity {
 				LimboSDLActivity.stretchToScreen = true;
 				LimboSDLActivity.fitToScreen = false;
                 sendCtrlAltKey(KeyEvent.KEYCODE_F); // not working
-				resize();
+                UIUtils.toastLong(activity, "Resizing Please Wait");
+                resize();
 
 			}
 		}).start();
@@ -734,6 +735,7 @@ public class LimboSDLActivity extends SDLActivity {
 				Log.d(TAG, "onFitToScreen");
 				LimboSDLActivity.stretchToScreen = false;
 				LimboSDLActivity.fitToScreen = true;
+                UIUtils.toastLong(activity, "Resizing Please Wait");
 				resize();
 
 			}
@@ -752,6 +754,7 @@ public class LimboSDLActivity extends SDLActivity {
 				Log.d(TAG, "onNormalScreen");
 				LimboSDLActivity.stretchToScreen = false;
 				LimboSDLActivity.fitToScreen = false;
+                UIUtils.toastLong(activity, "Resizing Please Wait");
 				resize();
 
 			}
@@ -956,10 +959,8 @@ public class LimboSDLActivity extends SDLActivity {
 		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
 				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
-						//close fd
-						//XXX: This is probably not needed since the qemu backend will close the fd
-//						if(LimboActivity.vmexecutor.current_fd >0)
-//							FileUtils.close_fd(LimboActivity.vmexecutor.current_fd);
+
+                        Log.i(TAG, "VM Paused, Shutting Down");
 
 						if (LimboActivity.vmexecutor != null) {
                             LimboActivity.vmexecutor.stopvm(0);
@@ -1028,16 +1029,13 @@ public class LimboSDLActivity extends SDLActivity {
 		if (pause_state.toUpperCase().equals("ACTIVE")) {
 			return pause_state;
 		} else if (pause_state.toUpperCase().equals("COMPLETED")) {
-			// FIXME: We wait for 5 secs to complete the state save not ideal
-			// for large OSes
-			// we should find a way to detect when QMP is really done so we
-			// don't get corrupt file states
+			// FIXME: We wait to complete the state
 			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 				@Override
 				public void run() {
 					pausedVM();
 				}
-			}, 100);
+			}, 4000);
 			return pause_state;
 
 		} else if (pause_state.toUpperCase().equals("FAILED")) {
@@ -1666,7 +1664,7 @@ public class LimboSDLActivity extends SDLActivity {
 		public synchronized void doResize(boolean reverse) {
 			//XXX: notify the UI not to process mouse motion
 			isResizing = true;
-			//Log.v(TAG, "doResize");
+			Log.v(TAG, "Resizing Display");
 
 			Display display = SDLActivity.mSingleton.getWindowManager().getDefaultDisplay();
 			int height = 0;
@@ -1712,7 +1710,13 @@ public class LimboSDLActivity extends SDLActivity {
 				getHolder().setFixedSize(width, height);
 			}
 			initialized = true;
-			isResizing = false;
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    isResizing = false;
+                }
+            }, 2000);
+
 
 
 		}

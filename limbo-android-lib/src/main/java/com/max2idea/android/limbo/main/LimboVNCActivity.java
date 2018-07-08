@@ -103,8 +103,6 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		UIUtils.setupToolBar(this);
 
-		UIUtils.showHints(this);
-
 		setDefaulViewMode();
 
         setUIModeMobile();
@@ -271,6 +269,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
 
+                        Log.i(TAG, "VM Paused, Shutting Down");
                         if (LimboActivity.vmexecutor != null) {
                             LimboActivity.vmexecutor.stopvm(0);
                         } else if (activity.getParent() != null) {
@@ -504,7 +503,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         onFitToScreen();
         onMouse();
 
-        UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
+        //UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
         invalidateOptionsMenu();
     }
 
@@ -1120,16 +1119,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		if (pause_state.toUpperCase().equals("ACTIVE")) {
 			return pause_state;
 		} else if (pause_state.toUpperCase().equals("COMPLETED")) {
-			// FIXME: We wait for 5 secs to complete the state save not ideal
-			// for large OSes
-			// we should find a way to detect when QMP is really done so we
-			// don't get corrupt file states
+            // FIXME: We wait to complete the state
 			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 				@Override
 				public void run() {
 					pausedVM();
 				}
-			}, 100);
+			}, 4000);
 			return pause_state;
 
 		} else if (pause_state.toUpperCase().equals("FAILED")) {
@@ -1174,6 +1170,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         LimboActivity.currMachine.paused = 0;
         MachineOpenHelper.getInstance(activity).update(LimboActivity.currMachine,
                 MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
+		UIUtils.showHints(this);
     }
 
     public void onSelectMenuVNCDisplay() {

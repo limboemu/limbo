@@ -14,7 +14,7 @@ import java.net.Socket;
 
 public class QmpClient {
 
-	private static final String TAG = "QMPClient";
+	private static final String TAG = "QmpClient";
 	private static String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
 
 	public synchronized static String sendCommand(String command) {
@@ -44,7 +44,7 @@ public class QmpClient {
 				trial++;
 			}
 		} catch (java.net.ConnectException e) {
-			Log.e(TAG, "Could not connect: " + e);
+			Log.w(TAG, "Could not connect: " + e);
 		} catch(Exception e) {
 			// TODO Auto-generated catch block
 //			if(Config.debug)

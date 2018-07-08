@@ -316,6 +316,7 @@ public class LimboActivity extends AppCompatActivity {
 				if (status_changed.equals("RUNNING")) {
 					mStatus.setImageResource(R.drawable.on);
 					mStatusText.setText("Running");
+					vmStarted = true;
 				} else if (status_changed.equals("READY") || status_changed.equals("STOPPED")) {
 					mStatus.setImageResource(R.drawable.off);
 					mStatusText.setText("Stopped");
@@ -1835,8 +1836,8 @@ public class LimboActivity extends AppCompatActivity {
 		System.loadLibrary("compat-limbo");
 
         //Glib deps
-        System.loadLibrary("compat-iconv");
-		System.loadLibrary("compat-intl");
+        System.loadLibrary("compat-musl");
+
 
 
         //Glib
@@ -2377,6 +2378,27 @@ public class LimboActivity extends AppCompatActivity {
 
 		vmexecutor.paused = currMachine.paused;
 
+        if (mUI.getSelectedItemPosition() == 0) { // VNC
+            vmexecutor.enableqmp = 1; // We enable qemu monitor
+            startVNC();
+            //we don't flag the VNC as started yet because we need
+            //  to send cont via QEMU console first
+        } else if (mUI.getSelectedItemPosition() == 1) { // SDL
+            // XXX: We need to enable qmp server to be able to save the state
+            // We could do it via the Monitor but SDL for Android
+            // doesn't support multiple Windows
+            vmexecutor.enableqmp = 1;
+            startSDL();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
+                    0 + "");
+        } else if (mUI.getSelectedItemPosition() == 2) { // SPICE
+            startSPICE();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
+                    0 + "");
+        }
+
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
@@ -2384,39 +2406,18 @@ public class LimboActivity extends AppCompatActivity {
 					//do nothing
 				}else if (vmexecutor.paused == 1) {
 					UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
-					vmStarted = true;
 				} else {
 					if (!vmStarted) {
 						UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
 					}
 					enableNonRemovableDeviceOptions(false);
 					mStart.setImageResource(R.drawable.play);
-					vmStarted = true;
 				}
 			}
 		});
 
 
-		if (mUI.getSelectedItemPosition() == 0) { // VNC
-			vmexecutor.enableqmp = 1; // We enable qemu monitor
-			startVNC();
-            //we don't flag the VNC as started yet because we need
-            //  to send cont via QEMU console first
-		} else if (mUI.getSelectedItemPosition() == 1) { // SDL
-			// XXX: We need to enable qmp server to be able to save the state
-			// We could do it via the Monitor but SDL for Android
-			// doesn't support multiple Windows
-			vmexecutor.enableqmp = 1;
-			startSDL();
-            currMachine.paused = 0;
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-                    0 + "");
-		} else if (mUI.getSelectedItemPosition() == 2) { // SPICE
-			startSPICE();
-            currMachine.paused = 0;
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-                    0 + "");
-		}
+
 
 		execTimeListener();
 
@@ -2455,6 +2456,7 @@ public class LimboActivity extends AppCompatActivity {
 
 	private void startVNC() {
 
+		UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
 		VncCanvas.retries = 0;
 		if (!vmStarted) {
 
@@ -3414,7 +3416,7 @@ public class LimboActivity extends AppCompatActivity {
 			}
 
 		} else if (resultCode == Config.VNC_RESET_RESULT_CODE) {
-			Toast.makeText(getApplicationContext(), "Resizing Display", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "Reconnecting");
 			this.startvnc();
 
 		} else if (resultCode == Config.SDL_QUIT_RESULT_CODE) {
@@ -3683,7 +3685,7 @@ public class LimboActivity extends AppCompatActivity {
 	}
 
 	public void connectLocally() {
-        UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
+        //UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
         Intent intent = getVNCIntent();
         startActivityForResult(intent, Config.VNC_REQUEST_CODE);
     }
