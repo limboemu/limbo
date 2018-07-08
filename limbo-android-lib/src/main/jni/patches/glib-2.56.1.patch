@@ -1,0 +1,16 @@
+diff -ru --no-dereference ../glib-2.56.1/configure.ac ./configure.ac
+--- ../glib-2.56.1/configure.ac	2018-04-07 05:35:35.000000000 +0300
++++ ./configure.ac	2018-07-08 12:38:46.323001000 +0300
+@@ -2206,9 +2206,9 @@
+             [AC_LANG_PROGRAM(
+                 [#include <pthread.h>],
+                 [pthread_cond_timedwait_relative_np(NULL, NULL, NULL)])],
+-            [AC_MSG_RESULT(yes)
+-             AC_DEFINE(HAVE_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP,1,
+-                [Have function pthread_cond_timedwait_relative_np])],
++            #[AC_MSG_RESULT(yes)
++            # AC_DEFINE(HAVE_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP,1,
++            #    [Have function pthread_cond_timedwait_relative_np])],
+             [AC_MSG_RESULT(no)])
+         dnl Sets thread names on OS X 10.6, iOS 3.2 (and higher)
+         AC_MSG_CHECKING(for pthread_setname_np(const char*))
