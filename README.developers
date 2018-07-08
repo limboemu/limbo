@@ -219,13 +219,18 @@ https://github.com/limboemu/limbo
 	e. For more instructions and guides visit: 
 		https://github.com/limboemu/limbo
     f. Have fun!
-    	
+
 ===============================================================================
-8. License
+8. Changelog
+See limbo-android-lib/src/main/assets/CHANGELOG for release notes
+
+===============================================================================
+9. License
 
 Limbo PC Emulator is released under GPL v2 License.
 All icons unders /res are from Gnome Project (GPL v2 License)
 See file COPYING under root directory
+and LICENSE under limbo-android-lib/src/main/assets
 
 Other source included are released under their own license please view Licenses under each subdirectory
 

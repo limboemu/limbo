@@ -247,8 +247,10 @@ public class LimboService extends Service {
 		Thread t = new Thread(new Runnable() {
 			public void run() {
 				releaseLocks();
-				service.stopForeground(true);
-				service.stopSelf();
+				if(service!=null) {
+					service.stopForeground(true);
+					service.stopSelf();
+				}
 
 			}
 		});
