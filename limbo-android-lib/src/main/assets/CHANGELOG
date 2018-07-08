@@ -1,4 +1,11 @@
 <br>
+Limbo v3.0.1 beta<br>
+- Fixed issue with loading state being corrupt. Wait till migration file is written<br>
+- Fixed crashing when vm display resizes<br>
+- Compile support for clang<br>
+<br>
+
+<br>
 Limbo v3.0.0 alpha<br>
 - Rebased with QEMU 2.9.1 due to crashes with recent QEMU versions<br>
 - KVM accelerator support fixed for x86 and ARM kernels (needs kernel with KVM support)<br>

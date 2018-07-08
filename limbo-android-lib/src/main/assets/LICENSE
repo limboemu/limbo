@@ -1023,10 +1023,10 @@ libffi 3.2.1: https://sourceware.org/libffi
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-android-ndk-13b/sources/android/support/src/musl-locale/iconv.c
-android-ndk-13b/sources/android/support/src/musl-locale/intl.c
+musl 1.1.19 http://www.musl-libc.org/
 
-    original: https://github.com/rofl0r/musl
+    From: android-ndk-14b/sources/android/support/src/musl-locale/
+    Original: http://git.musl-libc.org/cgit/musl/
 
     musl as a whole is licensed under the following standard MIT license:
 
@@ -1055,37 +1055,64 @@ android-ndk-13b/sources/android/support/src/musl-locale/intl.c
 
     Authors/contributors include:
 
+    A. Wilcox
+    Alex Dowad
     Alexander Monakov
+    Andrew Kelley
     Anthony G. Basile
     Arvid Picciani
+    Bartosz Brachaczek
     Bobby Bingham
     Boris Brezillon
     Brent Cook
     Chris Spiegel
     Clément Vasseur
+    Daniel Micay
+    Daniel Sabogal
+    Daurnimator
+    David Edelsohn
     Denys Vlasenko
+    Dmitry Ivanov
+    Dmitry V. Levin
     Emil Renner Berthing
     Felix Fietkau
     Felix Janda
     Gianluca Anzolin
+    Hauke Mehrtens
+    He X
     Hiltjo Posthuma
     Isaac Dunham
+    Jaydeep Patil
     Jens Gustedt
     Jeremy Huntwork
+    Jo-Philipp Wich
     Joakim Sindholt
     John Spencer
     Josiah Worcester
+    Julien Ramseier
     Justin Cormack
+    Khem Raj
+    Kylie McClain
+    Leah Neukirchen
     Luca Barbato
     Luka Perkov
     M Farkas-Dyck (Strake)
+    Mahesh Bodapati
+    Masanori Ogino
     Michael Forney
+    Mikhail Kremnyov
+    Natanael Copa
     Nicholas J. Kain
     orc
     Pascal Cuoq
+    Petr Hosek
+    Petr Skocik
     Pierre Carrier
+    Reini Urban
     Rich Felker
     Richard Pennington
+    Samuel Holland
+    Shiz
     sin
     Solar Designer
     Stefan Kristiansson
@@ -1094,6 +1121,7 @@ android-ndk-13b/sources/android/support/src/musl-locale/intl.c
     Trutz Behn
     Valentin Ochs
     William Haddon
+    William Pitcock
 
     Portions of this software are derived from third-party works licensed
     under terms compatible with the above MIT license:
@@ -1113,14 +1141,14 @@ android-ndk-13b/sources/android/support/src/musl-locale/intl.c
     and labelled as such in comments in the individual source files. All
     have been licensed under extremely permissive terms.
 
-    The ARM memcpy code (src/string/armel/memcpy.s) is Copyright © 2008
+    The ARM memcpy code (src/string/arm/memcpy_el.S) is Copyright © 2008
     The Android Open Source Project and is licensed under a two-clause BSD
     license. It was taken from Bionic libc, used on Android.
 
-    The implementation of DES for crypt (src/misc/crypt_des.c) is
+    The implementation of DES for crypt (src/crypt/crypt_des.c) is
     Copyright © 1994 David Burren. It is licensed under a BSD license.
 
-    The implementation of blowfish crypt (src/misc/crypt_blowfish.c) was
+    The implementation of blowfish crypt (src/crypt/crypt_blowfish.c) was
     originally written by Solar Designer and placed into the public
     domain. The code also comes with a fallback permissive license for use
     in jurisdictions that may not recognize the public domain.
@@ -1134,15 +1162,16 @@ android-ndk-13b/sources/android/support/src/musl-locale/intl.c
     and/or distribute this code for any purpose with or without fee is
     hereby granted. There is no warranty."
 
-    The x86_64 port was written by Nicholas J. Kain. Several files (crt)
-    were released into the public domain; others are licensed under the
-    standard MIT license terms at the top of this file. See individual
-    files for their copyright status.
+    The x86_64 port was written by Nicholas J. Kain and is licensed under
+    the standard MIT terms.
 
     The mips and microblaze ports were originally written by Richard
     Pennington for use in the ellcc project. The original code was adapted
     by Rich Felker for build system and code conventions during upstream
     integration. It is licensed under the standard MIT terms.
+
+    The mips64 port was contributed by Imagination Technologies and is
+    licensed under the standard MIT terms.
 
     The powerpc port was also originally written by Richard Pennington,
     and later supplemented and integrated by John Spencer. It is licensed
@@ -1156,18 +1185,29 @@ android-ndk-13b/sources/android/support/src/musl-locale/intl.c
     omission of copyright and license comments in each file is in the
     interest of source tree size.
 
-    All public header files (include/* and arch/*/bits/*) should be
-    treated as Public Domain as they intentionally contain no content
-    which can be covered by copyright. Some source modules may fall in
-    this category as well. If you believe that a file is so trivial that
-    it should be in the Public Domain, please contact the authors and
-    request an explicit statement releasing it from copyright.
+    In addition, permission is hereby granted for all public header files
+    (include/* and arch/*/bits/*) and crt files intended to be linked into
+    applications (crt/*, ldso/dlstart.c, and arch/*/crt_arch.h) to omit
+    the copyright notice and permission notice otherwise required by the
+    license, and to use these files without any requirement of
+    attribution. These files include substantial contributions from:
 
-    The following files are trivial, believed not to be copyrightable in
-    the first place, and hereby explicitly released to the Public Domain:
+    Bobby Bingham
+    John Spencer
+    Nicholas J. Kain
+    Rich Felker
+    Richard Pennington
+    Stefan Kristiansson
+    Szabolcs Nagy
 
-    All public headers: include/*, arch/*/bits/*
-    Startup files: crt/*
+    all of whom have explicitly granted such permission.
+
+    This file previously contained text expressing a belief that most of
+    the files covered by the above exception were sufficiently trivial not
+    to be subject to copyright, resulting in confusion over whether it
+    negated the permissions granted in the license. In the spirit of
+    permissive licensing, and of not having licensing issues being an
+    obstacle to adoption, that text has been removed.
 
 compat/limbo_compat_signals.cpp
     Original: https://android.googlesource.com/platform/bionic/+/0c11611/libc/bionic/signalfd.cpp
