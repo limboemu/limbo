@@ -601,8 +601,14 @@ public class VMExecutor {
                 paramsList.add("usb-tablet");
         }
 
-		paramsList.add("-smp");
-		paramsList.add(this.cpuNum+"");
+        //XXX: SMP is not working correctly for some guest OSes
+        //so we enable multi core only under KVM
+        // anyway regular emulation is not gaining any benefit unless mttcg is enabled but that
+        // doesn't work for x86 guests yet
+        if(enablekvm == 1 || !Config.enableSMPOnlyOnKVM) {
+            paramsList.add("-smp");
+            paramsList.add(this.cpuNum + "");
+        }
 
 		if (machine_type != null) {
 			paramsList.add("-M");
