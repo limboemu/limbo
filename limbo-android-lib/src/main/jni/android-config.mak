@@ -40,7 +40,10 @@ BUILD_THREADS = 3
 ############## Build Environment (toolchain)
 
 # Uncomment all lines below if you use Linux to compile
-NDK_ROOT = /home/dev/tools/android-ndk-r13b
+#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r13b
+#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
+#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r15c
+NDK_ROOT = /home/dev/tools/ndk/android-ndk-r17b
 #NDK_ENV = linux-x86
 # or Linux 64bit to compile
 NDK_ENV = linux-x86_64
@@ -80,7 +83,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
 # Uncomment to build for the guest architecture
 # Supported
 #QEMU_TARGET_LIST = i386-softmmu
-#QEMU_TARGET_LIST = x86_64-softmmu
+QEMU_TARGET_LIST = x86_64-softmmu
 #QEMU_TARGET_LIST = arm-softmmu
 #QEMU_TARGET_LIST = ppc-softmmu
 #QEMU_TARGET_LIST = ppc64-softmmu
@@ -89,7 +92,7 @@ include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
 
 # Or create multiple archs
 #QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu,sparc-softmmu
-QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu
+#QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu
 
 
 ################ No modifications below this line are necessary #####################

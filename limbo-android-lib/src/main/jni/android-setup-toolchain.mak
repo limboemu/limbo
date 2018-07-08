@@ -4,7 +4,7 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 TARGET_ARCH = 
 
 ifeq ($(APP_ABI),armeabi-v7a)
-    EABI = arm-linux-androideabi-$(NDK_TOOLCHAIN_VERSION)
+    EABI = arm-linux-androideabi-$(GCC_TOOLCHAIN_VERSION)
     HOST_PREFIX = arm-linux-androideabi
     GNU_HOST = arm-unknown-linux-android
     TARGET_ARCH=arm
@@ -34,21 +34,46 @@ endif
 USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
 TOOLCHAIN_DIR = $(NDK_ROOT)/toolchains/$(EABI)/prebuilt/$(NDK_ENV)
+TOOLCHAIN_CLANG_DIR = $(NDK_ROOT)/toolchains/llvm/prebuilt/$(NDK_ENV)
+
 TOOLCHAIN_PREFIX := $(TOOLCHAIN_DIR)/bin/$(HOST_PREFIX)-
 NDK_PROJECT_PATH := $(LIMBO_JNI_ROOT)/../
+TOOLCHAIN_CLANG_PREFIX := $(TOOLCHAIN_CLANG_DIR)/bin
 
-#NDK Toolchain
-CC=$(TOOLCHAIN_PREFIX)gcc
-AR = $(TOOLCHAIN_PREFIX)ar
-AS=${TOOLCHAIN_PREFIX}as
-LNK = $(TOOLCHAIN_PREFIX)g++
-LD=${TOOLCHAIN_PREFIX}ld
+#$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
+
+ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
+    $(warning clang)
+    ##### CLANG binaries
+    CC=$(TOOLCHAIN_CLANG_PREFIX)/clang
+    #CXX=$(TOOLCHAIN_CLANG_PREFIX)/clang++
+    AR=$(TOOLCHAIN_CLANG_PREFIX)/llvm-ar
+    AS=$(TOOLCHAIN_CLANG_PREFIX)/llvm-as
+    LNK=$(TOOLCHAIN_CLANG_PREFIX)/clang
+    #LD=$(TOOLCHAIN_CLANG_PREFIX)/llvm-ld
+    #NM=$(TOOLCHAIN_CLANG_PREFIX)/llvm-nm
+    NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
+    NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
+else
+    #NDK Toolchain
+    CC=$(TOOLCHAIN_PREFIX)gcc
+    #CXX=$(TOOLCHAIN_CLANG_PREFIX)/g++
+    AR=$(TOOLCHAIN_PREFIX)ar
+    AS=${TOOLCHAIN_PREFIX}as
+    LNK = $(TOOLCHAIN_PREFIX)g++
+    LD=${TOOLCHAIN_PREFIX}ld
+    NM=${TOOLCHAIN_PREFIX}nm
+endif
+
 STRIP = $(TOOLCHAIN_PREFIX)strip
 OBJ_COPY = $(TOOLCHAIN_PREFIX)objcopy
+
+
 AR_FLAGS = crs
 SYSROOT = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)
 SYS_ROOT = --sysroot=$(SYSROOT)
 NDK_INCLUDE = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)/usr/include
+
 
 # INCLUDE_FIXED contains overrides for include files found under the toolchain's /usr/include.
 # Hoping to get rid of those one day, when newer NDK versions are released.
@@ -81,8 +106,13 @@ ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(
 
 # Needed for some c++ source code to compile some ARM 64 disas
 # We don't need them right now
-#STL_INCLUDE := -I$(NDK_ROOT)/sources/cxx-stl/stlport/stlport -D__STDC_CONSTANT_MACROS
+#STL_INCLUDE := -I$(NDK_ROOT)/sources/android/support/include
+#STL_INCLUDE += -I$(NDK_ROOT)/sources/cxx-stl/stlport/stlport
+#STL_INCLUDE += -I$(NDK_ROOT)/sources/cxx-stl/llvm-libc++/include
+#STL_INCLUDE += -I$(NDK_ROOT)/sources/cxx-stl/llvm-libc++abi/include
+#STL_INCLUDE += -D__STDC_CONSTANT_MACROS
 #STL_LIB :=$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI)/libstlport_shared.so
+#STL_LIB :=$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI)/libc++_shared.so
 #CXX=$(TOOLCHAIN_PREFIX)g++
 
 SYSTEM_INCLUDE = \
@@ -91,6 +121,8 @@ SYSTEM_INCLUDE = \
     -I$(LIMBO_JNI_ROOT)/qemu/linux-headers \
     -I$(TOOLCHAIN_DIR_INC)/$(EABI)/include \
     -I$(NDK_INCLUDE) \
+    $(NDK_SYSROOT_INC) \
+    $(NDK_SYSROOT_ARCH_INC) \
     $(STL_INCLUDE) \
     -include $(LOGUTILS) \
     -include $(COMPATUTILS_FD) \

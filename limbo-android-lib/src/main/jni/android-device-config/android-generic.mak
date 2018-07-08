@@ -1,8 +1,18 @@
-# generic
-ARCH_CFLAGS += -lc -lm -llog
+# generic defs
 
-#Standard C 99
-ARCH_CFLAGS += -std=gnu99
+# Version
+GCC_TOOLCHAIN_VERSION=4.9
+
+########## Use GCC
+#NDK_TOOLCHAIN_VERSION=$(GCC_TOOLCHAIN_VERSION)
+#ARCH_CFLAGS += -std=gnu99
+
+########## or CLANG
+NDK_TOOLCHAIN_VERSION=clang
+ARCH_LD_CLANG_FLAGS += -Wc,-shared
+
+#libs
+ARCH_LD_FLAGS += -lc -lm -llog
 
 # Suppress some warnings
 #ARCH_CFLAGS += -Wno-psabi
@@ -13,7 +23,10 @@ ARCH_CFLAGS += -fpic
 
 #Standard Android NDK flags
 ARCH_CFLAGS += -ffunction-sections -funwind-tables -no-canonical-prefixes -fomit-frame-pointer
-ARCH_CFLAGS += -DANDROID -DGL_GLEXT_PROTOTYPES -Wa,--noexecstack -Wformat -Werror=format-security  -Wno-format-security
+
+ARCH_CFLAGS += -DANDROID
+ARCH_CFLAGS += -DGL_GLEXT_PROTOTYPES
+ARCH_CFLAGS += -Wa,--noexecstack -Wformat -Werror=format-security  -Wno-format-security
 
 
 ################## OPTIMIZATION
@@ -22,21 +35,27 @@ ARCH_CFLAGS += -DANDROID -DGL_GLEXT_PROTOTYPES -Wa,--noexecstack -Wformat -Werro
 # you know what you're doing
 ifeq ($(USE_OPTIMIZATION),true)
 
-    # QEMU is using O2 by default
-    #ARCH_CFLAGS += -O2
 
-    # Loop optimization might be safe?
-    #ARCH_CFLAGS += -fstrength-reduce
-    #ARCH_CFLAGS += -fforce-addr
-
-    # Faster math might not be safe?
-    #ARCH_CFLAGS += -ffast-math
-
-    # Fast optimizations but maybe crashing apps?
+ifneq ($(NDK_TOOLCHAIN_VERSION),clang)
+    # Loop optimization might not be safe, only for GCC, not for clang
+    ARCH_CFLAGS += -fstrength-reduce
+    ARCH_CFLAGS += -fforce-addr
+    ARCH_CFLAGS += -ffast-math
+    ARCH_CFLAGS += -finline-limit=99999
     #ARCH_CFLAGS += -funsafe-math-optimizations
 
-    #Inline functions limit
-    #ARCH_CFLAGS += -finline-limit=99999
+else
+    # clang we can increase
+    ARCH_CFLAGS += -O3
+endif
+
+#hardening security
+ARCH_CFLAGS += -D_FORTIFY_SOURCE=2
+ARCH_CFLAGS += -fstack-protector-strong -fstack-protector-all
+
+# Or faster code but less security
+#ARCH_CFLAGS += -U_FORTIFY_SOURCE
+#ARCH_CFLAGS += -fno-stack-protector
 
 else
     # we disable optimization make things easier when debugging

@@ -5,13 +5,12 @@ include android-config.mak
 #### QEMU advance options
 
 # we need to specify our own pixman library
-# For 2.3.0, 2.7.0, 2.9.1 pixman is included in QEMU so we request this explicitly
-#PIXMAN
+# For 2.9.x and priror pixman is included in QEMU so we request this explicitly
 PIXMAN = --with-system-pixman
 
-# For QEMU 2.11.0 and above
+# For QEMU 2.11.0 and above we need to disable some features
 #MISC += --disable-capstone
-
+#MISC += --disable-malloc-trim
 
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
@@ -116,6 +115,10 @@ MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
 
+#Stack protector (enabled by default for better security)
+#MISC += --enable-stack-protector
+#MISC += --disable-stack-protector
+
 #Trying nop doesn't work
 #MISC += --enable-trace-backends=nop
 
@@ -161,7 +164,7 @@ SPICE = --disable-spice
 
 WARNING_FLAGS = -Wno-redundant-decls -Wno-unused-variable \
 	-Wno-maybe-uninitialized -Wno-unused-function \
-	-Wunused-but-set-variable
+	-Wunused-but-set-variable -Wno-unknown-warning-option
 	
 ifeq ($(APP_ABI), armeabi)
     QEMU_HOST_CPU = arm
@@ -177,13 +180,14 @@ else ifeq ($(APP_ABI), x86_64)
     QEMU_HOST_CPU = x86_64
 endif
 
-QEMU_LDFLAGS="\
+QEMU_LDFLAGS=\
 	-L$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI) \
 	-lcompat-limbo \
 	-lglib-2.0 \
 	-lpixman-1 \
+	-lc -lm -llog \
 	$(INCLUDE_SYMS) \
-	"
+
 
 config:
 	echo TOOLCHAIN DIR: $(TOOLCHAIN_DIR)
@@ -192,6 +196,7 @@ config:
 	echo USR INCLUDE: $(NDK_INCLUDE)
 	cd ./qemu	; \
 	./configure \
+	--cc=$(CC) \
 	--target-list=$(QEMU_TARGET_LIST) \
 	--cpu=$(QEMU_HOST_CPU) \
 	$(PIXMAN) \
@@ -218,7 +223,11 @@ config:
 	$(COROUTINE_POOL) \
 	$(MISC) \
 	--cross-prefix=$(TOOLCHAIN_PREFIX)- \
-	--extra-ldflags=$(QEMU_LDFLAGS) \
+	--extra-ldflags=\
+	" \
+	$(QEMU_LDFLAGS) \
+	-shared \
+	" \
 	--extra-cflags=\
 	"\
 	$(SYSTEM_INCLUDE) \

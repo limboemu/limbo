@@ -2,6 +2,7 @@ LIMBO_JNI_ROOT := $(CURDIR)/jni
 
 #STL port
 #APP_STL := stlport_shared
+#APP_STL := c++_shared
 
 include $(LIMBO_JNI_ROOT)/android-config.mak
 

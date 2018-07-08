@@ -9,8 +9,7 @@ endif
 glibs=-lglib-2.0
 
 # Not needed right now
-iconvlib=-lcompat-iconv
-intllib=-lcompat-intl
+musllib=-lcompat-musl
 pixmanlib=-lpixman-1
 compatlib=-lcompat-limbo
 fdtlib=../../qemu/dtc/libfdt/libfdt.a
@@ -27,25 +26,34 @@ fdtlib=../../qemu/dtc/libfdt/libfdt.a
 #  to our compatibility library to enable things like opening
 #  files for Android Storage Framework (Lollipop+ devices)
 # TODO: create a rule to RELINK each .o and .a file separately
-qemu-static: $(all-obj-y) $(COMMON_LDADDS)
-	$(AR)  rcs  \
-	../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a \
-	$(sort $(all-obj-y)) $(filter-out %.a, $(COMMON_LDADDS))
-	$(OBJ_COPY) --redefine-sym open=android_open \
+QEMU_UTIL_LIB=../libqemuutil.a
+QEMU_UTIL_STUB=../libqemustub.a
+
+RELINK_QEMUPROG=$(OBJ_COPY) --redefine-sym open=android_open \
 	--redefine-sym fopen=android_fopen \
 	--redefine-sym stat=android_stat \
 	--redefine-sym mkstemp=android_mkstemp \
 	../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a
-	$(OBJ_COPY) --redefine-sym open=android_open \
+
+RELINK_QEMUSTUB=$(OBJ_COPY) --redefine-sym open=android_open \
     --redefine-sym fopen=android_fopen \
     --redefine-sym stat=android_stat \
     --redefine-sym mkstemp=android_mkstemp \
     ../libqemustub.a
-	$(OBJ_COPY) --redefine-sym open=android_open \
-    --redefine-sym fopen=android_fopen \
-    --redefine-sym stat=android_stat \
-    --redefine-sym mkstemp=android_mkstemp \
-    ../libqemuutil.a
+
+RELINK_QEMUUTIL=$(OBJ_COPY) --redefine-sym open=android_open \
+                    --redefine-sym fopen=android_fopen \
+                    --redefine-sym stat=android_stat \
+                    --redefine-sym mkstemp=android_mkstemp \
+                    ../libqemuutil.a
+
+qemu-static: $(all-obj-y) $(COMMON_LDADDS)
+	$(AR)  rcs  \
+	../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a \
+	$(sort $(all-obj-y)) $(filter-out %.a, $(COMMON_LDADDS))
+	$(RELINK_QEMUPROG)
+	$(RELINK_QEMUSTUB)
+	$(RELINK_QEMUUTIL)
 
 # Create our dynamic lib for use with Android
 $(QEMU_PROG): $(all-obj-y) $(COMMON_LDADDS) qemu-static
@@ -59,14 +67,13 @@ $(QEMU_PROG): $(all-obj-y) $(COMMON_LDADDS) qemu-static
 	-Wl,--whole-archive \
 	../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a \
 	-Wl,--no-whole-archive \
-	../libqemuutil.a \
-	../libqemustub.a \
+	$(QEMU_UTIL_LIB) \
+	$(QEMU_UTIL_STUB) \
 	-L../../../obj/local/$(APP_ABI) \
 	$(compatlib) \
 	$(fdtlib) \
 	$(glibs) \
-	$(intllib) \
-	$(iconvlib) \
+	$(musllib) \
 	$(pixmanlib) \
 	$(sdllibs) \
 	$(sdlaudiolibs) \
@@ -75,7 +82,8 @@ $(QEMU_PROG): $(all-obj-y) $(COMMON_LDADDS) qemu-static
 	$(spicelib) \
 	-Wl,--no-whole-archive \
 	$(STL_LIB) \
+	$(ARCH_CLANG_FLAGS) \
 	$(ARCH_LD_FLAGS) \
-	-lc -lgcc -dl -lz -llog \
+	-lc -lgcc -lm -ldl -lz -llog \
 	$(INCLUDE_SYMS) \
 	-o ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).so

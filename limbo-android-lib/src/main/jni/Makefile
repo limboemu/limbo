@@ -107,7 +107,7 @@ COPY_GDB_SETUP_LIBS=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/libs/gdb.setup
 	
 ifneq ($(NDK_DEBUG),1)
-	STRIP_LIBS=$(STRIP) --strip-unneeded  $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
+	STRIP_LIBS=$(STRIP) $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
 endif
 
 DEBUG =
@@ -163,22 +163,29 @@ glib-config: ndk ffi
 	cd $(LIMBO_JNI_ROOT)/glib && cp -rf $(LIMBO_JNI_ROOT)/patches/android.cache . \
 	&& chmod a-w android.cache && ./configure --host=$(GNU_HOST) --cache-file=android.cache \
 	--disable-libmount  --disable-dtrace  --disable-systemtap --with-pcre=internal \
+	--with-libiconv=no \
 	--with-sysroot=$(SYSROOT) $(LIBGLIB_DEBUG) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
+	$(NDK_SYSROOT_INC) \
+	$(NDK_SYSROOT_ARCH_INC) \
 	-I${SYSROOT}/usr/include $(SYS_ROOT) -I${NDK_ROOT}/sources/android/support/include \
-	-I${LIMBO_JNI_ROOT}/compat -I${LIMBO_JNI_ROOT}/compat/intl " \
-	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib \
-	-L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -lcompat-intl -lcompat-iconv -llog -lcompat-limbo " \
+	-I${LIMBO_JNI_ROOT}/compat \
+	-I${LIMBO_JNI_ROOT}/compat/musl -I${LIMBO_JNI_ROOT}/compat/musl/include " \
+	LDFLAGS=" $(ARCH_LD_CLANG_FLAGS) $(ARCH_LD_FLAGS) $(SYS_ROOT) \
+	-L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -lcompat-musl -llog -lcompat-limbo " \
 	LIBFFI_CFLAGS="-I${LIMBO_JNI_ROOT}/libffi/$(GNU_HOST)/include " \
 	LIBFFI_LIBS="${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI)/libffi.a"
 
 glib: ffi
 	cd $(LIMBO_JNI_ROOT)/glib/glib && $(MAKE) -j $(BUILD_THREADS) CFLAGS="$(ARCH_CFLAGS) \
+	$(NDK_SYSROOT_INC) \
+	$(NDK_SYSROOT_ARCH_INC) \
 	-I$(NDK_INCLUDE)  -I${SYSROOT}/usr/include $(SYS_ROOT) \
 	-I${NDK_ROOT}/sources/android/support/include -I${LIMBO_JNI_ROOT}/compat \
-	-I${LIMBO_JNI_ROOT}/compat/intl " \
-	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib  -L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) \
-	-lc -lcompat-intl -lcompat-iconv -llog -lcompat-limbo " \
+	-include ${LIMBO_JNI_ROOT}/compat/musl/compat_iconv.h -I${LIMBO_JNI_ROOT}/compat/musl -I${LIMBO_JNI_ROOT}/compat/musl/include " \
+	LDFLAGS=" $(ARCH_LD_CLANG_FLAGS) $(ARCH_LD_FLAGS) $(SYS_ROOT) -L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) \
+	-lc -lcompat-musl -llog -lcompat-limbo " \
+	-lgcc \
 	LIBFFI_CFLAGS="-I${LIMBO_JNI_ROOT}/libffi/$(GNU_HOST)/include " \
 	LIBFFI_LIBS="${LIMBO_JNI_ROOT}/libffi/$(GNU_HOST)/.libs/libffi.a "
 	$(INSTALL_GLIB_LIBS)
@@ -193,18 +200,22 @@ pixman-config: ndk
 	cd $(LIMBO_JNI_ROOT)/pixman && ./configure --host=$(GNU_HOST) --with-sysroot=$(SYSROOT) \
 	--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2 $(LIBPIXMAN_DEBUG) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
+	$(NDK_SYSROOT_INC) \
+	$(NDK_SYSROOT_ARCH_INC) \
 	-I${SYSROOT}/usr/include $(SYS_ROOT) -I${NDK_ROOT}/sources/android/support/include \
 	-I${NDK_ROOT}/sources/android/cpufeatures -I${LIMBO_JNI_ROOT}/compat " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) \
-	-nostdlib -L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -llog \
+	-L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -llog \
 	-lcompat-limbo "
 
 pixman:
-	cd $(LIMBO_JNI_ROOT)/pixman && $(MAKE) -j $(BUILD_THREADS) \
+	cd $(LIMBO_JNI_ROOT)/pixman/pixman && $(MAKE) -j $(BUILD_THREADS) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE)  -I${SYSROOT}/usr/include \
 	$(SYS_ROOT) -I${NDK_ROOT}/sources/android/support/include \
+	$(NDK_SYSROOT_INC) \
+	$(NDK_SYSROOT_ARCH_INC) \
 	-I${NDK_ROOT}/sources/android/cpufeatures -I${LIMBO_JNI_ROOT}/compat " \
-	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib  \
+	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) \
 	-L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -llog \
 	-lcompat-limbo "
 	$(INSTALL_PIXMAN_LIBS)
@@ -267,6 +278,20 @@ install-ppc:
 	$(COPY_ASSETS_PPC)
 
 install-all: install-x86 install-arm install-ppc install-sparc
+
+make all-release-x86:
+	make clean
+	make ndk
+	make config
+	make release
+	make install-x86
+
+make all-debug-x86:
+	make clean
+	make ndk-debug
+	make config-debug
+	make debug
+	make install-x86
 
 ndk-gdb:
 	-echo $(APP_ABI)
