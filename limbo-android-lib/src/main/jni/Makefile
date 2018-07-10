@@ -280,45 +280,33 @@ install-ppc:
 
 install-all: install-x86 install-arm install-ppc install-sparc
 
-make all-release-x86:
+all-release-x86:
 	make distclean
 	make ndk
 	make config BUILD_GUEST=x86_64-softmmu
 	make release BUILD_GUEST=x86_64-softmmu
 	make install-x86
 
-make all-debug-x86:
+all-debug-x86:
 	make distclean
 	make ndk-debug
 	make config-debug BUILD_GUEST=x86_64-softmmu
 	make debug BUILD_GUEST=x86_64-softmmu
 	make install-x86
 
-make all-release-arm:
+all-release-arm:
 	make distclean
 	make ndk
 	make config BUILD_GUEST=aarch64-softmmu
 	make release BUILD_GUEST=aarch64-softmmu
 	make install-arm
 
-make all-debug-arm:
+all-debug-arm:
 	make distclean
 	make ndk-debug
 	make config-debug BUILD_GUEST=aarch64-softmmu
 	make debug BUILD_GUEST=aarch64-softmmu
 	make install-arm
-
-make all-release-x86-multiarch:
-	make clean
-	make all-release-x86 BUILD_HOST=armeabi-v7a
-	make all-release-x86 BUILD_HOST=arm64-v8a
-	make all-release-x86 BUILD_HOST=x86
-	make all-release-x86 BUILD_HOST=x86_64
-
-make all-release-arm-multiarch:
-	make clean
-	make all-release-x86 BUILD_HOST=armeabi-v7a
-	make all-release-x86 BUILD_HOST=arm64-v8a
 
 ndk-gdb:
 	-echo $(APP_ABI)
