@@ -46,8 +46,6 @@ void * loadLib(const char * lib_path_str) {
 
 }
 
-static __thread int tls_var;
-
 extern "C" void run_tests();
 
 extern "C" {
