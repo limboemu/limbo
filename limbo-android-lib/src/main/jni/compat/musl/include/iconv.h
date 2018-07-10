@@ -27,7 +27,6 @@
  */
 #ifndef NDK_ANDROID_SUPPORT_ICONV_H
 #define NDK_ANDROID_SUPPORT_ICONV_H
-#if !defined(__LP64__)
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,7 +34,6 @@ extern "C" {
 
 #include <stddef.h>
 
-//typedef void* iconv_t;
 struct __iconv_t;
 typedef struct __iconv_t* iconv_t;
 
@@ -47,7 +45,5 @@ int     iconv_close(iconv_t);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-
-#endif // !__LP64__
 
 #endif  // NDK_ANDROID_SUPPORT_ICONV_H
