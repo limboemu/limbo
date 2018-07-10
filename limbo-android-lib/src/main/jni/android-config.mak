@@ -15,8 +15,6 @@ endif
 
 ############### Make Changes below this line ##############
 
-############## Project Config
-
 #The section above this will figure out the current directory on its own
 # though if it doesn't you can specify it here:
 #LIMBO_JNI_ROOT := /home/dev/limbo/workspace_limbo/limbo-android-lib/src/main/jni
@@ -44,56 +42,15 @@ BUILD_THREADS = 3
 #NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
 #NDK_ROOT = /home/dev/tools/ndk/android-ndk-r15c
 NDK_ROOT = /home/dev/tools/ndk/android-ndk-r17b
+
+# Uncomment if you use Linux x86 to compile
 #NDK_ENV = linux-x86
-# or Linux 64bit to compile
+# or Linux 64bit
 NDK_ENV = linux-x86_64
 
-# Uncomment all lines below if you use MacOS to compile
-#NDK_ROOT = /home/dev/tools/android/android-ndk-r12b
+# Uncomment all lines below if you use MacOS to compile, not TESTED
+#NDK_ROOT = /home/dev/tools/android/android-ndk-r17b
 #NDK_ENV = darwin-x86
-
-
-
-############## ANDROID DEVICE CONFIGURATION
-
-#PLATFORM CONFIG
-# Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
-# Note 1: Building for Android ARM host requires ndk13 and android-21
-# Note 2: Building for Android x86 host requires ndk13 and android-21
-# Note 3: Building for Android x86 host w/ KVM support requires ndk13 and android-21
-# Note 4: Building for Android x86_64 host requires ndk13 and android-21
-# Note 5: Building for Android ARM64 host requires ndk13 and android-21
-
-
-######### Armv8 64 bit (Newest ARM phones only, Supports VNC, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-armv8.mak
-
-######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
-
-######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
-
-######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
-#include $(LIMBO_JNI_ROOT)/android-device-config/android-x86_64.mak
-
-
-
-######## Guest Config
-# Uncomment to build for the guest architecture
-# Supported
-#QEMU_TARGET_LIST = i386-softmmu
-QEMU_TARGET_LIST = x86_64-softmmu
-#QEMU_TARGET_LIST = arm-softmmu
-#QEMU_TARGET_LIST = ppc-softmmu
-#QEMU_TARGET_LIST = ppc64-softmmu
-#QEMU_TARGET_LIST = sparc-softmmu
-#QEMU_TARGET_LIST = alpha-softmmu
-
-# Or create multiple archs
-#QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu,ppc-softmmu,sparc-softmmu
-#QEMU_TARGET_LIST = x86_64-softmmu,arm-softmmu
-
 
 ################ No modifications below this line are necessary #####################
 

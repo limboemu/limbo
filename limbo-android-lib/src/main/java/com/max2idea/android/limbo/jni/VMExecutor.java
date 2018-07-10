@@ -147,8 +147,13 @@ public class VMExecutor {
 		this.cpu = machine.cpu;
 		this.libglib = FileUtils.getDataDir() + "/lib/libglib-2.0.so";
 
-		if (machine.arch.endsWith("ARM")) {
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-arm.so";
+		if (machine.arch.endsWith("ARM") || machine.arch.endsWith("ARM64")) {
+            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-aarch64.so";
+            File libFile = new File(libqemu);
+            if (!libFile.exists()) {
+                this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-arm.so";
+                libFile = new File(libqemu);
+            }
 			this.cpu = machine.cpu.split(" ")[0];
 			this.arch = "arm";
 			this.machine_type = machine.machine_type.split(" ")[0];
@@ -165,10 +170,10 @@ public class VMExecutor {
 				this.machine_type = machine.machine_type;
 		} else if (machine.arch.endsWith("x86")) {
 			this.cpu = machine.cpu;
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-i386.so";
+            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
 			File libFile = new File(libqemu);
 			if (!libFile.exists()) {
-				this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
+                this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-i386.so";
 				libFile = new File(libqemu);
 //				if (!libFile.exists()) {
 //					throw new Exception ("Could not find QEMU library: " + libFile.getAbsolutePath());
@@ -427,8 +432,17 @@ public class VMExecutor {
 		addDrives(paramsList);
 
 		if (vga_type != null) {
-			paramsList.add("-vga");
-			paramsList.add(vga_type);
+		    if(vga_type.equals("Default")) {
+		        //do nothing
+            }else if(vga_type.equals("virtio-gpu-pci")){
+                paramsList.add("-device");
+                paramsList.add(vga_type);
+            }else if (vga_type.equals("nographic")){
+                paramsList.add("-nographic");
+            }else {
+                paramsList.add("-vga");
+                paramsList.add(vga_type);
+            }
 		}
 
 		if (this.bootdevice != null) {

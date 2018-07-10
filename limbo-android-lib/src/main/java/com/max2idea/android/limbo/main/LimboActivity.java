@@ -632,7 +632,7 @@ public class LimboActivity extends AppCompatActivity {
 					currMachine.arch = arch;
 					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, arch);
 
-					if (currMachine.arch.equals("ARM")) {
+					if (currMachine.arch.equals("ARM")|| currMachine.arch.equals("ARM64")) {
 
 						if (!machineLoaded) {
 							populateMachineType("integratorcp");
@@ -686,7 +686,9 @@ public class LimboActivity extends AppCompatActivity {
 					}
 
 				if (currMachine != null)
-					if (currMachine.arch.equals("ARM") || currMachine.arch.equals("MIPS")
+					if (currMachine.arch.equals("ARM")
+                            || currMachine.arch.equals("ARM64")
+                            || currMachine.arch.equals("MIPS")
 							|| currMachine.arch.equals("m68k") || currMachine.arch.equals("PPC")
 							|| currMachine.arch.equals("SPARC")) {
 						mACPI.setEnabled(false);
@@ -2056,7 +2058,7 @@ public class LimboActivity extends AppCompatActivity {
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG,
                     "ne2k_pci");
-        } else if (Config.enable_ARM) {
+        } else if (Config.enable_ARM || Config.enable_ARM64) {
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "ARM");
             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
                     "integratorcp");
@@ -3828,14 +3830,21 @@ public class LimboActivity extends AppCompatActivity {
 		String[] arraySpinner = {};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        arrList.add("Default");
 		arrList.add("std");
 		arrList.add("cirrus");
 		arrList.add("vmware");
 
+
 		if (Config.enable_SPICE)
 			arrList.add("qxl");
 
-		// Add XEN
+		if(Config.enable_ARM || Config.enable_ARM64){
+            arrList.add("virtio-gpu-pci");
+        }
+
+        arrList.add("nographic");
+                // Add XEN
 		// "xenfb",
 		// None for console only
 		// "none"
@@ -3946,7 +3955,8 @@ public class LimboActivity extends AppCompatActivity {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 			} else if (currMachine.arch.equals("x64")) {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-			} else if (currMachine.arch.equals("ARM")) {
+			} else if (currMachine.arch.equals("ARM")
+                    || currMachine.arch.equals("ARM64")) {
 				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 				arrList.add("smc91c111");
 			} else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64") ) {
@@ -4550,7 +4560,9 @@ public class LimboActivity extends AppCompatActivity {
 
 		// ARM cpus
 		ArrayList<String> arrARM = new ArrayList<String>();
+        arrARM.add("Default");
 		arrARM.add("arm926");
+        arrARM.add("arm920t");
 		arrARM.add("arm946");
 		arrARM.add("arm1026");
 		arrARM.add("arm1136");
@@ -4558,10 +4570,33 @@ public class LimboActivity extends AppCompatActivity {
 		arrARM.add("arm1176");
 		arrARM.add("arm11mpcore");
 		arrARM.add("cortex-m3");
-		arrARM.add("cortex-a8");
-		arrARM.add("cortex-a8-r2");
+        arrARM.add("cortex-m4");
+        arrARM.add("cortex-m5");
+        arrARM.add("cortex-a7");
+        arrARM.add("cortex-a8");
 		arrARM.add("cortex-a9");
 		arrARM.add("cortex-a15");
+        arrARM.add("cortex-r5");
+        arrARM.add("pxa250");
+        arrARM.add("pxa255");
+        arrARM.add("pxa260");
+        arrARM.add("pxa261");
+        arrARM.add("pxa262");
+        arrARM.add("pxa270-a0");
+        arrARM.add("pxa270-a1");
+        arrARM.add("pxa270");
+        arrARM.add("pxa270-b0");
+        arrARM.add("pxa270-b1");
+        arrARM.add("pxa270-c0");
+        arrARM.add("pxa270-c5");
+        arrARM.add("sa1100");
+        arrARM.add("sa1110");
+        arrARM.add("ti925t");
+
+        ArrayList<String> arrARM64 = new ArrayList<String>();
+        arrARM.add("Default");
+        arrARM64.add("cortex-a53");
+        arrARM64.add("cortex-a57");
 
 		// Mips cpus
 		ArrayList<String> arrMips = new ArrayList<String>();
@@ -5056,6 +5091,8 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.addAll(arrX86_64);
 			} else if (currMachine.arch.equals("ARM")) {
 				arrList.addAll(arrARM);
+            } else if (currMachine.arch.equals("ARM64")) {
+                arrList.addAll(arrARM64);
 			} else if (currMachine.arch.equals("MIPS")) {
 				arrList.addAll(arrMips);
 			} else if (currMachine.arch.equals("PPC")) {
@@ -5107,6 +5144,8 @@ public class LimboActivity extends AppCompatActivity {
 
 		if (Config.enable_ARM)
 			arrList.add("ARM");
+        if (Config.enable_ARM64)
+            arrList.add("ARM64");
 
 		if (Config.enable_MIPS)
 			arrList.add("MIPS");
@@ -5135,51 +5174,7 @@ public class LimboActivity extends AppCompatActivity {
 	private void populateMachineType(String machineType) {
 
 		String[] arraySpinner = {
-				// "None", "Default"
 
-				// "beagle - Beagle board (OMAP3530)",
-				// "beaglexm - Beagle board XM (OMAP3630)",
-				//// "collie - Collie PDA (SA-1110)",
-				// "nuri - Samsung NURI board (Exynos4210)",
-				// "smdkc210 - Samsung SMDKC210 board (Exynos4210)",
-				//// "connex - Gumstix Connex (PXA255)",
-				//// "verdex - Gumstix Verdex (PXA270)",
-				//// "highbank - Calxeda Highbank (ECX-1000)",
-				// "integratorcp - ARM Integrator/CP (ARM926EJ-S) (default)",
-				//// "mainstone - Mainstone II (PXA27x)",
-				//// "musicpal - Marvell 88w8618 / MusicPal (ARM926EJ-S)",
-				// "n800 - Nokia N800 tablet aka. RX-34 (OMAP2420)", "n810 -
-				// Nokia N810 tablet aka. RX-44 (OMAP2420)",
-				// "n900 - Nokia N900 (OMAP3)", "netduino2 - Netduino 2
-				// Machine",
-				//// "sx1 - Siemens SX1 (OMAP310) V2",
-				//// "sx1-v1 - Siemens SX1 (OMAP310) V1",
-				//// "overo - Gumstix Overo board (OMAP3530)",
-				//// "cheetah - Palm Tungsten|E aka. Cheetah PDA (OMAP310)",
-				//// "realview-eb - ARM RealView Emulation Baseboard
-				// (ARM926EJ-S)",
-				//// "realview-eb-mpcore - ARM RealView Emulation Baseboard
-				// (ARM11MPCore)",
-				// //"realview-pb-a8 - ARM RealView Platform Baseboard for
-				// Cortex-A8",
-				// "realview-pbx-a9 - ARM RealView Platform Baseboard Explore
-				// for Cortex-A9",
-				//// "akita - Akita PDA (PXA270)",
-				//// "spitz - Spitz PDA (PXA270)",
-				// "smdkc210 - Samsung SMDKC210 board (Exynos4210)",
-				//// "borzoi - Borzoi PDA (PXA270)",
-				//// "terrier - Terrier PDA (PXA270)",
-				//// "lm3s811evb - Stellaris LM3S811EVB",
-				//// "lm3s6965evb - Stellaris LM3S6965EVB",
-				//// "tosa - Tosa PDA (PXA255)",
-				// "versatilepb - ARM Versatile/PB (ARM926EJ-S)", "versatileab -
-				// ARM Versatile/AB (ARM926EJ-S)",
-				// "vexpress-a9 - ARM Versatile Express for Cortex-A9",
-				// "vexpress-a15 - ARM Versatile Express for Cortex-A15", "virt
-				// - ARM Virtual Machine",
-				// "xilinx-zynq-a9 - Xilinx Zynq Platform Baseboard for
-				// Cortex-A9",
-				//// "z2 - Zipit Z2 (PXA27x)",
 		};
 
 		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
@@ -5221,7 +5216,7 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.add("isapc");
 				arrList.add("none");
 
-			} else if (currMachine.arch.equals("ARM")) {
+			} else if (currMachine.arch.equals("ARM")|| currMachine.arch.equals("ARM64")) {
 				arrList.add("akita");
 				arrList.add("ast2500-evb");
 				arrList.add("borzoi");
@@ -5269,7 +5264,9 @@ public class LimboActivity extends AppCompatActivity {
 				arrList.add("virt");
 				arrList.add("virt-2.9");
 				arrList.add("xilinx-zynq-a9");
-				arrList.add("z2");
+                arrList.add("xlnx-ep108");
+                arrList.add("xlnx-zcu102");
+                arrList.add("z2");
 
 			} else if (currMachine.arch.equals("MIPS")) {
 				arrList.add("malta");

@@ -2,6 +2,8 @@
 
 include android-config.mak
 
+QEMU_TARGET_LIST = $(BUILD_GUEST)
+
 #### QEMU advance options
 
 # we need to specify our own pixman library

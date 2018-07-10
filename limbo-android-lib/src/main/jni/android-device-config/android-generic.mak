@@ -49,11 +49,11 @@ else
     ARCH_CFLAGS += -O3
 endif
 
-#hardening security
+# Hardening security but slow performance is the best option for now
 ARCH_CFLAGS += -D_FORTIFY_SOURCE=2
 ARCH_CFLAGS += -fstack-protector-strong -fstack-protector-all
 
-# Or faster code but less security
+# Uncomment to get a slight performance boost but with less security
 #ARCH_CFLAGS += -U_FORTIFY_SOURCE
 #ARCH_CFLAGS += -fno-stack-protector
 

@@ -14,7 +14,7 @@ https://github.com/limboemu/limbo
 2. Requirements:
 
     Android SDK
-    Android NDK r13b/GCC 4.9
+    Android NDK r17b/clang
     Android Studio (3.1.1 prefered)
     Android device with Android OS 5.0 (Lollipop) and above
     Linux Desktop pc (Ubuntu prefered)
@@ -35,7 +35,7 @@ https://github.com/limboemu/limbo
     b. Configure your PATH variable add the NDK Directory so makefile can find ndk-build
     Examples:
     For bash:
-    export PATH=$PATH:/home/dev/tools/android/android-ndk-r13b
+    export PATH=$PATH:/home/dev/tools/ndk/android-ndk-r17b
 
 5. Get and Patch libraries
 
@@ -109,42 +109,38 @@ https://github.com/limboemu/limbo
 5. Build
 
 	a. To build the NDK part of the app make sure you're under the jni directory:
-        cd /home/youraccount/.../limbo-android-lib/src/main/jni
-        
-         
-	Make sure you update the android-config.mak file:
-    NDK_ROOT = /home/dev/tools/bin/android-ndk-r13b-windows-x86_64/android-ndk-r13b
-        
-    If you want to build the x86, ARM,Sparc,PowerPC Emulator update android-config.mak file with one of these:
-    TARGET_LIST = x86_64-softmmu
-    TARGET_LIST = arm-softmmu
-    TARGET_LIST = sparc-softmmu
-	TARGET_LIST = ppc-softmmu
+        cd limbo-android-lib/src/main/jni
 
-	or multiple guest architectures to save time during compilation:
-	TARGET_LIST = x86_64-softmmu,arm-softmmu
+	Make sure you update the android-config.mak file with the NDK path you have installed:
+    NDK_ROOT = /home/dev/tools/ndk/android-ndk-r17b
 
     b. From Android Studio import BOTH the Android library limbo-android-lib AND the submodule for the guest
     	architecture you need (x86,arm,ppc,sparc) ie limbo-android-x86.
     	
-    c. Build the static and shared libraries under ../limbo-android-lib/src/main/jni:
-
-        Update android-config.mak:
-            include android-armv7a.mak for arm phones
-            Or android-x86.mak for x86 devices (zenfone 2, Chromebook, Android-x86)
-
+    c. Build the native libraries:
+        cd limbo-android-lib/src/main/jni:
         make clean
-        make ndk
-        make config
-        make release
-        make install-x86
 
-        If you want to build for arm, sparc, or ppc emulator use instead:
-        make install-arm, -sparc, -ppc
+        To build Limbo x86 Emulator:
+            make all-<BUILD_TYPE>-<GUEST_ARCH> BUILD_HOST=<EABI>
+        where:
+            GUEST_ARCH is the Emulator type: arm, x86
+            EABI is the Android device type: armeabi-v7a, arm64-v8a, x86, x86_64
+            BUILD_TYPE is the binary type: release, debug
+
+        Examples:
+        To build Limbo x86 Emulator for ARM phones type:
+   		    make all-release-x86 BUILD_HOST=armeabi-v7a
+   		To build Limbo x86 Emulator for ARM64 phones type:
+            make all-release-x86 BUILD_HOST=arm64-v8a
+        To build Limbo ARM Emulator for ARM64 phones type:
+            make all-release-arm BUILD_HOST=arm64-v8a
+        To build Limbo ARM Emulator for ARM64 phones for debugging purposes type:
+            make all-debug-arm BUILD_HOST=arm64-v8a
 
    		You should now have the following libraries build under:
 
-   		limbo-android-lib/src/main/jniLibs/armeabi
+   		limbo-android-lib/src/main/jniLibs/<EABI>
    		    libcompat-iconv.so
    		    libcompat-intl.so
    		    libcompat-limbo.so
@@ -154,8 +150,8 @@ https://github.com/limboemu/limbo
    		    libpixman-1.so
    		    libSDL2.so
 
-   		limbo-android-x86/src/main/jniLibs/armeabi/
-   		    libqemu-system-x86_64.so
+   		limbo-android-x86/src/main/jniLibs/<EABI>
+   		    libqemu-system-xxx.so
 
     d. Build the Android apk for the corresponding guest using Android Studio.
         Make sure the *.so libraries are zipped in the final .apk
@@ -168,12 +164,7 @@ https://github.com/limboemu/limbo
    			with no optimization:
    			USE_OPTIMIZATION ?= false
 
-        Type:
-   		    make clean
-   		    make ndk-debug
-   		    make config-debug
-   		    make debug
-   		    make install-x86
+        Follow the steps to build the native libraries as described above
 
    		From Android studio Build> Make Project and Run > Debug
    			
@@ -209,6 +200,8 @@ https://github.com/limboemu/limbo
 	    limbo-android-lib/src/main/jni/android-qemu-build.mak
 
 	e. Device specific flags can be found under directory android-device-config/
+        The default compiler is now clang
+        You can modify android-generic.mak to use gcc
 
 	f. Frontend UI options configuration see: Config.java
     	

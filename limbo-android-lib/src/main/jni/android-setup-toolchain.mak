@@ -1,6 +1,29 @@
 # DO NOT MODIFY THIS FILE
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
+#PLATFORM CONFIG
+# Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
+# Note 1: Building for Android ARM host requires ndk17b and android-21
+# Note 2: Building for Android x86 host requires ndk17b and android-21
+# Note 3: Building for Android x86 host w/ KVM support requires ndk17b and android-21
+# Note 4: Building for Android x86_64 host requires ndk17b and android-21
+# Note 5: Building for Android ARM64 host requires ndk17b and android-21
+
+
+ifeq ($(BUILD_HOST), arm64-v8a)
+######### Armv8 64 bit (Newest ARM phones only, Supports VNC, Needs android-21)
+include $(LIMBO_JNI_ROOT)/android-device-config/android-armv8.mak
+else ifeq ($(BUILD_HOST), armeabi-v7a)
+######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-21)
+include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
+else ifeq ($(BUILD_HOST), x86)
+######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-21)
+include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
+else ifeq ($(BUILD_HOST), x86_64)
+######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
+include $(LIMBO_JNI_ROOT)/android-device-config/android-x86_64.mak
+endif
+
 TARGET_ARCH = 
 
 ifeq ($(APP_ABI),armeabi-v7a)
@@ -10,19 +33,19 @@ ifeq ($(APP_ABI),armeabi-v7a)
     TARGET_ARCH=arm
     APP_ABI_DIR=$(APP_ABI)
 else ifeq ($(APP_ABI),arm64-v8a)
-    EABI = aarch64-linux-android-$(NDK_TOOLCHAIN_VERSION)
+    EABI = aarch64-linux-android-$(GCC_TOOLCHAIN_VERSION)
     HOST_PREFIX = aarch64-linux-android
     GNU_HOST = aarch64-unknown-linux-android
     TARGET_ARCH=arm64
     APP_ABI_DIR=$(APP_ABI)
 else ifeq ($(APP_ABI),x86)
-    EABI = x86-$(NDK_TOOLCHAIN_VERSION)
+    EABI = x86-$(GCC_TOOLCHAIN_VERSION)
     HOST_PREFIX = i686-linux-android
     GNU_HOST = i686-unknown-linux-android
     TARGET_ARCH=x86
     APP_ABI_DIR=$(APP_ABI)
 else ifeq ($(APP_ABI),x86_64)
-    EABI = x86_64-$(NDK_TOOLCHAIN_VERSION)
+    EABI = x86_64-$(GCC_TOOLCHAIN_VERSION)
     HOST_PREFIX = x86_64-linux-android
     GNU_HOST = x86_64-unknown-linux-android
     TARGET_ARCH=x86_64

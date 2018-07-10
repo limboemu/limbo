@@ -93,6 +93,7 @@ public class Config {
 	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
 	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
 	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
+    public static boolean enable_ARM64 = false; //Enable if you build QEMU with Arm64 softmmu
 	public static boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
 	public static boolean enable_PPC = false; //Enable if you build QEMU with PPC softmmu
     public static boolean enable_PPC64 = false; //Enable if you build QEMU with PPC64 softmmu

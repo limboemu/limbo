@@ -55,13 +55,14 @@ INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 REMOVE_GDBSETUP=rm -f ../libs/$(APP_ABI_DIR)/gdb.setup
 REMOVE_GDBSERVER=rm -f ../libs/$(APP_ABI_DIR)/gdbserver
 
-SYNC_LIBS=rsync -av --delete --delete-excluded --exclude libqemu-system-* ../libs/* ../jniLibs/
+SYNC_LIBS=rsync -av --exclude libqemu-system-* ../libs/* ../jniLibs/
 
 SYNC_LIBS_X86=rsync -av --include='libqemu-system-x86*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
     ../libs/ ../../../../limbo-android-x86/src/main/jniLibs/
 SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' \
+    --include='libqemu-system-aarch64*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
     ../libs/ ../../../../limbo-android-arm/src/main/jniLibs/
@@ -229,7 +230,7 @@ qemu: ndk ffi glib pixman
 	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) all -j $(BUILD_THREADS)
 
 qemu-config: glib pixman
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak BUILD_GUEST=$(BUILD_GUEST)
 
 qemu-clean:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
@@ -280,18 +281,44 @@ install-ppc:
 install-all: install-x86 install-arm install-ppc install-sparc
 
 make all-release-x86:
-	make clean
+	make distclean
 	make ndk
-	make config
-	make release
+	make config BUILD_GUEST=x86_64-softmmu
+	make release BUILD_GUEST=x86_64-softmmu
 	make install-x86
 
 make all-debug-x86:
-	make clean
+	make distclean
 	make ndk-debug
-	make config-debug
-	make debug
+	make config-debug BUILD_GUEST=x86_64-softmmu
+	make debug BUILD_GUEST=x86_64-softmmu
 	make install-x86
+
+make all-release-arm:
+	make distclean
+	make ndk
+	make config BUILD_GUEST=aarch64-softmmu
+	make release BUILD_GUEST=aarch64-softmmu
+	make install-arm
+
+make all-debug-arm:
+	make distclean
+	make ndk-debug
+	make config-debug BUILD_GUEST=aarch64-softmmu
+	make debug BUILD_GUEST=aarch64-softmmu
+	make install-arm
+
+make all-release-x86-multiarch:
+	make clean
+	make all-release-x86 BUILD_HOST=armeabi-v7a
+	make all-release-x86 BUILD_HOST=arm64-v8a
+	make all-release-x86 BUILD_HOST=x86
+	make all-release-x86 BUILD_HOST=x86_64
+
+make all-release-arm-multiarch:
+	make clean
+	make all-release-x86 BUILD_HOST=armeabi-v7a
+	make all-release-x86 BUILD_HOST=arm64-v8a
 
 ndk-gdb:
 	-echo $(APP_ABI)

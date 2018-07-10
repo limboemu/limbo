@@ -9,6 +9,7 @@ public class LimboEmuActivity extends LimboActivity {
 
 	public void onCreate(Bundle bundle){
 		Config.enable_ARM = true;
+        Config.enable_ARM64 = true;
 		Config.enable_KVM = true;
 		Config.hd_if_type = "scsi";
 		//Config.enableMTTCG = true;
@@ -21,6 +22,12 @@ public class LimboEmuActivity extends LimboActivity {
 	}
 
 	protected void loadQEMULib(){
-        System.loadLibrary("qemu-system-arm");
+
+        try {
+            System.loadLibrary("qemu-system-arm");
+        } catch (Error ex) {
+            System.loadLibrary("qemu-system-aarch64");
+        }
+
     }
 }
