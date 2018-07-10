@@ -29,6 +29,8 @@
  */
 #include <signal.h>
 #include "limbo_compat_signals.h"
+#include "syscall.h"
+#include "unistd.h"
 
 typedef union {
     sigset_t   bionic;
@@ -44,5 +46,7 @@ int sigtimedwait(const sigset_t* set, siginfo_t* info, const timespec* timeout) 
     };
     in_set.bionic = *set;
 
-    return __rt_sigtimedwait(&in_set.bionic, info, timeout, sizeof(in_set));
+    //XXX Limbo:__rt_gigtimedwait seems not supported for Android 64bit so we use the syscall
+    //return __rt_sigtimedwait(&in_set.bionic, info, timeout, sizeof(in_set));
+    return syscall(__NR_rt_sigtimedwait, &in_set.bionic, info, timeout, sizeof(in_set));
 }
