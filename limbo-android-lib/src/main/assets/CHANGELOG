@@ -1,8 +1,14 @@
 <br>
 Limbo v3.0.1 beta<br>
-- Fixed issue with loading state being corrupt. Wait till migration file is written<br>
-- Fixed crashing when vm display resizes<br>
-- Compile support for clang<br>
+- Fixed issue with loading state being corrupt and crashing app<br>
+- Fixed crashing when vm display resizes and mouse is sending events<br>
+- DSL Linux does not boot when smp > 1 so disabled if KVM is not used<br>
+- Using guest ARM 64 bit for arm emulator<br>
+- Added virtio-gpu-pci in vga options for ARM guest<br>
+- Using latest ndk 17b<br>
+- Added musl libraries from ndk 14b<br>
+- Compile support for clang from now on<br>
+- Build package support for multiple host eabi: ARMv7, ARM 64 bit, x86, and x86 64 bit<br>
 <br>
 
 <br>

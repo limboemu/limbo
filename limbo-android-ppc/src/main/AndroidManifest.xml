@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main.ppc"
     android:installLocation="auto"
-    android:versionCode="30000"
-    android:versionName="3.0.0-ppc-alpha" >
+    android:versionCode="30001"
+    android:versionName="3.0.1-ppc-beta" >
 
     <uses-sdk
         android:minSdkVersion="21"
