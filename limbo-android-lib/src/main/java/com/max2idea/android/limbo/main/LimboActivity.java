@@ -3749,7 +3749,7 @@ public class LimboActivity extends AppCompatActivity {
 	// Set Hard Disk
 	private void populateRAM() {
 
-		String[] arraySpinner = new String[128];
+		String[] arraySpinner = new String[256];
 
 		arraySpinner[0] = 4 + "";
 		for (int i = 1; i < arraySpinner.length; i++) {
