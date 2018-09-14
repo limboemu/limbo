@@ -1,0 +1,135 @@
+#Bugs have been a reported on Limbo 2.9.1 Most are still present !
+#Note : fr.energycube.android.app.[limbo] is the Unofficial version of limbo on the PlayStore
+#Note: All data present here as been reported by Android to the Google Play Console
+
+Occurrence: Extremely Strong
+On : All Devices
+Common line : at com.max2idea.android.limbo.main.LimboVNCActivity.dispatchKeyEvent (LimboVNCActivity.java:523)
+Error: android.os.NetworkOnMainThreadException - com.max2idea.android.limbo.main.LimboVNCActivity.dispatchKeyEvent
+
+android.os.NetworkOnMainThreadException: 
+  at android.os.StrictMode$AndroidBlockGuardPolicy.onNetwork (StrictMode.java:1303)
+  at java.net.SocketOutputStream.socketWrite (SocketOutputStream.java:111)
+  at java.net.SocketOutputStream.write (SocketOutputStream.java:157)
+  at android.androidVNC.RfbProto.writePointerEvent (RfbProto.java:1093)
+  at android.androidVNC.VncCanvas.processLocalKeyEvent (VncCanvas.java:1007)
+  at android.androidVNC.VncCanvasActivity.defaultKeyUpHandler (VncCanvasActivity.java:1154)
+  at android.androidVNC.DPadMouseKeyHandler.onKeyUp (DPadMouseKeyHandler.java:110)
+  at android.androidVNC.VncCanvasActivity$TouchpadInputHandler.onKeyUp (VncCanvasActivity.java:335)
+  at android.androidVNC.VncCanvasActivity.onKeyUp (VncCanvasActivity.java:1050)
+  at android.view.KeyEvent.dispatch (KeyEvent.java:2701)
+  at android.app.Activity.dispatchKeyEvent (Activity.java:3113)
+  at com.max2idea.android.limbo.main.LimboVNCActivity.dispatchKeyEvent (LimboVNCActivity.java:523)
+  at android.support.v7.internal.view.WindowCallbackWrapper.dispatchKeyEvent (WindowCallbackWrapper.java:49)
+  at android.support.v7.app.AppCompatDelegateImplBase$AppCompatWindowCallbackBase.dispatchKeyEvent (AppCompatDelegateImplBase.java:258)
+  at android.support.v7.internal.view.WindowCallbackWrapper.dispatchKeyEvent (WindowCallbackWrapper.java:49)
+  at com.android.internal.policy.DecorView.dispatchKeyEvent (DecorView.java:320)
+  at android.view.ViewRootImpl$ViewPostImeInputStage.processKeyEvent (ViewRootImpl.java:4377)
+  at android.view.ViewRootImpl$ViewPostImeInputStage.onProcess (ViewRootImpl.java:4348)
+  at android.view.ViewRootImpl$InputStage.deliver (ViewRootImpl.java:3892)
+  at android.view.ViewRootImpl$InputStage.onDeliverToNext (ViewRootImpl.java:3945)
+  at android.view.ViewRootImpl$InputStage.forward (ViewRootImpl.java:3911)
+  at android.view.ViewRootImpl$AsyncInputStage.forward (ViewRootImpl.java:4038)
+  at android.view.ViewRootImpl$InputStage.apply (ViewRootImpl.java:3919)
+  at android.view.ViewRootImpl$AsyncInputStage.apply (ViewRootImpl.java:4095)
+  at android.view.ViewRootImpl$InputStage.deliver (ViewRootImpl.java:3892)
+  at android.view.ViewRootImpl$InputStage.onDeliverToNext (ViewRootImpl.java:3945)
+  at android.view.ViewRootImpl$InputStage.forward (ViewRootImpl.java:3911)
+  at android.view.ViewRootImpl$InputStage.apply (ViewRootImpl.java:3919)
+  at android.view.ViewRootImpl$InputStage.deliver (ViewRootImpl.java:3892)
+  at android.view.ViewRootImpl$InputStage.onDeliverToNext (ViewRootImpl.java:3945)
+  at android.view.ViewRootImpl$InputStage.forward (ViewRootImpl.java:3911)
+  at android.view.ViewRootImpl$AsyncInputStage.forward (ViewRootImpl.java:4071)
+  at android.view.ViewRootImpl$ImeInputStage.onFinishedInputEvent (ViewRootImpl.java:4239)
+  at android.view.inputmethod.InputMethodManager$PendingEvent.run (InputMethodManager.java:2384)
+  at android.view.inputmethod.InputMethodManager.invokeFinishedInputEventCallback (InputMethodManager.java:1980)
+  at android.view.inputmethod.InputMethodManager.finishedInputEvent (InputMethodManager.java:1971)
+  at android.view.inputmethod.InputMethodManager$ImeInputEventSender.onInputEventFinished (InputMethodManager.java:2361)
+  at android.view.InputEventSender.dispatchInputEventFinished (InputEventSender.java:141)
+  at android.os.MessageQueue.nativePollOnce (Native Method)
+  at android.os.MessageQueue.next (MessageQueue.java:323)
+  at android.os.Looper.loop (Looper.java:142)
+  at android.app.ActivityThread.main (ActivityThread.java:6342)
+  at java.lang.reflect.Method.invoke (Native Method)
+  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run (ZygoteInit.java:880)
+  at com.android.internal.os.ZygoteInit.main (ZygoteInit.java:770)
+  
+Occurrence: Extremely Strong
+On : All Devices
+Error : tgkill
+
+pid: 0, tid: 0 >>> fr.energycube.android.app.com.limbo.emu.main.armv7 <<< 
+backtrace:
+  #00  pc 000000000004ad30  /system/lib/libc.so (tgkill+12)
+  #01  pc 00000000000484c3  /system/lib/libc.so (pthread_kill+34)
+  #02  pc 000000000001dd99  /system/lib/libc.so (raise+10)
+  #03  pc 0000000000019521  /system/lib/libc.so (__libc_android_abort+34)
+  #04  pc 0000000000017160  /system/lib/libc.so (abort+4)
+  #05  pc 000000000000c603  /system/lib/libcutils.so (__android_log_assert+114)
+  #06  pc 0000000000026f57  /system/lib/libhwui.so
+  #07  pc 0000000000027185  /system/lib/libhwui.so
+  #08  pc 000000000002433b  /system/lib/libhwui.so
+  #09  pc 00000000000246c1  /system/lib/libhwui.so
+  #10  pc 000000000002672f  /system/lib/libhwui.so
+  #11  pc 0000000000026615  /system/lib/libhwui.so
+  #12  pc 0000000000029b01  /system/lib/libhwui.so (_ZN7android10uirenderer12renderthread12RenderThread10threadLoopEv+80)
+  #13  pc 000000000000e401  /system/lib/libutils.so (_ZN7android6Thread11_threadLoopEPv+144)
+  #14  pc 000000000006a925  /system/lib/libandroid_runtime.so (_ZN7android14AndroidRuntime15javaThreadShellEPv+80)
+  #15  pc 0000000000047f93  /system/lib/libc.so (_ZL15__pthread_startPv+22)
+  #16  pc 000000000001a161  /system/lib/libc.so (__start_thread+6)
+#There is more than 7 different type of error "tgkill"
+
+Occurrence: Extremely Strong
+On : All Devices
+Error : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR) - blk_by_qdev_id
+
+pid: 0, tid: 0 >>> fr.energycube.android.app.com.limbo.emu.main.armv7 <<<
+
+backtrace:
+  #00  pc 0000000000442ca8  /data/app/fr.energycube.android.app.com.limbo.emu.main.armv7-1/lib/arm/libqemu-system-x86_64.so (blk_by_qdev_id+8)
+  #01  pc 00000000002116a0  /data/app/fr.energycube.android.app.com.limbo.emu.main.armv7-1/lib/arm/libqemu-system-x86_64.so (qmp_eject+188)
+  
+Occurrence: Extremely Strong
+On : All Devices
+Common line : java.lang.NullPointerException: at com.max2idea.android.limbo.main.LimboSDLActivity$26.run (LimboSDLActivity.java:1442)
+Error : java.lang.NullPointerException - com.max2idea.android.limbo.main.LimboSDLActivity$26.run
+java.lang.NullPointerException: 
+  at com.max2idea.android.limbo.main.LimboSDLActivity$26.run (LimboSDLActivity.java:1442)
+  at java.lang.Thread.run (Thread.java:762)
+ 
+ 
+Occurrence: Extremely Strong
+On : All Devices
+Common line : java.lang.RuntimeException - Caused by: java.lang.RuntimeException - Caused by: java.lang.IllegalArgumentException
+"at com.max2idea.android.limbo.utils.FavOpenHelper.getFavUrlSeq (FavOpenHelper.java:76)
+  at com.max2idea.android.limbo.main.LimboActivity.addDriveToList (LimboActivity.java:5116)
+  at com.max2idea.android.limbo.main.LimboActivity.setDriveAttr (LimboActivity.java:3505)
+  at com.max2idea.android.limbo.main.LimboActivity.onActivityResult (LimboActivity.java:3493)"
+Error : java.lang.IllegalArgumentException - com.max2idea.android.limbo.utils.FavOpenHelper.getFavUrlSeq
+java.lang.RuntimeException: 
+  at android.app.ActivityThread.performResumeActivity (ActivityThread.java:3506)
+  at android.app.ActivityThread.handleResumeActivity (ActivityThread.java:3546)
+  at android.app.ActivityThread.handleLaunchActivity (ActivityThread.java:2795)
+  at android.app.ActivityThread.-wrap12 (ActivityThread.java)
+  at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1527)
+  at android.os.Handler.dispatchMessage (Handler.java:110)
+  at android.os.Looper.loop (Looper.java:203)
+  at android.app.ActivityThread.main (ActivityThread.java:6251)
+  at java.lang.reflect.Method.invoke (Native Method)
+  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run (ZygoteInit.java:1063)
+  at com.android.internal.os.ZygoteInit.main (ZygoteInit.java:924)
+Caused by: java.lang.RuntimeException: 
+  at android.app.ActivityThread.deliverResults (ActivityThread.java:4178)
+  at android.app.ActivityThread.performResumeActivity (ActivityThread.java:3474)
+Caused by: java.lang.IllegalArgumentException: 
+  at android.database.sqlite.SQLiteProgram.bindString (SQLiteProgram.java:164)
+  at android.database.sqlite.SQLiteProgram.bindAllArgsAsStrings (SQLiteProgram.java:200)
+  at android.database.sqlite.SQLiteDirectCursorDriver.query (SQLiteDirectCursorDriver.java:47)
+  at android.database.sqlite.SQLiteDatabase.rawQueryWithFactory (SQLiteDatabase.java:1348)
+  at android.database.sqlite.SQLiteDatabase.rawQuery (SQLiteDatabase.java:1287)
+  at com.max2idea.android.limbo.utils.FavOpenHelper.getFavUrlSeq (FavOpenHelper.java:76)
+  at com.max2idea.android.limbo.main.LimboActivity.addDriveToList (LimboActivity.java:5116)
+  at com.max2idea.android.limbo.main.LimboActivity.setDriveAttr (LimboActivity.java:3505)
+  at com.max2idea.android.limbo.main.LimboActivity.onActivityResult (LimboActivity.java:3493)
+  at android.app.Activity.dispatchActivityResult (Activity.java:6919)
+  at android.app.ActivityThread.deliverResults (ActivityThread.java:4174)
