@@ -8,6 +8,7 @@ Some problems:
 Slow Mouse
 "Wall" when using the mouse
 File Sharing Unstable
+VNC/SDL render problem on Android 8.1 (not tested on 8.0)
 */
 
 
