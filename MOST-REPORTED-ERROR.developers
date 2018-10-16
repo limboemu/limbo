@@ -7,12 +7,12 @@
 Some problems:
 (All versions) Slow Mouse
 (All versions) "Wall" when using the mouse
-(All versions) File Sharing Unstable
-(All versions) VNC/SDL render problem on Android 8.1 (not tested on 8.0)
   - (A strange bug fix is present in 2.11.0, when we use SDL (if it's selected before open Limbo), 
   we can enable 'External VNC' for some reason and this fix the problem). 
   For see the problem graphicly we can use the last version of VNC Viewier, 
   we can see the problem between the emulated mouse and the VM mouse.
+(All versions) File Sharing Unstable
+(All versions) VNC/SDL render problem on Android 8.1 (not tested on 8.0)
 (All versions) The application closes itself on Android 8 (Battery Optimizer)
   - To avoid this we need to disable the battery optimization and lock the limbo window.
 (All versions but especially after 2.9.1) Recent Windows OS/Setup Don't work
