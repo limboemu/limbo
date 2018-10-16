@@ -1,3 +1,6 @@
-MultiCore (recent phone (Snapdragon 845 have 8 cores)
-Graphics Drivers (3D acceleration?)
+MultiCore without KVM (recent phone (Snapdragon 845 have 8 cores)
+Graphics Drivers (3D acceleration?) (VMWare?) (DirectX?) (-> Limbo can become a system and old game emulator if this option is available! But only on recent devices)
 More RAM (adaptative spinner for RAM selection depending on the availaible RAM on the device?)
+Disk/virtual CD containing a driver setup for quick and easy installation (Windows / Linux) if they are not present. (GPU/Sound/Ethernet etc...)
+Disk Cleanup option, which removes unused space from the virtual disk that occupies space on the phone's storage. 
+  - Example: ImageType: 20GB Growable, Used: 6GB, FileSize: 9GB (-> The clean option will change the file size to 6GB)
