@@ -155,7 +155,7 @@ Caused by: java.lang.IllegalArgumentException:
 Occurrence: unknown
 On : Motorola Moto E (Android 5.0, 5.1 (Lollipop) - only XT1527, 6.0 (Marshmallow))
 Version : 3.0.1
-Comment : Comment: The problem seems to be android.intent.action.OPEN_DOCUMENT or there is no unsuported system file manager (ActivityNotFoundException)
+Comment : The problem seems to be android.intent.action.OPEN_DOCUMENT or the system file manager is unsupported (ActivityNotFoundException)
   --------- beginning of main
 V/vm-executor-jni.cpp(19123): Processing params
 V/vm-executor-jni.cpp(19123): Starting VM...
