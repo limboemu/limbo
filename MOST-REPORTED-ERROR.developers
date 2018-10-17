@@ -151,3 +151,49 @@ Caused by: java.lang.IllegalArgumentException:
   at com.max2idea.android.limbo.main.LimboActivity.onActivityResult (LimboActivity.java:3493)
   at android.app.Activity.dispatchActivityResult (Activity.java:6919)
   at android.app.ActivityThread.deliverResults (ActivityThread.java:4174)
+  
+Occurrence: unknown
+On : Motorola Moto E (Android 5.0, 5.1 (Lollipop) - only XT1527, 6.0 (Marshmallow))
+Version : 3.0.1
+Comment : Comment: The problem seems to be android.intent.action.OPEN_DOCUMENT or there is no unsuported system file manager (ActivityNotFoundException)
+  --------- beginning of main
+V/vm-executor-jni.cpp(19123): Processing params
+V/vm-executor-jni.cpp(19123): Starting VM...
+V/vm-executor-jni.cpp(19123): Loading lib: /data/data/com.limbo.emu.main/lib/libqemu-system-x86_64.so
+V/vm-executor-jni.cpp(19123): Loading symbol main...
+W/limbo_compat_filesystem.c(19123): Could not fopen: /data/data/com.limbo.emu.main/cache/limbo//usr/local/etc/qemu/qemu.conf, r, 0x0
+I/VncCanvas(19123): Connecting to localhost, port 5901...
+V/VncCanvas(19123): Connected to server
+I/VncCanvas(19123): RFB server supports protocol version 3.8
+I/VncCanvas(19123): Using RFB protocol version 3.8
+D/debug   (19123): bitPref=1
+I/VncCanvas(19123): No authentication needed
+I/System.out(19123): No authentication: success
+I/VncCanvas(19123): Desktop name is QEMU
+I/VncCanvas(19123): Desktop size is 720 x 400
+I/FBBM    (19123): bitmapsize = (720,400)
+W/InputEventReceiver(19123): Attempted to finish an input event but the input event receiver has already been disposed.
+D/AndroidRuntime(19123): Shutting down VM
+--------- beginning of crash
+E/AndroidRuntime(19123): FATAL EXCEPTION: main
+E/AndroidRuntime(19123): Process: com.limbo.emu.main, PID: 19123
+E/AndroidRuntime(19123): android.content.ActivityNotFoundException: No Activity found to handle Intent { act=android.intent.action.OPEN_DOCUMENT typ=*/* flg=0x43 (has extras) }
+E/AndroidRuntime(19123):  at android.app.Instrumentation.checkStartActivityResult(Instrumentation.java:1872)
+E/AndroidRuntime(19123):  at android.app.Instrumentation.execStartActivity(Instrumentation.java:1568)
+E/AndroidRuntime(19123):  at android.app.Activity.startActivityForResult(Activity.java:3755)
+E/AndroidRuntime(19123):  at android.app.Activity.startActivityForResult(Activity.java:3716)
+E/AndroidRuntime(19123):  at com.max2idea.android.limbo.utils.FileManager.promptSDCardAccess(FileManager.java:255)
+E/AndroidRuntime(19123):  at com.max2idea.android.limbo.utils.DrivesDialogBox.browse(DrivesDialogBox.java:564)
+E/AndroidRuntime(19123):  at com.max2idea.android.limbo.utils.DrivesDialogBox$2.onItemSelected(DrivesDialogBox.java:95)
+E/AndroidRuntime(19123):  at android.widget.AdapterView.fireOnSelected(AdapterView.java:914)
+E/AndroidRuntime(19123):  at android.widget.AdapterView.dispatchOnItemSelected(AdapterView.java:903)
+E/AndroidRuntime(19123):  at android.widget.AdapterView.access$300(AdapterView.java:48)
+E/AndroidRuntime(19123):  at android.widget.AdapterView$SelectionNotifier.run(AdapterView.java:873)
+E/AndroidRuntime(19123):  at android.os.Handler.handleCallback(Handler.java:739)
+E/AndroidRuntime(19123):  at android.os.Handler.dispatchMessage(Handler.java:95)
+E/AndroidRuntime(19123):  at android.os.Looper.loop(Looper.java:135)
+E/AndroidRuntime(19123):  at android.app.ActivityThread.main(ActivityThread.java:5343)
+E/AndroidRuntime(19123):  at java.lang.reflect.Method.invoke(Native Method)
+E/AndroidRuntime(19123):  at java.lang.reflect.Method.invoke(Method.java:372)
+E/AndroidRuntime(19123):  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:905)
+E/AndroidRuntime(19123):  at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:700)
