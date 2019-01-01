@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 22
-    buildToolsVersion "27.0.3"
+    compileSdkVersion 26
+    buildToolsVersion "28.0.3"
 
     defaultConfig {
         applicationId "com.limbo.emu.main.arm"
         minSdkVersion 21
-        targetSdkVersion 21
+        targetSdkVersion 26
     }
 
     buildTypes {
@@ -25,7 +25,7 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
 
-    implementation 'com.android.support:appcompat-v7:22.+'
+    implementation 'com.android.support:appcompat-v7:26.1.0'
 
     implementation project(':limbo-android-lib')
 }
