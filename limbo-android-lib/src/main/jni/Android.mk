@@ -1,7 +1,5 @@
 #include $(call all-subdir-makefiles)
 
-include $(LIMBO_JNI_ROOT)/android-config.mak
-
 #dep libs
 include $(NDK_PROJECT_PATH)/jni/compat/musl/Android.mk
 include $(NDK_PROJECT_PATH)/jni/compat/Android.mk

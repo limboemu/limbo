@@ -1,13 +1,16 @@
 # Development specific settings
 
-include android-config.mak
-
 QEMU_TARGET_LIST = $(BUILD_GUEST)
 
 #### QEMU advance options
 
+# QEMU version 3.x is not using a stab lib
+# Set this to true for 2.9 and prior versions
+USE_QEMUSTAB ?= true
+
 # we need to specify our own pixman library
-# For 2.9.x and priror pixman is included in QEMU so we request this explicitly
+# For 2.9.x and prior pixman is included in QEMU so we request this explicitly
+# comment this if you use higher versions of QEMU 3.x
 PIXMAN = --with-system-pixman
 
 # For QEMU 2.11.0 and above we need to disable some features
@@ -43,6 +46,7 @@ endif
 # Or SDL Hardware Acceleration (faster though needs whole screen redraw)
 SDL_RENDERING = -D__LIMBO_SDL_FORCE_HARDWARE_RENDERING__ 
 
+
 #ENABLE SOUND VIA SDL 
 # Note: Most guests can play wav files but it's still choppy
 
@@ -76,8 +80,11 @@ DISPLAY = --disable-curses --disable-cocoa --disable-gtk
 
 #VNC 
 VNC +=  --enable-vnc
-#VNC += --enable-vnc-jpeg --enable-vnc-png
-VNC += --disable-vnc-jpeg --disable-vnc-png
+#VNC += --enable-vnc-jpeg
+VNC += --disable-vnc-jpeg
+#VNC +=--enable-vnc-png
+VNC += --disable-vnc-png
+
 VNC += --disable-vnc-sasl
 
 
@@ -117,7 +124,7 @@ MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
 
-#Stack protector (enabled by default for better security)
+#Stack protector, this doesn't make any difference since we override in android-generic.mak
 #MISC += --enable-stack-protector
 #MISC += --disable-stack-protector
 
@@ -160,6 +167,9 @@ XEN = --disable-xen --disable-xen-pci-passthrough
 #SPICE
 SPICE = --disable-spice
 #SPICE = --enable-spice 
+#SPICE_INC= -I$(LIMBO_JNI_ROOT)/spice-protocol  \
+	-I$(LIMBO_JNI_ROOT)/spice/server
+
 
 #TCI
 #TCI = --enable-tcg-interpreter
@@ -233,29 +243,23 @@ config:
 	--extra-cflags=\
 	"\
 	$(SYSTEM_INCLUDE) \
-	-I$(LIMBO_JNI_ROOT)/limbo/include \
-	-I$(LIMBO_JNI_ROOT)/glib/glib \
 	-I$(LIMBO_JNI_ROOT)/glib \
+	-I$(LIMBO_JNI_ROOT)/glib/glib \
 	-I$(LIMBO_JNI_ROOT)/glib/gmodule \
 	-I$(LIMBO_JNI_ROOT)/glib/io \
 	-I$(LIMBO_JNI_ROOT)/glib/android \
 	-I$(LIMBO_JNI_ROOT)/pixman \
 	-I$(LIMBO_JNI_ROOT)/pixman/pixman \
 	-I$(LIMBO_JNI_ROOT)/scsi \
-	-I$(LIMBO_JNI_ROOT)/png \
-	-I$(LIMBO_JNI_ROOT)/jpeg \
-	-I$(LIMBO_JNI_ROOT) \
 	-I$(LIMBO_JNI_ROOT)/SDL2/include  \
 	-I$(LIMBO_JNI_ROOT)/compat  \
-	-I$(LIMBO_JNI_ROOT)/spice-protocol  \
-	-I$(LIMBO_JNI_ROOT)/spice/server  \
+	$(SPICE_INC) \
 	$(FDT_INC) \
 	$(INCLUDE_ENC) \
-	$(LIMBO_DISABLE_TSC) \
 	$(SDL_RENDERING) \
 	$(ENV_EXTRA) \
-	$(ARCH_CFLAGS) \
 	$(WARNING_FLAGS) \
+	$(ARCH_CFLAGS) \
 	" \
 	--with-coroutine=$(COROUTINE) \
 	$(DEBUG) \

@@ -1,8 +1,10 @@
-.PHONY: createdirs ndk qemu limbo ffi glib ffi-clean glib-clean qemu qemu-clean pixman pixman-clean
+.PHONY: limbo clean distclean clean-ndk createdirs clean-ffi clean-glib clean-qemu clean-pixman
 
-include android-config.mak
+include android-limbo-build.mak
 
-CFLAGS=$(ARCH_CFLAGS)
+# Important: Do not remove, this makes sure that other libraries (especially qemu) will append our
+#  optimization flags thus override any other settings
+#CFLAGS=$(ARCH_CFLAGS)
 
 ifeq ($(NDK_ENV), windows)
 	NDK_BUILD = ndk-build.cmd
@@ -26,11 +28,12 @@ endif
 
 CREATE_OBJDIR=mkdir -p $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/
 CREATE_LIBSDIR=mkdir -p $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/
-DEL_LIBSDIR=rm -rf $(NDK_PROJECT_PATH)/libs/armeabi \
-	$(NDK_PROJECT_PATH)/libs/armeabi-v7a \
-	$(NDK_PROJECT_PATH)/libs/x86 \
-	$(NDK_PROJECT_PATH)/libs/mips \
-	$(NDK_PROJECT_PATH)/jniLibs/*
+DEL_LIBSDIR=rm -rf $(NDK_PROJECT_PATH)/libs/* \
+	$(NDK_PROJECT_PATH)/jniLibs/* \
+	$(LIMBO_APP_X86)/jniLibs/* \
+	$(LIMBO_APP_ARM)/jniLibs/* \
+	$(LIMBO_APP_PPC)/jniLibs/* \
+	$(LIMBO_APP_SPARC)/jniLibs/*
 
 
 INSTALL_GLIB_LIBS=cp -f glib/glib/.libs/*.so \
@@ -45,10 +48,6 @@ INSTALL_PIXMAN_LIBS=cp -f pixman/pixman/.libs/*.so \
 MOD_QEMU_LIBS=$(OBJCOPY) --redefine-sym open=android_open  \
     qemu/x86_64-softmmu/qemu-system-x86_64
 
-RELINK_QEMU_LIBS=$(LNK) $(SYS_ROOT) -L$(LIMBO_JNI_ROOT)/../obj/local/$(APP_ABI) \
-    -lcompat-limbo -shared qemu/x86_64-softmmu/qemu-system-x86_64 \
-    -o qemu/x86_64-softmmu/qemu-system-x86_64.so
-
 INSTALL_LIBS=cp -f $(NDK_PROJECT_PATH)/obj/local/$(APP_ABI)/*.so \
 	../libs/$(APP_ABI_DIR)/
 
@@ -57,23 +56,29 @@ REMOVE_GDBSERVER=rm -f ../libs/$(APP_ABI_DIR)/gdbserver
 
 SYNC_LIBS=rsync -av --exclude libqemu-system-* ../libs/* ../jniLibs/
 
+LIMBO_PRJ_ROOT=../../../..
+LIMBO_APP_X86=$(LIMBO_PRJ_ROOT)/limbo-android-x86/src/main
+LIMBO_APP_ARM=$(LIMBO_PRJ_ROOT)/limbo-android-arm/src/main
+LIMBO_APP_PPC=$(LIMBO_PRJ_ROOT)/limbo-android-ppc/src/main
+LIMBO_APP_SPARC=$(LIMBO_PRJ_ROOT)/limbo-android-sparc/src/main
+
 SYNC_LIBS_X86=rsync -av --include='libqemu-system-x86*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
-    ../libs/ ../../../../limbo-android-x86/src/main/jniLibs/
+    ../libs/ $(LIMBO_APP_X86)/jniLibs/
 SYNC_LIBS_ARM=rsync -av --include='libqemu-system-arm*.so' \
     --include='libqemu-system-aarch64*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
-    ../libs/ ../../../../limbo-android-arm/src/main/jniLibs/
+    ../libs/ $(LIMBO_APP_ARM)/jniLibs/
 SYNC_LIBS_PPC=rsync -av --include='libqemu-system-ppc*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
-    ../libs/ ../../../../limbo-android-ppc/src/main/jniLibs/
+    ../libs/ $(LIMBO_APP_PPC)/jniLibs/
 SYNC_LIBS_SPARC=rsync -av --include='libqemu-system-sparc*.so' \
     --include='gdbserver' --include='gdb.setup' \
     --include='*/' --exclude='*' \
-    ../libs/ ../../../../limbo-android-sparc/src/main/jniLibs/
+    ../libs/ $(LIMBO_APP_SPARC)/jniLibs/
 
 COPY_ROMS=-mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ./qemu/pc-bios/*.bin \
@@ -108,7 +113,7 @@ COPY_GDB_SETUP_LIBS=-cp -f $(NDK_PROJECT_PATH)/libs/$(APP_ABI)/gdb.setup \
 	$(NDK_PROJECT_PATH)/libs/gdb.setup
 	
 ifneq ($(NDK_DEBUG),1)
-	STRIP_LIBS=$(STRIP) $(subst /cygdrive/c,c:,$(NDK_PROJECT_PATH))/libs/$(APP_ABI_DIR)/*.so
+	STRIP_LIBS=$(STRIP) $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/*.so
 endif
 
 DEBUG =
@@ -124,10 +129,6 @@ endif
 
 export
 
-#debug is default
-# use "make release" for production version
-all: debug
-	
 	
 createdirs:
 	$(CREATE_OBJDIR)
@@ -137,29 +138,26 @@ createdirs:
 ndk:
 	$(ndkbuild)
 
-ndk-debug:
-	$(ndkbuild) NDK_DEBUG=1
-
-ndk-clean:
+clean-ndk:
 	$(ndkclean)
 	$(ndkcleanobj)
 
-ffi-clean:
+clean-ffi:
 	-cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) clean
 
-ffi-config: ndk
+config-ffi: ndk
 	cd $(LIMBO_JNI_ROOT)/libffi && ./configure --host=$(GNU_HOST) $(LIBFFI_DEBUG) \
-	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE)  " \
+	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 
 ffi:
 	cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) -j $(BUILD_THREADS) \
-	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) " \
+	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 	$(INSTALL_FFI_LIBS)
 
-glib-config: ndk ffi
+config-glib: ndk ffi
 	cd $(LIMBO_JNI_ROOT)/glib && NOCONFIGURE=1 ./autogen.sh
 	cd $(LIMBO_JNI_ROOT)/glib && cp -rf $(LIMBO_JNI_ROOT)/patches/android.cache . \
 	&& chmod a-w android.cache && ./configure --host=$(GNU_HOST) --cache-file=android.cache \
@@ -169,7 +167,7 @@ glib-config: ndk ffi
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
 	$(NDK_SYSROOT_INC) \
 	$(NDK_SYSROOT_ARCH_INC) \
-	-I${SYSROOT}/usr/include $(SYS_ROOT) -I${NDK_ROOT}/sources/android/support/include \
+	-I${SYSROOT}/usr/include $(SYS_ROOT) \
 	-I${LIMBO_JNI_ROOT}/compat \
 	-I${LIMBO_JNI_ROOT}/compat/musl -I${LIMBO_JNI_ROOT}/compat/musl/include " \
 	LDFLAGS=" $(ARCH_LD_CLANG_FLAGS) $(ARCH_LD_FLAGS) $(SYS_ROOT) \
@@ -191,13 +189,13 @@ glib: ffi
 	LIBFFI_LIBS="${LIMBO_JNI_ROOT}/libffi/$(GNU_HOST)/.libs/libffi.a "
 	$(INSTALL_GLIB_LIBS)
 
-glib-clean:
+clean-glib:
 	-find $(LIMBO_JNI_ROOT)/glib/ -name "*.lo" -exec rm -rf {} \;
 	-cd $(LIMBO_JNI_ROOT)/glib && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/glib && $(MAKE) clean
 	-rm -rf $(LIMBO_JNI_ROOT)/glib/android.cache
 
-pixman-config: ndk
+config-pixman: ndk
 	cd $(LIMBO_JNI_ROOT)/pixman && ./configure --host=$(GNU_HOST) --with-sysroot=$(SYSROOT) \
 	--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2 $(LIBPIXMAN_DEBUG) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
@@ -209,7 +207,7 @@ pixman-config: ndk
 	-L${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI) -lc -llog \
 	-lcompat-limbo "
 
-pixman:
+pixman: ndk
 	cd $(LIMBO_JNI_ROOT)/pixman/pixman && $(MAKE) -j $(BUILD_THREADS) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE)  -I${SYSROOT}/usr/include \
 	$(SYS_ROOT) -I${NDK_ROOT}/sources/android/support/include \
@@ -221,27 +219,26 @@ pixman:
 	-lcompat-limbo "
 	$(INSTALL_PIXMAN_LIBS)
 
-pixman-clean:
+clean-pixman:
 	-find $(LIMBO_JNI_ROOT)/pixman -name "*.lo" -exec rm -rf {} \;
 	-cd $(LIMBO_JNI_ROOT)/pixman && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/pixman && $(MAKE) clean
 
-qemu: ndk ffi glib pixman
-	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) all -j $(BUILD_THREADS)
+_qemu: ndk deps
+	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) all -j $(BUILD_THREADS) BUILD_GUEST=$(BUILD_GUEST) CFLAGS="$(ARCH_CFLAGS)"
 
-qemu-config: glib pixman
-	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-qemu-config.mak BUILD_GUEST=$(BUILD_GUEST)
+config-qemu: ndk glib pixman
+	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-config/android-qemu-config.mak
 
-qemu-clean:
+clean-qemu:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) clean
 
-config: ffi-config glib-config pixman-config qemu-config
+config-deps: config-ffi config-glib config-pixman
 
-config-debug:
-	$(MAKE) config NDK_DEBUG=1
+deps: ffi glib pixman
 
-build: qemu
+_build-qemu: _qemu
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
@@ -249,76 +246,60 @@ build: qemu
 	$(COPY_KEYMAPS)
 	$(COPY_RESOLV_CONF)
 
-debug:
-	$(MAKE) build -j $(BUILD_THREADS) NDK_DEBUG=1
+qemu: _build-qemu
+	make install
 
-release:
-	$(MAKE) build -j $(BUILD_THREADS)
+install-common:
+	$(CREATE_LIBSDIR)
+	$(INSTALL_LIBS)
 	$(STRIP_LIBS)
-	$(REMOVE_GDBSETUP)
-	$(REMOVE_GDBSERVER)
-
-install-x86:
 	$(SYNC_LIBS)
+
+install:
+	make install-common
 	$(SYNC_LIBS_X86)
 	$(COPY_ASSETS_X86)
-
-install-arm:
-	$(SYNC_LIBS)
 	$(SYNC_LIBS_ARM)
 	$(COPY_ASSETS_ARM)
-
-install-sparc:
-	$(SYNC_LIBS)
+	$(SYNC_LIBS_PPC)
+	$(COPY_ASSETS_PPC)
 	$(SYNC_LIBS_SPARC)
 	$(COPY_ASSETS_SPARC)
 
-install-ppc:
-	$(SYNC_LIBS)
-	$(SYNC_LIBS_PPC)
-	$(COPY_ASSETS_PPC)
-
-install-all: install-x86 install-arm install-ppc install-sparc
-
-all-release-x86:
-	make distclean
+limbo:
 	make ndk
-	make config BUILD_GUEST=x86_64-softmmu
-	make release BUILD_GUEST=x86_64-softmmu
-	make install-x86
+	make config-deps
+	make deps
+	make config-qemu
+	make qemu
+	make install
 
-all-debug-x86:
-	make distclean
-	make ndk-debug
-	make config-debug BUILD_GUEST=x86_64-softmmu
-	make debug BUILD_GUEST=x86_64-softmmu
-	make install-x86
+EXPORT_GUEST_ALL=export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu,ppc64-softmmu,sparc-softmmu
 
-all-release-arm:
-	make distclean
-	make ndk
-	make config BUILD_GUEST=aarch64-softmmu
-	make release BUILD_GUEST=aarch64-softmmu
-	make install-arm
-
-all-debug-arm:
-	make distclean
-	make ndk-debug
-	make config-debug BUILD_GUEST=aarch64-softmmu
-	make debug BUILD_GUEST=aarch64-softmmu
-	make install-arm
+#most common combinations
+all:
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=armeabi-v7a && make limbo
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=arm64-v8a && make limbo
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86 && make limbo
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86_64 && make limbo
 
 ndk-gdb:
-	-echo $(APP_ABI)
+	@echo APP_ABI=$(APP_ABI)
 	$(COPY_GDB_SETUP_LIBS)
 	$(ndkgdb) --attach $(PKG_NAME) --verbose -t
 
-distclean: qemu-clean ffi-clean glib-clean pixman-clean
+distclean: clean-qemu clean-ffi clean-glib clean-pixman
 
-clean: distclean ndk-clean
+clean: distclean clean-ndk
 	-find . -name "*.d" -exec rm -rf {} \;
 	-find . -name "*.a" -exec rm -rf {} \;
 	-find . -name "*.o" -exec rm -rf {} \;
 	-find . -name "*.so" -exec rm -rf {} \;
 	$(MAKE) createdirs
 	
+help:
+	@echo " Usage: export BUILD_GUEST=<emu-arch>-softmmu && export BUILD_HOST=<eabi> && make limbo"
+	@echo "  emu-arch (emulator): x86_64, aarch64, ppc64, sparc"
+	@echo "  eabi (device): armeabi-v7a, arm64-v8a, x86, x86_64"
+	@echo "  optional: export NDK_DEBUG=1 for debuggable binaries"
+	@echo " example: export BUILD_GUEST=x86_64-softmmu && export BUILD_HOST=armeabi-v7a && make limbo"

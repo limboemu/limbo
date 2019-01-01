@@ -2,6 +2,8 @@
 #### DO NOT MODIFY
 #### this is called from qemu/Makefile.target
 
+include ../../android-config/android-qemu-config.mak
+
 ifeq ($(USE_SDL),true)
 sdllibs=../../../obj/local/$(APP_ABI)/libSDL2.so
 endif
@@ -27,7 +29,6 @@ fdtlib=../../qemu/dtc/libfdt/libfdt.a
 #  files for Android Storage Framework (Lollipop+ devices)
 # TODO: create a rule to RELINK each .o and .a file separately
 QEMU_UTIL_LIB=../libqemuutil.a
-QEMU_UTIL_STUB=../libqemustub.a
 
 RELINK_PARAMS=--redefine-sym open=android_open \
               	--redefine-sym fopen=android_fopen \
@@ -39,11 +40,17 @@ RELINK_PARAMS_2=--redefine-sym __open_2=android_open
 RELINK_QEMUPROG=$(OBJ_COPY) $(RELINK_PARAMS) ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a
 RELINK_QEMUPROG_2=	$(OBJ_COPY) $(RELINK_PARAMS_2) ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).a
 
-RELINK_QEMUSTUB=$(OBJ_COPY) $(RELINK_PARAMS) ../libqemustub.a
-RELINK_QEMUSTUB_2=$(OBJ_COPY) $(RELINK_PARAMS_2) $(QEMU_UTIL_STUB)
-
 RELINK_QEMUUTIL=$(OBJ_COPY) $(RELINK_PARAMS) ../libqemuutil.a
 RELINK_QEMUUTIL_2=$(OBJ_COPY) $(RELINK_PARAMS_2) $(QEMU_UTIL_LIB)
+
+
+## newer versions of QEMU don't generate a stub lib
+ifeq ($(USE_QEMUSTAB),true)
+    QEMU_UTIL_STUB=../libqemustub.a
+    RELINK_QEMUSTUB=$(OBJ_COPY) $(RELINK_PARAMS) ../libqemustub.a
+    RELINK_QEMUSTUB_2=$(OBJ_COPY) $(RELINK_PARAMS_2) $(QEMU_UTIL_STUB)
+endif
+
 
 qemu-static: $(all-obj-y) $(COMMON_LDADDS)
 	$(AR)  rcs  \
@@ -85,6 +92,6 @@ $(QEMU_PROG): $(all-obj-y) $(COMMON_LDADDS) qemu-static
 	$(STL_LIB) \
 	$(ARCH_CLANG_FLAGS) \
 	$(ARCH_LD_FLAGS) \
-	-lc -lgcc -lm -ldl -lz -llog \
+	-lc -lgcc -lm -ldl -lz -llog -latomic \
 	$(INCLUDE_SYMS) \
 	-o ../../../obj/local/$(APP_ABI)/lib$(QEMU_PROG).so

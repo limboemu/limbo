@@ -1,3 +1,8 @@
+# Do not modify this file, all configuration is under directory android-config
+
+LIMBO_JNI_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+include $(LIMBO_JNI_ROOT)/android-config/android-limbo-config.mak
+
 # DO NOT MODIFY THIS FILE
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
@@ -9,22 +14,25 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 # Note 4: Building for Android x86_64 host requires ndk17b and android-21
 # Note 5: Building for Android ARM64 host requires ndk17b and android-21
 
+#SET/RESET vars
+ARCH_CFLAGS := -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) $(USE_PLATFORM21_FLAGS)
+ARCH_LD_FLAGS=
 
 ifeq ($(BUILD_HOST), arm64-v8a)
 ######### Armv8 64 bit (Newest ARM phones only, Supports VNC, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-armv8.mak
+include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-armv8.mak
 else ifeq ($(BUILD_HOST), armeabi-v7a)
 ######### ARMv7 Soft Float  (Most ARM phones, Supports VNC and SDL, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-armv7a-softfp.mak
+include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-armv7a-softfp.mak
 else ifeq ($(BUILD_HOST), x86)
 ######### x86 (x86 Phones only, Supports VNC and SDL, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-x86.mak
+include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-x86.mak
 else ifeq ($(BUILD_HOST), x86_64)
 ######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
-include $(LIMBO_JNI_ROOT)/android-device-config/android-x86_64.mak
+include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-x86_64.mak
 endif
 
-TARGET_ARCH = 
+TARGET_ARCH =
 
 ifeq ($(APP_ABI),armeabi-v7a)
     EABI = arm-linux-androideabi-$(GCC_TOOLCHAIN_VERSION)
@@ -53,7 +61,7 @@ else ifeq ($(APP_ABI),x86_64)
 endif
 
 
-# Since we need ndk 11 and above we need to fix some missing calls 
+# Since we need ndk 11 and above we need to fix some missing calls
 USE_NDK11 = -D__NDK11_FUNC_MISSING__
 
 TOOLCHAIN_DIR = $(NDK_ROOT)/toolchains/$(EABI)/prebuilt/$(NDK_ENV)
@@ -65,8 +73,13 @@ TOOLCHAIN_CLANG_PREFIX := $(TOOLCHAIN_CLANG_DIR)/bin
 
 #$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
 
+NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
+NDK_SYSROOT=$(NDK_ROOT)/sysroot
+
+
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
-    $(warning clang)
+    $(warning "Compiler: clang")
+    NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
     ##### CLANG binaries
     CC=$(TOOLCHAIN_CLANG_PREFIX)/clang
     #CXX=$(TOOLCHAIN_CLANG_PREFIX)/clang++
@@ -75,8 +88,7 @@ ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
     LNK=$(TOOLCHAIN_CLANG_PREFIX)/clang
     #LD=$(TOOLCHAIN_CLANG_PREFIX)/llvm-ld
     #NM=$(TOOLCHAIN_CLANG_PREFIX)/llvm-nm
-    NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
-    NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
+
 else
     #NDK Toolchain
     CC=$(TOOLCHAIN_PREFIX)gcc
@@ -99,7 +111,7 @@ NDK_INCLUDE = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)/usr/include
 
 
 # INCLUDE_FIXED contains overrides for include files found under the toolchain's /usr/include.
-# Hoping to get rid of those one day, when newer NDK versions are released.
+# Currently we don't use, left here as a placeholder.
 INCLUDE_FIXED = $(LIMBO_JNI_ROOT)/include-fixed
 
 # The logutils header is injected into all compiled files in order to redirect
@@ -112,9 +124,6 @@ COMPATUTILS_QEMU = $(LIMBO_JNI_ROOT)/compat/limbo_compat_qemu.h
 COMPATMACROS = $(LIMBO_JNI_ROOT)/compat/limbo_compat_macros.h
 COMPATANDROID = $(LIMBO_JNI_ROOT)/compat/limbo_compat.h
 
-USR_LIB = \
--L$(TOOLCHAIN_DIR)/lib
-
 ifeq ($(USE_NDK_PLATFORM21),true)
 USE_PLATFORM21_FLAGS = -D__ANDROID_HAS_SIGNAL__ \
 	-D__ANDROID_HAS_FS_IOC__ \
@@ -124,11 +133,12 @@ USE_PLATFORM21_FLAGS = -D__ANDROID_HAS_SIGNAL__ \
 	-D__ANDROID_HAS_STATVFS__ \
 	-D__ANDROID__HAS_PTHREAD_ATFORK_
 endif
-	
-ARCH_CFLAGS := $(ARCH_CFLAGS) -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) $(USE_PLATFORM21_FLAGS) 
 
 # Needed for some c++ source code to compile some ARM 64 disas
 # We don't need them right now
+#STL port
+#APP_STL := stlport_shared
+#APP_STL := c++_shared
 #STL_INCLUDE := -I$(NDK_ROOT)/sources/android/support/include
 #STL_INCLUDE += -I$(NDK_ROOT)/sources/cxx-stl/stlport/stlport
 #STL_INCLUDE += -I$(NDK_ROOT)/sources/cxx-stl/llvm-libc++/include
@@ -152,3 +162,4 @@ SYSTEM_INCLUDE = \
     -include $(COMPATUTILS_QEMU) \
     -include $(COMPATMACROS) \
     -include $(COMPATANDROID)
+
