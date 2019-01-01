@@ -45,14 +45,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.libsdl.app.SDLActivity;
@@ -72,17 +70,29 @@ import javax.microedition.khronos.egl.EGLSurface;
  */
 public class LimboSDLActivity extends SDLActivity {
 	public static final String TAG = "LimboSDLActivity";
-    protected static ViewGroup mMainLayout;
-	public static final int KEYBOARD = 10000;
+
+    public static LimboSDLActivity activity ;
+
+    public static final int KEYBOARD = 10000;
 	public static final int QUIT = 10001;
 	public static final int HELP = 10002;
+
 	private boolean monitorMode = false;
 	private boolean mouseOn = false;
 	private Object lockTime = new Object();
 	private boolean timeQuit = false;
+    private boolean once = true;
+    private boolean zoomable = false;
+    private String status = null;
+
+    public static int vm_width;
+    public static int vm_height;
+
+
 	private Thread timeListenerThread;
+
 	private ProgressDialog progDialog;
-	public static LimboSDLActivity activity ;
+    protected static ViewGroup mMainLayout;
 
 	public String cd_iso_path = null;
 
@@ -96,10 +106,10 @@ public class LimboSDLActivity extends SDLActivity {
 	public String fdb_img_path = null;
 	public String cpu = null;
 
-	public int aiomaxthreads = 1;
 	// Default Settings
 	public int memory = 128;
 	public String bootdevice = null;
+
 	// net
 	public String net_cfg = "None";
 	public int nic_num = 1;
@@ -109,7 +119,6 @@ public class LimboSDLActivity extends SDLActivity {
     public String soundcard = null;
 	public String lib = "liblimbo.so";
 	public String lib_path = null;
-	public int restart = 0;
 	public String snapshot_name = "limbo";
 	public int disableacpi = 0;
 	public int disablehpet = 0;
@@ -122,10 +131,7 @@ public class LimboSDLActivity extends SDLActivity {
 	public String qemu_dev_value = null;
 	public String base_dir = null;
 	public String dns_addr = null;
-	private boolean once = true;
-	private boolean zoomable = false;
-	private String status = null;
-
+    public int restart = 0;
 
 	// This is what SDL runs in. It invokes SDL_main(), eventually
 	private static Thread mSDLThread;
@@ -151,13 +157,13 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				// Log.d("SDL", "Mouse Single Click");
 				try {
-					Thread.sleep(200);
+					Thread.sleep(50);
 				} catch (InterruptedException ex) {
 					// Log.v("singletap", "Could not sleep");
 				}
 				LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1,0, 0);
 				try {
-					Thread.sleep(200);
+					Thread.sleep(50);
 				} catch (InterruptedException ex) {
 					// Log.v("singletap", "Could not sleep");
 				}
@@ -172,70 +178,27 @@ public class LimboSDLActivity extends SDLActivity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		// Log.v(TAG, "RET CODE: " + resultCode);
-		if (resultCode == Config.FILEMAN_RETURN_CODE) {
-			// Read from activity
-			String currDir = LimboSettingsManager.getLastDir(this);
-			String file = "";
-			String fileType = "";
-			Bundle b = data.getExtras();
-			fileType = b.getString("fileType");
-			file = b.getString("file");
-			currDir = b.getString("currDir");
-			// Log.v(TAG, "Got New Dir: " + currDir);
-			// Log.v(TAG, "Got File Type: " + fileType);
-			// Log.v(TAG, "Got New File: " + file);
-			if (currDir != null && !currDir.trim().equals("")) {
-				LimboSettingsManager.setLastDir(this, currDir);
-			}
-			if (fileType != null && file != null && drives!=null) {
-				drives.setDriveAttr(fileType, file);
-			}
-
-		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
-			if (data != null) {
-				Uri uri = data.getData();
-				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
-				String file = uri.toString();
-
-				if(!file.contains("com.android.externalstorage.documents"))
-				{
-					UIUtils.showFileNotSupported(this);
-					return;
-				}
-
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-
-				final int takeFlags = data.getFlags()
-						& (
-						Intent.FLAG_GRANT_READ_URI_PERMISSION |
-								Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-				);
-                getContentResolver().takePersistableUriPermission(uri, takeFlags);
-
-
-				// Protect from qemu thinking it's a protocol
-				file = ("/" + file).replace(":", "");
-
-				if (drives != null && drives.filetype != null && file != null) {
-
-					final String fileTmp = file;
-					Thread thread = new Thread(new Runnable() {
-						public void run() {
-
-							drives.setDriveAttr(drives.filetype, fileTmp);
-						}
-					});
-					thread.setPriority(Thread.MIN_PRIORITY);
-					thread.start();
-				}
-			}
-
-		}
-
-		// Check if says open
+        if (requestCode == Config.OPEN_IMAGE_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMAGE_FILE_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_IMAGE_FILE_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                DrivesDialogBox.filetype = FileUtils.getFileTypeFromIntent(this, data);
+                file = FileUtils.getFilePathFromIntent(activity, data);
+            }
+            if(drives !=null && file!=null)
+                drives.setDriveAttr(DrivesDialogBox.filetype, file);
+		}else if (requestCode == Config.OPEN_LOG_FILE_DIR_REQUEST_CODE|| requestCode == Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                file = FileUtils.getDirPathFromIntent(this, data);
+            }
+            if(file!=null) {
+                FileUtils.saveLogToFile(activity, file);
+            }
+        }
 
 	}
 
@@ -250,30 +213,15 @@ public class LimboSDLActivity extends SDLActivity {
 		snapshot_name = machine.snapshot_name;
 		disableacpi = machine.disableacpi;
 		disablehpet = machine.disablehpet;
-		disabletsc = machine.disablefdbootchk;
-		// enablebluetoothmouse = machine.bluetoothmouse;
+		disabletsc = machine.disabletsc;
 		enableqmp = machine.enableqmp;
 		enablevnc = machine.enablevnc;
 
 		if (machine.cpu.endsWith("(64Bit)")) {
-			// lib_path = FileUtils.getDataDir() +
-			// "/lib/libqemu-system-x86_64.so";
 			cpu = machine.cpu.split(" ")[0];
 		} else {
 			cpu = machine.cpu;
-			// x86_64 can run 32bit as well as no need for the extra lib
-			// lib_path = FileUtils.getDataDir() +
-			// "/lib/libqemu-system-x86_64.so";
 		}
-		// Add other archs??
-
-		// Load VM library
-		// loadNativeLibs("libSDL.so");
-		// loadNativeLibs("libSDL_image.so");
-		// loadNativeLibs("libmikmod.so");
-		// loadNativeLibs("libSDL_mixer.so");
-		// loadNativeLibs("libSDL_ttf.so");
-		// loadNativeLibs(lib);
 
 		if (machine.cd_iso_path == null || machine.cd_iso_path.equals("None")) {
 			cd_iso_path = null;
@@ -332,7 +280,7 @@ public class LimboSDLActivity extends SDLActivity {
 			nic_driver = null;
 		} else if (machine.net_cfg.equals("User")) {
 			net_cfg = "user";
-			nic_driver = machine.nic_driver;
+			nic_driver = machine.nic_card;
 		}
 
 		soundcard = machine.soundcard;
@@ -395,12 +343,11 @@ public class LimboSDLActivity extends SDLActivity {
 
 	public void checkStatus() {
 		while (timeQuit != true) {
-			String status = checkCompletion();
+			LimboActivity.VMStatus status = Machine.checkSaveVMStatus(activity);
 			Log.v(TAG, "Status: " + status);
-			if (status == null
-					//|| status.equals("")
-					|| status.toUpperCase().equals("COMPLETED")
-					|| status.toUpperCase().equals("FAILED")
+			if (status == LimboActivity.VMStatus.Unknown
+					|| status == LimboActivity.VMStatus.Completed
+					|| status == LimboActivity.VMStatus.Failed
 					) {
 				Log.v("Inside", "Saving state is done: " + status);
 				stopTimeListener();
@@ -409,7 +356,7 @@ public class LimboSDLActivity extends SDLActivity {
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException ex) {
-				Log.v("SaveVM", "Could not sleep");
+				Log.w("SaveVM", "Interrupted");
 			}
 		}
 		Log.v("SaveVM", "Save state complete");
@@ -453,9 +400,9 @@ public class LimboSDLActivity extends SDLActivity {
 				UIUtils.toastShort(activity, "No removable devices attached");
 			}
 		} else if (item.getItemId() == R.id.itemReset) {
-			resetVM();
+			Machine.resetVM(activity);
 		} else if (item.getItemId() == R.id.itemShutdown) {
-			stopVM(false);
+            Machine.stopVM(activity);
 		} else if (item.getItemId() == R.id.itemMouse) {
             onMouseMode();
 		} else if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
@@ -576,7 +523,7 @@ public class LimboSDLActivity extends SDLActivity {
         //LimboSDLActivity.singleClick(a, 0);
         Config.mouseMode = Config.MouseMode.Trackpad;
 		LimboActivity.vmexecutor.setRelativeMouseMode(1);
-        Toast.makeText(this.getApplicationContext(), "Trackpad Enabled", Toast.LENGTH_SHORT).show();
+        UIUtils.toastShort(this.getApplicationContext(), "Trackpad Enabled");
         onFitToScreen();
         calibration();
         invalidateOptionsMenu();
@@ -629,7 +576,7 @@ public class LimboSDLActivity extends SDLActivity {
 
                 Config.mouseMode = Config.MouseMode.External;
                 LimboActivity.vmexecutor.setRelativeMouseMode(0);
-                Toast.makeText(LimboSDLActivity.this, "External Mouse Enabled", Toast.LENGTH_SHORT).show();
+                UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
                 onNormalScreen();
                 calibration();
                 invalidateOptionsMenu();
@@ -663,48 +610,6 @@ public class LimboSDLActivity extends SDLActivity {
 		SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_RIGHT);
 	}
 
-	public void resetVM() {
-
-		new AlertDialog.Builder(this).setTitle("Reset VM")
-				.setMessage("To avoid any corrupt data make sure you "
-						+ "have already shutdown the Operating system from within the VM. Continue?")
-				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						new Thread(new Runnable() {
-							public void run() {
-								Log.v("SDL", "VM is reset");
-								onRestartVM();
-							}
-						}).start();
-
-					}
-				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-					}
-				}).show();
-	}
-
-	public void stopVM(boolean exit) {
-
-		new AlertDialog.Builder(this).setTitle("Shutdown VM")
-				.setMessage("To avoid any corrupt data make sure you "
-						+ "have already shutdown the Operating system from within the VM. Continue?")
-				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						LimboActivity.vmexecutor.stopvm(0);
-//						new Thread(new Runnable() {
-//							public void run() {
-//								Log.v("SDL", "VM is stopped");
-//								nativeQuit();
-//							}
-//						}).start();
-
-					}
-				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-					}
-				}).show();
-	}
 
 	//TODO: not working
 	private void onStretchToScreen() {
@@ -713,11 +618,10 @@ public class LimboSDLActivity extends SDLActivity {
 		new Thread(new Runnable() {
 			public void run() {
 				Log.d(TAG, "onStretchToScreen");
-				LimboSDLActivity.stretchToScreen = true;
-				LimboSDLActivity.fitToScreen = false;
+				screenMode = SDLScreenMode.Fullscreen;
                 sendCtrlAltKey(KeyEvent.KEYCODE_F); // not working
-                UIUtils.toastLong(activity, "Resizing Please Wait");
-                resize();
+                UIUtils.toastShort(activity, "Resizing, Please Wait");
+                resize(null);
 
 			}
 		}).start();
@@ -733,10 +637,9 @@ public class LimboSDLActivity extends SDLActivity {
 		new Thread(new Runnable() {
 			public void run() {
 				Log.d(TAG, "onFitToScreen");
-				LimboSDLActivity.stretchToScreen = false;
-				LimboSDLActivity.fitToScreen = true;
-                UIUtils.toastLong(activity, "Resizing Please Wait");
-				resize();
+				screenMode = SDLScreenMode.FitToScreen;
+                UIUtils.toastShort(activity, "Resizing, Please Wait");
+				resize(null);
 
 			}
 		}).start();
@@ -752,17 +655,16 @@ public class LimboSDLActivity extends SDLActivity {
 		new Thread(new Runnable() {
 			public void run() {
 				Log.d(TAG, "onNormalScreen");
-				LimboSDLActivity.stretchToScreen = false;
-				LimboSDLActivity.fitToScreen = false;
-                UIUtils.toastLong(activity, "Resizing Please Wait");
-				resize();
+				screenMode = SDLScreenMode.Normal;
+                UIUtils.toastShort(activity, "Resizing, Please Wait");
+				resize(null);
 
 			}
 		}).start();
 
 	}
 
-	public void resize() {
+	public void resize(final Configuration newConfig) {
 
 		//XXX: flag so no mouse events are processed
 		isResizing = true;
@@ -772,13 +674,14 @@ public class LimboSDLActivity extends SDLActivity {
 			@Override
 			public void run() {
 				((LimboSDLSurface) mSurface).getHolder().setFixedSize(0, 0);
+                setLayout(newConfig);
 			}
 		});
 
 		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 			@Override
 			public void run() {
-				((LimboSDLSurface) mSurface).doResize(false);
+				((LimboSDLSurface) mSurface).doResize(false, newConfig);
 			}
 		}, 1500);
 	}
@@ -787,8 +690,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		new Thread(new Runnable() {
 			public void run() {
-				LimboSDLActivity.stretchToScreen = false;
-				LimboSDLActivity.fitToScreen = false;
+				screenMode = SDLScreenMode.Normal;
 				sendCtrlAltKey(KeyEvent.KEYCODE_4);
 			}
 		}).start();
@@ -800,8 +702,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 		new Thread(new Runnable() {
 			public void run() {
-				LimboSDLActivity.stretchToScreen = false;
-				LimboSDLActivity.fitToScreen = false;
+                screenMode = SDLScreenMode.Normal;
 				sendCtrlAltKey(KeyEvent.KEYCODE_3);
 
 			}
@@ -951,108 +852,6 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 
-	public void pausedVM() {
-
-		LimboActivity.vmexecutor.paused = 1;
-		((LimboActivity) LimboActivity.activity).saveStateVMDB();
-
-		new AlertDialog.Builder(this).setTitle("Paused").setMessage("VM is now Paused tap OK to exit")
-				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-
-                        Log.i(TAG, "VM Paused, Shutting Down");
-
-						if (LimboActivity.vmexecutor != null) {
-                            LimboActivity.vmexecutor.stopvm(0);
-						} else if (activity.getParent() != null) {
-							activity.getParent().finish();
-						} else {
-							activity.finish();
-						}
-					}
-				}).show();
-	}
-
-
-    public void pausedErrorVM(String errStr) {
-
-
-        new AlertDialog.Builder(this).setTitle("Error").setMessage(errStr)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-
-                        Thread t = new Thread(new Runnable() {
-                            public void run() {
-                                String command = QmpClient.cont();
-                                String msg = QmpClient.sendCommand(command);
-                            }
-                        });
-                        t.start();
-                    }
-                }).show();
-    }
-
-	private String checkCompletion() {
-		String save_state = "";
-		String pause_state = "";
-		if (LimboActivity.vmexecutor != null) {
-			// Get the state of saving full disk snapshot
-//			save_state = LimboActivity.vmexecutor.get_save_state();
-//
-//			// Get the state of saving the VM memory only
-//			pause_state = LimboActivity.vmexecutor.get_pause_state();
-			//Log.d(TAG, "save_state = " + save_state);
-			//Log.d(TAG, "pause_state = " + pause_state);
-
-			String command = QmpClient.query_migrate();
-			String res = QmpClient.sendCommand(command);
-
-
-			if(res!=null && !res.equals("")) {
-				//Log.d(TAG, "Migrate status: " + res);
-				try {
-					JSONObject resObj = new JSONObject(res);
-					String resInfo = resObj.getString("return");
-					JSONObject resInfoObj = new JSONObject(resInfo);
-					pause_state = resInfoObj.getString("status");
-				} catch (JSONException e) {
-					if(Config.debug)
-						e.printStackTrace();
-				}
-				if(pause_state!=null && pause_state.toUpperCase().equals("FAILED")){
-					Log.e(TAG, "Error: " + res);
-				}
-			}
-		}
-
-
-		if (pause_state.toUpperCase().equals("ACTIVE")) {
-			return pause_state;
-		} else if (pause_state.toUpperCase().equals("COMPLETED")) {
-			// FIXME: We wait to complete the state
-			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					pausedVM();
-				}
-			}, 4000);
-			return pause_state;
-
-		} else if (pause_state.toUpperCase().equals("FAILED")) {
-			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					pausedErrorVM("Could not pause VM. View log file for details");
-				}
-			}, 100);
-			return pause_state;
-		}
-		return save_state;
-	}
-
-	public static boolean fitToScreen = true;
-    public static boolean stretchToScreen = false;
-
 	// Setup
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
@@ -1082,8 +881,6 @@ public class LimboSDLActivity extends SDLActivity {
 
 		createUI(0, 0);
 
-		UIUtils.toastShortTop(activity, "Press Volume Down for Right Click");
-
 		UIUtils.setupToolBar(this);
 
 		UIUtils.showHints(this);
@@ -1095,34 +892,8 @@ public class LimboSDLActivity extends SDLActivity {
 
 	}
 
-	//TODO: not needed?
-//	public SDLSurface getSDLSurface() {
-//
-//		if (mSurface == null)
-//			mSurface = new SDLSurface(activity);
-//		return mSurface;
-//	}
-
-	private void setScreenSize() {
-
-		// WindowManager wm = (WindowManager) this
-		// .getSystemService(Context.WINDOW_SERVICE);
-		// Display display = wm.getDefaultDisplay();
-		// this.screen_width = display.getWidth();
-		// this.screen_height = display.getHeight();
-
-	}
-
-
     private void createUI(int w, int h) {
-
-		// Set up the surface
-		//TODO:
 		mSurface = new LimboSDLSurface(this);
-
-		//TODO: needed?
-		//mSurface.setRenderer(new ClearRenderer());
-
 
 		int width = w;
 		int height = h;
@@ -1133,24 +904,18 @@ public class LimboSDLActivity extends SDLActivity {
 			height = RelativeLayout.LayoutParams.WRAP_CONTENT;
 		}
 
-		setContentView(R.layout.main_sdl);
+		setContentView(R.layout.limbo_sdl);
 
 		//TODO:
-        mLayout = (LinearLayout) activity.findViewById(R.id.sdl_layout);
+        mLayout = (RelativeLayout) activity.findViewById(R.id.sdl_layout);
 		mMainLayout = (LinearLayout) activity.findViewById(R.id.main_layout);
 
 		RelativeLayout mLayout = (RelativeLayout) findViewById(R.id.sdl);
 		RelativeLayout.LayoutParams surfaceParams = new RelativeLayout.LayoutParams(width, height);
-		surfaceParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
-		surfaceParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+		surfaceParams.addRule(RelativeLayout.CENTER_IN_PARENT);
 
-		//TODO: reassign?
 		mLayout.addView(mSurface, surfaceParams);
 
-		//TODO: not needed?
-		//SurfaceHolder holder = mSurface.getHolder();
-
-		setScreenSize();
 	}
 
 	protected void onPause() {
@@ -1228,46 +993,18 @@ public class LimboSDLActivity extends SDLActivity {
 
 	protected void onResume() {
 		Log.v("SDL", "onResume()");
-
 		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
-
-
-
 		super.onResume();
 	}
-
-	// static void resume() {
-	// Log.v("Resume", "Resuming -> Full Screeen");
-	// if (SDLActivityCommon.fitToScreen)
-	// SDLActivityCommon.setFitToScreen();
-	// if (SDLActivityCommon.stretchToScreen)
-	// SDLActivityCommon.setStretchToScreen();
-	// else
-	// LimboActivity.vmexecutor.toggleFullScreen();
-	// }
 
 	// Messages from the SDLMain thread
 	static int COMMAND_CHANGE_TITLE = 1;
 	static int COMMAND_SAVEVM = 2;
 
 	public void loadLibraries() {
-		// No loading of .so we do it outside
+        //XXX: override for the specific arch
 	}
 
-	public void onRestartVM() {
-		Thread t = new Thread(new Runnable() {
-			public void run() {
-				if (LimboActivity.vmexecutor != null) {
-					Log.v(TAG, "Restarting the VM...");
-					LimboActivity.vmexecutor.stopvm(1);
-
-				} else {
-					Log.v(TAG, "Not running VM...");
-				}
-			}
-		});
-		t.start();
-	}
 
 	public void promptPause(final Activity activity) {
 
@@ -1299,25 +1036,15 @@ public class LimboSDLActivity extends SDLActivity {
 					}
 				}
 
-				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						Toast.makeText(getApplicationContext(), "Please wait while saving VM State", Toast.LENGTH_SHORT)
-								.show();
-					}
-				}, 0);
-
+				UIUtils.toastShort(getApplicationContext(), "Please wait while saving VM State");
 				LimboActivity.vmexecutor.current_fd = LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
 
 				String uri = "fd:" + LimboActivity.vmexecutor.current_fd;
 				String command = QmpClient.stop();
 				String msg = QmpClient.sendCommand(command);
-//				if (msg != null)
-//					Log.i(TAG, msg);
 				command = QmpClient.migrate(false, false, uri);
 				msg = QmpClient.sendCommand(command);
 				if (msg != null) {
-//                    Log.i(TAG, msg);
                     processMigrationResponse(msg);
                 }
 
@@ -1359,7 +1086,7 @@ public class LimboSDLActivity extends SDLActivity {
                 new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        pausedErrorVM(descStr1!=null?descStr1:"Could not pause VM. View log for details");
+                        Machine.pausedErrorVM(activity, descStr1);
                     }
                 }, 100);
 
@@ -1377,9 +1104,6 @@ public class LimboSDLActivity extends SDLActivity {
 
 		@Override
 		protected void onPostExecute(Void test) {
-			// if (progDialog.isShowing()) {
-			// progDialog.dismiss();
-			// }
 
 		}
 	}
@@ -1413,9 +1137,6 @@ public class LimboSDLActivity extends SDLActivity {
 
 					String command = QmpClient.cont();
 					String msg = QmpClient.sendCommand(command);
-//					if (msg != null)
-//						Log.i(TAG, msg);
-
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
@@ -1430,9 +1151,6 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	public void onBackPressed() {
-		// Log.d(TAG, "Pressed Back");
-
-		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
 			ActionBar bar = this.getActionBar();
 			if (bar != null) {
@@ -1442,7 +1160,7 @@ public class LimboSDLActivity extends SDLActivity {
 					bar.show();
 			}
 		} else {
-			stopVM(false);
+            Machine.stopVM(activity);
 		}
 
 	}
@@ -1552,9 +1270,9 @@ public class LimboSDLActivity extends SDLActivity {
 //                ,"Stretch To Screen" //Stretched
         };
         int currentScaleType = 0;
-        if(fitToScreen){
+        if(screenMode == SDLScreenMode.FitToScreen){
         	currentScaleType = 1;
-		} else if(stretchToScreen)
+		} else if(screenMode == SDLScreenMode.Fullscreen)
 			currentScaleType = 2;
 
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
@@ -1598,7 +1316,7 @@ public class LimboSDLActivity extends SDLActivity {
 	protected synchronized void runSDLMain(){
 
 		//We go through the vm executor
-		LimboActivity.startvm(LimboActivity.activity, Config.UI_SDL);
+		LimboActivity.startvm(this, Config.UI_SDL);
 
 		//XXX: we hold the thread because SDLActivity will exit
 		try {
@@ -1607,9 +1325,6 @@ public class LimboSDLActivity extends SDLActivity {
 			e.printStackTrace();
 		}
 	}
-
-	public static int vm_width;
-	public static int vm_height;
 
 	public static void onVMResolutionChanged(int w, int h)
 	{
@@ -1624,12 +1339,67 @@ public class LimboSDLActivity extends SDLActivity {
 
 
 		if(refreshDisplay) {
-			activity.resize();
+			activity.resize(null);
 		}
 
 	}
 
 	public static boolean isResizing = false;
+
+    public enum SDLScreenMode {
+        Normal,
+        FitToScreen,
+        Fullscreen //fullscreen not implemented yet
+    }
+
+    public SDLScreenMode screenMode = SDLScreenMode.FitToScreen;
+
+    private void setLayout(Configuration newConfig) {
+
+        boolean isLanscape =
+                (newConfig!=null && newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                        || UIUtils.isLandscapeOrientation(this);
+
+        View vnc_canvas_layout = (View) this.findViewById(R.id.sdl_layout);
+        RelativeLayout.LayoutParams vnc_canvas_layout_params = null;
+        //normal 1-1
+        if(screenMode == SDLScreenMode.Normal) {
+            if (isLanscape) {
+                vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+            } else {
+                vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                vnc_canvas_layout_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+            }
+        } else {
+            //fittoscreen
+            if (isLanscape) {
+                vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                );
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+            } else {
+
+                vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                vnc_canvas_layout_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+            }
+        }
+        vnc_canvas_layout.setLayoutParams(vnc_canvas_layout_params);
+
+        this.invalidateOptionsMenu();
+    }
 
 	public class LimboSDLSurface extends ExSDLSurface implements View.OnKeyListener, View.OnTouchListener {
 
@@ -1656,12 +1426,12 @@ public class LimboSDLActivity extends SDLActivity {
 		@Override
 		public void onConfigurationChanged(Configuration newConfig) {
 			super.onConfigurationChanged(newConfig);
-			resize();
+			resize(newConfig);
 		}
 
 
 
-		public synchronized void doResize(boolean reverse) {
+		public synchronized void doResize(boolean reverse, final Configuration newConfig) {
 			//XXX: notify the UI not to process mouse motion
 			isResizing = true;
 			Log.v(TAG, "Resizing Display");
@@ -1683,7 +1453,7 @@ public class LimboSDLActivity extends SDLActivity {
 			}
 
 			//native resolution for use with external mouse
-			if(!LimboSDLActivity.stretchToScreen && !LimboSDLActivity.fitToScreen) {
+			if(screenMode != SDLScreenMode.Fullscreen && screenMode != SDLScreenMode.FitToScreen) {
 				width = LimboSDLActivity.vm_width;
 				height = LimboSDLActivity.vm_height;
 			}
@@ -1702,7 +1472,7 @@ public class LimboSDLActivity extends SDLActivity {
 					getHolder().setFixedSize(width,(int) (width / (LimboSDLActivity.vm_width / (float) LimboSDLActivity.vm_height)));
 				}
 			} else {
-				if ( (stretchToScreen || fitToScreen)
+				if ( (screenMode == SDLScreenMode.Fullscreen || screenMode == SDLScreenMode.FitToScreen)
 						&& !LimboSettingsManager.getAlwaysShowMenuToolbar(LimboSDLActivity.this)
 						&& bar != null && bar.isShowing()) {
 					height += bar.getHeight();
@@ -1710,12 +1480,13 @@ public class LimboSDLActivity extends SDLActivity {
 				getHolder().setFixedSize(width, height);
 			}
 			initialized = true;
+
             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     isResizing = false;
                 }
-            }, 2000);
+            }, 3000);
 
 
 
@@ -1780,19 +1551,6 @@ public class LimboSDLActivity extends SDLActivity {
 
 		// Touch events
 		public boolean onTouchProcess(View v, MotionEvent event) {
-
-            //XXX: not reliable with laptop trackpads
-//			if(Config.mouseMode == Config.MouseMode.External
-//				&& MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0))
-//				return true;
-//
-//			if(Config.mouseMode == Config.MouseMode.Trackpad
-//					&& MotionEvent.TOOL_TYPE_MOUSE == event.getToolType(0))
-//				return true;
-
-			// Log.v("onTouch",
-			// "Action=" + event.getAction() + ", X,Y=" + event.getX() + ","
-			// + event.getY() + " P=" + event.getPressure());
 			int action = event.getAction();
 			float x = event.getX(0);
 			float y = event.getY(0);
@@ -2034,11 +1792,8 @@ public class LimboSDLActivity extends SDLActivity {
 			if(Config.mouseMode == Config.MouseMode.External)
 				return;
 
-			LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1, 0, 0);
-			Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
-			if (v.hasVibrator()) {
-				v.vibrate(100);
-			}
+			if(Config.enableDragOnLongPress)
+			    dragPointer(event);
 		}
 
 		public boolean onSingleTapConfirmed(MotionEvent event) {
@@ -2078,21 +1833,48 @@ public class LimboSDLActivity extends SDLActivity {
 					)
 				return true;
 
-			for (int i = 0; i < event.getPointerCount(); i++) {
-				int action = event.getAction();
-				float x = event.getX(i);
-				float y = event.getY(i);
-				float p = event.getPressure(i);
-
-				// Log.v("onDoubleTap", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
-				doubleClick(event, i);
-			}
+			if(!Config.enableDragOnLongPress)
+			    processDoubleTap(event);
+            else
+                doubleClick(event, 0);
 
 			return true;
 		}
 	}
 
-	class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
+    private void dragPointer(MotionEvent event) {
+
+        LimboActivity.vmexecutor.onLimboMouse(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_DOWN, 1, 0, 0);
+        Vibrator v = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+        if (v.hasVibrator()) {
+            v.vibrate(100);
+        }
+	}
+
+    private void processDoubleTap(final MotionEvent event) {
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException e1) {
+                    e1.printStackTrace();
+                }
+
+                if (!mouseUp) {
+                    dragPointer(event);
+                } else {
+                        // Log.v("onDoubleTap", "Action=" + action + ", X,Y=" + x + "," + y + " P=" + p);
+                        doubleClick(event, 0);
+                }
+
+            }
+        });
+        t.start();
+
+	}
+
+    class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
 		private LimboSDLSurface mSurface;
 
 		@Override
