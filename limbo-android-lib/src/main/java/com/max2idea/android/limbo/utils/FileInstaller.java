@@ -19,7 +19,6 @@
 package com.max2idea.android.limbo.utils;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.support.v4.provider.DocumentFile;
@@ -103,14 +102,14 @@ public class FileInstaller {
                     File file = new File(destDir, files[i] + "/" + subfiles[k]);
                     if(!file.exists() || force) {
                         Log.v("Installer", "Installing file: " + file.getPath());
-                        installFile(activity, files[i] + "/" + subfiles[k], destDir, "roms", null);
+                        installAssetFile(activity, files[i] + "/" + subfiles[k], destDir, "roms", null);
                     }
                 }
             } else {
                 File file = new File(destDir, files[i]);
                 if(!file.exists() || force) {
                     Log.v("Installer", "Installing file: " + file.getPath());
-                    installFile(activity, files[i], Config.getBasefileDir(activity), "roms", null);
+                    installAssetFile(activity, files[i], Config.getBasefileDir(activity), "roms", null);
                 }
             }
         }
@@ -118,8 +117,8 @@ public class FileInstaller {
 
     }
 
-    public static boolean installFile(Context activity, String srcFile, 
-    		String destDir, String assetsDir, String destFile) {
+    public static boolean installAssetFile(Activity activity, String srcFile,
+                                           String destDir, String assetsDir, String destFile) {
         try {
             AssetManager am = activity.getResources().getAssets(); // get the local asset manager
             InputStream is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
@@ -148,8 +147,8 @@ public class FileInstaller {
         }
     }
 
-    public static Uri installFileSDCard(Context activity, String srcFile,
-                                            Uri destDir, String assetsDir, String destFile) {
+    public static Uri installImageTemplateToSDCard(Activity activity, String srcFile,
+                                                   Uri destDir, String assetsDir, String destFile) {
 
         DocumentFile destFileF = null;
         OutputStream os = null;
@@ -207,5 +206,65 @@ public class FileInstaller {
 
         }
         return uri;
+    }
+
+
+    public static String installImageTemplateToExternalStorage(Activity activity, String srcFile,
+                                                   String destDir, String assetsDir, String destFile) {
+
+        File file = new File(destDir, destFile);
+        String filePath = null;
+        OutputStream os = null;
+        InputStream is = null;
+        try {
+
+            AssetManager am = activity.getResources().getAssets(); // get the local asset manager
+            is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
+
+            if(destFile==null)
+                destFile=srcFile;
+
+            //Create the file if doesn't exist
+            if(!file.exists()){
+                file.createNewFile();
+            }
+            else {
+                UIUtils.toastShort(activity, "File exists, choose another filename");
+                return null;
+            }
+
+            //Write to the dest
+            os = new FileOutputStream(file);
+
+            //OutputStream os = new FileOutputStream(destDir + "/" + destFile);
+            byte[] buf = new byte[8092];
+            int n;
+            while ((n = is.read(buf)) > 0) {
+                os.write(buf, 0, n);
+            }
+
+            //success
+            filePath = file.getAbsolutePath();
+
+        } catch (Exception ex) {
+            Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
+        } finally {
+            if(os!=null) {
+                try {
+                    os.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if(is!=null) {
+                try {
+                    is.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+        return filePath;
     }
 }

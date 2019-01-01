@@ -22,260 +22,532 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.logging.Logger;
+import java.util.HashMap;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.main.LimboFileManager;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.MimeTypeMap;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import android.provider.DocumentsContract;
-
 /**
- *
  * @author thedoc
  */
 public class FileManager extends ListActivity {
 
-	private ArrayList<String> items = null;
-	private File currdir = new File(Environment.getExternalStorageDirectory().getAbsolutePath());
-	private File file;
-	private TextView currentDir;
-	private Button select;
-	private String fileType;
-	private String TAG = "FileManager";
+    private static final int REQUEST_WRITE_PERMISSION = 1001;
+    private final int SELECT_DIR = 1;
+    private final int CREATE_DIR = 2;
+    private final int CANCEL = 3;
 
-	/** Called when the activity is first created. */
-	@Override
-	public void onCreate(Bundle icicle) {
-		super.onCreate(icicle);
+    public Comparator<String> comperator = new Comparator<String>() {
 
-		setContentView(R.layout.directory_list);
+        public int compare(String object1, String object2) {
+            if (object1.startsWith(".."))
+                return -1;
+            else if (object2.startsWith(".."))
+                return 1;
+            else if (object1.endsWith("/") && !object2.endsWith("/"))
+                return -1;
+            else if (!object1.endsWith("/") && object2.endsWith("/"))
+                return 1;
+            return object1.toString().compareToIgnoreCase(object2.toString());
+        }
+    };
+    private ArrayList<String> items = null;
+    private File currdir = new File(Environment.getExternalStorageDirectory().getAbsolutePath());
+    private File file;
+    private TextView currentDir;
+    private Button select;
+    private LimboActivity.FileType fileType;
+    private static String TAG = "FileManager";
+    private HashMap<String,String> filter = new HashMap<>();
 
-		// select.setOnClickListener(new OnClickListener() {
-		//
-		// public void onClick(View arg0) {
-		// selectDir();
-		// }
-		// });
-		currentDir = (TextView) findViewById(R.id.currDir);
-		Bundle b = this.getIntent().getExtras();
-		String lastDirectory = b.getString("lastDir");
-		fileType = b.getString("fileType");
-		Log.v(TAG, "File type is " + fileType);
-		Log.v(TAG, "Last dir " + lastDirectory);
-		if (lastDirectory == null) {
-			lastDirectory = Environment.getExternalStorageDirectory().getPath()
-			// + "/limbo"
-			;
-		}
-		currdir = new File(lastDirectory);
-		if (!currdir.isDirectory()) {
-			lastDirectory = Environment.getExternalStorageDirectory().getPath();
-			currdir = new File(lastDirectory);
-		} else if (!currdir.exists()) {
-			currdir.mkdirs();
-		}
-		// Log.v("**GET** ", b.getString("lastDir"));
-		currentDir.setText(currdir.getPath());
-		fill(currdir.listFiles());
+    //XXX: for now we dont use filters since file extensions on images is something not so standard
+    // and we don't want to hide files from the user
+	private boolean filter(File filePath) {
+	    String ext = FileUtils.getExtensionFromFilename(filePath.getName());
+		return (filter == null || filter.isEmpty() || filter.containsKey(ext.toLowerCase()));
 	}
+    private SelectionMode selectionMode = SelectionMode.FILE;
 
-	private void fill(File[] files) {
-		items = new ArrayList<String>();
-		items.add(".. (Parent Directory)");
+    public static void browse(Activity activity, LimboActivity.FileType fileType, int requestCode) {
 
-		if (files != null) {
-			for (File file1 : files) {
-				if (file1 != null) {
-					String filename = file1.getName();
-					if (filename != null && file1.isFile() && filter(file1)) {
-						items.add(filename);
-					} else if (filename != null && file1.isDirectory()) {
-						items.add(filename);
-					}
-				}
-			}
-		}
-		Collections.sort(items, comperator);
-		ArrayAdapter<String> fileList = new ArrayAdapter<String>(this, R.layout.dir_row, R.id.FILE_NAME, items);
-		setListAdapter(fileList);
+        String lastDir = getLastDir(activity, fileType);
 
-	}
+        String state = Environment.getExternalStorageState();
+        if (!Environment.MEDIA_MOUNTED.equals(state)) {
+            UIUtils.toastShort(activity.getApplicationContext(), "Error: SD card is not mounted");
+            UIUtils.toastShort(activity, "Error: SD card is not mounted");
+            return;
+        }
 
-	private boolean filter(File file1) {
-		return ((this.fileType.toLowerCase().startsWith("hd") || this.fileType.toLowerCase().startsWith("sd")) && (file1
-				.getPath().toLowerCase().endsWith("img") || file1.getPath().toLowerCase().endsWith("qcow")
-				|| file1.getPath().toLowerCase().endsWith("qcow2") || file1.getPath().toLowerCase().endsWith("vmdk")
-				|| file1.getPath().toLowerCase().endsWith("vdi") || file1.getPath().toLowerCase().endsWith("cow")
-				|| file1.getPath().toLowerCase().endsWith("dmg") || file1.getPath().toLowerCase().endsWith("bochs")
-				|| file1.getPath().toLowerCase().endsWith("vpc") || file1.getPath().toLowerCase().endsWith("vhd")
-				|| file1.getPath().toLowerCase().endsWith("fs")))
-				|| (this.fileType.toLowerCase().startsWith("cd") && (file1.getPath().toLowerCase().endsWith("iso")))
-				|| (this.fileType.toLowerCase().startsWith("kernel")
-				// && (file1.getPath().toLowerCase().contains("vmlinuz"))
-				) || (this.fileType.toLowerCase().startsWith("initrd")
-				// && (file1.getPath().toLowerCase().contains("initrd"))
-				) || (this.fileType.toLowerCase().startsWith("fd") && (file1.getPath().toLowerCase().endsWith("img") || file1.getPath().toLowerCase().endsWith("ima")));
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP // device is old
+                || !Config.enableASFExternalSD // app configuration ASF is disallowed
+                || fileType == LimboActivity.FileType.SHARED_DIR //TODO: allow sd card access for SHARED DIR (called from c-jni and create the readdir() dirent structs)
+                ) {
+            LimboFileManager.promptLegacyStorageAccess(activity, fileType, requestCode, lastDir);
+        } else { // we use Android ASF to open the file (sd card supported)
+            try {
+//                if(true)
+//                    throw new Exception("Test ASF missing exception");
+                LimboFileManager.promptOpenFileASF(activity, fileType, getASFFileManagerRequestCode(requestCode), lastDir);
 
-	}
+            } catch (Exception ex) {
+                Log.e(TAG, "Using Legacy File Manager due to exception :" + ex.getMessage());
+                //XXX; some device vendors don't have proper Android Storage Framework so we fallback to legacy file manager (sd card not supported)
+                LimboFileManager.promptLegacyStorageAccess(activity, fileType, requestCode, lastDir);
+            }
+        }
+    }
 
-	@Override
-	protected void onListItemClick(ListView l, View v, int position, long id) {
-		super.onListItemClick(l, v, position, id);
-		// int selectionRowID = (int) l.getSelectedItemId();
-		int selectionRowID = (int) id;
-		Logger.getLogger("ItemID: " + selectionRowID);
-		if (selectionRowID == 0) {
-			Logger.getLogger("Top");
-			fillWithParent();
-		} else {
+    private static String getLastDir(Context context, LimboActivity.FileType fileType) {
+        if(fileType == LimboActivity.FileType.SHARED_DIR) {
+            return LimboSettingsManager.getSharedDir(context);
+        } else if(fileType == LimboActivity.FileType.EXPORT_DIR || fileType == LimboActivity.FileType.IMPORT_FILE) {
+            return LimboSettingsManager.getExportDir(context);
+        } else if(fileType == LimboActivity.FileType.IMAGE_DIR) {
+            return LimboSettingsManager.getImagesDir(context);
+        }
+        return LimboSettingsManager.getLastDir(context);
+    }
 
-			file = new File(currdir.getPath() + "/" + items.get(selectionRowID));
-			if (file == null) {
-				new AlertDialog.Builder(this).setTitle("Access Denied").setMessage("Cannot retrieve directory").show();
-			} else if (file.isDirectory()) {
-				Logger.getLogger("Directory");
-				currdir = file;
-				File[] files = file.listFiles();
-				if (files != null) {
-					currentDir.setText(file.getPath());
-					fill(files);
-				} else {
-					new AlertDialog.Builder(this).setTitle("Access Denied").setMessage("Cannot list directory").show();
-				}
-			} else {
-				Logger.getLogger("File");
-				this.selectFile();
-				// new
-				// AlertDialog.Builder(this).setTitle("Not a
-				// Directory").setMessage("That's a file, not a
-				// directory").show();
-			}
+    private static int getASFFileManagerRequestCode(int requestCode) {
+        switch (requestCode) {
+            case Config.OPEN_IMAGE_FILE_REQUEST_CODE:
+                return Config.OPEN_IMAGE_FILE_ASF_REQUEST_CODE;
+            case Config.OPEN_IMAGE_DIR_REQUEST_CODE:
+                return Config.OPEN_IMAGE_DIR_ASF_REQUEST_CODE;
+            case Config.OPEN_SHARED_DIR_REQUEST_CODE:
+                return Config.OPEN_SHARED_DIR_ASF_REQUEST_CODE;
+            case Config.OPEN_EXPORT_DIR_REQUEST_CODE:
+                return Config.OPEN_EXPORT_DIR_ASF_REQUEST_CODE;
+            case Config.OPEN_IMPORT_FILE_REQUEST_CODE:
+                return Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE;
+            case Config.OPEN_LOG_FILE_DIR_REQUEST_CODE:
+                return Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE;
+                default:
+                return requestCode;
+        }
+    }
 
-		}
-	}
+    public static void promptLegacyStorageAccess(Activity activity, LimboActivity.FileType fileType, int requestCode, String lastDir) {
 
-	private void fillWithParent() {
-		if (currdir.getPath().equalsIgnoreCase("/")) {
-			currentDir.setText(currdir.getPath());
-			fill(currdir.listFiles());
-		} else {
-			currdir = currdir.getParentFile();
-			currentDir.setText(currdir.getPath());
-			fill(currdir.listFiles());
-		}
-	}
+        String dir = null;
+        try {
 
-	private final int SELECT_DIR = 1;
-	private final int CANCEL = 2;
+            HashMap<String,String> filterExt = getFileExt(fileType);
 
-	/* Creates the menu items */
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		menu.add(0, SELECT_DIR, 0, "Select Dir");
-		menu.add(0, CANCEL, 0, "Cancel");
-		return true;
-	}
+            Intent i = null;
+            i = getFileManIntent(activity);
+            Bundle b = new Bundle();
+            if(lastDir!=null && !lastDir.startsWith("content://"))
+                b.putString("lastDir", lastDir);
+            b.putSerializable("fileType", fileType);
+            b.putSerializable("filterExt", filterExt);
+            i.putExtras(b);
+            activity.startActivityForResult(i, requestCode);
 
-	/* Handles item selections */
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case SELECT_DIR:
-			Logger.getLogger("Select Dir: " + currdir);
-			selectDir();
-			return true;
-		case CANCEL:
-			Logger.getLogger("Cancel");
-			cancel();
-			return true;
-		}
-		return false;
-	}
+        } catch (Exception e) {
+             Log.e(TAG, "Error while starting Filemanager: " +
+             e.getMessage());
+        }
+    }
 
-	public Comparator<String> comperator = new Comparator<String>() {
 
-		public int compare(String object1, String object2) {
-			return object1.toString().compareToIgnoreCase(object2.toString());
-		}
-	};
+    public static Intent getFileManIntent(Activity activity) {
+        return new Intent(activity, com.max2idea.android.limbo.main.LimboFileManager.class);
+    }
 
-	public void selectDir() {
-		Intent data = new Intent();
-		data.putExtra("currDir", this.currdir.getPath());
-		setResult(Config.FILEMAN_RETURN_CODE, data);
-		finish();
-	}
-
-	public void selectFile() {
-		Intent data = new Intent();
-		data.putExtra("currDir", this.currdir.getPath());
-		data.putExtra("file", this.file.getPath());
-		data.putExtra("fileType", this.fileType);
-		setResult(Config.FILEMAN_RETURN_CODE, data);
-		finish();
-	}
-
-	private void cancel() {
-		Intent data = new Intent();
-		data.putExtra("currDir", "");
-		setResult(Config.FILEMAN_RETURN_CODE, data);
-		finish();
-	}
-
-	public static void promptSDCardAccess(Activity context, String fileType) {
-		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    protected static void promptOpenFileASF(Activity context, LimboActivity.FileType fileType, int requestCode, String lastDir) {
+        Intent intent = null;
+        if (isFileTypeDirectory(fileType))
+            intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        else
+            intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
-		intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+        intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
 
-		intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+        intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
 
-		intent.setType("*/*");
+        //TODO: is there another way to get this object in the result?
+//        intent.getExtras().putSerializable("fileType", fileType);
 
-		context.startActivityForResult(intent, Config.REQUEST_SDCARD_CODE);
-	}
-
-	public static void promptDirAccess(Activity context) {
-		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-
-		intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-		intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-		intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-
-		intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
-
-		intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-
-		context.startActivityForResult(intent, Config.REQUEST_SDCARD_DIR_CODE);
-	}
+        if (!isFileTypeDirectory(fileType)) {
+            String[] fileMimeTypes = getFileMimeTypes(fileType);
+            if (fileMimeTypes != null) {
+                for (String fileMimeType : fileMimeTypes) {
+                    intent.setType(fileMimeType);
+                }
+            }
+        }
 
 
-	public static String getMimeType(String url) {
-		String type = null;
-		String extension = MimeTypeMap.getFileExtensionFromUrl(url);
-		if (extension != null) {
-			type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
-		}
-		return type;
-	}
+        if(lastDir!=null && lastDir.startsWith("content://")) {
+            Uri uri = Uri.parse(lastDir);
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, uri);
+        }
+
+        context.startActivityForResult(intent, requestCode);
+    }
+
+    private static boolean isFileTypeDirectory(LimboActivity.FileType fileType) {
+        return (fileType == LimboActivity.FileType.SHARED_DIR || fileType == LimboActivity.FileType.EXPORT_DIR
+                || fileType == LimboActivity.FileType.IMAGE_DIR || fileType == LimboActivity.FileType.LOG_DIR);
+
+    }
+
+    private static String[] getFileMimeTypes(LimboActivity.FileType fileType) {
+        if(fileType == LimboActivity.FileType.IMPORT_FILE)
+            return new String[]{MimeTypeMap.getSingleton().getMimeTypeFromExtension("csv")};
+        else
+            return new String[] {"*/*"};
+    }
+
+
+    private static HashMap<String,String> getFileExt(LimboActivity.FileType fileType) {
+        HashMap<String,String> filterExt = new HashMap<>();
+
+        if(fileType == LimboActivity.FileType.IMPORT_FILE)
+            filterExt.put("csv","csv");
+
+        return filterExt;
+    }
+
+    public static String getMimeType(String url) {
+        String type = null;
+        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+        if (extension != null) {
+            type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+        }
+        return type;
+    }
+
+    /**
+     * Called when the activity is first created.
+     */
+    @Override
+    public void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+
+        setContentView(R.layout.directory_list);
+        select = (Button) findViewById(R.id.select_button);
+        select.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View arg0) {
+                selectDir();
+            }
+        });
+        currentDir = (TextView) findViewById(R.id.currDir);
+        Bundle b = this.getIntent().getExtras();
+        String lastDirectory = b.getString("lastDir");
+        fileType = (LimboActivity.FileType) b.getSerializable("fileType");
+        filter = (HashMap<String,String>) b.getSerializable("filterExt");
+
+        if (isFileTypeDirectory(fileType))
+            selectionMode = SelectionMode.DIRECTORY;
+        else {
+            selectionMode = SelectionMode.FILE;
+            select.setVisibility(View.GONE);
+        }
+
+        if (selectionMode == SelectionMode.DIRECTORY)
+            setTitle("Select a Directory");
+        else
+            setTitle("Select a File");
+
+        //set starting directory
+        if (lastDirectory == null) {
+            lastDirectory = Environment.getExternalStorageDirectory().getPath();
+        }
+        currdir = new File(lastDirectory);
+        if (!currdir.isDirectory() || !currdir.exists()) {
+            lastDirectory = Environment.getExternalStorageDirectory().getPath();
+            currdir = new File(lastDirectory);
+        }
+        currentDir.setText(currdir.getPath());
+
+        checkPermissionsAndBrowse();
+
+    }
+
+    private void checkPermissionsAndBrowse() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+
+                UIUtils.UIAlert(this, "WRITE ACCESS", "Warning! Providing FULL ACCESS to the write disk is discouraged!\n\n" +
+                                "You either request for Shared Access to the local drive or your device doesn't have Android Storage Framework implemented. " +
+                                "If you understand the risks press OK to continue", 16, false,
+                        "OK, I understand", new DialogInterface.OnClickListener(){
+
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                ActivityCompat.requestPermissions(FileManager.this,
+                                        new String [] { Manifest.permission.READ_CONTACTS},
+                                        REQUEST_WRITE_PERMISSION);
+                            }
+                        }, null, null, null, null);
+
+            } else {
+                // No explanation needed, we can request the permission.
+                ActivityCompat.requestPermissions(this,
+                        new String [] { Manifest.permission.READ_CONTACTS},
+                        REQUEST_WRITE_PERMISSION);
+            }
+        } else {
+            fill(currdir.listFiles());
+        }
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_WRITE_PERMISSION: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // permission was granted, yay! Do the
+                    // contacts-related task you need to do.
+                } else {
+                    UIUtils.toastShort(this, "Feature disabled");
+                    finish();
+                }
+                return;
+            }
+
+        }
+    }
+
+    private void fill(File[] files) {
+
+
+        items = new ArrayList<String>();
+        items.add(".. (Parent Directory)");
+
+        if (files != null) {
+            for (File file1 : files) {
+                if (file1 != null) {
+                    String filename = file1.getName();
+                    if (filename != null && file1.isFile()
+                            && filter(file1)
+                            ) {
+                        items.add(filename);
+                    } else if (filename != null && file1.isDirectory()) {
+                        items.add(filename + "/");
+                    }
+                }
+            }
+        }
+        Collections.sort(items, comperator);
+        FileAdapter fileList = new FileAdapter(this, R.layout.dir_row, items);
+        setListAdapter(fileList);
+
+        LimboSettingsManager.setLastDir(this, currdir.getAbsolutePath());
+    }
+
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        super.onListItemClick(l, v, position, id);
+        // int selectionRowID = (int) l.getSelectedItemId();
+        int selectionRowID = (int) id;
+        if (selectionRowID == 0) {
+            fillWithParent();
+        } else {
+
+            file = new File(currdir.getPath() + "/" + items.get(selectionRowID));
+            if (file == null) {
+                UIUtils.toastShort(this, "Access Denied: cannot retrieve directory");
+            } else if (!file.isDirectory() && selectionMode == SelectionMode.DIRECTORY) {
+                UIUtils.toastShort(this, "Not a Directory");
+            } else if (file.isDirectory()) {
+currdir = file;
+                File[] files = file.listFiles();
+                if (files != null) {
+                    currentDir.setText(file.getPath());
+                    fill(files);
+                } else {
+                    new AlertDialog.Builder(this).setTitle("Access Denied").setMessage("Cannot list directory").show();
+                }
+            } else {
+                this.selectFile();
+            }
+
+        }
+    }
+
+    private void fillWithParent() {
+        if (currdir.getPath().equalsIgnoreCase("/")) {
+            currentDir.setText(currdir.getPath());
+            fill(currdir.listFiles());
+        } else {
+            currdir = currdir.getParentFile();
+            currentDir.setText(currdir.getPath());
+            fill(currdir.listFiles());
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(0, SELECT_DIR, 0, "Select Directory");
+        menu.add(0, CREATE_DIR, 0, "Create Directory");
+        menu.add(0, CANCEL, 0, "Cancel");
+
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case SELECT_DIR:
+                selectDir();
+                return true;
+            case CREATE_DIR:
+                promptCreateDir(this);
+                return true;
+            case CANCEL:
+                cancel();
+                return true;
+        }
+        return false;
+    }
+
+
+    public void promptCreateDir(final Activity activity) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("New Directory");
+        final EditText dirNameTextview = new EditText(activity);
+        dirNameTextview.setPadding(20, 20, 20, 20);
+        dirNameTextview.setEnabled(true);
+        dirNameTextview.setVisibility(View.VISIBLE);
+        dirNameTextview.setSingleLine();
+        alertDialog.setView(dirNameTextview);
+        alertDialog.setCanceledOnTouchOutside(false);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
+
+        alertDialog.show();
+
+        Button button = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (dirNameTextview.getText().toString().trim().equals(""))
+                    UIUtils.toastShort(activity, "Directory name cannot be empty");
+                else {
+                    createDirectory(dirNameTextview.getText().toString());
+                    fill(currdir.listFiles());
+                    alertDialog.dismiss();
+                }
+            }
+        });
+    }
+
+    private void createDirectory(String dirName) {
+        File dir = new File(currdir, dirName);
+        if(!dir.exists()) {
+            dir.mkdirs();
+        } else {
+            UIUtils.toastShort(this, "Directory already exists!");
+        }
+    }
+
+    public void selectDir() {
+        Intent data = new Intent();
+        Bundle bundle = new Bundle();
+        bundle.putString("currDir", this.currdir.getPath());
+        bundle.putSerializable("fileType", fileType);
+        data.putExtras(bundle);
+        setResult(Config.FILEMAN_RETURN_CODE, data);
+        finish();
+    }
+
+    public void selectFile() {
+        Intent data = new Intent();
+        Bundle bundle = new Bundle();
+        bundle.putString("currDir", this.currdir.getPath());
+        bundle.putString("file", this.file.getPath());
+        bundle.putSerializable("fileType", fileType);
+        data.putExtras(bundle);
+        setResult(Config.FILEMAN_RETURN_CODE, data);
+        finish();
+    }
+
+    private void cancel() {
+        Intent data = new Intent();
+        data.putExtra("currDir", "");
+        setResult(Config.FILEMAN_RETURN_CODE, data);
+        finish();
+    }
+
+
+    public enum SelectionMode {
+        DIRECTORY,
+        FILE
+    }
+
+    public class FileAdapter extends ArrayAdapter<String> {
+        private final Context context;
+        private final ArrayList<String> files;
+
+        public FileAdapter(Context context, int layout, ArrayList<String> files) {
+            super(context, layout, files);
+            this.context = context;
+            this.files = files;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            LayoutInflater inflater = (LayoutInflater) context
+                    .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+            View rowView = inflater.inflate(R.layout.dir_row, parent, false);
+            TextView textView = (TextView) rowView.findViewById(R.id.FILE_NAME);
+            ImageView imageView = (ImageView) rowView.findViewById(R.id.FILE_ICON);
+            textView.setText(files.get(position));
+
+            int iconRes = 0;
+            if (files.get(position).startsWith("..") || files.get(position).endsWith("/"))
+                imageView.setImageResource(R.drawable.folder);
+            else {
+                iconRes = FileUtils.getIconForFile(files.get(position));
+                imageView.setImageResource(iconRes);
+            }
+            return rowView;
+        }
+    }
+
 }
