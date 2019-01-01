@@ -29,6 +29,7 @@
 #include <unwind.h>
 #include <dlfcn.h>
 #include "vm-executor-jni.h"
+#include "limbo_compat.h"
 
 #define MSG_BUFSIZE 1024
 #define MAX_STRING_LEN 1024
@@ -159,6 +160,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
 		jstring storage_dir, jstring base_dir,
 		jstring lib_path,
+		jint sdl_scale_hint,
 		jobjectArray params) {
 	int res;
 	char res_msg[MSG_BUFSIZE + 1] = { 0 };
@@ -198,6 +200,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 
 	started = 1;
+
 	printf("Starting VM...");
 
 
@@ -206,7 +209,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (lib_path != NULL)
 		lib_path_str = env->GetStringUTFChars(lib_path, 0);
 
-#ifndef __LP64__
 	if (handle == NULL) {
 		handle = loadLib(lib_path_str);
 	}
@@ -216,12 +218,13 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		LOGV("%s", res_msg);
 		return env->NewStringUTF(res_msg);
 	}
-#endif
 
 	setup_jni(env, thiz, storage_dir, base_dir);
 
+    set_qemu_var(env, thiz, "limbo_sdl_scale_hint", sdl_scale_hint);
+
 	LOGV("Loading symbol main...\n");
-	typedef void (*main_t)(int argc, char **argv);
+	typedef void (*main_t)(int argc, char **argv, char **envp);
 
 	// reset errors
 	dlerror();
@@ -234,7 +237,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		return env->NewStringUTF(dlsym_error);
 	}
 
-	qemu_main(argc, argv);
+	qemu_main(argc, argv, NULL);
 
 	//UNLOAD LIB
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
@@ -263,14 +266,6 @@ void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir)
     if (storage_dir != NULL)
 		storage_dir_str = env->GetStringUTFChars(storage_dir, 0);
 
-	typedef void (*set_jni_t)(JNIEnv* env, jobject obj1, jclass jclass1, const char * storagedir, const char * basedir);
-	dlerror();
-	set_jni_t set_jni = (set_jni_t) dlsym(handle, "set_jni");
-	const char *dlsym_error3 = dlerror();
-	if (dlsym_error3) {
-		LOGE("Cannot load symbol 'set_jni': %s\n", dlsym_error3);
-		exit(-1);
-	}
 	jclass c = env->GetObjectClass(thiz);
 	set_jni(env, thiz, c, storage_dir_str, base_dir_str);
 }
