@@ -1,6 +1,6 @@
-diff -ru --no-dereference ../qemu-2.9.1/block/vvfat.c ./block/vvfat.c
---- ../qemu-2.9.1/block/vvfat.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./block/vvfat.c	2018-07-08 13:23:50.387001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/block/vvfat.c ./block/vvfat.c
+--- /tmp/qemu-2.9.1/block/vvfat.c	2017-09-07 19:28:14.000000000 +0300
++++ ./block/vvfat.c	2018-08-13 19:10:52.000000000 +0300
 @@ -72,6 +72,10 @@
  
  #endif
@@ -39,9 +39,9 @@ diff -ru --no-dereference ../qemu-2.9.1/block/vvfat.c ./block/vvfat.c
      s->used_clusters = calloc(size, 1);
  
      array_init(&(s->commits), sizeof(commit_t));
-diff -ru --no-dereference ../qemu-2.9.1/configure ./configure
---- ../qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
-+++ ./configure	2018-07-08 13:30:56.339001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
+--- /tmp/qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
++++ ./configure	2018-08-13 19:10:52.000000000 +0300
 @@ -1831,7 +1831,8 @@
  # pkg-config probe
  
@@ -119,14 +119,15 @@ diff -ru --no-dereference ../qemu-2.9.1/configure ./configure
  fi
  
  ##########################################
-diff -ru --no-dereference ../qemu-2.9.1/include/ui/console.h ./include/ui/console.h
---- ../qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
-+++ ./include/ui/console.h	2018-07-08 13:23:50.391001000 +0300
-@@ -27,7 +27,12 @@
+diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/console.h
+--- /tmp/qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
++++ ./include/ui/console.h	2018-12-31 12:07:46.178798809 +0200
+@@ -27,7 +27,13 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
  /* in ms */
 +#ifdef __LIMBO__
++extern int limbo_sdl_scale_hint;
 +extern int gui_refresh_interval_default;
 +#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
 +#else
@@ -135,9 +136,9 @@ diff -ru --no-dereference ../qemu-2.9.1/include/ui/console.h ./include/ui/consol
  #define GUI_REFRESH_INTERVAL_IDLE     3000
  
  /* Color number is match to standard vga palette */
-diff -ru --no-dereference ../qemu-2.9.1/Makefile ./Makefile
---- ../qemu-2.9.1/Makefile	2017-09-07 19:28:14.000000000 +0300
-+++ ./Makefile	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile ./Makefile
+--- /tmp/qemu-2.9.1/Makefile	2017-09-07 19:28:14.000000000 +0300
++++ ./Makefile	2018-08-13 19:10:52.000000000 +0300
 @@ -203,7 +203,7 @@
  
  LIBS+=-lz $(LIBS_TOOLS)
@@ -165,9 +166,9 @@ diff -ru --no-dereference ../qemu-2.9.1/Makefile ./Makefile
  
  fsdev/virtfs-proxy-helper$(EXESUF): fsdev/virtfs-proxy-helper.o fsdev/9p-marshal.o fsdev/9p-iov-marshal.o $(COMMON_LDADDS)
  fsdev/virtfs-proxy-helper$(EXESUF): LIBS += -lcap
-diff -ru --no-dereference ../qemu-2.9.1/Makefile.target ./Makefile.target
---- ../qemu-2.9.1/Makefile.target	2017-09-07 19:28:14.000000000 +0300
-+++ ./Makefile.target	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile.target ./Makefile.target
+--- /tmp/qemu-2.9.1/Makefile.target	2017-09-07 19:28:14.000000000 +0300
++++ ./Makefile.target	2018-12-22 03:32:40.382066234 +0200
 @@ -204,8 +204,10 @@
  COMMON_LDADDS = $(trace-obj-y) ../libqemuutil.a ../libqemustub.a
  
@@ -181,9 +182,9 @@ diff -ru --no-dereference ../qemu-2.9.1/Makefile.target ./Makefile.target
  ifdef CONFIG_DARWIN
  	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
  	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
-diff -ru --no-dereference ../qemu-2.9.1/monitor.c ./monitor.c
---- ../qemu-2.9.1/monitor.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./monitor.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/monitor.c ./monitor.c
+--- /tmp/qemu-2.9.1/monitor.c	2017-09-07 19:28:14.000000000 +0300
++++ ./monitor.c	2018-08-13 19:10:52.000000000 +0300
 @@ -1869,6 +1869,14 @@
  {
      mon_fd_t *monfd;
@@ -199,9 +200,9 @@ diff -ru --no-dereference ../qemu-2.9.1/monitor.c ./monitor.c
      QLIST_FOREACH(monfd, &mon->fds, next) {
          int fd;
  
-diff -ru --no-dereference ../qemu-2.9.1/slirp/misc.c ./slirp/misc.c
---- ../qemu-2.9.1/slirp/misc.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./slirp/misc.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
+--- /tmp/qemu-2.9.1/slirp/misc.c	2017-09-07 19:28:14.000000000 +0300
++++ ./slirp/misc.c	2018-08-13 19:10:52.000000000 +0300
 @@ -60,7 +60,7 @@
  }
  
@@ -211,9 +212,9 @@ diff -ru --no-dereference ../qemu-2.9.1/slirp/misc.c ./slirp/misc.c
  
  int
  fork_exec(struct socket *so, const char *ex, int do_pty)
-diff -ru --no-dereference ../qemu-2.9.1/ui/console.c ./ui/console.c
---- ../qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/console.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
+--- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/console.c	2018-12-31 12:07:31.066701402 +0200
 @@ -34,6 +34,10 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
@@ -225,9 +226,9 @@ diff -ru --no-dereference ../qemu-2.9.1/ui/console.c ./ui/console.c
  typedef struct TextAttributes {
      uint8_t fgcol:4;
      uint8_t bgcol:4;
-diff -ru --no-dereference ../qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
---- ../qemu-2.9.1/ui/sdl2-2d.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2-2d.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
+--- /tmp/qemu-2.9.1/ui/sdl2-2d.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/sdl2-2d.c	2018-08-13 19:10:52.000000000 +0300
 @@ -66,7 +66,15 @@
  
      SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
@@ -258,9 +259,9 @@ diff -ru --no-dereference ../qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
  }
  
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
-diff -ru --no-dereference ../qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
---- ../qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
+--- /tmp/qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/sdl2.c	2018-12-31 11:48:54.163372858 +0200
 @@ -90,7 +90,15 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -277,7 +278,18 @@ diff -ru --no-dereference ../qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
      if (scon->opengl) {
          scon->winctx = SDL_GL_GetCurrentContext();
      }
-@@ -768,6 +776,7 @@
+@@ -756,6 +764,10 @@
+     }
+ }
+ 
++#ifdef __LIMBO__
++int limbo_sdl_scale_hint = -1;
++#endif
++
+ void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
+ {
+     int flags;
+@@ -768,6 +780,7 @@
          gui_noframe = 1;
      }
  
@@ -285,19 +297,22 @@ diff -ru --no-dereference ../qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -779,6 +788,9 @@
-      * Maybe it's a good idea to fix this in SDL instead.
+@@ -780,6 +793,12 @@
       */
      setenv("SDL_VIDEODRIVER", "x11", 0);
-+#else
-+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-+#endif
  #endif
++#else
++    if(limbo_sdl_scale_hint == 1) {
++        SDL_bool res = SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
++        LOGI("Setting SDL_HINT_RENDER_SCALE_QUALITY to %d, code = %d", limbo_sdl_scale_hint, res);
++    }
++#endif
  
      flags = SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE;
-diff -ru --no-dereference ../qemu-2.9.1/ui/vnc.c ./ui/vnc.c
---- ../qemu-2.9.1/ui/vnc.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/vnc.c	2018-07-08 13:23:50.391001000 +0300
+     if (SDL_Init(flags)) {
+diff -ru --no-dereference /tmp/qemu-2.9.1/ui/vnc.c ./ui/vnc.c
+--- /tmp/qemu-2.9.1/ui/vnc.c	2017-09-07 19:28:14.000000000 +0300
++++ ./ui/vnc.c	2018-08-13 19:10:52.000000000 +0300
 @@ -47,8 +47,19 @@
  #include "qemu/cutils.h"
  #include "io/dns-resolver.h"
@@ -318,9 +333,9 @@ diff -ru --no-dereference ../qemu-2.9.1/ui/vnc.c ./ui/vnc.c
  #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
  static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
  static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
-diff -ru --no-dereference ../qemu-2.9.1/util/qemu-openpty.c ./util/qemu-openpty.c
---- ../qemu-2.9.1/util/qemu-openpty.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./util/qemu-openpty.c	2018-07-08 13:23:50.391001000 +0300
+diff -ru --no-dereference /tmp/qemu-2.9.1/util/qemu-openpty.c ./util/qemu-openpty.c
+--- /tmp/qemu-2.9.1/util/qemu-openpty.c	2017-09-07 19:28:14.000000000 +0300
++++ ./util/qemu-openpty.c	2018-08-13 19:10:52.000000000 +0300
 @@ -107,7 +107,9 @@
          termios_p->c_cc[VTIME] = 0;
  }
