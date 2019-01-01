@@ -280,7 +280,8 @@ public class RectList {
 		ObjectPool.Entry<Rect>[] rectEntries;
 		int count;
 		static final int MAX_RECTS = 8;
-		
+
+		@SuppressWarnings("unchecked")
 		NonOverlappingRects()
 		{
 			rectEntries = new ObjectPool.Entry[MAX_RECTS];
