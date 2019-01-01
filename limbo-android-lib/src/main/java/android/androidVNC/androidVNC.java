@@ -63,7 +63,7 @@ public class androidVNC extends Activity {
 	public void onCreate(Bundle icicle) {
 
 		super.onCreate(icicle);
-		setContentView(R.layout.main);
+		setContentView(R.layout.limbo_main);
 
 		ipText = (EditText) findViewById(R.id.textIP);
 		portText = (EditText) findViewById(R.id.textPORT);

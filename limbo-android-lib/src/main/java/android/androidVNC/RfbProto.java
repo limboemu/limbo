@@ -30,6 +30,8 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 
+import com.max2idea.android.limbo.main.Config;
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -220,7 +222,9 @@ public class RfbProto {
                     try {
                         sos.write(buffer0);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Log.w(TAG, "Error while sending VNC data");
+                        if(Config.debug)
+                            e.printStackTrace();
                     }
                 }
             });
