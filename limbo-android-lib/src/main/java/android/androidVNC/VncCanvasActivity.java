@@ -30,7 +30,6 @@ import android.graphics.PointF;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
@@ -52,6 +51,7 @@ import com.antlersoft.android.bc.BCFactory;
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import java.util.List;
 import java.util.logging.Level;
@@ -222,10 +222,10 @@ public class VncCanvasActivity extends Activity {
 		 */
 		@Override
 		public void onLongPress(MotionEvent e) {
-			showZoomer(true);
-			BCFactory.getInstance().getBCHaptic().performLongPressHaptic(vncCanvas);
-			dragMode = true;
-			vncCanvas.processPointerEvent(vncCanvas.changeTouchCoordinatesToFullFrame(e), true);
+//			showZoomer(true);
+//			BCFactory.getInstance().getBCHaptic().performLongPressHaptic(vncCanvas);
+//			dragMode = true;
+//			vncCanvas.processPointerEvent(vncCanvas.changeTouchCoordinatesToFullFrame(e), true);
 		}
 
 		/*
@@ -382,19 +382,24 @@ public class VncCanvasActivity extends Activity {
 		 */
 		@Override
 		public void onLongPress(MotionEvent e) {
-
-			showZoomer(true);
-			BCFactory.getInstance().getBCHaptic().performLongPressHaptic(vncCanvas);
-			dragMode = true;
-			dragX = e.getX();
-			dragY = e.getY();
-			// send a mouse down event to the remote without moving the mouse.
-			remoteMouseStayPut(e);
-			vncCanvas.processPointerEvent(e, true);
-
+            if(Config.enableDragOnLongPress)
+		        dragPointer(e);
 		}
 
-		/*
+        private void dragPointer(MotionEvent e) {
+
+            showZoomer(true);
+            BCFactory.getInstance().getBCHaptic().performLongPressHaptic(vncCanvas);
+            dragMode = true;
+            dragX = e.getX();
+            dragY = e.getY();
+            // send a mouse down event to the remote without moving the mouse.
+            remoteMouseStayPut(e);
+            vncCanvas.processPointerEvent(e, true);
+
+        }
+
+        /*
 		 * (non-Javadoc)
 		 * 
 		 * @see
@@ -447,38 +452,41 @@ public class VncCanvasActivity extends Activity {
 		@Override
 		public boolean onTouchEvent(MotionEvent e) {
 
-			// MK
-			if (e.getAction() == MotionEvent.ACTION_CANCEL)
-				return true;
+            // MK
+            if (e.getAction() == MotionEvent.ACTION_CANCEL)
+                return true;
 
-            if(Config.mouseMode == Config.MouseMode.External) {
+            if (Config.mouseMode == Config.MouseMode.External) {
                 return true;
             }
-			// if (e.getPointerCount() > 1) {
-			// // Log.v("Limbo", "Detected 2 finger tap in onTouchEvent");
-			// rightClick(e);
-			// return true;
-			// }
+            // if (e.getPointerCount() > 1) {
+            // // Log.v("Limbo", "Detected 2 finger tap in onTouchEvent");
+            // rightClick(e);
+            // return true;
+            // }
 
-			if (dragMode) {
-				// compute the relative movement offset on the remote screen.
-				float deltaX = (e.getX() - dragX) * vncCanvas.getScale();
-				float deltaY = (e.getY() - dragY) * vncCanvas.getScale();
-				dragX = e.getX();
-				dragY = e.getY();
-				deltaX = fineCtrlScale(deltaX);
-				deltaY = fineCtrlScale(deltaY);
+            // compute the relative movement offset on the remote screen.
+            float deltaX = (e.getX() - dragX) * vncCanvas.getScale();
+            float deltaY = (e.getY() - dragY) * vncCanvas.getScale();
+            dragX = e.getX();
+            dragY = e.getY();
+            deltaX = fineCtrlScale(deltaX);
+            deltaY = fineCtrlScale(deltaY);
 
-				// compute the absolution new mouse pos on the remote site.
-				float newRemoteX = vncCanvas.mouseX + deltaX;
-				float newRemoteY = vncCanvas.mouseY + deltaY;
+            // compute the absolution new mouse pos on the remote site.
+            float newRemoteX = vncCanvas.mouseX + deltaX;
+            float newRemoteY = vncCanvas.mouseY + deltaY;
 
-				if (e.getAction() == MotionEvent.ACTION_UP) {
-					dragMode = false;
-				}
-				e.setLocation(newRemoteX, newRemoteY);
-				return vncCanvas.processPointerEvent(e, true);
-			} else {
+            if (dragMode) {
+                if (e.getAction() == MotionEvent.ACTION_UP) {
+                    dragMode = false;
+                }
+                e.setLocation(newRemoteX, newRemoteY);
+                return vncCanvas.processPointerEvent(e, true);
+            } else if (!Config.enableDragOnLongPress && e.getAction() == MotionEvent.ACTION_MOVE) {
+                e.setLocation(newRemoteX, newRemoteY);
+                return vncCanvas.processPointerEvent(e, false);
+            } else {
 				return super.onTouchEvent(e);
 			}
 		}
@@ -595,26 +603,35 @@ public class VncCanvasActivity extends Activity {
 		 */
 		@Override
 		public boolean onDoubleTap(MotionEvent e) {
-			// remoteMouseStayPut(e);
-			// Log.v("Limbo","Mouse Down1");
-			// vncCanvas.processPointerEvent(e, true, false);
-			// e.setAction(MotionEvent.ACTION_UP);
-			// Log.v("Limbo","Mouse Up1");
-			// vncCanvas.processPointerEvent(e, false, false);
-			//
-			// remoteMouseStayPut(e);
-			// Log.v("Limbo","Mouse Down2");
-			// e.setAction(MotionEvent.ACTION_DOWN);
-			// vncCanvas.processPointerEvent(e, true, false);
-			// e.setAction(MotionEvent.ACTION_UP);
-			// Log.v("Limbo","Mouse Up2");
-			// return vncCanvas.processPointerEvent(e, false, false);
-			// MK - Double Click
-			return doubleClick(e);
+            if(!Config.enableDragOnLongPress)
+                processDoubleTap(e);
+            else
+                doubleClick(e);
+            return false;
 
 		}
 
-		/*
+        private void processDoubleTap(final MotionEvent e) {
+            Thread t = new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        Thread.sleep(400);
+                    } catch (InterruptedException e1) {
+                        e1.printStackTrace();
+                    }
+
+                    if (vncCanvas.mouseDown) {
+//                        panner.stop();
+                        dragPointer(e);
+                    } else
+                        doubleClick(e);
+
+                }
+            });
+            t.start();
+		}
+
+        /*
 		 * (non-Javadoc)
 		 * 
 		 * @see
@@ -827,7 +844,7 @@ public class VncCanvasActivity extends Activity {
 	}
 
 	public void setContentView() {
-		setContentView(R.layout.canvas);
+		setContentView(R.layout.limbo_vnc);
 	}
 
 	/**
@@ -1001,11 +1018,15 @@ public class VncCanvasActivity extends Activity {
 		// vncCanvas.absoluteYPosition + vncCanvas.getVisibleHeight()
 		// / 2);
 		// return true;
-		else if (item.getItemId() ==  R.id.itemDisconnect){
+		else if (item.getItemId() ==  R.id.itemReconnect){
 			vncCanvas.closeConnection();
-			finish();
+			vncCanvas.reload();
 			return true;
-		} else if (item.getItemId() == R.id.itemEnterText){
+		} else if (item.getItemId() ==  R.id.itemDisconnect){
+            vncCanvas.closeConnection();
+            finish();
+            return true;
+        } else if (item.getItemId() == R.id.itemEnterText){
 			showDialog(R.layout.entertext);
 			return true;
 		}else if (item.getItemId() == R.id.itemCtrlC) {
@@ -1120,6 +1141,11 @@ public class VncCanvasActivity extends Activity {
 		if (event.getAction() == MotionEvent.ACTION_CANCEL)
 			return true;
 
+        if(event.getAction() == MotionEvent.ACTION_DOWN)
+            vncCanvas.mouseDown = true;
+        else if(event.getAction() == MotionEvent.ACTION_UP)
+            vncCanvas.mouseDown = false;
+
 		return inputHandler.onTouchEvent(event);
 	}
 
@@ -1152,8 +1178,7 @@ public class VncCanvasActivity extends Activity {
 				COLORMODEL cm = COLORMODEL.values()[arg2];
 				vncCanvas.setColorModel(cm);
 				connection.setColorModel(cm.nameString());
-				Toast.makeText(VncCanvasActivity.this, "Updating Color Model to " + cm.toString(), Toast.LENGTH_SHORT)
-						.show();
+                UIUtils.toastShort(VncCanvasActivity.this, "Updating Color Model to " + cm.toString());
 			}
 		});
 		dialog.setOnDismissListener(new OnDismissListener() {
