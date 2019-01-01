@@ -1,5 +1,6 @@
 
 #include <jni.h>
+#include <unistd.h>
 #include "limbo_logutils.h"
 #include "limbo_compat.h"
 
