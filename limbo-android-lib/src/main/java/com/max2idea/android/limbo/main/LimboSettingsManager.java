@@ -19,6 +19,7 @@ Copyright (C) Max Kastanas 2012
 package com.max2idea.android.limbo.main;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -27,20 +28,6 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
 public class LimboSettingsManager extends PreferenceActivity {
-
-	public static String getLastDir(Activity activity) {
-		String lastDir = Environment.getExternalStorageDirectory().getPath();
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getString("lastDir", lastDir);
-	}
-
-	public static void setLastDir(Activity activity, String lastDir) {
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		SharedPreferences.Editor edit = prefs.edit();
-		edit.putString("lastDir", lastDir);
-		edit.commit();
-		// UIUtils.log("Setting First time: ");
-	}
 
 	static String getDNSServer(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
@@ -51,20 +38,8 @@ public class LimboSettingsManager extends PreferenceActivity {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putString("dnsServer", dnsServer);
-		edit.commit();
+		edit.apply();
 	}
-
-//	static String getLastUI(Activity activity) {
-//		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-//		return prefs.getString("ui",  Config.defaultUI);
-//	}
-//
-//	public static void setLastUI(Activity activity, String ui) {
-//		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-//		SharedPreferences.Editor edit = prefs.edit();
-//		edit.putString("ui", ui);
-//		edit.commit();
-//	}
 
 	public static int getOrientationSetting(Activity activity) {
 
@@ -79,41 +54,10 @@ public class LimboSettingsManager extends PreferenceActivity {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putInt("orientation", orientation);
-		edit.commit();
+		edit.apply();
 	}
 
-	public static int getKeyboardSetting(Activity activity) {
 
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		int orientation = prefs.getInt("keyboard", 0);
-		// UIUtils.log("Getting First time: " + firstTime);
-		return orientation;
-	}
-	
-	public static void setKeyboardSetting(Activity activity, int orientation) {
-
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		SharedPreferences.Editor edit = prefs.edit();
-		edit.putInt("keyboard", orientation);
-		edit.commit();
-	}
-
-    public static int getMouseSetting(Activity activity) {
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-        int orientation = prefs.getInt("mouse", 0);
-        // UIUtils.log("Getting First time: " + firstTime);
-        return orientation;
-    }
-
-    public static void setMouseSetting(Activity activity, int mouse) {
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-        SharedPreferences.Editor edit = prefs.edit();
-        edit.putInt("mouse", mouse);
-        edit.commit();
-    }
-	
 	public static boolean getPromptUpdateVersion(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		return prefs.getBoolean("updateVersionPrompt", Config.defaultCheckNewVersion);
@@ -124,7 +68,7 @@ public class LimboSettingsManager extends PreferenceActivity {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putBoolean("updateVersionPrompt", flag);
-		edit.commit();
+		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
 	
@@ -137,7 +81,7 @@ public class LimboSettingsManager extends PreferenceActivity {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putBoolean("HighPrio", flag);
-		edit.commit();
+		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
 	
@@ -150,37 +94,51 @@ public class LimboSettingsManager extends PreferenceActivity {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putBoolean("AlwaysShowMenuToolbar", flag);
-		edit.commit();
+		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
 	
 	public static boolean getFullscreen(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getBoolean("ShowFullscreen", false);
+		return prefs.getBoolean("ShowFullscreen", true);
 	}
 
 	public static void setFullscreen(Activity activity, boolean flag) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
 		edit.putBoolean("ShowFullscreen", flag);
-		edit.commit();
+		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
-	
-	static boolean getEnableKVM(Activity activity) {
+
+	public static boolean getFixVncMouse(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getBoolean("EnableKVM", false);
+		return prefs.getBoolean("FixVncMouse", false);
 	}
 
-	public static void setEnableKVM(Activity activity, boolean flag) {
+	public static void setFixVncMouse(Activity activity, boolean flag) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
-		edit.putBoolean("EnableKVM", flag);
-		edit.commit();
+		edit.putBoolean("FixVncMouse", flag);
+		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
 
-	@Override
+    public static boolean getEnableLegacyFileManager(Activity activity) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        return prefs.getBoolean("EnableLegacyFileManager", false);
+	}
+
+
+    public static void setEnableLegacyFileManager(Activity activity, boolean flag) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putBoolean("EnableLegacyFileManager", flag);
+        edit.apply();
+        // UIUtils.log("Setting First time: ");
+    }
+
+    @Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		Intent data = new Intent();
@@ -191,4 +149,63 @@ public class LimboSettingsManager extends PreferenceActivity {
 	public void addPrefs() {
 		// addPreferencesFromResource(R.xml.settings);
 	}
+
+
+
+    public static String getLastDir(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String imagesDir = prefs.getString("lastDir", null);
+        return imagesDir;
+    }
+
+    public static void setLastDir(Context context, String imagesPath) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putString("lastDir", imagesPath);
+        edit.commit();
+    }
+
+    public static String getImagesDir(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String imagesDir = prefs.getString("imagesDir", null);
+        return imagesDir;
+    }
+
+    public static void setImagesDir(Context context, String imagesPath) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putString("imagesDir", imagesPath);
+        edit.commit();
+    }
+
+
+    public static String getExportDir(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String imagesDir = prefs.getString("exportDir", null);
+        return imagesDir;
+    }
+
+    public static void setExportDir(Context context, String imagesPath) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putString("exportDir", imagesPath);
+        edit.commit();
+    }
+
+
+    public static String getSharedDir(Context context) {
+        String lastDir = Environment.getExternalStorageDirectory().getPath();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString("sharedDir", lastDir);
+    }
+
+    public static void setSharedDir(Context context, String lastDir) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putString("sharedDir", lastDir);
+        edit.apply();
+        // UIUtils.log("Setting First time: ");
+    }
+
+
 }
