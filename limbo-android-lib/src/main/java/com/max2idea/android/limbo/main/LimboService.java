@@ -21,6 +21,7 @@ import android.util.Log;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
+import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.UIUtils;
 
 import java.io.BufferedReader;
@@ -61,93 +62,78 @@ public class LimboService extends Service {
 
 			setUpAsForeground(LimboActivity.currMachine.machinename + ": VM Running");
 
-			startLogging();
+			FileUtils.startLogging();
 
-			Log.v(TAG, "Starting the VM");
-			executor.loadNativeLibs();
-
-            setupLocks();
-
-            if(ui == Config.UI_VNC) {
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        LimboActivity.activity.startvnc();
-                    }
-
-                }, 2000);
-            }
+			scheduleTimer();
 
 			Thread t = new Thread(new Runnable() {
 				public void run() {
 
-					//Start vm
+				    //XXX: wait till logging starts capturing
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    Log.v(TAG, "Starting VM: " + LimboActivity.currMachine.machinename);
+
+                    setupLocks();
+
+                    if(ui == Config.UI_VNC) {
+
+                        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                if(LimboActivity.getInstance()!=null) {
+                                    LimboActivity.getInstance().startvnc();
+                                } else
+                                    Log.e(TAG, "Could not start VM");
+
+                            }
+
+                        }, 2000);
+                    }
+
+                    //Start vm
 					String res = executor.startvm();
 
 					//VM has exited
-					LimboActivity.activity.cleanup();
-
-
+					LimboActivity.cleanup();
 
 				}
 			});
             t.setName("VMExecutor");
 			t.start();
 
-		}
+
+        }
 		
 
 		// Don't restart if killed
 		return START_NOT_STICKY;
 	}
 
-	public static StringBuilder log = null;
-	
+    private void scheduleTimer() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                if (LimboActivity.getInstance() != null) {
+                    LimboActivity.getInstance().startTimer();
+                } else
+                    Log.e(TAG, "Could not start timer");
+            }
+        });
+        t.start();
+    }
 
-	private void startLogging() {
-		
-		Thread t = new Thread(new Runnable() {
-			public void run() {
 
-				FileOutputStream os = null;
-				File logFile = new File(Config.logFilePath);
-				if (logFile.exists()) {
-					logFile.delete();
-				}
-				try {
-					Runtime.getRuntime().exec("logcat -c");
-					Process process = Runtime.getRuntime().exec("logcat v main");
-					os = new FileOutputStream(logFile);
-					BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-					log = new StringBuilder();
-					String line = "";
-					while ((line = bufferedReader.readLine()) != null) {
-						log.append(line + "\n");
-						os.write((line + "\n").getBytes("UTF-8"));
-						os.flush();
-					}
-				} catch (IOException e) {
-
-				} finally {
-					try {
-						os.flush();
-						os.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-				}
-
-			}
-		});
-		t.setName("LimboLogger");
-		t.start();
-	}
-
-	private static void setUpAsForeground(String text) {
+    private void setUpAsForeground(String text) {
 		Class<?> clientClass = null;
 		if (LimboActivity.currMachine != null) {
 			if (LimboActivity.currMachine.ui != null) {
@@ -156,7 +142,7 @@ public class LimboService extends Service {
 				} else if (LimboActivity.currMachine.ui.equals("SDL")) {
 					clientClass = LimboSDLActivity.class;
 				} else {
-					UIUtils.toastShort(service, "Unknown User Interface");
+					Log.e(TAG, "Unknown User Interface");
 					return;
 				}
 			} else {
@@ -165,21 +151,13 @@ public class LimboService extends Service {
 				clientClass = LimboVNCActivity.class;
 			}
 		} else {
-			UIUtils.toastShort(service, "No Machine selected");
+			Log.e(TAG, "No Machine selected");
 			return;
 		}
 		Intent intent = new Intent(service.getApplicationContext(), clientClass);
 
 		PendingIntent pi = PendingIntent.getActivity(service.getApplicationContext(), 0, intent,
 				PendingIntent.FLAG_UPDATE_CURRENT);
-
-		// mNotification = new Notification();
-		// mNotification.tickerText = text;
-		// mNotification.icon = R.drawable.limbo;
-		// mNotification.flags |= Notification.FLAG_ONGOING_EVENT;
-		// mNotification.setLatestEventInfo(service.getApplicationContext(),
-		// Config.APP_NAME , text, pi);
-		// service.startForeground(notifID, mNotification);
 
 		builder = new NotificationCompat.Builder(service);
 		mNotification = builder.setContentIntent(pi).setContentTitle("Limbo PC Emulator").setContentText(text)
@@ -209,19 +187,18 @@ public class LimboService extends Service {
 
 	@Override
 	public void onCreate() {
-		Log.d(TAG, "debug: Creating " + TAG);
+		Log.d(TAG, "Creating Service");
 		service = this;
-
 	}
 
 	private void setupLocks() {
 
 		mWifiLock = ((WifiManager) service.getApplicationContext().getSystemService(Context.WIFI_SERVICE))
-				.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "WIFI_LIMBO");
+				.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, Config.wifiLockTag);
 		mWifiLock.setReferenceCounted(false);
 
 		PowerManager pm = (PowerManager) service.getApplicationContext().getSystemService(Context.POWER_SERVICE);
-		mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WAKELOCK_LIMBO");
+		mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, Config.wakeLockTag);
 		mWakeLock.setReferenceCounted(false);
 
 		mNotificationManager = (NotificationManager) service.getApplicationContext().getSystemService(NOTIFICATION_SERVICE);
