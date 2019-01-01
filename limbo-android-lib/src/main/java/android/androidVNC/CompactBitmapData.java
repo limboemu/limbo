@@ -10,6 +10,8 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 
+import com.max2idea.android.limbo.main.Config;
+
 /**
  * @author Michael A. MacDonald
  *
@@ -36,7 +38,8 @@ class CompactBitmapData extends AbstractBitmapData {
 		super(rfb,c);
 		bitmapwidth=framebufferwidth;
 		bitmapheight=framebufferheight;
-		mbitmap = Bitmap.createBitmap(rfb.framebufferWidth, rfb.framebufferHeight, Bitmap.Config.RGB_565);
+
+		mbitmap = Bitmap.createBitmap(rfb.framebufferWidth, rfb.framebufferHeight, Config.bitmapConfig);
 		memGraphics = new Canvas(mbitmap);
 		bitmapPixels = new int[rfb.framebufferWidth * rfb.framebufferHeight];
 	}
