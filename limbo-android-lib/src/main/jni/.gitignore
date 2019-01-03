@@ -12,6 +12,7 @@
 /qemu-patches/qemu-2.9.0-rc0.patch
 #/qemu-patches/qemu-2.9.0.patch
 #/qemu-patches/qemu-2.10.0.patch
+/patches/qemu-3.1.0.patch
 
 /buildlog.txt
 /buildlogerr.txt
