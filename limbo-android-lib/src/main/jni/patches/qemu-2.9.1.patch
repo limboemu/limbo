@@ -136,6 +136,22 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/cons
  #define GUI_REFRESH_INTERVAL_IDLE     3000
  
  /* Color number is match to standard vga palette */
+diff -ru --no-dereference /tmp/qemu-2.9.1/kvm-all.c ./kvm-all.c
+--- /tmp/qemu-2.9.1/kvm-all.c	2017-09-07 19:28:14.000000000 +0300
++++ ./kvm-all.c	2019-01-02 18:40:36.935578571 +0200
+@@ -1601,7 +1601,12 @@
+     s->vmfd = -1;
+     s->fd = qemu_open("/dev/kvm", O_RDWR);
+     if (s->fd == -1) {
++#ifdef __LIMBO__
++//no m specifier in android
++        fprintf(stderr, "Could not access KVM kernel module: /dev/kvm\n");
++#else
+         fprintf(stderr, "Could not access KVM kernel module: %m\n");
++#endif
+         ret = -errno;
+         goto err;
+     }
 diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile ./Makefile
 --- /tmp/qemu-2.9.1/Makefile	2017-09-07 19:28:14.000000000 +0300
 +++ ./Makefile	2018-08-13 19:10:52.000000000 +0300
