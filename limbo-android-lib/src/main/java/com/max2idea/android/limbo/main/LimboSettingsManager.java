@@ -22,6 +22,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceActivity;
@@ -111,15 +113,15 @@ public class LimboSettingsManager extends PreferenceActivity {
 		// UIUtils.log("Setting First time: ");
 	}
 
-	public static boolean getFixVncMouse(Activity activity) {
+	public static boolean getDesktopMode(Activity activity) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		return prefs.getBoolean("FixVncMouse", false);
+		return prefs.getBoolean("DesktopMode", false);
 	}
 
-	public static void setFixVncMouse(Activity activity, boolean flag) {
+	public static void setDesktopMode(Activity activity, boolean flag) {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 		SharedPreferences.Editor edit = prefs.edit();
-		edit.putBoolean("FixVncMouse", flag);
+		edit.putBoolean("DesktopMode", flag);
 		edit.apply();
 		// UIUtils.log("Setting First time: ");
 	}
@@ -207,5 +209,49 @@ public class LimboSettingsManager extends PreferenceActivity {
         // UIUtils.log("Setting First time: ");
     }
 
+
+
+    public static int getExitCode(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        int exitCode = prefs.getInt("exitCode", 1);
+        return exitCode;
+    }
+
+    public static void setExitCode(Context context, int exitCode) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putInt("exitCode", exitCode);
+        edit.commit();
+    }
+
+
+    public static boolean isFirstLaunch(Activity activity) {
+        PackageInfo pInfo = null;
+
+        try {
+            pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
+                    PackageManager.GET_META_DATA);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        boolean firstTime = prefs.getBoolean("firstTime" + pInfo.versionName, true);
+        return firstTime;
+    }
+
+    public static void setFirstLaunch(Activity activity) {
+        PackageInfo pInfo = null;
+
+        try {
+            pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
+                    PackageManager.GET_META_DATA);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putBoolean("firstTime" + pInfo.versionName, false);
+        edit.commit();
+    }
 
 }

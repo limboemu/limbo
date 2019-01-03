@@ -28,6 +28,7 @@ import android.view.MotionEvent;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboSDLActivity;
 import com.max2idea.android.limbo.main.LimboService;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.QmpClient;
@@ -388,7 +389,7 @@ public class VMExecutor {
 //		});
 
         //set the exit code
-        Machine.setExitCode(context, 2);
+        LimboSettingsManager.setExitCode(context, 2);
 
         try {
             res = start(Config.storagedir, this.base_dir, this.libqemu, Config.SDLHintScale, params, this.paused, this.save_state_name);
