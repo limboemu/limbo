@@ -28,13 +28,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
 import android.util.Log;
 import android.view.Gravity;
@@ -54,7 +52,6 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
@@ -103,8 +100,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		setDefaulViewMode();
 
-        setUIModeMobile();
-
+//        setUIModeMobile();
 
 
 	}
@@ -116,7 +112,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 		AbstractScaling.getById(R.id.itemFitToScreen).setScaleTypeForActivity(this);
 		showPanningState();
 
-        screenMode = VNCScreenMode.FitToScreen;
+//        screenMode = VNCScreenMode.FitToScreen;
 		setLayout(getResources().getConfiguration());
 
         UIUtils.setOrientation(this);
@@ -134,7 +130,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         Fullscreen //fullscreen not implemented yet
     }
 
-    public VNCScreenMode screenMode = VNCScreenMode.FitToScreen;
+    public static VNCScreenMode screenMode = VNCScreenMode.FitToScreen;
 
 	private void setLayout(Configuration newConfig) {
 
@@ -375,7 +371,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                         setUIModeMobile();
                         break;
                     case 1:
-                        setUIModeDesktop(LimboVNCActivity.this, false);
+                        promptSetUIModeDesktop(LimboVNCActivity.this, false);
                         break;
                     default:
                         break;
@@ -436,18 +432,22 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
     private void setUIModeMobile(){
 
+        try {
+            MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
-        MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+            Config.mouseMode = Config.MouseMode.Trackpad;
+            onFitToScreen();
+            onMouse();
 
-        Config.mouseMode = Config.MouseMode.Trackpad;
-        onFitToScreen();
-        onMouse();
+            //UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
+            invalidateOptionsMenu();
+        } catch (Exception ex) {
+            if(Config.debug)
+                ex.printStackTrace();
+        }
+        }
 
-        //UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
-        invalidateOptionsMenu();
-    }
-
-    private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
+    private void promptSetUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
 
 
         final AlertDialog alertDialog;
@@ -480,17 +480,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
 
-                MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-                Config.mouseMode = Config.MouseMode.External;
-                UIUtils.toastShort(LimboVNCActivity.this, "External Mouse Enabled");
-                onNormalScreen();
-                AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);
-                showPanningState();
-
-                onMouse();
-
-                //vncCanvas.reSize(false);
-                invalidateOptionsMenu();
+                setUIModeDesktop();
                 alertDialog.dismiss();
             }
         });
@@ -502,6 +492,25 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         alertDialog.show();
 
     }
+
+    private void setUIModeDesktop() {
+
+	    try {
+            MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+            Config.mouseMode = Config.MouseMode.External;
+            UIUtils.toastShort(LimboVNCActivity.this, "External Mouse Enabled");
+            onNormalScreen();
+            AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);
+            showPanningState();
+
+            onMouse();
+        } catch (Exception e) {
+	        if(Config.debug)
+	            e.printStackTrace();
+        }
+        //vncCanvas.reSize(false);
+        invalidateOptionsMenu();
+	}
 
 
     public void onViewLog() {
@@ -523,45 +532,57 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	private boolean onFitToScreen() {
 
-		UIUtils.setOrientation(this);
-        ActionBar bar = this.getActionBar();
-        if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
-            bar.hide();
+	    try {
+            UIUtils.setOrientation(this);
+            ActionBar bar = this.getActionBar();
+            if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
+                bar.hide();
+            }
+
+            inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
+            connection.setInputMode(inputHandler.getName());
+            connection.setFollowMouse(true);
+            mouseOn = true;
+            AbstractScaling.getById(R.id.itemFitToScreen).setScaleTypeForActivity(this);
+            showPanningState();
+            screenMode = VNCScreenMode.FitToScreen;
+            setLayout(null);
+
+            return true;
+        } catch (Exception ex) {
+	        if(Config.debug)
+	            ex.printStackTrace();
         }
-
-		inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
-		connection.setInputMode(inputHandler.getName());
-		connection.setFollowMouse(true);
-		mouseOn = true;
-        AbstractScaling.getById(R.id.itemFitToScreen).setScaleTypeForActivity(this);
-		showPanningState();
-        screenMode = VNCScreenMode.FitToScreen;
-        setLayout(null);
-
-		return true;
-
+        return false;
 	}
 
     private boolean onNormalScreen() {
 
-		//Force only landscape
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-        ActionBar bar = LimboVNCActivity.this.getActionBar();
-        if (bar != null) {
-            bar.show();
+	    try {
+            //Force only landscape
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+            ActionBar bar = LimboVNCActivity.this.getActionBar();
+            if (bar != null) {
+                bar.show();
+            }
+
+            inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
+            connection.setInputMode(inputHandler.getName());
+            connection.setFollowMouse(true);
+            mouseOn = true;
+            AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(this);
+            showPanningState();
+            screenMode = VNCScreenMode.Normal;
+            setLayout(null);
+
+            return true;
+        } catch (Exception ex) {
+	        if(Config.debug)
+	            ex.printStackTrace();
+        } finally {
+
         }
-
-        inputHandler = getInputHandlerById(R.id.itemInputTouchpad);
-        connection.setInputMode(inputHandler.getName());
-        connection.setFollowMouse(true);
-        mouseOn = true;
-        AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(this);
-        showPanningState();
-        screenMode = VNCScreenMode.Normal;
-        setLayout(null);
-
-        return true;
-
+        return false;
     }
 
 	private boolean onMouse() {
@@ -1043,7 +1064,19 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
         if(!firstConnection)
 			UIUtils.showHints(this);
         firstConnection = true;
-    }
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+
+                if(Config.mouseMode == Config.MouseMode.External)
+                    setUIModeDesktop();
+                else
+                    setUIModeMobile();
+            }
+        },1000);
+
+	}
 
     public void onSelectMenuVNCDisplay() {
 

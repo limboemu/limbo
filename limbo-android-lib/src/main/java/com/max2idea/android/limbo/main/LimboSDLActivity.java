@@ -12,13 +12,11 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.media.AudioManager;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
-import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
 
 import android.util.Log;
@@ -42,7 +40,6 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.utils.DrivesDialogBox;
@@ -129,7 +126,7 @@ public class LimboSDLActivity extends SDLActivity {
 	public int vnc_allow_external = 0;
 	public String qemu_dev = null;
 	public String qemu_dev_value = null;
-	public String base_dir = null;
+
 	public String dns_addr = null;
     public int restart = 0;
 
@@ -481,7 +478,7 @@ public class LimboSDLActivity extends SDLActivity {
                         setUIModeMobile();
                         break;
                     case 1:
-                    	setUIModeDesktop(LimboSDLActivity.this, false);
+                    	promptSetUIModeDesktop(false);
                         break;
                     default:
                         break;
@@ -516,6 +513,7 @@ public class LimboSDLActivity extends SDLActivity {
 
     private void setUIModeMobile(){
 
+	    try {
         UIUtils.setOrientation(this);
         MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
@@ -527,9 +525,14 @@ public class LimboSDLActivity extends SDLActivity {
         onFitToScreen();
         calibration();
         invalidateOptionsMenu();
+        }catch (Exception ex){
+            if(Config.debug)
+                ex.printStackTrace();
+        }
+
     }
 
-    private void setUIModeDesktop(final Activity activity, final boolean mouseMethodAlt) {
+    private void promptSetUIModeDesktop(final boolean mouseMethodAlt) {
 
 
         final AlertDialog alertDialog;
@@ -564,22 +567,7 @@ public class LimboSDLActivity extends SDLActivity {
 
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
-
-                MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-
-                //TODO: needed?
-                //LimboSDLActivity.singleClick(a, 0);
-
-                //TODO: not needed?
-                //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
-                //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
-
-                Config.mouseMode = Config.MouseMode.External;
-                LimboActivity.vmexecutor.setRelativeMouseMode(0);
-                UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
-                onNormalScreen();
-                calibration();
-                invalidateOptionsMenu();
+                setUIModeDesktop();
                 alertDialog.dismiss();
             }
         });
@@ -592,7 +580,31 @@ public class LimboSDLActivity extends SDLActivity {
 
     }
 
-	private void onCtrlAltDel() {
+    private void setUIModeDesktop() {
+
+	    try {
+            MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+
+            //TODO: needed?
+            //LimboSDLActivity.singleClick(a, 0);
+
+            //TODO: not needed?
+            //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+            //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
+
+            Config.mouseMode = Config.MouseMode.External;
+            LimboActivity.vmexecutor.setRelativeMouseMode(0);
+            UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
+            onNormalScreen();
+            calibration();
+            invalidateOptionsMenu();
+        }catch (Exception ex){
+	        if(Config.debug)
+	            ex.printStackTrace();
+        }
+	    }
+
+    private void onCtrlAltDel() {
 
 		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_RIGHT);
 		SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ALT_RIGHT);
@@ -629,7 +641,8 @@ public class LimboSDLActivity extends SDLActivity {
 	}
 
 	private void onFitToScreen() {
-		UIUtils.setOrientation(this);
+		try {
+	    UIUtils.setOrientation(this);
         ActionBar bar = LimboSDLActivity.this.getActionBar();
         if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
             bar.hide();
@@ -643,10 +656,15 @@ public class LimboSDLActivity extends SDLActivity {
 
 			}
 		}).start();
+        }catch (Exception ex){
+            if(Config.debug)
+                ex.printStackTrace();
+        }
 
-	}
+    }
 
 	private void onNormalScreen() {
+	    try {
 		ActionBar bar = LimboSDLActivity.this.getActionBar();
 		if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
 			bar.hide();
@@ -661,8 +679,12 @@ public class LimboSDLActivity extends SDLActivity {
 
 			}
 		}).start();
+        }catch (Exception ex){
+            if(Config.debug)
+                ex.printStackTrace();
+        }
 
-	}
+    }
 
 	public void resize(final Configuration newConfig) {
 
@@ -856,7 +878,6 @@ public class LimboSDLActivity extends SDLActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		// Log.v("SDL", "onCreate()");
         activity = this;
-		base_dir = Config.getBasefileDir(this);
 
 		if (LimboSettingsManager.getFullscreen(this))
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -1140,7 +1161,10 @@ public class LimboSDLActivity extends SDLActivity {
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
-							setUIModeMobile();
+						    if(Config.mouseMode == Config.MouseMode.External)
+						        setUIModeDesktop();
+						    else
+							    setUIModeMobile();
 						}
 					}, 500);
 				}
@@ -1421,6 +1445,17 @@ public class LimboSDLActivity extends SDLActivity {
 		@Override
 		public void surfaceCreated(SurfaceHolder holder) {
 			super.surfaceCreated(holder);
+
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+
+                    if(Config.mouseMode == Config.MouseMode.External)
+                        setUIModeDesktop();
+                    else
+                        setUIModeMobile();
+                }
+            },3000);
 		}
 
 		@Override
