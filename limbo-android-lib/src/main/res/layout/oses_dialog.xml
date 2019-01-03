@@ -31,19 +31,30 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/okl"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:padding="10dip" >
 
         <Button
-            android:id="@+id/okButton"
+            android:id="@+id/getDiskButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_gravity="left"
+            android:layout_weight="1"
             android:gravity="center"
-            android:text="Get ISO and Hard Disk Images" />
+            android:text="Get Disk Image" />
+
+        <Button
+            android:id="@+id/ok"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="right"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="OK" />
+
     </LinearLayout>
+
 
 </LinearLayout>

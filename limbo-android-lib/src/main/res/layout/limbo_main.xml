@@ -380,8 +380,7 @@
 
                         <View
                             android:layout_width="match_parent"
-                            android:layout_height="8dp"
-                            />
+                            android:layout_height="8dp" />
 
 
                         <LinearLayout
@@ -425,26 +424,25 @@
 
 
                                 <LinearLayout
-                                    android:id="@+id/fixvncmousel"
+                                    android:id="@+id/desktopmodel"
                                     android:layout_width="fill_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_gravity="right|center_vertical"
                                     android:gravity="right|center_vertical"
                                     android:orientation="horizontal"
-                                    android:padding="5dp"
-                                    android:visibility="gone">
+                                    android:padding="5dp">
 
                                     <TextView
-                                        android:id="@+id/fixvncmouseStr"
+                                        android:id="@+id/desktopmodeStr"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:layout_gravity="right|center_vertical"
                                         android:gravity="right|center_vertical"
-                                        android:text="Fix VNC Mouse"
+                                        android:text="Desktop Mode"
                                         android:textSize="15sp" />
 
                                     <CheckBox
-                                        android:id="@+id/fixvncmouseval"
+                                        android:id="@+id/desktopmodeval"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:layout_gravity="right|center_vertical"
@@ -724,8 +722,7 @@
 
                         <View
                             android:layout_width="match_parent"
-                            android:layout_height="8dp"
-                            />
+                            android:layout_height="8dp" />
 
                         <LinearLayout
                             android:id="@+id/accell"
@@ -1626,7 +1623,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center_vertical"
-                                android:text="VGA Display: "
+                                android:text="Video Display: "
                                 android:textSize="15sp" />
 
                             <Spinner
