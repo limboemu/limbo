@@ -1,262 +1,301 @@
-<br>
-Limbo v3.0.1 beta<br>
-- Fixed issue with loading state being corrupt and crashing app<br>
-- Fixed crashing when vm display resizes and mouse is sending events<br>
-- DSL Linux does not boot when smp > 1 so disabled if KVM is not used<br>
-- Using guest ARM 64 bit for arm emulator<br>
-- Added virtio-gpu-pci in vga options for ARM guest<br>
-- Using latest ndk 17b<br>
-- Added musl libraries from ndk 14b<br>
-- Compile support for clang from now on<br>
-- Build package support for multiple host eabi: ARMv7, ARM 64 bit, x86, and x86 64 bit<br>
-<br>
+* Limbo v4.0.0
+Enabled SDL scaling with linear algorithm
+Fixed loading native libraries for 64 bit hosts
+VNC and SDL 1-1 screen mode is now centered
+Emulated SD Drive is now available only for ARM
+Desktop Mode is now global setting
+Fixed issue with VNC 24bit color on Samsung phones showing black screen
+Standardized VNC port for better compatibility with external clients
+Added Calibration Fix for VNC Mouse
+Mouse, Keyboard, MTTCG, and KVM are now Machine option (not global)
+New option Disable TSC for OSes that hang or kernel panic (set by default)
+Some machine options have changed default values (ie network is disable by default)
+New expand/collapse user interface for main screen.
+Formatted display path for disk image files
+Enabled fallback file manager for Android devices that don't support Android Storage Framework (no SD Card support)
+Shared folder is now configurable (SD Card still not supported)
+Added reconnect option for VNC
+VNC client resize automatically when VM resolution changes
+Added/Rearranged some additional CPU and Machine specs across emulators
+Added internal log viewer
+Fixed issue with virtual disk files containing percent symbol
+QEMU monitor is now resized automatically
+Fixed issue with crashing and/or corrupting vm states after pause is complete
+Fixed emulated SD card for ARM emulator
+Maximum number of virtual CPUs is now 8
+Maximum machine RAM is now 2GB
+Logging now starts capturing output early
+Log File is now saved internally with "Copy To" option
+Limbo generated files are now all saved under internal private storage,
+Virtual disks images can still be loaded from external storage or SD Card
+Added description for emulated mouse usb-tablet (this fixes VNC mouse issues)
+Mouse usb-tablet is not supported by all Guest OSes
+Added icons for Legacy file manager
+Added icons for Drives dialog box
+Reduced message errors for QMP client
+Early support for double tap/hold touchpad mode
+Early support for x86 guest MTTCG (qemu 3.1.0)
+New build environemnt read README.developers for changes to makefiles
+Reduced JNI internal configuration files and makefiles
+Default build sdk version is now api 26, minimum api continues to be 21
 
-<br>
-Limbo v3.0.0 alpha<br>
-- Rebased with QEMU 2.9.1 due to crashes with recent QEMU versions<br>
-- KVM accelerator support fixed for x86 and ARM kernels (needs kernel with KVM support)<br>
-- Added Desktop Mode for use with Android-x86, Chromebook, DeX station<br>
-- External Mouse enabled (USB and Bluetooth)<br>
-- Emulated Mouse types (PS/2, USB, Tablet)<br>
-- Updated with latest dependent libraries (glib, SDL2, libffi, pixman)<br>
-- Added musl libiconv and libintl (included in Android NDK)<br>
-- Moved bios roms and keymaps to cache storage so storage clean managers won't delete them<br>
-- Better display scaling modes<br>
-- Issue with persistent notification fixed<br>
-- Support for Korean Language (by obbcth)<br>
-- Env supports Android Studio 3.1.1 and above<br>
-- Environment build supports only Ubuntu from now on (no more support for Win/cygwin)<br>
-- Releases only for ARM and x86 devices from now on (though you can still build sparc/ppc)<br>
-- Better drop-in procedures for lib deps and better config Makefiles<br>
-<br>
+Limbo v3.0.1 beta
+- Fixed issue with loading state being corrupt and crashing app
+- Fixed crashing when vm display resizes and mouse is sending events
+- DSL Linux does not boot when smp > 1 so disabled if KVM is not used
+- Using guest ARM 64 bit for arm emulator
+- Added virtio-gpu-pci in vga options for ARM guest
+- Using latest ndk 17b
+- Added musl libraries from ndk 14b
+- Compile support for clang from now on
+- Build package support for multiple host eabi: ARMv7, ARM 64 bit, x86, and x86 64 bit
 
-<br>
-Limbo v2.11.0<br>
-- Rebased with QEMU 2.11.0<br>
-- Native libraries support for ARMv8 64bit phones/tables<br>
-- Native libraries support for x86 64 bit phones/tables<br>
-- Mouse Calibration for VNC<br>
-- Fixed crash while changing Drives<br>
-- Remove notification after VM shutdown<br>
-- Better Toolbar with Menu Icons<br>
-- Stack Protector for better security<br>
-- Better error handling with Pausing VM<br>
-- Fixed issue with enabling Shared Folder<br>
-- Fixed double mouse click under VNC mode<br>
-- Logs can now be viewed only under external Text Viewer<br>
-- Fixed stlport shared library link<br>
-- Cleaner Log with more msg errors printed<br>
-- Fixed volume panel under SDL mode<br>
-- Added lid type roms<br>
-- strings.xml Ja (by Uhucream)<br>
-- strings.xml Ch (by qingan1996)<br>
-- Better Build environment for development<br>
-- Removed configurations for ARM hard fp<br>
-- Support for PowerPC 64 bit emulator<br>
-- Minimum Requirements:<br>
-- Phone/Tablet with ARMv7 or x86 cpu and Android OS 4.2+<br>
-- Phone/Tablet with ARMv8 64bit or x86 64bit cpu and Android OS 5.0+<br>
-<br>
 
-<br>
-Limbo v2.10.0<br>
-- Rebased with QEMU 2.10.0<br>
-- User Interface issue randomly updating values is fixed<br>
-- Proper acquire and release of Wifi and Wake locks<br>
-- Drives dialog is fixed<br>
-- Memory leaks on the User Interface are fixed<br>
-- Moving to support Android Studio development onwards<br>
-- Minimum Requirements: Android OS 4.2+<br>
-<br>
 
-Limbo v2.9.2<br>
-- Added Logging mechanism and View Log menu option<br>
-- Fixed issue with Keyboard<br>
-- Fixed Compatibility issue with KolibriOS and DSL Linux Live CD<br>
-- Support for building of ARM, PowerPC, Sparc Emulators <br>
-- Support for building for 64Bit Hosts (x86_64, ARM64) <br>
-- Support for enabling mttcg<br>
-- Minimum Requirements: Android OS 17<br>
-<br>
+Limbo v3.0.0 alpha
+- Rebased with QEMU 2.9.1 due to crashes with recent QEMU versions
+- KVM accelerator support fixed for x86 and ARM kernels (needs kernel with KVM support)
+- Added Desktop Mode for use with Android-x86, Chromebook, DeX station
+- External Mouse enabled (USB and Bluetooth)
+- Emulated Mouse types (PS/2, USB, Tablet)
+- Updated with latest dependent libraries (glib, SDL2, libffi, pixman)
+- Added musl libiconv and libintl (included in Android NDK)
+- Moved bios roms and keymaps to cache storage so storage clean managers won't delete them
+- Better display scaling modes
+- Issue with persistent notification fixed
+- Support for Korean Language (by obbcth)
+- Env supports Android Studio 3.1.1 and above
+- Environment build supports only Ubuntu from now on (no more support for Win/cygwin)
+- Releases only for ARM and x86 devices from now on (though you can still build sparc/ppc)
+- Better drop-in procedures for lib deps and better config Makefiles
 
-<br>
-Limbo v2.9.1 Alpha<br>
-- Fix issue with crashes - Disable SD card image<br>
-- Minimum Requirements: Android OS 17<br> 
-<br>
 
-<br>
-Limbo v2.9.0 Alpha<br>
-- Rebase with QEMU 2.9.0 and align versions<br>
-- User Interface improvements and Fixes<br>  
-- Fixed issue with fullscreen for SDL<br>
-- Fixed notifications<br>
-- Fix build under non-Windows environment (patch by paul70078 github)<br>
-- Minimum Requirements: Android OS 17<br> 
-<br>
 
-<br>
-Limbo v2.4.0 Alpha<br>
-- Rebase with QEMU 2.7.0<br>
-- New UI with removable toolbar<br> 
-- Added Host forward option<br> 
-- Fixed issues with reseting values on UI<br> 
-- Fixed issue with VNC panning (disabled)<br> 
-- Fixed issue with sound for SDL<br> 
-- Fixed issue with orientation for SDL<br> 
-- Fixed issue with cpu naming<br> 
-- Additional UI validation<br> 
-- Minimum Requirements: Android OS 14<br> 
-<br>
+Limbo v2.11.0
+- Rebased with QEMU 2.11.0
+- Native libraries support for ARMv8 64bit phones/tables
+- Native libraries support for x86 64 bit phones/tables
+- Mouse Calibration for VNC
+- Fixed crash while changing Drives
+- Remove notification after VM shutdown
+- Better Toolbar with Menu Icons
+- Stack Protector for better security
+- Better error handling with Pausing VM
+- Fixed issue with enabling Shared Folder
+- Fixed double mouse click under VNC mode
+- Logs can now be viewed only under external Text Viewer
+- Fixed stlport shared library link
+- Cleaner Log with more msg errors printed
+- Fixed volume panel under SDL mode
+- Added lid type roms
+- strings.xml Ja (by Uhucream)
+- strings.xml Ch (by qingan1996)
+- Better Build environment for development
+- Removed configurations for ARM hard fp
+- Support for PowerPC 64 bit emulator
+- Minimum Requirements:
+- Phone/Tablet with ARMv7 or x86 cpu and Android OS 4.2+
+- Phone/Tablet with ARMv8 64bit or x86 64bit cpu and Android OS 5.0+
 
-<br>
-Limbo v2.2.3<br>
--Fixed lib loading issue for Jellybean<br> 
-<br>
 
-<br>
-Limbo v2.2.2<br>
-Option for Virtual FAT disk<br> 
-Extra QEMU parameters<br>
-Fixed issues with Removable Devices<br>
-Added CPU types<br>
-Several backend compatibility fixes<br>
-Enabled KVM (NOT Tested)<br>
-<br>
 
-<br>
-Limbo v2.2.1<br>
--Fixed lib loading issue for Jellybean<br>
-<br>
+Limbo v2.10.0
+- Rebased with QEMU 2.10.0
+- User Interface issue randomly updating values is fixed
+- Proper acquire and release of Wifi and Wake locks
+- Drives dialog is fixed
+- Memory leaks on the User Interface are fixed
+- Moving to support Android Studio development onwards
+- Minimum Requirements: Android OS 4.2+
 
-<br>
-Limbo v2.2<br>
--Fixed several Issues with SDL<br> 
--Enabled QMP Server for saving vm state<br>
-<br>
 
-<br>
-Limbo v2.1 alpha<br>
--Added SDL interface<br>
--Misc Performance Enhancements<br>
-<br>
+Limbo v2.9.2
+- Added Logging mechanism and View Log menu option
+- Fixed issue with Keyboard
+- Fixed Compatibility issue with KolibriOS and DSL Linux Live CD
+- Support for building of ARM, PowerPC, Sparc Emulators 
+- Support for building for 64Bit Hosts (x86_64, ARM64) 
+- Support for enabling mttcg
+- Minimum Requirements: Android OS 17
 
-<br>
-Limbo v2.0<br>
--Rebase with Qemu 2.3.0<br>
--Hard FP support<br>
--Misc Performance Enhancements<br>
--SDL Support is not supported currently (coming soon)<br>
-<br>
 
-<br>
-Limbo v0.9.9 (TBD)<br>
-- Upgraded to glib 2.24<br>
-- Modified env for easier targeting<br>
-- Created ARMv7 build configuration<br>
-- Compiled SDL for X86<br>
-- Created x86 build configuration<br>
-- Replaced qemu-img with hd image templates<br>
-<br>
 
-<br>
-Limbo v0.9.8 (May 12, 2013)<br>
-- Compatibility changes due to defects<br>
-<br>
+Limbo v2.9.1 Alpha
+- Fix issue with crashes - Disable SD card image
+- Minimum Requirements: Android OS 17 
 
-<br>
-Limbo v0.9.7b (May 12, 2013)<br>
-- Disabling TSC Feature (too buggy)<br>
-This should fix multiple issues with the last update.<br>
-<br>
 
-<br>
-Limbo v0.9.7 (May 3, 2013)<br>
-- Fixed Removable Devices<br>
-- Enabled TSC feature for Pentium+<br>
-- Fixed some compatibility issues with JB<br>
-- Using gcc 4.7 and -O3 and full ARM (no thumb)<br>
-- Enable TAP interface (Experimental)<br>
-- Alternative orientation<br>
-- Switching to EGL1.1 for compatibility<br>
-- Keep screen on<br>
-<br>
 
-<br>
-Limbo v0.9.6 (Jan 30, 2013)<br>
-- Fixed Boot parameters<br>
-<br>
+Limbo v2.9.0 Alpha
+- Rebase with QEMU 2.9.0 and align versions
+- User Interface improvements and Fixes  
+- Fixed issue with fullscreen for SDL
+- Fixed notifications
+- Fix build under non-Windows environment (patch by paul70078 github)
+- Minimum Requirements: Android OS 17 
 
-Limbo v0.9.5 (Jan 19, 2013)<br>
-<br>
-- Fixed Mouse relative position for SDL.<br>
-- Enabled SMP mode (multi-core emulation).<br>
-<br>
 
-Limbo v0.9.4 (Jan 6, 2012)<br>
-<br>
-- Increased RAM Memory to 1GB.<br>
-- New SDL User Interface.<br>
-- Enabled External Mouse (Bluetooth).<br>
-- Sound Emulation for SB16 (only under SDL Interface).<br>
-- Fixed Keyboard CTRL,ALT keys and removed extra screens for VNC<br>
-<br>
 
-<br><br>
-Limbo v0.9.3 (Nov 3, 2012)<br>
-<br>
-- Fixed crash issues while copying files inside VM, using sigaltstack instead of gthread<br>
-- Fixed issue with canceling image selection and enabled ejection of media (CD, Floppy).<br>
-- Fixed some crashes due to pointer outside of VNC area.<br>
-- File manager now detects VHD file format as well.<br>
-- Some performance enhancements. Fixed issue with optimization for cpu-exec.c and using gcc-4.6 for ARM build this fixes.<br>
+Limbo v2.4.0 Alpha
+- Rebase with QEMU 2.7.0
+- New UI with removable toolbar 
+- Added Host forward option 
+- Fixed issues with reseting values on UI 
+- Fixed issue with VNC panning (disabled) 
+- Fixed issue with sound for SDL 
+- Fixed issue with orientation for SDL 
+- Fixed issue with cpu naming 
+- Additional UI validation 
+- Minimum Requirements: Android OS 14 
+
+
+
+Limbo v2.2.3
+-Fixed lib loading issue for Jellybean 
+
+
+
+Limbo v2.2.2
+Option for Virtual FAT disk 
+Extra QEMU parameters
+Fixed issues with Removable Devices
+Added CPU types
+Several backend compatibility fixes
+Enabled KVM (NOT Tested)
+
+
+
+Limbo v2.2.1
+-Fixed lib loading issue for Jellybean
+
+
+
+Limbo v2.2
+-Fixed several Issues with SDL 
+-Enabled QMP Server for saving vm state
+
+
+
+Limbo v2.1 alpha
+-Added SDL interface
+-Misc Performance Enhancements
+
+
+
+Limbo v2.0
+-Rebase with Qemu 2.3.0
+-Hard FP support
+-Misc Performance Enhancements
+-SDL Support is not supported currently (coming soon)
+
+
+
+Limbo v0.9.9 (TBD)
+- Upgraded to glib 2.24
+- Modified env for easier targeting
+- Created ARMv7 build configuration
+- Compiled SDL for X86
+- Created x86 build configuration
+- Replaced qemu-img with hd image templates
+
+
+
+Limbo v0.9.8 (May 12, 2013)
+- Compatibility changes due to defects
+
+
+
+Limbo v0.9.7b (May 12, 2013)
+- Disabling TSC Feature (too buggy)
+This should fix multiple issues with the last update.
+
+
+
+Limbo v0.9.7 (May 3, 2013)
+- Fixed Removable Devices
+- Enabled TSC feature for Pentium+
+- Fixed some compatibility issues with JB
+- Using gcc 4.7 and -O3 and full ARM (no thumb)
+- Enable TAP interface (Experimental)
+- Alternative orientation
+- Switching to EGL1.1 for compatibility
+- Keep screen on
+
+
+
+Limbo v0.9.6 (Jan 30, 2013)
+- Fixed Boot parameters
+
+
+Limbo v0.9.5 (Jan 19, 2013)
+
+- Fixed Mouse relative position for SDL.
+- Enabled SMP mode (multi-core emulation).
+
+
+Limbo v0.9.4 (Jan 6, 2012)
+
+- Increased RAM Memory to 1GB.
+- New SDL User Interface.
+- Enabled External Mouse (Bluetooth).
+- Sound Emulation for SB16 (only under SDL Interface).
+- Fixed Keyboard CTRL,ALT keys and removed extra screens for VNC
+
+
+
+Limbo v0.9.3 (Nov 3, 2012)
+
+- Fixed crash issues while copying files inside VM, using sigaltstack instead of gthread
+- Fixed issue with canceling image selection and enabled ejection of media (CD, Floppy).
+- Fixed some crashes due to pointer outside of VNC area.
+- File manager now detects VHD file format as well.
+- Some performance enhancements. Fixed issue with optimization for cpu-exec.c and using gcc-4.6 for ARM build this fixes.
 - Enabled Multithreaded AIO option for Android 3.0 devices, this should speed up 
-  disk I/O inside the virtual machine.<br>
-- Fixed memory.h compilation issue (patch provided by Yair Lifshitz).<br>
-- Fixed load linker errors with stdio.h (patch provided by Yair Lifshitz).<br>
-- Port for x86 phones (patch provided by Yair Lifshitz).<br>
-<br>
+  disk I/O inside the virtual machine.
+- Fixed memory.h compilation issue (patch provided by Yair Lifshitz).
+- Fixed load linker errors with stdio.h (patch provided by Yair Lifshitz).
+- Port for x86 phones (patch provided by Yair Lifshitz).
 
-<br><br>
-Limbo v0.9.2 (Oct 10, 2012)<br>
-<br>
-- Fixed issue with booting HDD images, removed TSC features for now<br>
-- Fixed dlfree issue for ICS devices, removed optimization (-O3) for gmem.c<br>
-- Fixed issue with browsing CD ROM and Floppy images while VM is running<br>
-- Fixed timing issue while getting status<br>
-- Enabled Mouse Double click with "Double tap" <br>
-- Enabled Mouse Right click with "2-Finger Long Press"<br>
-- Removed resolv.conf, DNS server is now configurable within Limbo UI<br>
-- Some minor UI enhancements<br>
-- Enabled Graphics Hardware Acceleration for Android 3.0+ devices<br>
-- Enabled Large Heap for Better Performance<br>
-<br>
 
-<br><br>
-Limbo v0.9.1b-2 (Sep 15, 2012)<br>
-<br>
-- Fixed Issue with app hanging at "Connecting to VM Console" - SIGUSR1 is blocked by Dalvik VM.<br>
-- Fixed issue while resizing VNC screen<br>
-- Added global /sdcard/limbo/etc/resolv.conf - Default is Google DNS servers<br>
-- Removed n120x network device - wrong device name<br>
-- Added missing keyboard mappings - F1-F12, ESC<br>
-- Some minor UI enhancements<br>
-- Changed optimization for glib compilation (-O3)<br>
-<br>
 
-<br><br>
-Limbo v0.9.1b (Aug 13, 2012)<br>
-<br>
-- CPU Emulation: i386/x86_64 - (486/PI,PII,PIII,Athlon,Atom n270,Dual Core,Phenom)<br>
-- CDROM Emulation: .img raw images read/write/bootable<br>
-- Floppy Emulation: .iso images read/bootable<br>
-- IDE Hard Disk Emulation: raw, qcow2 images are detected and bootable but unreliable)<br>
-- VGA Display Emulation: standard, cirrus, VMWare<br>
-- Network Emulation: User/NAT mode<br>
-- Peripheral Devices Emulation: Mouse (Touchpad), Keyboard (PS/2,USB) <br>
-- VNC External connections (so you can control the VM remotely from a PC).<br>
-  VNC is unencrypted so make sure you use this option in Private Networks only!<br>
-- Save/Load VM Snapshot/State.<br>
-- QEMU Monitor<br>
-- UI Configurable parameters for device management<br>
-<br><br>
+Limbo v0.9.2 (Oct 10, 2012)
+
+- Fixed issue with booting HDD images, removed TSC features for now
+- Fixed dlfree issue for ICS devices, removed optimization (-O3) for gmem.c
+- Fixed issue with browsing CD ROM and Floppy images while VM is running
+- Fixed timing issue while getting status
+- Enabled Mouse Double click with "Double tap" 
+- Enabled Mouse Right click with "2-Finger Long Press"
+- Removed resolv.conf, DNS server is now configurable within Limbo UI
+- Some minor UI enhancements
+- Enabled Graphics Hardware Acceleration for Android 3.0+ devices
+- Enabled Large Heap for Better Performance
+
+
+
+Limbo v0.9.1b-2 (Sep 15, 2012)
+
+- Fixed Issue with app hanging at "Connecting to VM Console" - SIGUSR1 is blocked by Dalvik VM.
+- Fixed issue while resizing VNC screen
+- Added global /sdcard/limbo/etc/resolv.conf - Default is Google DNS servers
+- Removed n120x network device - wrong device name
+- Added missing keyboard mappings - F1-F12, ESC
+- Some minor UI enhancements
+- Changed optimization for glib compilation (-O3)
+
+
+
+Limbo v0.9.1b (Aug 13, 2012)
+
+- CPU Emulation: i386/x86_64 - (486/PI,PII,PIII,Athlon,Atom n270,Dual Core,Phenom)
+- CDROM Emulation: .img raw images read/write/bootable
+- Floppy Emulation: .iso images read/bootable
+- IDE Hard Disk Emulation: raw, qcow2 images are detected and bootable but unreliable)
+- VGA Display Emulation: standard, cirrus, VMWare
+- Network Emulation: User/NAT mode
+- Peripheral Devices Emulation: Mouse (Touchpad), Keyboard (PS/2,USB) 
+- VNC External connections (so you can control the VM remotely from a PC).
+  VNC is unencrypted so make sure you use this option in Private Networks only!
+- Save/Load VM Snapshot/State.
+- QEMU Monitor
+- UI Configurable parameters for device management
