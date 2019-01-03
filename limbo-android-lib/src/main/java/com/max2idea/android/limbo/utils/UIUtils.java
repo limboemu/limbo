@@ -9,15 +9,24 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
+import android.widget.ArrayAdapter;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.Toolbar;
@@ -27,11 +36,180 @@ import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
 import com.max2idea.android.limbo.main.LimboSettingsManager;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Scanner;
 
 public class UIUtils {
 
-	public static void toastLong(final Context activity, final String errStr) {
+
+    private static final String TAG = "UIUtils";
+
+    public static Spannable formatAndroidLog(String contents) {
+
+        Scanner scanner = null;
+        Spannable formattedString = new SpannableString(contents);
+        if(contents.length()==0)
+            return formattedString;
+
+        try {
+            scanner = new Scanner(contents);
+            int counter = 0;
+            ForegroundColorSpan colorSpan = null;
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                if (line.startsWith("E/")) {
+                    colorSpan = new ForegroundColorSpan(Color.rgb(255, 22, 22));
+                } else if (line.startsWith("W/")) {
+                    colorSpan = new ForegroundColorSpan(Color.rgb(22, 44, 255));
+                } else {
+                    colorSpan = null;
+                }
+                if (colorSpan!= null) {
+                    formattedString.setSpan(colorSpan, counter, counter + line.length(),
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                counter += line.length()+1;
+            }
+
+        }catch (Exception ex) {
+            Log.e(TAG, "Could not format limbo log: " + ex.getMessage());
+        } finally {
+            if(scanner!=null) {
+                try {
+                    scanner.close();
+                } catch (Exception ex) {
+                    if(Config.debug)
+                        ex.printStackTrace();
+                }
+            }
+
+        }
+        return formattedString;
+    }
+
+
+    public static void checkNewVersion(final Activity activity) {
+
+        if (!LimboSettingsManager.getPromptUpdateVersion(activity)) {
+            return;
+        }
+
+        HttpURLConnection conn;
+        InputStream is = null;
+        try {
+            URL url = new URL(Config.downloadUpdateLink);
+            conn = (HttpURLConnection) url.openConnection();
+
+            conn.connect();
+            is = conn.getInputStream();
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+            int read = 0;
+            byte[] buff = new byte[1024];
+            while ((read = is.read(buff)) != -1) {
+                bos.write(buff, 0, read);
+            }
+            byte[] streamData = bos.toByteArray();
+            String contents = new String(streamData).trim();
+            final String [] versionStr = contents.split(":");
+            final String versionNumStr = versionStr[0];
+            double version = Double.parseDouble(versionNumStr);
+            String versionName = version +"";
+            if(versionStr.length>1 && versionStr[1] != null && !versionStr[1].equals(""))
+                versionName = versionStr[1];
+
+            PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
+                    PackageManager.GET_META_DATA);
+            int versionCheck = (int) (version * 100);
+            if (versionCheck > pInfo.versionCode) {
+                final String finalVersionName = versionName;
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        UIUtils.promptNewVersion(activity, finalVersionName);
+                    }
+                });
+            }
+        } catch (Exception ex) {
+            Log.e(TAG, "Could not get new version: " + ex.getMessage());
+            if(Config.debug)
+                ex.printStackTrace();
+        } finally {
+            if (is != null) {
+                try {
+                    is.close();
+                } catch (IOException e) {
+
+                    e.printStackTrace();
+                }
+            }
+            if (is != null) {
+                try {
+                    is.close();
+                } catch (IOException e) {
+
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    public static class LimboFileSpinnerAdapter extends ArrayAdapter<String>
+    {
+        int index = 0;
+        public LimboFileSpinnerAdapter(Context context, int layout, ArrayList<String> items, int index)
+        {
+
+            super(context, layout, items);
+            this.index = index;
+        }
+
+        @Override
+        public View getDropDownView(int position, View convertView, ViewGroup parent)
+        {
+            View view = super.getDropDownView(position, convertView, parent);
+            if(position >= index) {
+                TextView textView = (TextView) view.findViewById(R.id.customSpinnerDropDownItem);
+                String textStr = convertFilePath(textView.getText() + "", position);
+                textView.setText(textStr);
+            }
+            return view;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent)
+        {
+            View view = super.getView(position, convertView, parent);
+            if(position >= index) {
+                TextView textView = (TextView)view.findViewById(R.id.customSpinnerItem);
+                String textStr = convertFilePath(textView.getText() + "", position);
+                textView.setText(textStr);
+            }
+
+            return view;
+        }
+
+
+        private String convertFilePath(String text, int position)
+        {
+            try {
+                text = FileUtils.getFullPathFromDocumentFilePath(text);
+            } catch (Exception ex) {
+                if(Config.debug)
+                    ex.printStackTrace();
+            }
+
+            return text;
+        }
+    }
+
+    public static void toastLong(final Context activity, final String errStr) {
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			@Override
 			public void run() {
@@ -74,25 +252,28 @@ public class UIUtils {
         return !toggle;
 	}
 
-	public static void toastShortTop(final Context activity, final String errStr) {
-		toast(activity, errStr, Gravity.TOP | Gravity.CENTER, Toast.LENGTH_SHORT);
+	public static void toastShortTop(final Activity activity, final String errStr) {
+		UIUtils.toast(activity, errStr, Gravity.TOP | Gravity.CENTER, Toast.LENGTH_SHORT);
 	}
 
-	public static void toast(final Context activity, final String errStr, final int gravity, final int length) {
+	public static void toast(final Context context, final String errStr, final int gravity, final int length) {
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			@Override
 			public void run() {
-				Toast toast = Toast.makeText(activity, errStr, length);
-				toast.setGravity(gravity, 0, 0);
-				toast.show();
+			    if(context instanceof Activity && ((Activity) context).isFinishing()) {
+                    return ;
+			    }
+                    Toast toast = Toast.makeText(context, errStr, length);
+                    toast.setGravity(gravity, 0, 0);
+                    toast.show();
 
 			}
 		});
 
 	}
 
-    public static void toastShort(final Context activity, final String errStr) {
-		toast(activity, errStr, Gravity.CENTER | Gravity.CENTER, Toast.LENGTH_SHORT);
+    public static void toastShort(final Context context, final String errStr) {
+		toast(context, errStr, Gravity.CENTER | Gravity.CENTER, Toast.LENGTH_SHORT);
 
     }
 
@@ -116,6 +297,28 @@ public class UIUtils {
 			break;
 		}
 	}
+
+
+    public static void onChangeLog(Activity activity) {
+        PackageInfo pInfo = null;
+
+        try {
+            pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
+                    PackageManager.GET_META_DATA);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        FileUtils fileutils = new FileUtils();
+        try {
+            UIUtils.UIAlert(activity,"CHANGELOG", fileutils.LoadFile(activity, "CHANGELOG", false),
+                    0, false, "OK", null, null, null, null, null);
+        } catch (IOException e) {
+
+            e.printStackTrace();
+        }
+    }
+
+
 
 	public static void showHints(Activity activity) {
 		
@@ -164,7 +367,7 @@ public class UIUtils {
     }
 
 
-    public static void onHelp(Activity activity) {
+    public static void onHelp(final Activity activity) {
         PackageInfo pInfo = null;
 
         try {
@@ -175,15 +378,36 @@ public class UIUtils {
         }
 
         FileUtils fileutils = new FileUtils();
+        UIAlert(activity, Config.APP_NAME + " v" + pInfo.versionName,
+                "For Downloads, Guides, Help, and Virtual Disk files visit the Limbo Website", 20,
+                false,
+                "Go To Website", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        UIUtils.openURL(activity, Config.guidesLink);
+                    }
+                },
+                "OK",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                }, null, null
+        );
+    }
+
+    private static void openURL(Activity activity, String url) {
         try {
-            UIAlertHtml(Config.APP_NAME + " v" + pInfo.versionName, fileutils.LoadFile(activity, "HELP", false), activity);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Intent fileIntent = new Intent(Intent.ACTION_VIEW);
+            fileIntent.setData(Uri.parse(url));
+            activity.startActivity(fileIntent);
+        }catch (Exception ex) {
+            UIUtils.toastShort(activity, "Could not open url");
         }
     }
 
-	public static void UIAlert(Activity activity, String title, String body) {
+    public static void UIAlert(Activity activity, String title, String body) {
 
 		AlertDialog alertDialog;
 		alertDialog = new AlertDialog.Builder(activity).create();
@@ -191,7 +415,9 @@ public class UIUtils {
 		TextView textView = new TextView(activity);
 		textView.setPadding(20,20,20,20);
 		textView.setText(body);
-		alertDialog.setView(textView);
+		ScrollView view = new ScrollView(activity);
+		view.addView(textView);
+		alertDialog.setView(view);
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				return;
@@ -200,14 +426,81 @@ public class UIUtils {
 		alertDialog.show();
 	}
 
-    public static void UIAlertHtml(String title, String html, Activity activity) {
+    public static void UIAlert(Activity activity, String title, String body, int textSize, boolean cancelable,
+                               String button1title, DialogInterface.OnClickListener button1Listener,
+                               String button2title, DialogInterface.OnClickListener button2Listener,
+                               String button3title, DialogInterface.OnClickListener button3Listener
+                               ) {
 
         AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
         alertDialog.setTitle(title);
-        WebView webview = new WebView(activity);
-        webview.loadData(html, "text/html", "UTF-8");
-        alertDialog.setView(webview);
+        alertDialog.setCanceledOnTouchOutside(cancelable);
+        TextView textView = new TextView(activity);
+        textView.setPadding(20,20,20,20);
+        textView.setText(body);
+        if(textSize>0)
+            textView.setTextSize(textSize);
+        textView.setBackgroundColor(Color.WHITE);
+        textView.setTextColor(Color.BLACK);
+        ScrollView view = new ScrollView(activity);
+        view.addView(textView);
+        alertDialog.setView(view);
+        if(button1title!=null)
+            alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, button1title, button1Listener);
+        if(button2title!=null)
+            alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, button2title, button2Listener);
+        if(button3title!=null)
+            alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, button3title, button3Listener);
+        alertDialog.show();
+    }
+
+    public static void UIAlertLog(final Activity activity, String title, Spannable body) {
+
+        AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle(title);
+        TextView textView = new TextView(activity);
+        textView.setPadding(20,20,20,20);
+        textView.setText(body);
+        textView.setBackgroundColor(Color.BLACK);
+        textView.setTextSize(12);
+        textView.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        textView.setSingleLine(false);
+        ScrollView view = new ScrollView(activity);
+        view.addView(textView);
+        alertDialog.setView(view);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                return;
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEUTRAL, "Copy To", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                UIUtils.toastShort(activity, "Choose a Directory to save the logfile");
+                FileManager.browse(activity, LimboActivity.FileType.LOG_DIR, Config.OPEN_LOG_FILE_DIR_REQUEST_CODE);
+                return;
+            }
+        });
+        alertDialog.show();
+    }
+
+    public static void UIAlertHtml(String title, String body, Activity activity) {
+
+        AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle(title);
+
+        try {
+            WebView webview = new WebView(activity);
+            webview.loadData(body, "text/html", "UTF-8");
+            alertDialog.setView(webview);
+        } catch (Exception ex) {
+            TextView textView = new TextView(activity);
+            textView.setText(body);
+            alertDialog.setView(textView);
+        }
+
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 return;
@@ -230,11 +523,7 @@ public class UIUtils {
 		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Get New Version",
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
-
-						// UIUtils.log("Searching...");
-						Intent fileIntent = new Intent(Intent.ACTION_VIEW);
-						fileIntent.setData(Uri.parse(Config.downloadLink));
-						activity.startActivity(fileIntent);
+                        openURL(activity, Config.downloadLink);
 					}
 				});
 		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Don't Show Again",
@@ -265,7 +554,7 @@ public class UIUtils {
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int which) {
 
-						FileUtils.viewLimboLog(activity);
+					    FileUtils.viewLimboLog(activity);
 					}
 				});
 		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel",

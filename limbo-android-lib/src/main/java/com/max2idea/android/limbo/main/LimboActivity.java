@@ -22,7 +22,6 @@ import android.androidVNC.ConnectionBean;
 import android.androidVNC.VncCanvas;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -33,35 +32,32 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
 import android.os.PowerManager.WakeLock;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
-import android.support.v4.provider.DocumentFile;
 import android.support.v4.view.MenuItemCompat;
+import android.support.v4.widget.NestedScrollView;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.text.Editable;
 import android.text.InputType;
-import android.text.TextWatcher;
-import android.util.AttributeSet;
+import android.text.method.HideReturnsTransformationMethod;
+import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnFocusChangeListener;
-import android.webkit.WebView;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
@@ -76,2655 +72,2015 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.jni.VMExecutor;
 import com.max2idea.android.limbo.utils.FavOpenHelper;
 import com.max2idea.android.limbo.utils.FileInstaller;
+import com.max2idea.android.limbo.utils.FileManager;
 import com.max2idea.android.limbo.utils.FileUtils;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.OSDialogBox;
-import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
+import com.max2idea.android.limbo.utils.UIUtils.LimboFileSpinnerAdapter;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-//import com.max2idea.android.limbo.main.R;
-
 public class LimboActivity extends AppCompatActivity {
 
-	public static final String TAG = "LIMBO";
-	// Static
-	private static final int HELP = 0;
-	private static final int QUIT = 1;
-	private static final int INSTALL = 2;
-	private static final int DELETE = 3;
-	private static final int EXPORT = 4;
-	private static final int IMPORT = 5;
-	private static final int CHANGELOG = 6;
-	private static final int LICENSE = 7;
-	private static final int VIEWLOG = 8;
-	private static final int CREATE = 9;
-	private static final int ISOSIMAGES = 10;
-	private static final int DISCARD_VM_STATE = 11;
-	public static boolean vmStarted = false;
-	public static LimboActivity activity = null;
-	public static VMExecutor vmexecutor;
-	public static String currStatus = "READY";
-	static public ProgressDialog progDialog;
-	public static Machine currMachine = null;
-	public static Handler OShandler;
-	private static Installer a;
-	private static TextWatcher appendChangeListener;
-	private static TextWatcher extraParamsChangeListener;
-	private static TextWatcher dnsChangeListener;
-	private static String vnc_passwd = null;
-	private static int vnc_allow_external = 0;
-	public View parent;
-	public TextView mOutput;
-	public AutoScrollView mLyricsScroll;
-	private boolean machineLoaded;
+    public static final String TAG = "LIMBO";
 
+    private static final int HELP = 0;
+    private static final int QUIT = 1;
+    private static final int INSTALL = 2;
+    private static final int DELETE = 3;
+    private static final int EXPORT = 4;
+    private static final int IMPORT = 5;
+    private static final int CHANGELOG = 6;
+    private static final int LICENSE = 7;
+    private static final int VIEWLOG = 8;
+    private static final int CREATE = 9;
+    private static final int ISOSIMAGES = 10;
+    private static final int DISCARD_VM_STATE = 11;
+    private static final int ENABLE_FILEMANAGER = 12;
+
+    public static VMStatus currStatus = VMStatus.Ready;
+    public static boolean vmStarted = false;
+    public static VMExecutor vmexecutor;
+    public static Machine currMachine = null;
+    private static LimboActivity activity = null;
+    private static String vnc_passwd = null;
+    private static int vnc_allow_external = 0;
+    public ProgressDialog progDialog;
+    public View parent;
+    private InstallerTask installerTaskTask;
+    private boolean machineLoaded;
+    private boolean timeQuit = false;
+    private Object lockTime = new Object();
 
     //Widgets
-	private ImageView mStatus;
-	private EditText mDNS;
-	private EditText mHOSTFWD;
-	private EditText mAppend;
-	private EditText mExtraParams;
-	private boolean timeQuit = false;
-	private Object lockTime = new Object();
-	private TextView mStatusText;
-	private WakeLock mWakeLock;
-	private WifiLock wlock;
-	private Spinner mMachine;
-	private Spinner mCPU;
-	private Spinner mArch;
-	private Spinner mMachineType;
-	private Spinner mCPUNum;
-	private Spinner mKernel;
-	private Spinner mInitrd;
-	// HDD
-	private Spinner mHDA;
-	private Spinner mHDB;
-	private Spinner mHDC;
-	private Spinner mHDD;
-	private Spinner mCD;
-	private Spinner mFDA;
-	private Spinner mFDB;
-	private Spinner mSD;
-	private Spinner mSharedFolder;
-	private CheckBox mHDAenable;
-	private CheckBox mHDBenable;
-	private CheckBox mHDCenable;
-	private CheckBox mHDDenable;
-	private CheckBox mCDenable;
-	private CheckBox mFDAenable;
-	private CheckBox mFDBenable;
-	private CheckBox mSDenable;
-	private CheckBox mSharedFolderenable;
-	private Spinner mRamSize;
-	private Spinner mBootDevices;
-	private Spinner mNetDevices;
-	private Spinner mNetConfig;
-	private Spinner mVGAConfig;
-	private Spinner mSoundCardConfig;
-	private Spinner mHDCacheConfig;
-	private Spinner mUI;
-	private CheckBox mACPI;
-	private CheckBox mHPET;
-	private CheckBox mFDBOOTCHK;
-	// private CheckBox mSnapshot;
-	// private CheckBox mBluetoothMouse;
-	private CheckBox mVNCAllowExternal;
-	private CheckBox mPrio;
-	private CheckBox mEnableKVM;
-	private CheckBox mToolBar;
-	private CheckBox mFullScreen;
-	private Spinner mSnapshot;
-	private Spinner mOrientation;
-	private Spinner mKeyboard;
+    private ImageView mStatus;
+    private EditText mDNS;
+    private EditText mHOSTFWD;
+    private EditText mAppend;
+    private EditText mExtraParams;
+    private TextView mStatusText;
+    private WakeLock mWakeLock;
+    private WifiLock wlock;
+
+
+    private Spinner mMachine;
+    private Spinner mCPU;
+    private Spinner mArch;
+    private Spinner mMachineType;
+    private Spinner mCPUNum;
+    private Spinner mKernel;
+    private Spinner mInitrd;
+
+    // HDD
+    private Spinner mHDA;
+    private Spinner mHDB;
+    private Spinner mHDC;
+    private Spinner mHDD;
+    private Spinner mCD;
+    private Spinner mFDA;
+    private Spinner mFDB;
+    private Spinner mSD;
+    private Spinner mSharedFolder;
+    private CheckBox mHDAenable;
+    private CheckBox mHDBenable;
+    private CheckBox mHDCenable;
+    private CheckBox mHDDenable;
+    private CheckBox mCDenable;
+    private CheckBox mFDAenable;
+    private CheckBox mFDBenable;
+    private CheckBox mSDenable;
+    private CheckBox mSharedFolderenable;
+    private Spinner mRamSize;
+    private Spinner mBootDevices;
+    private Spinner mNicCard;
+    private Spinner mNetConfig;
+    private Spinner mVGAConfig;
+    private Spinner mSoundCard;
+    private Spinner mHDCacheConfig;
+    private Spinner mUI;
+    private CheckBox mDisableACPI;
+    private CheckBox mDisableHPET;
+    private CheckBox mDisableTSC;
+
+    //TODO:
+    // private CheckBox mSnapshot;
+
+    private CheckBox mVNCAllowExternal;
+    private CheckBox mPrio;
+    private CheckBox mEnableKVM;
+    private CheckBox mEnableMTTCG;
+
+    private CheckBox mToolBar;
+    private CheckBox mFullScreen;
+    private Spinner mSnapshot;
+    private Spinner mOrientation;
+    private Spinner mKeyboard;
     private Spinner mMouse;
-	private ImageButton mStart;
-	private ImageButton mStop;
-	private ImageButton mRestart;
-	private ImageButton mSave;
-	private ArrayAdapter<String> cpuAdapter;
-	private ArrayAdapter<String> archAdapter;
-	private ArrayAdapter<String> machineTypeAdapter;
-	private ArrayAdapter<String> cpuNumAdapter;
-	private ArrayAdapter<String> uiAdapter;
-	private ArrayAdapter<String> machineAdapter;
-	private ArrayAdapter<String> ramAdapter;
-	private ArrayAdapter<String> cdromAdapter;
-	private ArrayAdapter<String> vgaAdapter;
-	private ArrayAdapter<String> netAdapter;
-	private ArrayAdapter<String> bootDevAdapter;
-	private ArrayAdapter<String> hdCacheAdapter;
-	private ArrayAdapter<String> sndAdapter;
-	private ArrayAdapter<String> nicCfgAdapter;
-	private ArrayAdapter<String> fdaAdapter;
-	private ArrayAdapter<String> fdbAdapter;
-	private ArrayAdapter<String> sdAdapter;
-	private ArrayAdapter<String> sharedFolderAdapter;
-	// HDD
-	private ArrayAdapter<String> hdaAdapter;
-	private ArrayAdapter<String> hdbAdapter;
-	private ArrayAdapter<String> hdcAdapter;
-	private ArrayAdapter<String> hddAdapter;
-	private ArrayAdapter<String> kernelAdapter;
-	private ArrayAdapter<String> initrdAdapter;
-	private ArrayAdapter<String> snapshotAdapter;
-	private ArrayAdapter<String> orientationAdapter;
-	private ArrayAdapter<String> keyboardAdapter;
-    private ArrayAdapter<String> mouseAdapter;
-	public Handler handler = new Handler() {
-		@Override
-		public synchronized void handleMessage(Message msg) {
-			Bundle b = msg.getData();
-			Integer messageType = (Integer) b.get("message_type");
-
-			if (messageType != null && messageType == Config.VM_PAUSED) {
-                UIUtils.toastShort(LimboActivity.this, "VM Paused");
-
-			}
-
-			if (messageType != null && messageType == Config.VM_STOPPED) {
-                UIUtils.toastShort(LimboActivity.this, "VM Shutdown");
-				mStart.setImageResource(R.drawable.play);
-
-			}
-			if (messageType != null && messageType == Config.VM_RESTARTED) {
-                UIUtils.toastShort(LimboActivity.this, "VM Reset");
-			}
-			if (messageType != null && messageType == Config.VM_SAVED) {
-                UIUtils.toastShort(LimboActivity.this, "VM Saved");
-			}
-			if (messageType != null && messageType == Config.VM_NO_QCOW2) {
-                UIUtils.toastLong(LimboActivity.this, "Couldn't find a QCOW2 image\nPlease attach an HDA or HDB image first!");
-			}
-			if (messageType != null && messageType == Config.VM_NO_KERNEL) {
-                UIUtils.toastLong(LimboActivity.this, "Couldn't find a Kernel image\nPlease attach a Kernel image first!");
-			}
-			if (messageType != null && messageType == Config.VM_NO_INITRD) {
-                UIUtils.toastLong(LimboActivity.this, "Couldn't find a initrd image\nPlease attach an initrd image first!");
-			}
-			if (messageType != null && messageType == Config.VM_ARM_NOMACHINE) {
-                UIUtils.toastLong(LimboActivity.this, "Please select an ARM machine type first!");
-			}
-			if (messageType != null && messageType == Config.VM_NOTRUNNING) {
-                UIUtils.toastShort(LimboActivity.this, "VM not running");
-			}
-			if (messageType != null && messageType == Config.VM_CREATED) {
-				String machineValue = (String) b.get("machine_name");
-				createMachine(machineValue);
-
-			}
-			if (messageType != null && messageType == Config.IMG_CREATED) {
-				String hdValue = (String) b.get("hd");
-				String imageValue = (String) b.get("image_name");
-				if (progDialog != null && progDialog.isShowing()) {
-					progDialog.dismiss();
-				}
-				Toast.makeText(activity, "Image Created: " + imageValue, Toast.LENGTH_SHORT).show();
-				setDriveAttr(hdValue, imageValue);
-
-			}
-			if (messageType != null && messageType == Config.SNAPSHOT_CREATED) {
-
-				String imageValue = (String) b.get("snapshot_name");
-				savevm(imageValue);
-
-			}
-			if (messageType != null && messageType == Config.VNC_PASSWORD) {
-
-				String imageValue = (String) b.get("vnc_passwd");
-
-			}
-			if (messageType != null && messageType == Config.UIUTILS_SHOWALERT_LICENSE) {
-				String title = (String) b.get("title");
-				String body = (String) b.get("body");
-				UIAlertLicense(title, body, activity);
-			}
-			if (messageType != null && messageType == Config.UIUTILS_SHOWALERT_HTML) {
-				String title = (String) b.get("title");
-				String body = (String) b.get("body");
-				UIUtils.UIAlertHtml(title, body, activity);
-			}
-			if (messageType != null && messageType == Config.STATUS_CHANGED) {
-				String status_changed = (String) b.get("status_changed");
-				if (status_changed.equals("RUNNING")) {
-					mStatus.setImageResource(R.drawable.on);
-					mStatusText.setText("Running");
-					vmStarted = true;
-				} else if (status_changed.equals("READY") || status_changed.equals("STOPPED")) {
-					mStatus.setImageResource(R.drawable.off);
-					mStatusText.setText("Stopped");
-				} else if (status_changed.equals("SAVING")) {
-					mStatus.setImageResource(R.drawable.on);
-					mStatusText.setText("Saving State");
-				} else if (status_changed.equals("PAUSED")) {
-					mStatus.setImageResource(R.drawable.on);
-					mStatusText.setText("Paused");
-				}
-			}
-			if (messageType != null && messageType == Config.VM_EXPORT) {
-				if (progDialog.isShowing()) {
-					progDialog.dismiss();
-				}
-                UIUtils.toastLong(LimboActivity.this, "Machines are exported in " + Config.DBFile);
-			}
-			if (messageType != null && messageType == Config.VM_IMPORT) {
-				if (progDialog.isShowing()) {
-					progDialog.dismiss();
-				}
-                UIUtils.toastLong(LimboActivity.this, "Machines have been imported from " + Config.DBFile);
-				populateAttributes();
-			}
-
-		}
-	};
-	private LinearLayout mCPUSectionDetails;
-	private TextView mCPUSectionHeader;
-	private LinearLayout mStorageSectionDetails;
-	private TextView mStorageSectionHeader;
-	private LinearLayout mUserInterfaceSectionDetails;
-	private TextView mUserInterfaceSectionHeader;
-	private LinearLayout mAdvancedSectionDetails;
-	private TextView mAdvancedSectionHeader;
-	private View mBootSectionHeader;
-	private LinearLayout mBootSectionDetails;
-	private LinearLayout mGraphicsSectionDetails;
-	private TextView mGraphicsSectionHeader;
-	private LinearLayout mRemovableStorageSectionDetails;
-	private TextView mRemovableStorageSectionHeader;
-	private LinearLayout mNetworkSectionDetails;
-	private View mNetworkSectionHeader;
-	private LinearLayout mAudioSectionDetails;
-	private TextView mAudioSectionHeader;
-	private ConnectionBean selected;
-	private String filetype;
-
-	public static void UIAlert(String title, String body, Activity activity) {
-		AlertDialog ad;
-		ad = new AlertDialog.Builder(activity).create();
-		ad.setTitle(title);
-		ad.setMessage(body);
-		ad.setButton(Dialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				return;
-			}
-		});
-		ad.show();
-	}
-
-	public static void quit() {
-		activity.finish();
-	}
-
-	static protected boolean isFirstLaunch() {
-		PackageInfo pInfo = null;
-
-		try {
-			pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
-					PackageManager.GET_META_DATA);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		boolean firstTime = prefs.getBoolean("firstTime" + pInfo.versionName, true);
-		return firstTime;
-	}
-
-	static protected void setFirstLaunch() {
-		PackageInfo pInfo = null;
-
-		try {
-			pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
-					PackageManager.GET_META_DATA);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-		SharedPreferences.Editor edit = prefs.edit();
-		edit.putBoolean("firstTime" + pInfo.versionName, false);
-		edit.commit();
-	}
-
-	static private void install(boolean force) {
-		progDialog = ProgressDialog.show(activity, "Please Wait", "Installing Files...", true);
-		a = new Installer();
-		a.force = force;
-		a.execute();
-	}
-
-    public static void UIAlertLicense(String title, String body, final Activity activity) {
-
-		AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle(title);
-
-		TextView textView = new TextView(activity);
-		textView.setText(body);
-		textView.setTextSize(10);
-		textView.setPadding(20,20,20,20);
-
-		ScrollView scrollView = new ScrollView(activity);
-		scrollView.addView(textView);
-
-		alertDialog.setView(scrollView);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "I Acknowledge", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				if (isFirstLaunch()) {
-					install(true);
-					UIUtils.onHelp(activity);
-					onChangeLog();
-				}
-				setFirstLaunch();
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				if (isFirstLaunch()) {
-					if (activity.getParent() != null) {
-						activity.getParent().finish();
-					} else {
-						activity.finish();
-					}
-				}
-			}
-		});
-		alertDialog.show();
-	}
-
-
-
-	// Generic Message to update UI
-	public static void sendHandlerMessage(Handler handler, int message_type, String message_var, String message_value) {
-		Message msg1 = handler.obtainMessage();
-		Bundle b = new Bundle();
-		b.putInt("message_type", message_type);
-		b.putString(message_var, message_value);
-		msg1.setData(b);
-		handler.sendMessage(msg1);
-	}
-
-	public static void sendHandlerMessage(Handler handler, int message_type, String[] message_var,
-			String[] message_value) {
-		Message msg1 = handler.obtainMessage();
-		Bundle b = new Bundle();
-		b.putInt("message_type", message_type);
-		for (int i = 0; i < message_var.length; i++) {
-			b.putString(message_var[i], message_value[i]);
-		}
-		msg1.setData(b);
-		handler.sendMessage(msg1);
-	}
-
-	// Another Generic Messanger
-	public static void sendHandlerMessage(Handler handler, int message_type) {
-		Message msg1 = handler.obtainMessage();
-		Bundle b = new Bundle();
-		b.putInt("message_type", message_type);
-		msg1.setData(b);
-		handler.sendMessage(msg1);
-	}
-
-	private static void onTap() {
-		ApplicationInfo pInfo = null;
-		String userid = "None";
-		try {
-			pInfo = activity.getPackageManager().getApplicationInfo(activity.getClass().getPackage().getName(),
-					PackageManager.GET_META_DATA);
-			userid = pInfo.uid + "";
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		if (!(new File("/dev/net/tun")).exists()) {
-			showAlertHtml("TAP - User Id: " + userid,
-					"Your device doesn't support TAP, use \"User\" network mode instead ", OShandler);
-			return;
-		}
-		FileUtils fileutils = new FileUtils();
-		try {
-			showAlertHtml("TAP - User Id: " + userid, fileutils.LoadFile(activity, "TAP", false), OShandler);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-
-	private static void onChangeLog() {
-		PackageInfo pInfo = null;
-
-		try {
-			pInfo = activity.getPackageManager().getPackageInfo(activity.getClass().getPackage().getName(),
-					PackageManager.GET_META_DATA);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		FileUtils fileutils = new FileUtils();
-		try {
-			showAlertHtml("CHANGELOG", fileutils.LoadFile(activity, "CHANGELOG", false), OShandler);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	public static void showAlertLicense(String title, String message, Handler handler) {
-		Message msg1 = handler.obtainMessage();
-		Bundle b = new Bundle();
-		b.putInt("message_type", Config.UIUTILS_SHOWALERT_LICENSE);
-		b.putString("title", title);
-		b.putString("body", message);
-		msg1.setData(b);
-		handler.sendMessage(msg1);
-	}
-
-	public static void showAlertHtml(String title, String message, Handler handler) {
-		Message msg1 = handler.obtainMessage();
-		Bundle b = new Bundle();
-		b.putInt("message_type", Config.UIUTILS_SHOWALERT_HTML);
-		b.putString("title", title);
-		b.putString("body", message);
-		msg1.setData(b);
-		handler.sendMessage(msg1);
-	}
-
-	static private void onInstall(boolean force) {
-		FileInstaller.installFiles(activity, force);
-	}
-
-	public static String getVnc_passwd() {
-		return vnc_passwd;
-	}
-
-	public static void setVnc_passwd(String vnc_passwd) {
-		LimboActivity.vnc_passwd = vnc_passwd;
-	}
-
-	// This is easier: traverse the interfaces and get the local IPs
-	public static String getLocalIpAddress() {
-		try {
-			for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
-				NetworkInterface intf = en.nextElement();
-				for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
-					InetAddress inetAddress = enumIpAddr.nextElement();
-					if (!inetAddress.isLoopbackAddress() && inetAddress.getHostAddress().toString().contains(".")) {
-						return inetAddress.getHostAddress().toString();
-					}
-				}
-			}
-		} catch (SocketException ex) {
-			ex.printStackTrace();
-		}
-		return null;
-	}
-
-	// Start calling the JNI interface
-	public static void startvm(Activity activity, int UI) {
-		if (UI == Config.UI_VNC) {
-			// disable sound card with VNC
-			vmexecutor.enablevnc = 1;
-			vmexecutor.enablespice = 0;
-			vmexecutor.sound_card = null;
-			vmexecutor.vnc_allow_external = vnc_allow_external;
-			vmexecutor.vnc_passwd = vnc_passwd;
-		} else if (UI == Config.UI_SDL) {
-			vmexecutor.enablevnc = 0;
-			vmexecutor.enablespice = 0;
-		} else if (UI == Config.UI_SPICE) {
-			vmexecutor.vnc_allow_external = vnc_allow_external;
-			vmexecutor.vnc_passwd = vnc_passwd;
-			vmexecutor.enablevnc = 0;
-			vmexecutor.enablespice = 1;
-		}
-		vmexecutor.startvm(activity, UI);
-
-	}
-
-
-
-	public void setUserPressed(boolean pressed) {
-
-		if (pressed) {
-			enableListeners();
-		} else
-			disableListeners();
-
-	}
-
-	private void enableListeners() {
-
-
-    	mArch.setOnItemSelectedListener(new OnItemSelectedListener() {
-
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				// your code here
-
-				String arch = (String) ((ArrayAdapter<?>) mArch.getAdapter()).getItem(position);
-
-
-					currMachine.arch = arch;
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, arch);
-
-					if (currMachine.arch.equals("ARM")|| currMachine.arch.equals("ARM64")) {
-
-						if (!machineLoaded) {
-							populateMachineType("integratorcp");
-							populateCPUs("arm926");
-							populateNetDevices("smc91c111");
-						}
-
-					} else if (currMachine.arch.equals("MIPS")) {
-
-						if (!machineLoaded) {
-							populateMachineType("malta");
-							populateCPUs("Default");
-							// populateNetDevices("smc91c111");
-						}
-
-					} else if (currMachine.arch.equals("PPC")) {
-
-						if (!machineLoaded) {
-							populateMachineType("Default");
-							populateCPUs("Default");
-							populateNetDevices("e1000");
-						}
-
-					} else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
-
-						if (!machineLoaded) {
-							populateMachineType("pc");
-							if (currMachine.arch.equals("x86")) {
-								populateCPUs("Default");
-							} else
-								populateCPUs("Default");
-							populateNetDevices("ne2k_pci");
-						}
-
-					} else if (currMachine.arch.equals("m68k")) {
-
-						if (!machineLoaded) {
-							populateMachineType("Default");
-							populateCPUs("Default");
-							// populateNetDevices("smc91c111");
-						}
-
-					} else if (currMachine.arch.equals("SPARC")) {
-
-						if (!machineLoaded) {
-							populateMachineType("Default");
-							populateCPUs("Default");
-							populateNetDevices("lance");
-						}
-
-					}
-
-				if (currMachine != null)
-					if (currMachine.arch.equals("ARM")
+    private ImageButton mStart;
+    private ImageButton mStop;
+    private ImageButton mRestart;
+    private ImageButton mSave;
+
+    private LinearLayout mCPUSectionDetails;
+    private LinearLayout mCPUSectionHeader;
+    private LinearLayout mStorageSectionDetails;
+    private LinearLayout mStorageSectionHeader;
+    private LinearLayout mUserInterfaceSectionDetails;
+    private LinearLayout mUserInterfaceSectionHeader;
+    private LinearLayout mAdvancedSectionDetails;
+    private LinearLayout mAdvancedSectionHeader;
+    private View mBootSectionHeader;
+    private LinearLayout mBootSectionDetails;
+    private LinearLayout mGraphicsSectionDetails;
+    private LinearLayout mGraphicsSectionHeader;
+    private LinearLayout mRemovableStorageSectionDetails;
+    private LinearLayout mRemovableStorageSectionHeader;
+    private LinearLayout mNetworkSectionDetails;
+    private View mNetworkSectionHeader;
+    private LinearLayout mAudioSectionDetails;
+    private LinearLayout mAudioSectionHeader;
+    private ConnectionBean selected;
+    private FileType filetype;
+    private TextView mUISectionSummary;
+    private TextView mCPUSectionSummary;
+    private TextView mStorageSectionSummary;
+    private TextView mRemovableStorageSectionSummary;
+    private TextView mGraphicsSectionSummary;
+    private TextView mAudioSectionSummary;
+    private TextView mNetworkSectionSummary;
+    private TextView mBootSectionSummary;
+    private TextView mAdvancedSectionSummary;
+    private CheckBox mDesktopMode;
+    private FavOpenHelper favinstance;
+    private NestedScrollView mScrollView;
+    private boolean libLoaded;
+    private OnClickListener resetClickListener;
+    private Hashtable<FileType, DiskInfo> diskMapping = new Hashtable<>();
+    private String fixMouseDescr = " (Fixes Mouse)";
+    private boolean firstMTTCGCheck;
+
+    public static void quit() {
+        activity.finish();
+    }
+
+    static private void onInstall(boolean force) {
+        FileInstaller.installFiles(activity, force);
+    }
+
+    public static String getVnc_passwd() {
+        return LimboActivity.vnc_passwd;
+    }
+
+    public static void setVnc_passwd(String vnc_passwd) {
+        LimboActivity.vnc_passwd = vnc_passwd;
+    }
+
+    public static String getLocalIpAddress() {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); ) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements(); ) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress.getHostAddress().toString().contains(".")) {
+                        return inetAddress.getHostAddress().toString();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    // Start calling the JNI interface
+    public static void startvm(Activity activity, int UI) {
+        if (UI == Config.UI_VNC) {
+            // disable sound card with VNC
+            vmexecutor.enablevnc = 1;
+            vmexecutor.enablespice = 0;
+            vmexecutor.sound_card = null;
+            vmexecutor.vnc_allow_external = vnc_allow_external;
+            vmexecutor.vnc_passwd = vnc_passwd;
+        } else if (UI == Config.UI_SDL) {
+            vmexecutor.enablevnc = 0;
+            vmexecutor.enablespice = 0;
+        } else if (UI == Config.UI_SPICE) {
+            vmexecutor.vnc_allow_external = vnc_allow_external;
+            vmexecutor.vnc_passwd = vnc_passwd;
+            vmexecutor.enablevnc = 0;
+            vmexecutor.enablespice = 1;
+        }
+        vmexecutor.startvm(activity, UI);
+
+    }
+
+    public static LimboActivity getInstance() {
+        return activity;
+    }
+
+    public static void cleanup() {
+
+        if (getInstance() != null && getInstance().mMachine != null) {
+            vmStarted = false;
+
+            //XXX flush and close all file descriptors if we haven't already
+            FileUtils.close_fds();
+
+            try {
+                MachineOpenHelper.getInstance(activity).close();
+            } catch (Exception ex) {
+                Log.e(TAG, "Could not close machine db: " + ex);
+            }
+
+
+            try {
+                FavOpenHelper.getInstance(activity).close();
+            } catch (Exception ex) {
+                Log.e(TAG, "Could not close fav db: " + ex);
+            }
+
+
+            ////XXX; we wait till fds flush and close
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            //set the exit code
+            LimboSettingsManager.setExitCode(activity, 1);
+
+            //XXX: SDL seems to lock the keyboard events
+            // unless we finish the starting activity
+            activity.finish();
+
+            Log.v(TAG, "Exit");
+            //XXX: We exit here to force unload the native libs
+            System.exit(0);
+
+        }
+    }
+
+    public static void saveStateVMDB() {
+        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.PAUSED,
+                1 + "");
+    }
+
+    public void changeStatus(final VMStatus status_changed) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (status_changed == VMStatus.Running) {
+                    mStatus.setImageResource(R.drawable.on);
+                    mStatusText.setText("Running");
+                    unlockRemovableDevices(false);
+                    enableRemovableDiskValues(true);
+                    enableNonRemovableDeviceOptions(false);
+                    vmStarted = true;
+                } else if (status_changed == VMStatus.Ready || status_changed == VMStatus.Stopped) {
+                    mStatus.setImageResource(R.drawable.off);
+                    mStatusText.setText("Stopped");
+                    unlockRemovableDevices(true);
+                    enableRemovableDiskValues(true);
+                    enableNonRemovableDeviceOptions(true);
+                } else if (status_changed == VMStatus.Saving) {
+                    mStatus.setImageResource(R.drawable.on);
+                    mStatusText.setText("Saving State");
+                    unlockRemovableDevices(false);
+                    enableRemovableDiskValues(false);
+                    enableNonRemovableDeviceOptions(false);
+                } else if (status_changed == VMStatus.Paused) {
+                    mStatus.setImageResource(R.drawable.on);
+                    mStatusText.setText("Paused");
+                    unlockRemovableDevices(false);
+                    enableRemovableDiskValues(false);
+                    enableNonRemovableDeviceOptions(false);
+                }
+            }
+        });
+
+    }
+
+    private void install(boolean force) {
+        progDialog = ProgressDialog.show(activity, "Please Wait", "Installing BIOS...", true);
+        installerTaskTask = new InstallerTask();
+        installerTaskTask.force = force;
+        installerTaskTask.execute();
+    }
+
+    public void UIAlertLicense(String title, String body, final Activity activity) {
+
+        AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle(title);
+
+        TextView textView = new TextView(activity);
+        textView.setText(body);
+        textView.setTextSize(10);
+        textView.setPadding(20, 20, 20, 20);
+
+        ScrollView scrollView = new ScrollView(activity);
+        scrollView.addView(textView);
+
+        alertDialog.setView(scrollView);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "I Acknowledge", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                if (LimboSettingsManager.isFirstLaunch(activity)) {
+                    install(true);
+                    UIUtils.onHelp(activity);
+                    UIUtils.onChangeLog(activity);
+                }
+                LimboSettingsManager.setFirstLaunch(activity);
+                return;
+            }
+        });
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                if (LimboSettingsManager.isFirstLaunch(activity)) {
+                    if (activity.getParent() != null) {
+                        activity.getParent().finish();
+                    } else {
+                        activity.finish();
+                    }
+                }
+            }
+        });
+        alertDialog.show();
+    }
+
+    private void onTap() {
+        ApplicationInfo pInfo = null;
+        String userid = "None";
+        try {
+            pInfo = activity.getPackageManager().getApplicationInfo(activity.getClass().getPackage().getName(),
+                    PackageManager.GET_META_DATA);
+            userid = pInfo.uid + "";
+        } catch (NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        if (!(new File("/dev/net/tun")).exists()) {
+            UIUtils.UIAlert(this,"TAP - User Id: " + userid,
+                    "Your device doesn't support TAP, use \"User\" network mode instead ");
+            return;
+        }
+
+
+        DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                updateSummary(false);
+            }
+        };
+
+
+        DialogInterface.OnClickListener helpListener =
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        goToURL(Config.faqLink);
+                        return;
+                    }
+                };
+
+        UIUtils.UIAlert(activity,
+                "TAP Device found",
+                "Warning! Make sure device /dev/net/tun has appropriate permissions\nUser ID: " + userid
+                        +"/n",
+                16, false, "OK", okListener,
+                null, null, "TAP Help", helpListener);
+    }
+
+    public void setUserPressed(boolean pressed) {
+
+        if (pressed) {
+            enableListeners();
+            enableRemovableDiskListeners();
+        } else {
+            disableListeners();
+            disableRemovableDiskListeners();
+        }
+    }
+
+    private void disableRemovableDiskListeners() {
+
+        mCDenable.setOnCheckedChangeListener(null);
+        mFDAenable.setOnCheckedChangeListener(null);
+        mFDBenable.setOnCheckedChangeListener(null);
+        mSDenable.setOnCheckedChangeListener(null);
+        mCD.setOnItemSelectedListener(null);
+        mFDA.setOnItemSelectedListener(null);
+        mFDB.setOnItemSelectedListener(null);
+        mSD.setOnItemSelectedListener(null);
+    }
+
+    private void enableRemovableDiskListeners() {
+        mCD.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String cd = (String) ((ArrayAdapter<?>) mCD.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mCDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, "");
+                    currMachine.cd_iso_path = "";
+                } else if (
+                        (position == 0 || !mCDenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
+                            null);
+                    currMachine.cd_iso_path = null;
+                } else if (
+                        position == 1 && mCDenable.isChecked()) {
+                    filetype = FileType.CD;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mCD.setSelection(0);
+                } else if (
+                        position > 1 && mCDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, cd);
+                    currMachine.cd_iso_path = cd;
+                }
+                if (
+                        currStatus == VMStatus.Running && position > 1 && mCDenable.isChecked()) {
+                    mCD.setEnabled(false);
+                    vmexecutor.change_dev("ide1-cd0", currMachine.cd_iso_path);
+                    mCD.setEnabled(true);
+                } else if (
+                        mCDenable.isChecked() &&
+                                currStatus == VMStatus.Running && position == 0) {
+                    mCD.setEnabled(false);
+                    vmexecutor.change_dev("ide1-cd0", null); // Eject
+                    mCD.setEnabled(true);
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mFDA.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String fda = (String) ((ArrayAdapter<?>) mFDA.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mFDAenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, "");
+                    currMachine.fda_img_path = "";
+                } else if (
+                        (position == 0 || !mFDAenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, null);
+                    currMachine.fda_img_path = null;
+                } else if (
+                        position == 1 && mFDAenable.isChecked()) {
+                    filetype = FileType.FDA;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mFDA.setSelection(0);
+                } else if (
+                        position > 1 && mFDAenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, fda);
+                    currMachine.fda_img_path = fda;
+                }
+                if (
+                        currStatus == VMStatus.Running && position > 1 && mFDAenable.isChecked()) {
+                    mFDA.setEnabled(false);
+                    vmexecutor.change_dev("floppy0", currMachine.fda_img_path);
+                    mFDA.setEnabled(true);
+                } else if (
+                        currStatus == VMStatus.Running && position == 0 && mFDAenable.isChecked()) {
+                    mFDA.setEnabled(false);
+                    vmexecutor.change_dev("floppy0", null); // Eject
+                    mFDA.setEnabled(true);
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mFDB.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String fdb = (String) ((ArrayAdapter<?>) mFDB.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mFDBenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, "");
+                    currMachine.fdb_img_path = "";
+                } else if (
+                        (position == 0 || !mFDBenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, null);
+                    currMachine.fdb_img_path = null;
+                } else if (
+                        position == 1 && mFDBenable.isChecked()) {
+                    filetype = FileType.FDB;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mFDB.setSelection(0);
+                } else if (
+                        position > 1 && mFDBenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, fdb);
+                    currMachine.fdb_img_path = fdb;
+                    // TODO: If Machine is running eject and set floppy img
+                }
+                if (
+                        currStatus == VMStatus.Running && position > 1 && mFDBenable.isChecked()) {
+                    mFDB.setEnabled(false);
+                    vmexecutor.change_dev("floppy1", currMachine.fdb_img_path);
+                    mFDB.setEnabled(true);
+                } else if (
+                        currStatus == VMStatus.Running && position == 0 && mFDBenable.isChecked()) {
+                    mFDB.setEnabled(false);
+                    vmexecutor.change_dev("floppy1", null); // Eject
+                    mFDB.setEnabled(true);
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mSD.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String sd = (String) ((ArrayAdapter<?>) mSD.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mSDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, "");
+                    currMachine.sd_img_path = "";
+                } else if (
+                        (position == 0 || !mSDenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, null);
+                    currMachine.sd_img_path = null;
+                } else if (
+                        position == 1 && mSDenable.isChecked()) {
+                    filetype = FileType.SD;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mSD.setSelection(0);
+                } else if (
+                        position > 1 && mSDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, sd);
+                    currMachine.sd_img_path = sd;
+                    // TODO: If Machine is running eject and set floppy img
+                }
+                if (
+                        currStatus == VMStatus.Running && position > 1 && mSDenable.isChecked()) {
+                } else if (
+                        currStatus == VMStatus.Running && position == 0 && mSDenable.isChecked()) {
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mCDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+                                                 public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                                                     if(currMachine == null)
+                                                         return;
+
+                                                     mCD.setEnabled(isChecked);
+
+                                                         currMachine.enableCDROM = isChecked;
+                                                         if (isChecked) {
+                                                             currMachine.cd_iso_path = "";
+                                                             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
+                                                                     "");
+                                                             mHDCenable.setChecked(false);
+                                                         } else {
+                                                             currMachine.cd_iso_path = null;
+                                                             MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
+                                                                     null);
+                                                         }
+
+                                                     triggerUpdateSpinner(mCD);
+                                                     updateSummary(false);
+                                                 }
+
+                                             }
+
+        );
+        mFDAenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mFDA.setEnabled(isChecked);
+
+                    currMachine.enableFDA = isChecked;
+                    if (isChecked) {
+                        currMachine.fda_img_path = "";
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA,
+                                "");
+                    } else {
+                        currMachine.fda_img_path = null;
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA,
+                                null);
+                    }
+
+                triggerUpdateSpinner(mFDA);
+                updateSummary(false);
+            }
+
+        });
+        mFDBenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mFDB.setEnabled(isChecked);
+
+                    currMachine.enableFDB = isChecked;
+                    if (isChecked) {
+                        currMachine.fdb_img_path = "";
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB,
+                                "");
+                    } else {
+                        currMachine.fdb_img_path = null;
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB,
+                                null);
+                    }
+                triggerUpdateSpinner(mFDB);
+                updateSummary(false);
+            }
+
+        });
+        mSDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                mSD.setEnabled(isChecked);
+
+                    currMachine.enableSD = isChecked;
+                    if (isChecked) {
+                        currMachine.sd_img_path = "";
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, "");
+                    } else {
+                        currMachine.sd_img_path = null;
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD,
+                                null);
+                    }
+
+                triggerUpdateSpinner(mSD);
+                updateSummary(false);
+            }
+
+        });
+
+    }
+
+    private void enableListeners() {
+
+
+        mArch.setOnItemSelectedListener(new OnItemSelectedListener() {
+
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                // your code here
+                if(currMachine == null)
+                    return;
+
+                String arch = (String) ((ArrayAdapter<?>) mArch.getAdapter()).getItem(position);
+
+                currMachine.arch = arch;
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, arch);
+
+                if (currMachine.arch.equals("ARM") || currMachine.arch.equals("ARM64")) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "integratorcp";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "arm926";
+                        populateCPUs(currMachine.cpu);
+                        if(currMachine.nic_card==null)
+                            currMachine.nic_card = "smc91c111";
+                        populateNetDevices(currMachine.nic_card);
+                    }
+
+                } else if (currMachine.arch.equals("MIPS")) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "malta";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "Default";
+                        populateCPUs(currMachine.cpu);
+
+                    }
+
+                } else if (currMachine.arch.equals("PPC")) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "Default";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "Default";
+                        populateCPUs(currMachine.cpu);
+                        if(currMachine.nic_card==null)
+                            currMachine.nic_card = "e1000";
+                        populateNetDevices(currMachine.nic_card);
+
+                    }
+
+                } else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "pc";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "x86";
+                        populateCPUs(currMachine.cpu);
+                        if(currMachine.nic_card==null)
+                            currMachine.nic_card = "ne2k_pci";
+                        populateNetDevices(currMachine.nic_card);
+                    }
+
+                } else if (currMachine.arch.equals("m68k")) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "Default";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "Default";
+                        populateCPUs(currMachine.cpu);
+
+                    }
+
+                } else if (currMachine.arch.equals("SPARC") || currMachine.arch.equals("SPARC64") ) {
+
+                    if (!machineLoaded) {
+                        if(currMachine.machine_type==null)
+                            currMachine.machine_type = "Default";
+                        populateMachineType(currMachine.machine_type);
+                        if(currMachine.cpu==null)
+                            currMachine.cpu = "Default";
+                        populateCPUs(currMachine.cpu);
+                        if(currMachine.nic_card==null)
+                            currMachine.nic_card = "lance";
+                        populateNetDevices(currMachine.nic_card);
+
+                    }
+
+                }
+
+                    if (currStatus == VMStatus.Running
+                            || currMachine.arch.equals("ARM")
                             || currMachine.arch.equals("ARM64")
                             || currMachine.arch.equals("MIPS")
-							|| currMachine.arch.equals("m68k") || currMachine.arch.equals("PPC")
-							|| currMachine.arch.equals("SPARC")) {
-						mACPI.setEnabled(false);
-						mHPET.setEnabled(false);
-						mFDBOOTCHK.setEnabled(false);
+                            || currMachine.arch.equals("m68k") || currMachine.arch.equals("PPC")
+                            || currMachine.arch.equals("SPARC") || currMachine.arch.equals("SPARC64") ) {
+                        mDisableACPI.setEnabled(false);
+                        mDisableHPET.setEnabled(false);
+                        mDisableTSC.setEnabled(false);
 
-					} else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
+                    } else if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
 
-						mACPI.setEnabled(true);
-						mHPET.setEnabled(true);
-						mFDBOOTCHK.setEnabled(true);
+                        mDisableACPI.setEnabled(true);
+                        mDisableHPET.setEnabled(true);
+                        mDisableTSC.setEnabled(true);
 
-					}
-				machineLoaded = false;
-			}
+                    }
 
-			public void onNothingSelected(AdapterView<?> parentView) {
+                updateSummary(false);
 
-			}
-		});
+                machineLoaded = false;
+            }
 
-		mCPU.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
 
-				String cpu = (String) ((ArrayAdapter<?>) mCPU.getAdapter()).getItem(position);
+            }
 
+        });
 
-					currMachine.cpu = cpu;
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, cpu);
-
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mMachineType.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String machineType = (String) ((ArrayAdapter<?>) mMachineType.getAdapter()).getItem(position);
-					currMachine.machine_type = machineType;
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.MACHINE_TYPE, machineType);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mUI.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				// your code here
-
-				String ui = (String) ((ArrayAdapter<?>) mUI.getAdapter()).getItem(position);
-
-					currMachine.ui = ui;
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.UI, ui);
-
-				if (position == 0) {
-					mVNCAllowExternal.setEnabled(true);
-					if (mSnapshot.getSelectedItemPosition() == 0)
-						mSoundCardConfig.setEnabled(false);
-				} else {
-					mVNCAllowExternal.setEnabled(false);
-					if (mSnapshot.getSelectedItemPosition() == 0) {
-						if (Config.enable_SDL_sound)
-							mSoundCardConfig.setEnabled(true);
-					}
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mCPUNum.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String cpuNum = (String) ((ArrayAdapter<?>) mCPUNum.getAdapter()).getItem(position);
-					currMachine.cpuNum = Integer.parseInt(cpuNum);
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPUNUM,
-							cpuNum);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mRamSize.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String ram = (String) ((ArrayAdapter<?>) mRamSize.getAdapter()).getItem(position);
-				if (currMachine != null) {
-					currMachine.memory = Integer.parseInt(ram);
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY,
-							ram);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mKernel.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String kernel = (String) ((ArrayAdapter<?>) mKernel.getAdapter()).getItem(position);
-				if (
-						position == 0) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KERNEL,
-							null);
-					currMachine.kernel = null;
-				} else if (
-						position == 1) {
-					browse("kernel");
-					mKernel.setSelection(0);
-				} else if (
-						position > 1) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KERNEL,
-							kernel);
-					currMachine.kernel = kernel;
-					// TODO: If Machine is running eject and set floppy img
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mInitrd.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String initrd = (String) ((ArrayAdapter<?>) mInitrd.getAdapter()).getItem(position);
-				if (
-						position == 0) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.INITRD,
-							null);
-					currMachine.initrd = null;
-				} else if (
-						position == 1) {
-					browse("initrd");
-					mInitrd.setSelection(0);
-				} else if (
-						position > 1) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.INITRD,
-							initrd);
-					currMachine.initrd = initrd;
-
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mHDA.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hda = (String) ((ArrayAdapter<?>) mHDA.getAdapter()).getItem(position);
-				if (
-						position == 0 && mHDAenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, "");
-					currMachine.hda_img_path = "";
-				} else if (
-						(position == 0 || !mHDAenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, null);
-					currMachine.hda_img_path = null;
-				} else if (
-						position == 1 && mHDAenable.isChecked()) {
-					promptImageName(activity, "hda");
-
-				} else if (
-						position == 2 && mHDAenable.isChecked()) {
-					browse("hda");
-					mHDA.setSelection(0);
-				} else if (
-						position > 2 && mHDAenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, hda);
-					currMachine.hda_img_path = hda;
-				}
-
-
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mHDB.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdb = (String) ((ArrayAdapter<?>) mHDB.getAdapter()).getItem(position);
-
-				if (
-						position == 0 && mHDBenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, "");
-					currMachine.hdb_img_path = "";
-				} else if (
-						(position == 0 || !mHDBenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, null);
-					currMachine.hdb_img_path = null;
-				} else if (
-						position == 1 && mHDBenable.isChecked()) {
-					promptImageName(activity, "hdb");
-
-				} else if (
-						position == 2 && mHDBenable.isChecked()) {
-					browse("hdb");
-					mHDB.setSelection(0);
-				} else if (
-						position > 2 && mHDBenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, hdb);
-					currMachine.hdb_img_path = hdb;
-				}
-
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mHDC.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdc = (String) ((ArrayAdapter<?>) mHDC.getAdapter()).getItem(position);
-				if (
-						position == 0 && mHDCenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, "");
-					currMachine.hdc_img_path = "";
-				} else if (
-						(position == 0 || !mHDCenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, null);
-					currMachine.hdc_img_path = null;
-				} else if (
-						position == 1 && mHDCenable.isChecked()) {
-					promptImageName(activity, "hdc");
-
-				} else if (
-						position == 2 && mHDCenable.isChecked()) {
-					browse("hdc");
-					mHDC.setSelection(0);
-				} else if (
-						position > 2 && mHDCenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, hdc);
-					currMachine.hdc_img_path = hdc;
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mHDD.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdd = (String) ((ArrayAdapter<?>) mHDD.getAdapter()).getItem(position);
-				if (
-						position == 0 && mHDDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, "");
-					currMachine.hdd_img_path = "";
-				} else if (
-						(position == 0 || !mHDDenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, null);
-					currMachine.hdd_img_path = null;
-				} else if (
-						position == 1 && mHDDenable.isChecked()) {
-					promptImageName(activity, "hdd");
-				} else if (
-						position == 2 && mHDDenable.isChecked()) {
-					browse("hdd");
-					mHDD.setSelection(0);
-				} else if (
-						position > 2 && mHDDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, hdd);
-					currMachine.hdd_img_path = hdd;
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mSnapshot.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String snapshot_name = (String) ((ArrayAdapter<?>) mSnapshot.getAdapter()).getItem(position);
-				if (
-						position == 0) {
-					currMachine.snapshot_name = "";
-
-					Thread thread = new Thread(new Runnable() {
-						public void run() {
-							loadMachine(currMachine.machinename, currMachine.snapshot_name);
-						}
-					});
-					thread.setPriority(Thread.MIN_PRIORITY);
-					thread.start();
-
-					mStart.setImageResource(R.drawable.play);
-				} else if (
-                        position > 0) {
-					currMachine.snapshot_name = snapshot_name;
-
-					Thread thread = new Thread(new Runnable() {
-						public void run() {
-							loadMachine(currMachine.machinename, currMachine.snapshot_name);
-						}
-					});
-					thread.setPriority(Thread.MIN_PRIORITY);
-					thread.start();
-
-					mStart.setImageResource(R.drawable.play);
-					enableNonRemovableDeviceOptions(false);
-					enableRemovableDeviceOptions(false);
-					mSnapshot.setEnabled(true);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mCD.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String cd = (String) ((ArrayAdapter<?>) mCD.getAdapter()).getItem(position);
-				if (
-				        position == 0 && mCDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, "");
-					currMachine.cd_iso_path = "";
-				} else if (
-						(position == 0 || !mCDenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
-							null);
-					currMachine.cd_iso_path = null;
-				} else if (
-						position == 1 && mCDenable.isChecked()) {
-					browse("cd");
-					mCD.setSelection(0);
-				} else if (
-						position > 1 && mCDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, cd);
-					currMachine.cd_iso_path = cd;
-				}
-				if (
-						currStatus.equals("RUNNING") && position > 1 && mCDenable.isChecked()) {
-					mCD.setEnabled(false);
-					vmexecutor.change_dev("ide1-cd0", currMachine.cd_iso_path);
-					mCD.setEnabled(true);
-				} else if (
-                                mCDenable.isChecked() &&
-                                currStatus.equals("RUNNING") && position == 0) {
-					mCD.setEnabled(false);
-					vmexecutor.change_dev("ide1-cd0", null); // Eject
-					mCD.setEnabled(true);
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mFDA.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fda = (String) ((ArrayAdapter<?>) mFDA.getAdapter()).getItem(position);
-				if (
-						position == 0 && mFDAenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, "");
-					currMachine.fda_img_path = "";
-				} else if (
-						(position == 0 || !mFDAenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, null);
-					currMachine.fda_img_path = null;
-				} else if (
-						position == 1 && mFDAenable.isChecked()) {
-					browse("fda");
-					mFDA.setSelection(0);
-				} else if (
-						position > 1 && mFDAenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, fda);
-					currMachine.fda_img_path = fda;
-				}
-				if (
-						currStatus.equals("RUNNING") && position > 1 && mFDAenable.isChecked()) {
-					mFDA.setEnabled(false);
-					vmexecutor.change_dev("floppy0", currMachine.fda_img_path);
-					mFDA.setEnabled(true);
-				} else if (
-						currStatus.equals("RUNNING") && position == 0 && mFDAenable.isChecked()) {
-					mFDA.setEnabled(false);
-					vmexecutor.change_dev("floppy0", null); // Eject
-					mFDA.setEnabled(true);
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mFDB.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String fdb = (String) ((ArrayAdapter<?>) mFDB.getAdapter()).getItem(position);
-				if (
-						position == 0 && mFDBenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, "");
-					currMachine.fdb_img_path = "";
-				} else if (
-						(position == 0 || !mFDBenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, null);
-					currMachine.fdb_img_path = null;
-				} else if (
-						position == 1 && mFDBenable.isChecked()) {
-					browse("fdb");
-					mFDB.setSelection(0);
-				} else if (
-						position > 1 && mFDBenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, fdb);
-					currMachine.fdb_img_path = fdb;
-					// TODO: If Machine is running eject and set floppy img
-				}
-				if (
-						currStatus.equals("RUNNING") && position > 1 && mFDBenable.isChecked()) {
-					mFDB.setEnabled(false);
-					vmexecutor.change_dev("floppy1", currMachine.fdb_img_path);
-					mFDB.setEnabled(true);
-				} else if (
-						currStatus.equals("RUNNING") && position == 0 && mFDBenable.isChecked()) {
-					mFDB.setEnabled(false);
-					vmexecutor.change_dev("floppy1", null); // Eject
-					mFDB.setEnabled(true);
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mSD.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sd = (String) ((ArrayAdapter<?>) mSD.getAdapter()).getItem(position);
-				if (
-						position == 0 && mSDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, "");
-					currMachine.sd_img_path = "";
-				} else if (
-						(position == 0 || !mSDenable.isChecked())) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, null);
-					currMachine.sd_img_path = null;
-				} else if (
-						position == 1 && mSDenable.isChecked()) {
-					browse("sd");
-					mSD.setSelection(0);
-				} else if (
-						position > 1 && mSDenable.isChecked()) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, sd);
-					currMachine.sd_img_path = sd;
-					// TODO: If Machine is running eject and set floppy img
-				}
-				if (
-						currStatus.equals("RUNNING") && position > 1 && mSDenable.isChecked()) {
-				} else if (
-						currStatus.equals("RUNNING") && position == 0 && mSDenable.isChecked()) {
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sharedFolder = (String) ((ArrayAdapter<?>) mSharedFolder.getAdapter()).getItem(position);
-
-				if (
-						(position == 0
-                                //|| !mSharedFolderenable.isChecked()
-                        )) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.SHARED_FOLDER, null);
-					currMachine.shared_folder = null;
-					currMachine.shared_folder_mode = 0;
-				} else if (
-						mSharedFolderenable.isChecked()) {
-					String[] shared_folder = sharedFolder.split("\\(");
-					currMachine.shared_folder = shared_folder[0].trim();
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
-					if (position >= 0) {
-						int folderMode = 1; // always read/write
-						currMachine.shared_folder_mode = folderMode;
-						ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.SHARED_FOLDER_MODE, folderMode + "");
-					}
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mCDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mCD.setEnabled(isChecked);
-
-				if (currMachine != null) {
-					currMachine.enableCDROM = isChecked;
-					if (isChecked) {
-						currMachine.cd_iso_path = "";
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
-								"");
-						mHDCenable.setChecked(false);
-					} else {
-						currMachine.cd_iso_path = null;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM,
-								null);
-					}
-				}
-
-				triggerUpdateSpinner(mCD);
-
-			}
-
-		}
-
-		);
-
-		mHDAenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mHDA.setEnabled(isChecked);
-				if (currMachine != null) {
-					if (isChecked) {
-						currMachine.hda_img_path = "";
-					} else {
-						currMachine.hda_img_path = null;
-					}
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA,
-							currMachine.hda_img_path);
-				}
-				triggerUpdateSpinner(mHDA);
-			}
-
-		});
-		mHDBenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mHDB.setEnabled(isChecked);
-				if (currMachine != null) {
-					if (isChecked) {
-						currMachine.hdb_img_path = "";
-					} else {
-						currMachine.hdb_img_path = null;
-					}
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB,
-							currMachine.hdb_img_path);
-				}
-				triggerUpdateSpinner(mHDB);
-			}
-
-		});
-		mHDCenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mHDC.setEnabled(isChecked);
-				if (currMachine != null) {
-					if (isChecked) {
-						currMachine.hdc_img_path = "";
-						mCDenable.setChecked(false);
-					} else {
-						currMachine.hdc_img_path = null;
-					}
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC,
-							currMachine.hdc_img_path);
-				}
-				triggerUpdateSpinner(mHDC);
-			}
-
-		});
-		mHDDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mHDD.setEnabled(isChecked);
-				if (currMachine != null) {
-					if (isChecked) {
-						currMachine.hdd_img_path = "";
-						mSharedFolderenable.setChecked(false);
-					} else {
-						currMachine.hdd_img_path = null;
-					}
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD,
-							currMachine.hdd_img_path);
-				}
-				triggerUpdateSpinner(mHDD);
-			}
-
-		});
-		mFDAenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mFDA.setEnabled(isChecked);
-
-				if (currMachine != null) {
-					currMachine.enableFDA = isChecked;
-					if (isChecked) {
-						currMachine.fda_img_path = "";
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA,
-								"");
-					} else {
-						currMachine.fda_img_path = null;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA,
-								null);
-					}
-				}
-
-				triggerUpdateSpinner(mFDA);
-			}
-
-		});
-		mFDBenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mFDB.setEnabled(isChecked);
-
-				if (currMachine != null) {
-					currMachine.enableFDB = isChecked;
-					if (isChecked) {
-						currMachine.fdb_img_path = "";
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB,
-								"");
-					} else {
-						currMachine.fdb_img_path = null;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB,
-								null);
-					}
-				}
-				triggerUpdateSpinner(mFDB);
-			}
-
-		});
-		mSDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mSD.setEnabled(isChecked);
-
-				if (currMachine != null) {
-					currMachine.enableSD = isChecked;
-					if (isChecked) {
-						currMachine.sd_img_path = "";
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, "");
-					} else {
-						currMachine.sd_img_path = null;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD,
-								null);
-					}
-				}
-
-				triggerUpdateSpinner(mSD);
-			}
-
-		});
-		mSharedFolderenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-				mSharedFolder.setEnabled(isChecked);
-				if (currMachine != null
-                        ) {
-					if (isChecked) {
-//						currMachine.shared_folder = "";
-						currMachine.shared_folder_mode = 0;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.SHARED_FOLDER, currMachine.shared_folder);
-						mHDDenable.setChecked(false);
-					} else {
-						currMachine.shared_folder = null;
-						currMachine.shared_folder_mode = 0;
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.SHARED_FOLDER, null);
-					}
-				}
-
-				triggerUpdateSpinner(mSharedFolder);
-				if (isChecked) {
-					promptSharedFolder(activity);
-				}
-			}
-
-		});
-
-		mBootDevices.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String bootDev = (String) ((ArrayAdapter<?>) mBootDevices.getAdapter()).getItem(position);
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.BOOT_CONFIG,
-							bootDev);
-					currMachine.bootdevice = bootDev;
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		this.mNetConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String netfcg = (String) ((ArrayAdapter<?>) mNetConfig.getAdapter()).getItem(position);
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG,
-							netfcg);
-					currMachine.net_cfg = netfcg;
-				if (position > 0) {
-					mNetDevices.setEnabled(true);
-					mDNS.setEnabled(true);
-				} else {
-					mNetDevices.setEnabled(false);
-					mDNS.setEnabled(false);
-				}
-
-				ApplicationInfo pInfo = null;
-
-				if (netfcg.equals("TAP")) {
-					onTap();
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		this.mNetDevices.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-
-				if (position < 0 || position >= mNetDevices.getCount()) {
-					mNetDevices.setSelection(0);
-					return;
-				}
-				String niccfg = (String) ((ArrayAdapter<?>) mNetDevices.getAdapter()).getItem(position);
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG,
-							niccfg);
-					currMachine.nic_driver = niccfg;
-
-
-			}
-
-			public void onNothingSelected(final AdapterView<?> parentView) {
-
-			}
-		});
-
-		mVGAConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String vgacfg = (String) ((ArrayAdapter<?>) mVGAConfig.getAdapter()).getItem(position);
-
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.VGA,
-							vgacfg);
-					currMachine.vga_type = vgacfg;
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		this.mSoundCardConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String sndcfg = (String) ((ArrayAdapter<?>) mSoundCardConfig.getAdapter()).getItem(position);
-
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.SOUNDCARD_CONFIG, sndcfg);
-					currMachine.soundcard = sndcfg;
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mHDCacheConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String hdcfg = (String) ((ArrayAdapter<?>) mHDCacheConfig.getAdapter()).getItem(position);
-
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.HDCACHE_CONFIG, hdcfg);
-					currMachine.hd_cache = hdcfg;
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mACPI.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.DISABLE_ACPI, ((isChecked ? 1 : 0) + ""));
-					currMachine.disableacpi = (isChecked ? 1 : 0);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-
-			}
-		});
-
-		mHPET.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.DISABLE_HPET, ((isChecked ? 1 : 0) + ""));
-					currMachine.disablehpet = (isChecked ? 1 : 0);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mFDBOOTCHK.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-					int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-							MachineOpenHelper.DISABLE_FD_BOOT_CHK, ((isChecked ? 1 : 0) + ""));
-					currMachine.disablefdbootchk = (isChecked ? 1 : 0);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		if (dnsChangeListener == null)
-			dnsChangeListener = new TextWatcher() {
-
-				public void afterTextChanged(Editable s) {
-
-				}
-
-				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-				}
-
-				public void onTextChanged(CharSequence s, int start, int before, int count) {
-				}
-			};
-
-		mDNS.setOnFocusChangeListener(new OnFocusChangeListener() {
-			@Override
-			public void onFocusChange(View v, boolean hasFocus) {
-				if (!hasFocus) {
-					setDNSServer(mDNS.getText().toString());
-					LimboSettingsManager.setDNSServer(activity, mDNS.getText().toString());
-				}
-			}
-		});
-
-		mDNS.addTextChangedListener(dnsChangeListener);
-
-		mHOSTFWD.setOnFocusChangeListener(new OnFocusChangeListener() {
-			@Override
-			public void onFocusChange(View v, boolean hasFocus) {
-				if (!hasFocus) {
-					if (currMachine != null) {
-
-						currMachine.hostfwd = mHOSTFWD.getText().toString();
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HOSTFWD,
-								mHOSTFWD.getText().toString());
-					}
-				}
-			}
-		});
-
-		if (appendChangeListener == null)
-			appendChangeListener = new TextWatcher() {
-
-				public void afterTextChanged(Editable s) {
-					if (currMachine != null) {
-						currMachine.append = s.toString();
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.APPEND,
-								s.toString());
-					}
-				}
-
-				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-				}
-
-				public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-				}
-			};
-		mAppend.addTextChangedListener(appendChangeListener);
-
-		if (extraParamsChangeListener == null)
-			extraParamsChangeListener = new TextWatcher() {
-
-				public void afterTextChanged(Editable s) {
-					if (currMachine != null) {
-						currMachine.extra_params = s.toString();
-						int ret = MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.EXTRA_PARAMS, s.toString());
-					}
-				}
-
-				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-				}
-
-				public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-				}
-			};
-		mExtraParams.addTextChangedListener(extraParamsChangeListener);
-
-		mVNCAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				if (isChecked) {
-					promptVNCAllowExternal(activity);
-				} else {
-					vnc_passwd = null;
-					vnc_allow_external = 0;
-				}
-
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mPrio.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				if (isChecked) {
-					promptPrio(activity);
-				} else {
-					LimboSettingsManager.setPrio(activity, false);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-		mEnableKVM.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				if (isChecked) {
-					promptKVM(activity);
-				} else {
-					LimboSettingsManager.setEnableKVM(activity, false);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mToolBar.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				if (isChecked) {
-					LimboSettingsManager.setAlwaysShowMenuToolbar(activity, true);
-				} else {
-					LimboSettingsManager.setAlwaysShowMenuToolbar(activity, false);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mFullScreen.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
-
-				if (isChecked) {
-					LimboSettingsManager.setFullscreen(activity, true);
-				} else {
-					LimboSettingsManager.setFullscreen(activity, false);
-				}
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mOrientation.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String orientationCfg = (String) ((ArrayAdapter<?>) mOrientation.getAdapter()).getItem(position);
-					LimboSettingsManager.setOrientationSetting(activity, position);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-		mKeyboard.setOnItemSelectedListener(new OnItemSelectedListener() {
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				String keyboardCfg = (String) ((ArrayAdapter<?>) mKeyboard.getAdapter()).getItem(position);
-					LimboSettingsManager.setKeyboardSetting(activity, position);
-			}
-
-			public void onNothingSelected(AdapterView<?> parentView) {
-			}
-		});
-
-        mMouse.setOnItemSelectedListener(new OnItemSelectedListener() {
+        mSnapshot.setOnItemSelectedListener(new OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-                String mouseCfg = (String) ((ArrayAdapter<?>) mMouse.getAdapter()).getItem(position);
-                LimboSettingsManager.setMouseSetting(activity, position);
+                if(currMachine == null)
+                    return;
+
+                String snapshot_name = (String) ((ArrayAdapter<?>) mSnapshot.getAdapter()).getItem(position);
+                if (
+                        position == 0) {
+                    currMachine.snapshot_name = "";
+
+                    Thread thread = new Thread(new Runnable() {
+                        public void run() {
+                            loadMachine(currMachine.machinename, currMachine.snapshot_name);
+                        }
+                    });
+                    thread.setPriority(Thread.MIN_PRIORITY);
+                    thread.start();
+
+                    mStart.setImageResource(R.drawable.play);
+                } else if (
+                        position > 0) {
+                    currMachine.snapshot_name = snapshot_name;
+
+                    Thread thread = new Thread(new Runnable() {
+                        public void run() {
+                            loadMachine(currMachine.machinename, currMachine.snapshot_name);
+                        }
+                    });
+                    thread.setPriority(Thread.MIN_PRIORITY);
+                    thread.start();
+
+                    mStart.setImageResource(R.drawable.play);
+                    enableNonRemovableDeviceOptions(false);
+                    enableRemovableDeviceOptions(false);
+                    mSnapshot.setEnabled(true);
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+
+
+        mCPU.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String cpu = (String) ((ArrayAdapter<?>) mCPU.getAdapter()).getItem(position);
+
+
+                currMachine.cpu = cpu;
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, cpu);
+
+                updateSummary(false);
             }
 
             public void onNothingSelected(AdapterView<?> parentView) {
             }
         });
-	}
 
-	protected synchronized void setDNSServer(String string) {
+        mMachineType.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
 
-		File resolvConf = new File(Config.getBasefileDir(this) + "/etc/resolv.conf");
-		FileOutputStream fileStream = null;
-		try {
-			fileStream = new FileOutputStream(resolvConf);
-			String str = "nameserver " + string + "\n\n";
-			byte[] data = str.getBytes();
-			fileStream.write(data);
-		} catch (Exception ex) {
-			Log.e(TAG, "Could not write DNS to file: " + ex);
-		} finally {
-			if (fileStream != null)
-				try {
-					fileStream.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-		}
-	}
+                String machineType = (String) ((ArrayAdapter<?>) mMachineType.getAdapter()).getItem(position);
+                currMachine.machine_type = machineType;
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.MACHINE_TYPE, machineType);
 
-	private void disableListeners() {
+                updateSummary(false);
 
-		if(mMachine == null)
-			return;
+            }
 
-		mArch.setOnItemSelectedListener(null);
-		mCPU.setOnItemSelectedListener(null);
-		mMachineType.setOnItemSelectedListener(null);
-		mUI.setOnItemSelectedListener(null);
-		mCPUNum.setOnItemSelectedListener(null);
-		mRamSize.setOnItemSelectedListener(null);
-		mKernel.setOnItemSelectedListener(null);
-		mInitrd.setOnItemSelectedListener(null);
-		mHDA.setOnItemSelectedListener(null);
-		mHDB.setOnItemSelectedListener(null);
-		mHDC.setOnItemSelectedListener(null);
-		mHDD.setOnItemSelectedListener(null);
-		mSnapshot.setOnItemSelectedListener(null);
-		mCD.setOnItemSelectedListener(null);
-		mFDA.setOnItemSelectedListener(null);
-		mFDB.setOnItemSelectedListener(null);
-		mSD.setOnItemSelectedListener(null);
-		mCDenable.setOnCheckedChangeListener(null);
-		mHDAenable.setOnCheckedChangeListener(null);
-		mHDBenable.setOnCheckedChangeListener(null);
-		mHDCenable.setOnCheckedChangeListener(null);
-		mHDDenable.setOnCheckedChangeListener(null);
-		mFDAenable.setOnCheckedChangeListener(null);
-		mFDBenable.setOnCheckedChangeListener(null);
-		mSDenable.setOnCheckedChangeListener(null);
-		mBootDevices.setOnItemSelectedListener(null);
-		mNetConfig.setOnItemSelectedListener(null);
-		mNetDevices.setOnItemSelectedListener(null);
-		mVGAConfig.setOnItemSelectedListener(null);
-		mSoundCardConfig.setOnItemSelectedListener(null);
-		mHDCacheConfig.setOnItemSelectedListener(null);
-		mACPI.setOnCheckedChangeListener(null);
-		mHPET.setOnCheckedChangeListener(null);
-		mFDBOOTCHK.setOnCheckedChangeListener(null);
-		mDNS.removeTextChangedListener(dnsChangeListener);
-		mAppend.removeTextChangedListener(appendChangeListener);
-		mVNCAllowExternal.setOnCheckedChangeListener(null);
-		mPrio.setOnCheckedChangeListener(null);
-		mEnableKVM.setOnCheckedChangeListener(null);
-		mOrientation.setOnItemSelectedListener(null);
-		mKeyboard.setOnItemSelectedListener(null);
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mUI.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String ui = (String) ((ArrayAdapter<?>) mUI.getAdapter()).getItem(position);
+                currMachine.ui = ui;
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.UI, ui);
+
+                if (position == 0) {
+                    mVNCAllowExternal.setEnabled(true);
+                    if (mSnapshot.getSelectedItemPosition() == 0)
+                        mSoundCard.setEnabled(false);
+                } else {
+                    mVNCAllowExternal.setEnabled(false);
+                    if (mSnapshot.getSelectedItemPosition() == 0) {
+                        if (Config.enable_SDL_sound)
+                            mSoundCard.setEnabled(true);
+                    }
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mCPUNum.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                final String cpuNum = (String) ((ArrayAdapter<?>) mCPUNum.getAdapter()).getItem(position);
+
+                if (position>0 && currMachine.enableMTTCG!=1 && currMachine.enableKVM!=1 && !firstMTTCGCheck) {
+                    firstMTTCGCheck = true;
+                    DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            currMachine.cpuNum = Integer.parseInt(cpuNum);
+                            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPUNUM,
+                                    cpuNum);
+                            updateSummary(false);
+                        }
+                    };
+
+                    DialogInterface.OnClickListener cancelListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    mCPUNum.setSelection(0);
+                                    return;
+                                }
+                            };
+
+                    DialogInterface.OnClickListener helpListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    mCPUNum.setSelection(0);
+                                    goToURL(Config.faqLink);
+                                    return;
+                                }
+                            };
+
+                    UIUtils.UIAlert(activity,
+                            "Multiple vCPUs",
+                            "Warning! Setting Multiple Virtual CPUs will NOT result in additional performance unless you use KVM or MTTCG. " +
+                                    "Your device might even be slow or the Guest OS might hang so it is advised to use 1 CPU. " +
+                                    "\n\n" + ((Config.enable_X86 || Config.enable_X86_64) ?
+                                    "If your guest OS is not able to boot check option 'Disable TSC' and restart the VM. ": "")
+                                    +"Do you want to continue?",
+                            16, false, "OK", okListener, "Cancel", cancelListener, "vCPU Help", helpListener);
+
+                } else {
+                    currMachine.cpuNum = Integer.parseInt(cpuNum);
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPUNUM,
+                            cpuNum);
+
+                }
+                if(position>0)
+                    mDisableTSC.setChecked(true);
+                else
+                    mDisableTSC.setChecked(false);
+
+
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mRamSize.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String ram = (String) ((ArrayAdapter<?>) mRamSize.getAdapter()).getItem(position);
+                    currMachine.memory = Integer.parseInt(ram);
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY,
+                            ram);
+
+
+
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mKernel.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String kernel = (String) ((ArrayAdapter<?>) mKernel.getAdapter()).getItem(position);
+                if (
+                        position == 0) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KERNEL,
+                            null);
+                    currMachine.kernel = null;
+                } else if (
+                        position == 1) {
+                    filetype = FileType.KERNEL;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mKernel.setSelection(0);
+                } else if (
+                        position > 1) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KERNEL,
+                            kernel);
+                    currMachine.kernel = kernel;
+                    // TODO: If Machine is running eject and set floppy img
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mInitrd.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String initrd = (String) ((ArrayAdapter<?>) mInitrd.getAdapter()).getItem(position);
+                if (
+                        position == 0) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.INITRD,
+                            null);
+                    currMachine.initrd = null;
+                } else if (
+                        position == 1) {
+                    filetype = FileType.INITRD;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mInitrd.setSelection(0);
+                } else if (
+                        position > 1) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.INITRD,
+                            initrd);
+                    currMachine.initrd = initrd;
+
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mHDA.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+
+                if(currMachine == null)
+                    return;
+
+                String hda = (String) ((ArrayAdapter<?>) mHDA.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mHDAenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, "");
+                    currMachine.hda_img_path = "";
+                } else if (
+                        (position == 0 || !mHDAenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, null);
+                    currMachine.hda_img_path = null;
+                } else if (
+                        position == 1 && mHDAenable.isChecked()) {
+                    promptImageName(activity, FileType.HDA);
+                    mHDA.setSelection(0);
+                } else if (
+                        position == 2 && mHDAenable.isChecked()) {
+                    filetype =FileType.HDA;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mHDA.setSelection(0);
+                } else if (
+                        position > 2 && mHDAenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, hda);
+                    currMachine.hda_img_path = hda;
+                }
+                updateSummary(false);
+
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mHDB.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String hdb = (String) ((ArrayAdapter<?>) mHDB.getAdapter()).getItem(position);
+
+                if (
+                        position == 0 && mHDBenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, "");
+                    currMachine.hdb_img_path = "";
+                } else if (
+                        (position == 0 || !mHDBenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, null);
+                    currMachine.hdb_img_path = null;
+                } else if (
+                        position == 1 && mHDBenable.isChecked()) {
+                    promptImageName(activity, FileType.HDB);
+                    mHDB.setSelection(0);
+                } else if (
+                        position == 2 && mHDBenable.isChecked()) {
+                    filetype = FileType.HDB;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mHDB.setSelection(0);
+                } else if (
+                        position > 2 && mHDBenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, hdb);
+                    currMachine.hdb_img_path = hdb;
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mHDC.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+
+                String hdc = (String) ((ArrayAdapter<?>) mHDC.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mHDCenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, "");
+                    currMachine.hdc_img_path = "";
+                } else if (
+                        (position == 0 || !mHDCenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, null);
+                    currMachine.hdc_img_path = null;
+                } else if (
+                        position == 1 && mHDCenable.isChecked()) {
+                    promptImageName(activity, FileType.HDC);
+                    mHDC.setSelection(0);
+                } else if (
+                        position == 2 && mHDCenable.isChecked()) {
+                    filetype = FileType.HDC;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mHDC.setSelection(0);
+                } else if (
+                        position > 2 && mHDCenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, hdc);
+                    currMachine.hdc_img_path = hdc;
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mHDD.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String hdd = (String) ((ArrayAdapter<?>) mHDD.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mHDDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, "");
+                    currMachine.hdd_img_path = "";
+                } else if (
+                        (position == 0 || !mHDDenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, null);
+                    currMachine.hdd_img_path = null;
+                } else if (
+                        position == 1 && mHDDenable.isChecked()) {
+                    promptImageName(activity, FileType.HDD);
+                    mHDD.setSelection(0);
+                } else if (
+                        position == 2 && mHDDenable.isChecked()) {
+                    filetype = FileType.HDD;
+                    FileManager.browse(activity, filetype, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mHDD.setSelection(0);
+                } else if (
+                        position > 2 && mHDDenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, hdd);
+                    currMachine.hdd_img_path = hdd;
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+
+                if(currMachine == null)
+                    return;
+
+                String shared_folder = (String) ((ArrayAdapter<?>) mSharedFolder.getAdapter()).getItem(position);
+                if (
+                        position == 0 && mSharedFolderenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SHARED_FOLDER, "");
+                    currMachine.shared_folder = "";
+                } else if (
+                        (position == 0 || !mSharedFolderenable.isChecked())) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SHARED_FOLDER, null);
+                    currMachine.shared_folder = null;
+                } else if (
+                        position == 1 && mSharedFolderenable.isChecked()) {
+                    filetype = FileType.SHARED_DIR;
+                    FileManager.browse(activity, filetype, Config.OPEN_SHARED_DIR_REQUEST_CODE);
+                    mSharedFolder.setSelection(0);
+                } else if (
+                        position > 1 && mSharedFolderenable.isChecked()) {
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SHARED_FOLDER, shared_folder);
+                    currMachine.shared_folder = shared_folder;
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+
+        mHDAenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mHDA.setEnabled(isChecked);
+                    if (isChecked) {
+                        currMachine.hda_img_path = "";
+                    } else {
+                        currMachine.hda_img_path = null;
+                    }
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA,
+                            currMachine.hda_img_path);
+
+                triggerUpdateSpinner(mHDA);
+                updateSummary(false);
+            }
+
+        });
+        mHDBenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mHDB.setEnabled(isChecked);
+                    if (isChecked) {
+                        currMachine.hdb_img_path = "";
+                    } else {
+                        currMachine.hdb_img_path = null;
+                    }
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB,
+                            currMachine.hdb_img_path);
+
+                triggerUpdateSpinner(mHDB);
+                updateSummary(false);
+            }
+
+        });
+        mHDCenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mHDC.setEnabled(isChecked);
+                    if (isChecked) {
+                        currMachine.hdc_img_path = "";
+                        mCDenable.setChecked(false);
+                    } else {
+                        currMachine.hdc_img_path = null;
+                    }
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC,
+                            currMachine.hdc_img_path);
+
+                triggerUpdateSpinner(mHDC);
+                updateSummary(false);
+            }
+
+        });
+        mHDDenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                mHDD.setEnabled(isChecked);
+                    if (isChecked) {
+                        currMachine.hdd_img_path = "";
+                        mSharedFolderenable.setChecked(false);
+                    } else {
+                        currMachine.hdd_img_path = null;
+                    }
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD,
+                            currMachine.hdd_img_path);
+
+                triggerUpdateSpinner(mHDD);
+                updateSummary(false);
+            }
+
+        });
+
+
+        mSharedFolderenable.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                if(isChecked) {
+                    promptSharedFolder(activity);
+                }
+                mSharedFolder.setEnabled(isChecked);
+                    if (isChecked) {
+                        currMachine.shared_folder = "";
+                        mHDDenable.setChecked(false);
+                    } else {
+                        currMachine.shared_folder = null;
+                    }
+                    MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SHARED_FOLDER,
+                            currMachine.shared_folder);
+
+                triggerUpdateSpinner(mSharedFolder);
+                updateSummary(false);
+            }
+
+        });
+
+
+
+        mBootDevices.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String bootDev = (String) ((ArrayAdapter<?>) mBootDevices.getAdapter()).getItem(position);
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.BOOT_CONFIG,
+                        bootDev);
+                currMachine.bootdevice = bootDev;
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        this.mNetConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String netfcg = (String) ((ArrayAdapter<?>) mNetConfig.getAdapter()).getItem(position);
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG,
+                        netfcg);
+                currMachine.net_cfg = netfcg;
+                if (position > 0 && currMachine.paused == 0
+                        && currStatus != VMStatus.Running) {
+                    mNicCard.setEnabled(true);
+                    mDNS.setEnabled(true);
+                    mHOSTFWD.setEnabled(true);
+                } else {
+                    mNicCard.setEnabled(false);
+                    mDNS.setEnabled(false);
+                    mHOSTFWD.setEnabled(false);
+                }
+
+                ApplicationInfo pInfo = null;
+
+                if (netfcg.equals("TAP")) {
+                    onTap();
+                }
+
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        this.mNicCard.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                if (position < 0 || position >= mNicCard.getCount()) {
+                    mNicCard.setSelection(0);
+                    updateSummary(false);
+                    return;
+                }
+                String niccfg = (String) ((ArrayAdapter<?>) mNicCard.getAdapter()).getItem(position);
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG,
+                        niccfg);
+                currMachine.nic_card = niccfg;
+
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(final AdapterView<?> parentView) {
+
+            }
+        });
+
+        mVGAConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String vgacfg = (String) ((ArrayAdapter<?>) mVGAConfig.getAdapter()).getItem(position);
+
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.VGA,
+                        vgacfg);
+                currMachine.vga_type = vgacfg;
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        this.mSoundCard.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String sndcfg = (String) ((ArrayAdapter<?>) mSoundCard.getAdapter()).getItem(position);
+
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.SOUNDCARD_CONFIG, sndcfg);
+                currMachine.soundcard = sndcfg;
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mHDCacheConfig.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String hdcfg = (String) ((ArrayAdapter<?>) mHDCacheConfig.getAdapter()).getItem(position);
+
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.HDCACHE_CONFIG, hdcfg);
+                currMachine.hd_cache = hdcfg;
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mDisableACPI.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.DISABLE_ACPI, ((isChecked ? 1 : 0) + ""));
+                currMachine.disableacpi = (isChecked ? 1 : 0);
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+
+            }
+        });
+
+        mDisableHPET.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.DISABLE_HPET, ((isChecked ? 1 : 0) + ""));
+                currMachine.disablehpet = (isChecked ? 1 : 0);
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mDisableTSC.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                MachineOpenHelper.getInstance(activity).update(currMachine,
+                        MachineOpenHelper.DISABLE_TSC, ((isChecked ? 1 : 0) + ""));
+                currMachine.disabletsc = (isChecked ? 1 : 0);
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mDNS.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if(currMachine == null)
+                    return;
+
+                if (!hasFocus) {
+                    setDNSServer(mDNS.getText().toString());
+                    LimboSettingsManager.setDNSServer(activity, mDNS.getText().toString());
+                    updateSummary(false);
+                }
+            }
+        });
+
+        mHOSTFWD.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if(currMachine == null)
+                    return;
+
+                if (!hasFocus) {
+
+                        currMachine.hostfwd = mHOSTFWD.getText().toString();
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HOSTFWD,
+                                mHOSTFWD.getText().toString());
+
+                    updateSummary(false);
+                }
+            }
+        });
+
+        mAppend.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if(currMachine == null)
+                    return;
+
+                if (!hasFocus) {
+                        currMachine.append = mAppend.getText() + "";
+                        MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.APPEND,
+                                mAppend.getText() + "");
+
+                    updateSummary(false);
+                }
+            }
+        });
+
+        mExtraParams.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if(currMachine == null)
+                    return;
+
+                if (!hasFocus) {
+                        currMachine.extra_params = mExtraParams.getText() + "";
+                        MachineOpenHelper.getInstance(activity).update(currMachine,
+                                MachineOpenHelper.EXTRA_PARAMS, mExtraParams.getText() + "");
+
+                    updateSummary(false);
+                }
+            }
+        });
+
+
+        resetClickListener = new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                view.setFocusableInTouchMode(true);
+                view.setFocusable(true);
+            }
+        };
+
+        mDNS.setOnClickListener(resetClickListener);
+        mAppend.setOnClickListener(resetClickListener);
+        mHOSTFWD.setOnClickListener(resetClickListener);
+        mExtraParams.setOnClickListener(resetClickListener);
+
+
+        mVNCAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    promptVNCAllowExternal(activity);
+                } else {
+                    vnc_passwd = null;
+                    vnc_allow_external = 0;
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mDesktopMode.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    LimboSettingsManager.setDesktopMode(activity, true);
+                    Config.mouseMode = Config.MouseMode.External;
+                } else {
+                    LimboSettingsManager.setDesktopMode(activity, false);
+                    Config.mouseMode = Config.MouseMode.Trackpad;
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mPrio.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    promptPrio(activity);
+                } else {
+                    LimboSettingsManager.setPrio(activity, false);
+                }
+                updateSummary(false);
+            }
+        });
+        mEnableKVM.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                if (isChecked) {
+                    DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            MachineOpenHelper.getInstance(activity).update(currMachine,
+                                    MachineOpenHelper.ENABLE_KVM, 1 + "");
+                            currMachine.enableKVM = 1;
+                            updateSummary(false);
+                            mEnableMTTCG.setChecked(false);
+                        }
+                    };
+
+                    DialogInterface.OnClickListener cancelListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                                            MachineOpenHelper.ENABLE_KVM, 0 + "");
+                                    mEnableKVM.setChecked(false);
+                                    currMachine.enableKVM = 0;
+                                    updateSummary(false);
+                                    return;
+                                }
+                            };
+
+                    DialogInterface.OnClickListener helpListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                                            MachineOpenHelper.ENABLE_KVM, 0 + "");
+                                    mEnableKVM.setChecked(false);
+                                    currMachine.enableKVM = 0;
+                                    updateSummary(false);
+                                    goToURL(Config.kvmLink);
+                                    return;
+                                }
+                            };
+
+                    UIUtils.UIAlert(activity,
+                            "Enable KVM",
+                            "Warning! You'll need a Android Device with the same architecture as the emulated Guest. " +
+                                    "Make sure you have installed an Android kernel with KVM support." +
+                                    "If you don't know what this is press Cancel now.\n\nIf you experience crashes disable this option. Do you want to continue?",
+                            16, false, "OK", okListener, "Cancel", cancelListener, "KVM Help", helpListener);
+
+                } else {
+                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                            MachineOpenHelper.ENABLE_KVM, 0 + "");
+                    currMachine.enableKVM = 0;
+
+                }
+                updateSummary(false);
+            }
+
+        });
+
+        mEnableMTTCG.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+                if(currMachine == null)
+                    return;
+
+                if (isChecked) {
+                    DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            MachineOpenHelper.getInstance(activity).update(currMachine,
+                                    MachineOpenHelper.ENABLE_MTTCG, 1 + "");
+                            currMachine.enableMTTCG = 1;
+                            updateSummary(false);
+                            mEnableKVM.setChecked(false);
+                        }
+                    };
+
+                    DialogInterface.OnClickListener cancelListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                                            MachineOpenHelper.ENABLE_MTTCG, 0 + "");
+                                    mEnableMTTCG.setChecked(false);
+                                    currMachine.enableMTTCG = 0;
+                                    updateSummary(false);
+                                    return;
+                                }
+                            };
+
+                    DialogInterface.OnClickListener helpListener =
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                                            MachineOpenHelper.ENABLE_MTTCG, 0 + "");
+                                    mEnableMTTCG.setChecked(false);
+                                    currMachine.enableMTTCG = 0;
+                                    updateSummary(false);
+                                    goToURL(Config.faqLink);
+                                    return;
+                                }
+                            };
+
+
+                    UIUtils.UIAlert(activity,
+                            "Enable MTTCG",
+                            "Warning! Enabling MTTCG under Limbo is not fully tested. " +
+                                    "\nYou need to have an Android Devices with multi core CPU. " +
+                                    "If you don't know what this is press Cancel." +
+                                    "\n\nIf you experience app crashing or freezing disable this option. Do you want to continue?",
+                            16, false,"OK", okListener, "Cancel", cancelListener, "MTTCG Help", helpListener);
+                } else {
+                    MachineOpenHelper.getInstance(activity).update(currMachine,
+                            MachineOpenHelper.ENABLE_MTTCG, 0 + "");
+                    currMachine.enableMTTCG = 1;
+
+                }
+
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mToolBar.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    LimboSettingsManager.setAlwaysShowMenuToolbar(activity, true);
+                } else {
+                    LimboSettingsManager.setAlwaysShowMenuToolbar(activity, false);
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mFullScreen.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    LimboSettingsManager.setFullscreen(activity, true);
+                } else {
+                    LimboSettingsManager.setFullscreen(activity, false);
+                }
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mOrientation.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                String orientationCfg = (String) ((ArrayAdapter<?>) mOrientation.getAdapter()).getItem(position);
+                LimboSettingsManager.setOrientationSetting(activity, position);
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mKeyboard.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String keyboardCfg = (String) ((ArrayAdapter<?>) mKeyboard.getAdapter()).getItem(position);
+
+                currMachine.keyboard = keyboardCfg;
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KEYBOARD, keyboardCfg);
+
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mMouse.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if(currMachine == null)
+                    return;
+
+                String mouseCfg = (String) ((ArrayAdapter<?>) mMouse.getAdapter()).getItem(position);
+                String mouseDB = mouseCfg.split(" ")[0];
+                currMachine.mouse = mouseDB;
+                MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MOUSE, mouseDB);
+                updateSummary(false);
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+    }
+
+    protected synchronized void setDNSServer(String string) {
+
+        File resolvConf = new File(Config.getBasefileDir(this) + "/etc/resolv.conf");
+        FileOutputStream fileStream = null;
+        try {
+            fileStream = new FileOutputStream(resolvConf);
+            String str = "nameserver " + string + "\n\n";
+            byte[] data = str.getBytes();
+            fileStream.write(data);
+        } catch (Exception ex) {
+            Log.e(TAG, "Could not write DNS to file: " + ex);
+        } finally {
+            if (fileStream != null)
+                try {
+                    fileStream.close();
+                } catch (IOException e) {
+
+                    e.printStackTrace();
+                }
+        }
+    }
+
+    private void disableListeners() {
+
+        if (mMachine == null)
+            return;
+
+
+        mSnapshot.setOnItemSelectedListener(null);
+
+        mUI.setOnItemSelectedListener(null);
+        mKeyboard.setOnItemSelectedListener(null);
         mMouse.setOnItemSelectedListener(null);
-		mExtraParams.removeTextChangedListener(extraParamsChangeListener);
+        mOrientation.setOnItemSelectedListener(null);
+        mVNCAllowExternal.setOnCheckedChangeListener(null);
+        mDesktopMode.setOnCheckedChangeListener(null);
+        mToolBar.setOnCheckedChangeListener(null);
+        mFullScreen.setOnCheckedChangeListener(null);
 
-	}
+        mArch.setOnItemSelectedListener(null);
+        mMachineType.setOnItemSelectedListener(null);
+        mCPU.setOnItemSelectedListener(null);
+        mCPUNum.setOnItemSelectedListener(null);
+        mRamSize.setOnItemSelectedListener(null);
+        mDisableACPI.setOnCheckedChangeListener(null);
+        mDisableHPET.setOnCheckedChangeListener(null);
+        mDisableTSC.setOnCheckedChangeListener(null);
+        mEnableKVM.setOnCheckedChangeListener(null);
+        mEnableMTTCG.setOnCheckedChangeListener(null);
 
-	/**
-	 * Called when the activity is first created.
-	 */
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
+        mHDAenable.setOnCheckedChangeListener(null);
+        mHDBenable.setOnCheckedChangeListener(null);
+        mHDCenable.setOnCheckedChangeListener(null);
+        mHDDenable.setOnCheckedChangeListener(null);
+        mSharedFolderenable.setOnCheckedChangeListener(null);
+        mHDA.setOnItemSelectedListener(null);
+        mHDB.setOnItemSelectedListener(null);
+        mHDC.setOnItemSelectedListener(null);
+        mHDD.setOnItemSelectedListener(null);
+        mSharedFolder.setOnItemSelectedListener(null);
+        mHDCacheConfig.setOnItemSelectedListener(null);
 
-		super.onCreate(savedInstanceState);
+
+        mBootDevices.setOnItemSelectedListener(null);
+        mKernel.setOnItemSelectedListener(null);
+        mInitrd.setOnItemSelectedListener(null);
+        mAppend.setOnFocusChangeListener(null);
+
+        mVGAConfig.setOnItemSelectedListener(null);
+
+        mSoundCard.setOnItemSelectedListener(null);
+
+        mNetConfig.setOnItemSelectedListener(null);
+        mNicCard.setOnItemSelectedListener(null);
+        mDNS.setOnFocusChangeListener(null);
+        mHOSTFWD.setOnFocusChangeListener(null);
+
+        mPrio.setOnCheckedChangeListener(null);
+        mExtraParams.setOnFocusChangeListener(null);
+
+    }
+
+    /**
+     * Called when the activity is first created.
+     */
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        activity = this;
+        super.onCreate(savedInstanceState);
+
+        clearNotifications();
+        setupStrictMode();
+        setupFolders();
+        setContentView(R.layout.limbo_main);
+        setupWidgets();
+        setupDiskMapping();
+        createListeners();
+        populateAttributes();
+        execTimer();
+        checkFirstLaunch();
+        setupToolbar();
+        checkUpdate();
+        checkLog();
+        checkAndLoadLibs();
+
+    }
+
+    private void checkAndLoadLibs() {
+        if (Config.loadNativeLibsEarly)
+            if (Config.loadNativeLibsMainThread)
+                setupNativeLibs();
+            else
+                setupNativeLibsAsync();
+    }
+
+    private void clearNotifications() {
         NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.cancelAll();
+    }
 
-		setupStrictMode();
-		setupFolders();
-		OShandler = this.handler;
-		activity = this;
-		this.setContentView(R.layout.main);
-		this.setupWidgets();
-		populateAttributes();
-		execTimeListener();
-		if (this.isFirstLaunch()) {
-			onFirstLaunch();
-		} else {
-				install(false);
-		}
-		setupNativeLibs();
-		setupToolbar();
-		checkUpdate();
-		checkLog();
+    private void setupDiskMapping() {
 
-	}
+        diskMapping.clear();
+        addDiskMapping(FileType.HDA, mHDA, mHDAenable, MachineOpenHelper.HDA);
+        addDiskMapping(FileType.HDB, mHDB, mHDBenable, MachineOpenHelper.HDB);
+        addDiskMapping(FileType.HDC, mHDC, mHDCenable, MachineOpenHelper.HDC);
+        addDiskMapping(FileType.HDD, mHDD, mHDDenable, MachineOpenHelper.HDD);
+        addDiskMapping(FileType.SHARED_DIR, mSharedFolder, mSharedFolderenable, MachineOpenHelper.SHARED_FOLDER);
 
-	private void checkLog(){
-		if(FileUtils.getExitCode(this) != 1){
-			FileUtils.setExitCode(this, 1);
-			UIUtils.promptShowLog(this);
-		}
-	}
+        addDiskMapping(FileType.CD, mCD, mCDenable, MachineOpenHelper.CDROM);
+        addDiskMapping(FileType.FDA, mFDA, mFDAenable, MachineOpenHelper.FDA);
+        addDiskMapping(FileType.FDB, mFDB, mFDBenable, MachineOpenHelper.FDB);
+        addDiskMapping(FileType.SD, mSD, mSDenable, MachineOpenHelper.SD);
 
-	private void setupFolders() {
-		Thread t = new Thread(new Runnable() {
-			public void run() {
+        addDiskMapping(FileType.KERNEL, mKernel, null, MachineOpenHelper.KERNEL);
+        addDiskMapping(FileType.INITRD, mInitrd, null, MachineOpenHelper.INITRD);
+    }
 
-				// Create Temp folder
-				File folder = new File(Config.getTmpFolder(LimboActivity.this));
-				if (!folder.exists())
-					folder.mkdirs();
+    private void addDiskMapping(FileType fileType, Spinner spinner, CheckBox enableCheckBox, String dbColName) {
+        spinner.setTag(fileType);
 
-				// Create shared folder
-				File shared_folder = new File(Config.getSharedFolder(LimboActivity.this));
-				if (!shared_folder.exists())
-					shared_folder.mkdirs();
+        diskMapping.put(fileType, new DiskInfo(spinner, enableCheckBox, dbColName));
+    }
 
-			}
-		});
-		t.start();
-	}
+    private void setupNativeLibsAsync() {
 
-	public void setupNativeLibs() {
-
-        //Some devices need stl loaded upfront
-        //System.loadLibrary("stlport_shared");
-
-		//Compatibility lib
-		System.loadLibrary("compat-limbo");
-
-        //Glib deps
-        System.loadLibrary("compat-musl");
-
-
-
-        //Glib
-		System.loadLibrary("glib-2.0");
-
-        //Pixman for qemu
-        System.loadLibrary("pixman-1");
-
-        //Spice server
-		if (Config.enable_SPICE) {
-			System.loadLibrary("crypto");
-			System.loadLibrary("ssl");
-			System.loadLibrary("spice");
-		}
-
-		// //Load SDL library
-		if (Config.enable_SDL) {
-			System.loadLibrary("SDL2");
-		}
-
-		System.loadLibrary("compat-SDL2-ext");
-
-		//Limbo needed for vmexecutor
-		System.loadLibrary("limbo");
-
-		loadQEMULib();
-	}
-
-    protected void loadQEMULib() {
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
+                setupNativeLibs();
+            }
+        });
+        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.start();
 
     }
 
-    public void setupToolbar() {
-		Toolbar tb = (Toolbar) findViewById(R.id.toolbar);
-		setSupportActionBar(tb);
-
-		// Get the ActionBar here to configure the way it behaves.
-		final ActionBar ab = getSupportActionBar();
-		ab.setHomeAsUpIndicator(R.drawable.limbo); // set a custom icon for the
-													// default home button
-		ab.setDisplayShowHomeEnabled(true); // show or hide the default home
-											// button
-		ab.setDisplayHomeAsUpEnabled(true);
-		ab.setDisplayShowCustomEnabled(true); // enable overriding the default
-												// toolbar layout
-		ab.setDisplayShowTitleEnabled(true); // disable the default title
-												// element here (for centered
-												// title)
-
-		ab.setTitle(R.string.app_name);
-	}
-
-	public void checkUpdate() {
-		Thread tsdl = new Thread(new Runnable() {
-			public void run() {
-				// Check for a new Version
-
-				checkNewVersion();
-
-			}
-		});
-		tsdl.start();
-	}
-
-	private void setupStrictMode() {
-
-		if (Config.debug) {
-			StrictMode.setThreadPolicy(
-					new StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork()
-                            //.penaltyDeath()
-							.penaltyLog().build());
-			StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObjects()
-					.detectLeakedClosableObjects().penaltyLog()
-					// .penaltyDeath()
-					.build());
-		}
-
-	}
-
-	private void checkNewVersion() {
-
-		if (!LimboSettingsManager.getPromptUpdateVersion(activity)) {
-			return;
-		}
-
-		HttpURLConnection conn;
-		InputStream is = null;
-		try {
-			URL url = new URL(Config.downloadUpdateLink);
-			conn = (HttpURLConnection) url.openConnection();
-
-			conn.connect();
-			is = conn.getInputStream();
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-
-			int read = 0;
-			byte[] buff = new byte[1024];
-			while ((read = is.read(buff)) != -1) {
-				bos.write(buff, 0, read);
-			}
-			byte[] streamData = bos.toByteArray();
-			final String versionStr = new String(streamData);
-			float version = Float.parseFloat(versionStr);
-
-			PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
-					PackageManager.GET_META_DATA);
-            int versionCheck = (int)  (version * 100);
-			if (versionCheck > pInfo.versionCode) {
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					@Override
-					public void run() {
-						UIUtils.promptNewVersion(activity, versionStr);
-					}
-				});
-			}
-		} catch (Exception ex) {
-            //ex.printStackTrace();
-		} finally {
-			if (is != null) {
-				try {
-					is.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			if (is != null) {
-				try {
-					is.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
-
-
-
-
-	private void populateAttributes() {
-
-		this.populateMachines(null);
-		this.populateArch();
-		this.populateMachineType(null);
-		this.populateCPUs(null);
-		this.populateCPUNum();
-		this.populateRAM();
-		this.populateKernel();
-		this.populateInitrd();
-		this.populateHD("hda");
-		this.populateHD("hdb");
-		this.populateHD("hdc");
-		this.populateHD("hdd");
-		this.populateCDRom("cd");
-		this.populateFloppy("fda");
-		this.populateFloppy("fdb");
-		this.populateSDCard("sd");
-		this.populateSharedFolder();
-		this.populateBootDevices();
-		this.populateNet();
-		this.populateNetDevices(null);
-		this.populateVGA();
-		this.populateSoundcardConfig();
-		this.populateHDCacheConfig();
-		this.populateSnapshot();
-		this.populateUI();
-		this.populateOrientation();
-		this.populateKeyboardLayout();
-        this.populateMouse();
-	}
-
-	public void onFirstLaunch() {
-		onLicense();
-	}
-
-	public void cleanup() {
-		LimboActivity.vmexecutor = null;
-		if (this.mMachine != null) {
-			vmStarted = false;
-
-			//set the exit code
-			FileUtils.setExitCode(LimboActivity.this, 1);
-
-			//XXX: SDL seems to lock the keyboard events
-			// unless we finish the starting activity
-			activity.finish();
-
-			Log.v(TAG, "Exit");
-			//XXX: We exit here to force unload the native libs
-			System.exit(0);
-
-		}
-	}
-
-    private void createMachine(String machineValue) {
-
-        if (MachineOpenHelper.getInstance(activity).getMachine(machineValue, "") != null) {
-            Toast.makeText(activity, "VM Name \"" + machineValue + "\" exists please choose another name!",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        showDownloadLinks();
-
-        currMachine = new Machine(machineValue);
-        MachineOpenHelper.getInstance(activity).insertMachine(currMachine);
-
-        // default settings
-        if (Config.enable_X86 || Config.enable_X86_64) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "x86");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE, "pc");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG,
-                    "ne2k_pci");
-        } else if (Config.enable_ARM || Config.enable_ARM64) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "ARM");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
-                    "integratorcp");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "arm926");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG,
-                    "smc91c111");
-        } else if (Config.enable_MIPS) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "MIPS");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
-                    "malta");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
-        } else if (Config.enable_PPC || Config.enable_PPC64) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "PPC");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
-                    "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG, "e1000");
-        } else if (Config.enable_m68k) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "m68k");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
-                    "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "None");
-        } else if (Config.enable_sparc) {
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.ARCH, "SPARC");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MACHINE_TYPE,
-                    "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CPU, "Default");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.MEMORY, "128");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NET_CONFIG, "User");
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.NIC_CONFIG, "lance");
-
-        }
-
-        Toast.makeText(activity, "VM Created: " + machineValue, Toast.LENGTH_SHORT).show();
-        populateMachines(machineValue);
-
-        if (LimboActivity.currMachine != null && currMachine.cpu != null
-                && (currMachine.cpu.endsWith("(arm)") || currMachine.arch.startsWith("MIPS")
-                || currMachine.arch.startsWith("PPC") || currMachine.arch.startsWith("m68k"))
-
-                ) {
-            mMachineType.setEnabled(true); // Disabled for now
-        }
-        enableNonRemovableDeviceOptions(true);
-        enableRemovableDeviceOptions(true);
-        this.mVNCAllowExternal.setEnabled(true);
-    }
-
-	protected void showDownloadLinks() {
-
-		if (!Config.osImages.isEmpty()) {
-			OSDialogBox oses = new OSDialogBox(activity, R.style.Transparent, this);
-			oses.show();
-		}
-	}
-
-	private void onDeleteMachine() {
-		if (currMachine == null) {
-			Toast.makeText(this, "Select a machine first!", Toast.LENGTH_SHORT).show();
-			return;
-		}
-		MachineOpenHelper.getInstance(activity).deleteMachine(currMachine);
-		this.populateAttributes();
-		Toast.makeText(this, "Machine " + currMachine.machinename + " deleted", Toast.LENGTH_SHORT).show();
-	}
-
-	private void onExportMachines() {
-		progDialog = ProgressDialog.show(activity, "Please Wait", "Exporting Machines...", true);
-		ExportMachines exporter = new ExportMachines();
-		exporter.execute();
-
-	}
-
-	private void onImportMachines() {
-		// Warn the user that VMs with same names will be replaced
-		promptImportMachines();
-
-	}
-
-	private void promptImportMachines() {
-
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Import Machines");
-
-        LinearLayout mLayout = new LinearLayout(this);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-        mLayout.setPadding(20,20,20,20);
-
-		TextView imageNameView = new TextView(activity);
-		imageNameView.setVisibility(View.VISIBLE);
-		imageNameView.setText(
-				"Step 1: Place the machine.CSV file you export previously under \"limbo\" directory in your SD card.\n"
-						+ "Step 2: WARNING: Any machine with the same name will be replaced!\n"
-						+ "Step 3: Press \"OK\".\n");
-
-		LinearLayout.LayoutParams searchViewParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(imageNameView, searchViewParams);
-		alertDialog.setView(mLayout);
-
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				// For each line create a Machine
-				progDialog = ProgressDialog.show(activity, "Please Wait", "Importing Machines...", true);
-
-				ImportMachines importer = new ImportMachines();
-				importer.execute();
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-
-				return;
-
-			}
-		});
-		alertDialog.show();
-
-	}
-
-	private void onLicense() {
-		PackageInfo pInfo = null;
-
-		try {
-			pInfo = getPackageManager().getPackageInfo(getClass().getPackage().getName(), PackageManager.GET_META_DATA);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		FileUtils fileutils = new FileUtils();
-		try {
-			showAlertLicense(Config.APP_NAME + " v" + pInfo.versionName, fileutils.LoadFile(activity, "LICENSE", false),
-					handler);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	public void exit() {
-		onStopButton(true);
-	}
-
-	private void enableRemovableDeviceOptions(boolean flag) {
-
-		mCDenable.setEnabled(flag);
-		mFDAenable.setEnabled(flag);
-		mFDBenable.setEnabled(flag);
-		mSDenable.setEnabled(flag);
-
-		mCD.setEnabled(flag && mCDenable.isChecked());
-		mFDA.setEnabled(flag && mFDAenable.isChecked());
-		mFDB.setEnabled(flag && mFDBenable.isChecked());
-		mSD.setEnabled(flag && mSDenable.isChecked());
-
-	}
-
-	private void enableNonRemovableDeviceOptions(boolean flag) {
-
-		// Everything Except removable devices
-		this.mArch.setEnabled(flag);
-		this.mMachineType.setEnabled(flag);
-		this.mCPU.setEnabled(flag);
-		this.mCPUNum.setEnabled(flag);
-		this.mRamSize.setEnabled(flag);
-		this.mKernel.setEnabled(flag);
-		this.mInitrd.setEnabled(flag);
-		this.mAppend.setEnabled(flag);
-		this.mMachineType.setEnabled(flag);
-
-		this.mBootDevices.setEnabled(flag);
-		this.mNetConfig.setEnabled(flag);
-
-		if (mNetConfig.getSelectedItemPosition() > 0)
-			this.mNetDevices.setEnabled(flag);
-		this.mVGAConfig.setEnabled(flag);
-
-		if (Config.enable_SDL_sound)
-			if (currMachine != null && currMachine.ui != null && currMachine.ui.equals("SDL"))
-				this.mSoundCardConfig.setEnabled(flag);
-			else
-				this.mSoundCardConfig.setEnabled(false);
-		else
-			this.mSoundCardConfig.setEnabled(false);
-
-		this.mPrio.setEnabled(flag);
-		if (Config.enable_KVM || !flag)
-			this.mEnableKVM.setEnabled(flag);
-
-		this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
-        this.mMouse.setEnabled(Config.enableMouseOption && flag);
-
-		this.mUI.setEnabled(flag);
-
-		if (Config.enableHDCache || !flag)
-			this.mHDCacheConfig.setEnabled(flag);
-
-		this.mACPI.setEnabled(flag);
-		this.mHPET.setEnabled(flag);
-		this.mFDBOOTCHK.setEnabled(flag);
-		// this.mBluetoothMouse.setEnabled(b);
-
-		this.mSnapshot.setEnabled(flag);
-		this.mFDBOOTCHK.setEnabled(flag);
-		this.mDNS.setEnabled(flag);
-
-		this.mHOSTFWD.setEnabled(flag);
-
-		mHDAenable.setEnabled(flag);
-		mHDBenable.setEnabled(flag);
-		mHDCenable.setEnabled(flag);
-		mHDDenable.setEnabled(flag);
-		mSharedFolderenable.setEnabled(flag);
-
-		mHDA.setEnabled(flag && mHDAenable.isChecked());
-		mHDB.setEnabled(flag && mHDBenable.isChecked());
-		mHDC.setEnabled(flag && mHDCenable.isChecked());
-		mHDD.setEnabled(flag && mHDDenable.isChecked());
-		mSharedFolder.setEnabled(flag && mSharedFolderenable.isChecked());
-
-		this.mExtraParams.setEnabled(flag);
-
-	}
-
-	// Main event function
-	// Retrives values from saved preferences
-	private void onStartButton() {
-//		//Wait till it settles down
-//
-//		try {
-//			Thread.sleep(2000);
-//		}catch(Exception ex) {
-//
-//		}
-
-		if (this.mMachine.getSelectedItemPosition() == 0 || this.currMachine == null) {
-			UIUtils.toastShort(getApplicationContext(), "Select or Create a Virtual Machine first");
-			return;
-		}
-		try {
-			validateFiles();
-		}catch (Exception ex) {
-			UIUtils.toastLong(this, ex.toString());
-				return;
-		}
-		if (currMachine.snapshot_name != null && !currMachine.snapshot_name.toLowerCase().equals("none")
-				&& !currMachine.snapshot_name.toLowerCase().equals("") && currMachine.soundcard != null
-				&& !currMachine.soundcard.toLowerCase().equals("none") && mUI.getSelectedItemPosition() != 1) {
-            UIUtils.toastLong(getApplicationContext(),
-					"Snapshot was saved with soundcard enabled please use SDL \"User Interface\"");
-			return;
-		}
-
-		if (currMachine != null && currMachine.cpu != null && currMachine.cpu.endsWith("(arm)")
-				&& (currMachine.kernel == null || currMachine.kernel.equals(""))) {
-			sendHandlerMessage(handler, Config.VM_NO_KERNEL);
-			return;
-		}
-
-		if (currMachine != null && currMachine.machine_type != null && currMachine.cpu.endsWith("(arm)")
-				&& currMachine.machine_type.equals("None")) {
-			sendHandlerMessage(handler, Config.VM_ARM_NOMACHINE);
-			return;
-		}
-
-
-		if (vmexecutor == null) {
-
-			try {
-				vmexecutor = new VMExecutor(currMachine, this);
-			} catch (Exception ex) {
-				UIUtils.toastLong(activity, "Error: " + ex);
-				return;
-
-			}
-		}
-		if (mCDenable.isChecked() && vmexecutor.cd_iso_path == null)
-			vmexecutor.cd_iso_path = "";
-		if (mFDAenable.isChecked() && vmexecutor.fda_img_path == null)
-			vmexecutor.fda_img_path = "";
-		if (mFDBenable.isChecked() && vmexecutor.fdb_img_path == null)
-			vmexecutor.fdb_img_path = "";
-		if (Config.enableFlashMemoryImages && mSDenable.isChecked() && vmexecutor.sd_img_path == null)
-			vmexecutor.sd_img_path = "";
-
-		// Global settings
-
-		// dns
-		vmexecutor.dns_addr = mDNS.getText().toString();
-
-		// kvm
-		vmexecutor.enablekvm = mEnableKVM.isChecked() ? 1 : 0;
-
-		// Keyboard layout
-		vmexecutor.keyboard_layout = getLanguageCode(mKeyboard.getSelectedItemPosition());
-
-        // Keyboard layout
-        vmexecutor.mouse_conf = mMouse.getSelectedItemPosition();
-
-		// Append only when kernel is set
-
-		if (currMachine.kernel != null && !currMachine.kernel.equals(""))
-			vmexecutor.append = mAppend.getText().toString();
-
-		vmexecutor.paused = currMachine.paused;
-
-        if (mUI.getSelectedItemPosition() == 0) { // VNC
-            vmexecutor.enableqmp = 1; // We enable qemu monitor
-            startVNC();
-            //we don't flag the VNC as started yet because we need
-            //  to send cont via QEMU console first
-        } else if (mUI.getSelectedItemPosition() == 1) { // SDL
-            // XXX: We need to enable qmp server to be able to save the state
-            // We could do it via the Monitor but SDL for Android
-            // doesn't support multiple Windows
-            vmexecutor.enableqmp = 1;
-            startSDL();
-            currMachine.paused = 0;
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-                    0 + "");
-        } else if (mUI.getSelectedItemPosition() == 2) { // SPICE
-            startSPICE();
-            currMachine.paused = 0;
-            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-                    0 + "");
-        }
-
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (vmStarted) {
-					//do nothing
-				}else if (vmexecutor.paused == 1) {
-					UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
-				} else {
-					if (!vmStarted) {
-						UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
-					}
-					enableNonRemovableDeviceOptions(false);
-					mStart.setImageResource(R.drawable.play);
-				}
-			}
-		});
-
-
-
-
-		execTimeListener();
-
-		new Handler(Looper.getMainLooper()).post(new Runnable() {
-			public void run() {
-				mMachine.setEnabled(false);
-			}
-		});
-
-	}
-
-	private String getLanguageCode(int index) {
-		// TODO: Add more languages from /assets/roms/keymaps
-		switch (index) {
-		case 0:
-			return "en-us";
-		case 1:
-			return "es";
-		case 2:
-			return "fr";
-		}
-		return null;
-	}
-
-	public void startSDL() {
-
-		Thread tsdl = new Thread(new Runnable() {
-			public void run() {
-				startsdl();
-			}
-		});
-		if (mPrio.isChecked())
-			tsdl.setPriority(Thread.MAX_PRIORITY);
-		tsdl.start();
-	}
-
-	private void startVNC() {
-
-		UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
-		VncCanvas.retries = 0;
-		if (!vmStarted) {
-
-			Thread tvm = new Thread(new Runnable() {
-				public void run() {
-					startvm(LimboActivity.this, Config.UI_VNC);
-				}
-			});
-			if (mPrio.isChecked())
-				tvm.setPriority(Thread.MAX_PRIORITY);
-			tvm.start();
-		} else {
-            LimboActivity.activity.startvnc();
-        }
-
-
-
-	}
-
-	private void startSPICE() {
-
-		if (!vmStarted) {
-
-			Thread tvm = new Thread(new Runnable() {
-				public void run() {
-					startvm(LimboActivity.this, Config.UI_SPICE);
-				}
-			});
-			if (mPrio.isChecked())
-				tvm.setPriority(Thread.MAX_PRIORITY);
-			tvm.start();
-		}
-
-	}
-
-	private boolean validateFiles() {
-
-
-
-			if (!FileUtils.fileValid(this, currMachine.hda_img_path)
-			|| !FileUtils.fileValid(this, currMachine.hdb_img_path)
-			|| !FileUtils.fileValid(this, currMachine.hdc_img_path)
-			|| !FileUtils.fileValid(this, currMachine.hdd_img_path)
-			|| !FileUtils.fileValid(this, currMachine.fda_img_path)
-			|| !FileUtils.fileValid(this, currMachine.fdb_img_path)
-			|| !FileUtils.fileValid(this, currMachine.sd_img_path)
-			|| !FileUtils.fileValid(this, currMachine.cd_iso_path)
-			|| !FileUtils.fileValid(this, currMachine.kernel)
-			|| !FileUtils.fileValid(this, currMachine.initrd)
-					)
-				return false;
-
-		return true;
-	}
-
-
-
-	private void onStopButton(boolean exit) {
-		stopVM(exit);
-	}
-
-	private void onRestartButton() {
-
-		execTimeListener();
-
-		if (vmexecutor == null) {
-			if (this.currMachine != null && this.currMachine.paused == 1) {
-				promptDiscardVMState();
-				return;
-			} else {
-				sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-				return;
-			}
-		}
-
-		new AlertDialog.Builder(this).setTitle("Reset VM")
-				.setMessage("VM will be reset and you may lose data. Continue?")
-				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						if (LimboActivity.vmexecutor != null) {
-							Thread t = new Thread(new Runnable() {
-								public void run() {
-									restartvm();
-								}
-							});
-							t.start();
-						} else if (activity.getParent() != null) {
-							activity.getParent().finish();
-						} else {
-							activity.finish();
-						}
-					}
-				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-					}
-				}).show();
-
-	}
-
-	private void onSaveButton() {
-
-		// TODO: This probably has no effect
-		Thread t = new Thread(new Runnable() {
-			public void run() {
-				promptStateName(activity);
-			}
-		});
-		t.start();
-	}
-
-	private void onResumeButton() {
-
-		// TODO: This probably has no effect
-		Thread t = new Thread(new Runnable() {
-			public void run() {
-				resumevm();
-			}
-		});
-		t.start();
-	}
-
-	public void toggleVisibility(View view) {
-		if (view.getVisibility() == View.VISIBLE) {
-			view.setVisibility(View.GONE);
-		} else if (view.getVisibility() == View.GONE) {
-			view.setVisibility(View.VISIBLE);
-		}
-	}
-
-	// Setting up the UI
-	public void setupWidgets() {
-
-		setupSections();
-
-		this.mStatus = (ImageView) findViewById(R.id.statusVal);
-		this.mStatus.setImageResource(R.drawable.off);
-
-		this.mStatusText = (TextView) findViewById(R.id.statusStr);
-
-		this.mDNS = (EditText) findViewById(R.id.dnsval);
-		this.mDNS.setFocusableInTouchMode(true);
-		this.mDNS.setFocusable(true);
-		setDefaultDNServer();
-
-		this.mHOSTFWD = (EditText) findViewById(R.id.hostfwdval);
-		this.mHOSTFWD.setFocusableInTouchMode(true);
-		this.mHOSTFWD.setFocusable(true);
-
-		this.mAppend = (EditText) findViewById(R.id.appendval);
-		this.mAppend.setFocusableInTouchMode(true);
-		this.mAppend.setFocusable(true);
-
-		this.mExtraParams = (EditText) findViewById(R.id.extraparamsval);
-		this.mExtraParams.setFocusableInTouchMode(true);
-		this.mExtraParams.setFocusable(true);
-
-		this.mMachine = (Spinner) findViewById(R.id.machineval);
-
-		this.mCPU = (Spinner) findViewById(R.id.cpuval);
-		this.mArch = (Spinner) findViewById(R.id.archtypeval);
-		this.mMachineType = (Spinner) findViewById(R.id.machinetypeval);
-
-		View machineType = (View) findViewById(R.id.machinetypel);
-
-		this.mCPUNum = (Spinner) findViewById(R.id.cpunumval);
-		this.mUI = (Spinner) findViewById(R.id.uival);
-		if (!Config.enable_SDL)
-			this.mUI.setEnabled(false);
-
-		this.mRamSize = (Spinner) findViewById(R.id.rammemval);
-
-		this.mKernel = (Spinner) findViewById(R.id.kernelval);
-		this.mInitrd = (Spinner) findViewById(R.id.initrdval);
-
-		this.mHDA = (Spinner) findViewById(R.id.hdimgval);
-		this.mHDB = (Spinner) findViewById(R.id.hdbimgval);
-		this.mHDC = (Spinner) findViewById(R.id.hdcimgval);
-		this.mHDD = (Spinner) findViewById(R.id.hddimgval);
-		this.mCD = (Spinner) findViewById(R.id.cdromimgval);
-		this.mFDA = (Spinner) findViewById(R.id.floppyimgval);
-		this.mFDB = (Spinner) findViewById(R.id.floppybimgval);
-		this.mSD = (Spinner) findViewById(R.id.sdcardimgval);
-		this.mSharedFolder = (Spinner) findViewById(R.id.sharedfolderval);
-
-		this.mHDAenable = (CheckBox) findViewById(R.id.hdimgcheck);
-		this.mHDBenable = (CheckBox) findViewById(R.id.hdbimgcheck);
-		this.mHDCenable = (CheckBox) findViewById(R.id.hdcimgcheck);
-		this.mHDDenable = (CheckBox) findViewById(R.id.hddimgcheck);
-		this.mCDenable = (CheckBox) findViewById(R.id.cdromimgcheck);
-		this.mFDAenable = (CheckBox) findViewById(R.id.floppyimgcheck);
-		this.mFDBenable = (CheckBox) findViewById(R.id.floppybimgcheck);
-		this.mSDenable = (CheckBox) findViewById(R.id.sdcardimgcheck);
-		this.mSharedFolderenable = (CheckBox) findViewById(R.id.sharedfoldercheck);
-
-		this.mBootDevices = (Spinner) findViewById(R.id.bootfromval);
-		this.mNetConfig = (Spinner) findViewById(R.id.netcfgval);
-		this.mNetDevices = (Spinner) findViewById(R.id.netDevicesVal);
-		this.mVGAConfig = (Spinner) findViewById(R.id.vgacfgval);
-		this.mSoundCardConfig = (Spinner) findViewById(R.id.soundcfgval);
-		this.mHDCacheConfig = (Spinner) findViewById(R.id.hdcachecfgval);
-		this.mHDCacheConfig.setEnabled(false); // Disabled for now
-		this.mACPI = (CheckBox) findViewById(R.id.acpival);
-		this.mHPET = (CheckBox) findViewById(R.id.hpetval);
-		this.mFDBOOTCHK = (CheckBox) findViewById(R.id.fdbootchkval);
-		this.mVNCAllowExternal = (CheckBox) findViewById(R.id.vncexternalval); // No
-																				// external
-		// connections
-		mVNCAllowExternal.setChecked(false);
-		this.mPrio = (CheckBox) findViewById(R.id.prioval);
-		mPrio.setChecked(LimboSettingsManager.getPrio(activity));
-
-		this.mEnableKVM = (CheckBox) findViewById(R.id.enablekvmval);
-		mEnableKVM.setChecked(LimboSettingsManager.getEnableKVM(activity));
-
-		this.mToolBar = (CheckBox) findViewById(R.id.showtoolbarval);
-		mToolBar.setChecked(LimboSettingsManager.getAlwaysShowMenuToolbar(activity));
-
-		this.mFullScreen = (CheckBox) findViewById(R.id.fullscreenval);
-		mFullScreen.setChecked(LimboSettingsManager.getFullscreen(activity));
-
-		this.mOrientation = (Spinner) findViewById(R.id.orientationval);
-
-		this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
-
-        this.mMouse = (Spinner) findViewById(R.id.mouseval);
-
-		this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
-
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-
-		mStart = (ImageButton) findViewById(R.id.startvm);
-		mStart.setFocusableInTouchMode(true);
-		mStart.setOnClickListener(new OnClickListener() {
-			public void onClick(View view) {
-
-				Thread thread = new Thread(new Runnable() {
-					public void run() {
-						onStartButton();
-					}
-				});
-				thread.setPriority(Thread.MIN_PRIORITY);
-				thread.start();
-
-			}
-		});
-
-		mStop = (ImageButton) findViewById(R.id.stopvm);
-		mStop.setOnClickListener(new OnClickListener() {
-			public void onClick(View view) {
-				onStopButton(false);
-
-			}
-		});
-
-		mRestart = (ImageButton) findViewById(R.id.restartvm);
-		mRestart.setOnClickListener(new OnClickListener() {
-			public void onClick(View view) {
-
-				onRestartButton();
-
-			}
-		});
-
-		enableRemovableDeviceOptions(false);
-		enableNonRemovableDeviceOptions(false);
-		mVNCAllowExternal.setEnabled(false);
+    private void createListeners() {
 
         mMachine.setOnItemSelectedListener(new OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
@@ -2733,6 +2089,7 @@ public class LimboActivity extends AppCompatActivity {
                     enableNonRemovableDeviceOptions(false);
                     enableRemovableDeviceOptions(false);
                     mVNCAllowExternal.setEnabled(false);
+                    currMachine = null;
 
                 } else if (position == 1) {
                     mMachine.setSelection(0);
@@ -2753,6 +2110,7 @@ public class LimboActivity extends AppCompatActivity {
                     mVNCAllowExternal.setEnabled(true);
 
                 }
+                updateSummary(false);
             }
 
             public void onNothingSelected(AdapterView<?> parentView) {
@@ -2760,503 +2118,1641 @@ public class LimboActivity extends AppCompatActivity {
             }
         });
 
-	}
+        mScrollView.setOnScrollChangeListener(new NestedScrollView.OnScrollChangeListener() {
+            @Override
+            public void onScrollChange(NestedScrollView v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
+                savePendingEditText();
+            }
+        });
 
-	private void setDefaultDNServer() {
-		// TODO Auto-generated method stub
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-				final String defaultDNSServer = LimboSettingsManager.getDNSServer(activity);
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					public void run() {
-						// Code here will run in UI thread
-						mDNS.setText(defaultDNSServer);
-					}
-				});
-			}
-		});
-		thread.setPriority(Thread.MIN_PRIORITY);
-		thread.start();
+        mStart.setOnClickListener(new OnClickListener() {
+            public void onClick(View view) {
 
-	}
+                if (!Config.loadNativeLibsEarly && Config.loadNativeLibsMainThread) {
+                    setupNativeLibs();
+                }
 
-	private void setupSections() {
+                Thread thread = new Thread(new Runnable() {
+                    public void run() {
 
-		if (Config.collapseSections) {
-			mCPUSectionDetails = (LinearLayout) findViewById(R.id.cpusectionDetails);
-			mCPUSectionDetails.setVisibility(View.GONE);
-			mCPUSectionHeader = (TextView) findViewById(R.id.cpusectionStr);
-			mCPUSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mCPUSectionDetails);
-				}
-			});
+                        if (!Config.loadNativeLibsEarly && !Config.loadNativeLibsMainThread) {
+                            setupNativeLibs();
+                        }
+                        onStartButton();
+                    }
+                });
+                thread.setPriority(Thread.MIN_PRIORITY);
+                thread.start();
 
-			mStorageSectionDetails = (LinearLayout) findViewById(R.id.storagesectionDetails);
-			mStorageSectionDetails.setVisibility(View.GONE);
-			mStorageSectionHeader = (TextView) findViewById(R.id.storagesectionStr);
-			mStorageSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mStorageSectionDetails);
-				}
-			});
+            }
+        });
+        mStop.setOnClickListener(new OnClickListener() {
+            public void onClick(View view) {
+                onStopButton(false);
 
-			mUserInterfaceSectionDetails = (LinearLayout) findViewById(R.id.userInterfaceDetails);
-			mUserInterfaceSectionDetails.setVisibility(View.GONE);
-			mUserInterfaceSectionHeader = (TextView) findViewById(R.id.userInterfaceSectionStr);
-			mUserInterfaceSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mUserInterfaceSectionDetails);
-				}
-			});
+            }
+        });
+        mRestart.setOnClickListener(new OnClickListener() {
+            public void onClick(View view) {
 
-			mRemovableStorageSectionDetails = (LinearLayout) findViewById(R.id.removableStoragesectionDetails);
-			mRemovableStorageSectionDetails.setVisibility(View.GONE);
-			mRemovableStorageSectionHeader = (TextView) findViewById(R.id.removableStoragesectionStr);
-			mRemovableStorageSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mRemovableStorageSectionDetails);
-				}
-			});
+                onRestartButton();
 
-			mGraphicsSectionDetails = (LinearLayout) findViewById(R.id.graphicssectionDetails);
-			mGraphicsSectionDetails.setVisibility(View.GONE);
-			mGraphicsSectionHeader = (TextView) findViewById(R.id.graphicssectionStr);
-			mGraphicsSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mGraphicsSectionDetails);
-				}
-			});
+            }
+        });
+    }
 
-			mAudioSectionDetails = (LinearLayout) findViewById(R.id.audiosectionDetails);
-			mAudioSectionDetails.setVisibility(View.GONE);
-			mAudioSectionHeader = (TextView) findViewById(R.id.audiosectionStr);
-			mAudioSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mAudioSectionDetails);
-				}
-			});
+    private void savePendingEditText() {
+        View currentView = getCurrentFocus();
+        if (currentView != null && currentView instanceof EditText) {
+            ((EditText) currentView).setFocusable(false);
+        }
+    }
 
-			mNetworkSectionDetails = (LinearLayout) findViewById(R.id.networksectionDetails);
-			mNetworkSectionDetails.setVisibility(View.GONE);
-			mNetworkSectionHeader = (TextView) findViewById(R.id.networksectionStr);
-			mNetworkSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mNetworkSectionDetails);
-				}
-			});
+    private void checkFirstLaunch() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
 
-			mBootSectionDetails = (LinearLayout) findViewById(R.id.bootsectionDetails);
-			mBootSectionDetails.setVisibility(View.GONE);
-			mBootSectionHeader = (TextView) findViewById(R.id.bootsectionStr);
-			mBootSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mBootSectionDetails);
-				}
-			});
+                if (isFirstLaunch()) {
+                    onFirstLaunch();
+                }
 
-			mAdvancedSectionDetails = (LinearLayout) findViewById(R.id.advancedSectionDetails);
-			mAdvancedSectionDetails.setVisibility(View.GONE);
-			mAdvancedSectionHeader = (TextView) findViewById(R.id.advancedSectionStr);
-			mAdvancedSectionHeader.setOnClickListener(new OnClickListener() {
-				public void onClick(View view) {
-					toggleVisibility(mAdvancedSectionDetails);
-				}
-			});
-		}
-	}
+            }
+        });
+        t.start();
+    }
 
-	private void triggerUpdateSpinner(final Spinner spinner) {
+    private void checkLog() {
 
-		// trigger a change in the spinner
-		final int position = (int) spinner.getSelectedItemId();
-		spinner.setSelection(0);
+        Thread t = new Thread(new Runnable() {
+            public void run() {
 
-		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				spinner.setSelection(position);
-			}
-		}, 100);
+                if (LimboSettingsManager.getExitCode(activity) != 1) {
+                    LimboSettingsManager.setExitCode(activity, 1);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            UIUtils.promptShowLog(activity);
+                        }
+                    });
+                }
+            }
+        });
+        t.start();
+    }
 
-	}
+    private void setupFolders() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                Config.enableASFExternalSD = !LimboSettingsManager.getEnableLegacyFileManager(activity);
 
-	private void promptPrio(final Activity activity) {
+                Config.cacheDir = getCacheDir().getAbsolutePath();
+                Config.storagedir = Environment.getExternalStorageDirectory().toString();
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Enable High Priority!");
+                // Create Temp folder
+                File folder = new File(Config.getTmpFolder(LimboActivity.this));
+                if (!folder.exists())
+                    folder.mkdirs();
 
-		TextView textView = new TextView(activity);
-		textView.setVisibility(View.VISIBLE);
-		textView.setPadding(20,20,20,20);
-		textView.setText("Warning! High Priority might increase emulation speed but " + "will slow your phone down!");
 
-		alertDialog.setView(textView);
-		final Handler handler = this.handler;
+            }
+        });
+        t.start();
+    }
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				LimboSettingsManager.setPrio(activity, true);
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				mPrio.setChecked(false);
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				mPrio.setChecked(false);
-			}
-		});
-		alertDialog.show();
-	}
+    //XXX: sometimes this needs to be called from the main thread otherwise
+    //  qemu crashes when it is started later
+    public void setupNativeLibs() {
 
-	private void promptKVM(final Activity activity) {
+        if (libLoaded)
+            return;
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Enable KVM!");
+        //Some devices need stl loaded upfront
+        //System.loadLibrary("stlport_shared");
 
-		TextView textView = new TextView(activity);
-		textView.setVisibility(View.VISIBLE);
-		textView.setPadding(20,20,20,20);		textView.setText(
-				"Warning! Enabling KVM under Limbo is not fully tested. " +
-						"\nYou should have a device with a KVM supported kernel. If you don't know what this is press Cancel." +
-						"\nIf you experience crashes disable this option. Do you want to continue?");
+        //Compatibility lib
+        System.loadLibrary("compat-limbo");
 
-		alertDialog.setView(textView);
-		final Handler handler = this.handler;
+        //Glib deps
+        System.loadLibrary("compat-musl");
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				LimboSettingsManager.setEnableKVM(activity, true);
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				mEnableKVM.setChecked(false);
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				mEnableKVM.setChecked(false);
-			}
-		});
-		alertDialog.show();
-	}
 
-	private void promptSharedFolder(final Activity activity) {
+        //Glib
+        System.loadLibrary("glib-2.0");
 
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Enable Shared Folder!");
+        //Pixman for qemu
+        System.loadLibrary("pixman-1");
 
-		TextView textView = new TextView(activity);
-		textView.setVisibility(View.VISIBLE);
-		textView.setPadding(20,20,20,20);
-		textView.setText(
-				"Warning! Enabling Shared folder is buggy under Limbo. " +
-						"\nIf you use Storage Cleaning apps exclude this folder. " +
-						"\nMake sure you keep a backup of your files. " +
-						"\nPausing the Virtual Machine is not supported with this feature." +
-						"\nIf you experience crashes disable this option. " +
-						"\nDo you want to continue?");
+        //Spice server
+        if (Config.enable_SPICE) {
+            System.loadLibrary("crypto");
+            System.loadLibrary("ssl");
+            System.loadLibrary("spice");
+        }
 
-		ScrollView scrollView = new ScrollView(activity);
-		scrollView.addView(textView);
+        // //Load SDL library
+        if (Config.enable_SDL) {
+            System.loadLibrary("SDL2");
+        }
 
-		alertDialog.setView(scrollView);
-		final Handler handler = this.handler;
+        System.loadLibrary("compat-SDL2-ext");
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
+        //Limbo needed for vmexecutor
+        System.loadLibrary("limbo");
 
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				mSharedFolderenable.setChecked(false);
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				mSharedFolderenable.setChecked(false);
-			}
-		});
-		alertDialog.setCancelable(false);
-		alertDialog.show();
-	}
+        loadQEMULib();
 
-	public void promptVNCAllowExternal(final Activity activity) {
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Enable VNC server");
+        libLoaded = true;
+    }
 
-		TextView textView = new TextView(activity);
-		textView.setVisibility(View.VISIBLE);
-		textView.setPadding(20,20,20,20);		textView.setText("VNC Server: " + this.getLocalIpAddress() + ":" + "5901\n"
-				+ "Warning: VNC Connection is UNencrypted and not secure make sure you're on a private network!\n");
+    protected void loadQEMULib() {
 
-		final EditText passwdView = new EditText(activity);
-		passwdView.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-		passwdView.setHint("Password");
-		passwdView.setEnabled(true);
-		passwdView.setVisibility(View.VISIBLE);
-		passwdView.setSingleLine();
+    }
 
-		LinearLayout mLayout = new LinearLayout(this);
-		mLayout.setPadding(20, 20, 20, 20);
+    public void setupToolbar() {
+        Toolbar tb = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(tb);
+
+        // Get the ActionBar here to configure the way it behaves.
+        final ActionBar ab = getSupportActionBar();
+        ab.setHomeAsUpIndicator(R.drawable.limbo); // set a custom icon for the
+        // default home button
+        ab.setDisplayShowHomeEnabled(true); // show or hide the default home
+        // button
+        ab.setDisplayHomeAsUpEnabled(true);
+        ab.setDisplayShowCustomEnabled(true); // enable overriding the default
+        // toolbar layout
+        ab.setDisplayShowTitleEnabled(true); // disable the default title
+        // element here (for centered
+        // title)
+
+        ab.setTitle(R.string.app_name);
+    }
+
+    public void checkUpdate() {
+        Thread tsdl = new Thread(new Runnable() {
+            public void run() {
+                // Check for a new Version
+
+                UIUtils.checkNewVersion(activity);
+
+            }
+        });
+        tsdl.start();
+    }
+
+    private void setupStrictMode() {
+
+        if (Config.debugStrictMode) {
+            StrictMode.setThreadPolicy(
+                    new StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork()
+                            //.penaltyDeath()
+                            .penaltyLog().build());
+            StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObjects()
+                    .detectLeakedClosableObjects().penaltyLog()
+                    // .penaltyDeath()
+                    .build());
+        }
+
+    }
+
+
+    private void populateAttributes() {
+
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                favinstance = FavOpenHelper.getInstance(activity);
+                updateGlobalSettings();
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        populateAttributesUI();
+                    }
+                });
+            }
+        });
+        t.start();
+    }
+
+    private void populateAttributesUI() {
+
+        this.populateMachines(null);
+        this.populateArch();
+        this.populateMachineType(null);
+        this.populateCPUs(null);
+        this.populateCPUNum();
+        this.populateRAM();
+        this.populateDisks();
+        this.populateBootDevices();
+        this.populateNet();
+        this.populateNetDevices(null);
+        this.populateVGA();
+        this.populateSoundcardConfig();
+        this.populateHDCacheConfig();
+        this.populateSnapshot();
+        this.populateUI();
+        this.populateOrientation();
+        this.populateKeyboardLayout();
+        this.populateMouse();
+    }
+
+    private void populateDisks() {
+
+        //disks
+        this.populateDiskAdapter(mHDA, FileType.HDA, true);
+        this.populateDiskAdapter(mHDB, FileType.HDB, true);
+        this.populateDiskAdapter(mHDC, FileType.HDC, true);
+        this.populateDiskAdapter(mHDD, FileType.HDD, true);
+        this.populateDiskAdapter(mSharedFolder, FileType.SHARED_DIR, false);
+
+        //removable
+        this.populateDiskAdapter(mCD, FileType.CD, false);
+        this.populateDiskAdapter(mFDA, FileType.FDA, false);
+        this.populateDiskAdapter(mFDB, FileType.FDB, false);
+        this.populateDiskAdapter(mSD, FileType.SD, false);
+
+        //boot
+        this.populateDiskAdapter(mKernel, FileType.KERNEL, false);
+        this.populateDiskAdapter(mInitrd, FileType.INITRD, false);
+
+    }
+
+    public void onFirstLaunch() {
+        onLicense();
+    }
+
+    private void createMachine(String machineValue) {
+
+        if (MachineOpenHelper.getInstance(activity).getMachine(machineValue, "") != null) {
+            UIUtils.toastShort(activity, "VM Name \"" + machineValue + "\" exists please choose another name!");
+            return;
+        }
+
+        showDownloadLinks();
+
+        currMachine = new Machine(machineValue);
+
+        // default settings for each architecture, this helps user with the most common setup
+        if (Config.enable_X86 || Config.enable_X86_64) {
+            currMachine.arch = "x86";
+            currMachine.machine_type = "pc";
+            currMachine.nic_card = "ne2k_pci";
+            currMachine.disabletsc = 1;
+        } else if (Config.enable_ARM || Config.enable_ARM64) {
+            currMachine.arch = "ARM";
+            currMachine.machine_type = "integratorcp";
+            currMachine.cpu = "arm926";
+            currMachine.nic_card = "smc91c111";
+        } else if (Config.enable_MIPS) {
+            currMachine.arch = "MIPS";
+            currMachine.machine_type = "malta";
+        } else if (Config.enable_PPC || Config.enable_PPC64) {
+            currMachine.arch = "PPC";
+            currMachine.machine_type = "Default";
+            currMachine.nic_card = "e1000";
+        } else if (Config.enable_m68k) {
+            currMachine.arch = "m68k";
+            currMachine.machine_type = "Default";
+        } else if (Config.enable_sparc || Config.enable_sparc64) {
+            currMachine.arch = "SPARC";
+            currMachine.machine_type = "Default";
+            currMachine.nic_card = "lance";
+        }
+
+        MachineOpenHelper.getInstance(activity).insertMachine(currMachine);
+
+        populateMachines(machineValue);
+
+        if (LimboActivity.currMachine != null && currMachine.cpu != null
+                && (currMachine.cpu.endsWith("(arm)") || currMachine.arch.startsWith("MIPS")
+                || currMachine.arch.startsWith("PPC") || currMachine.arch.startsWith("m68k"))
+
+                ) {
+            mMachineType.setEnabled(true); // Disabled for now
+        }
+        enableNonRemovableDeviceOptions(true);
+        enableRemovableDeviceOptions(true);
+        this.mVNCAllowExternal.setEnabled(true);
+
+    }
+
+    protected void showDownloadLinks() {
+
+        if (!Config.osImages.isEmpty()) {
+            OSDialogBox oses = new OSDialogBox(activity);
+            oses.setCanceledOnTouchOutside(false);
+            oses.setCancelable(false);
+            oses.show();
+        }
+    }
+
+    private void onDeleteMachine() {
+        if (currMachine == null) {
+            UIUtils.toastShort(this, "Select a machine first!");
+            return;
+        }
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                MachineOpenHelper.getInstance(activity).deleteMachineDB(currMachine);
+                final String name = currMachine.machinename;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        disableListeners();
+                        disableRemovableDiskListeners();
+                        mMachine.setSelection(0);
+                        currMachine = null;
+                        populateAttributes();
+                        UIUtils.toastShort(activity, "Machine " + name + " deleted");
+                        enableListeners();
+                        enableRemovableDiskListeners();
+                    }
+                });
+
+            }
+        });
+        t.start();
+
+    }
+
+    private void onExportMachines() {
+        promptExportName(this);
+    }
+
+    public void exportMachines(String filePath) {
+        progDialog = ProgressDialog.show(activity, "Please Wait", "Exporting Machines...", true);
+        ExportMachines exporter = new ExportMachines();
+        exporter.exportFilePath = filePath;
+        exporter.execute();
+
+    }
+
+    private void onImportMachines() {
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Import Machines");
+
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+        mLayout.setPadding(20, 20, 20, 20);
+
+        TextView imageNameView = new TextView(activity);
+        imageNameView.setVisibility(View.VISIBLE);
+        imageNameView.setText(
+                "Choose the <export>.csv file you want to import.\n"
+                        + "WARNING: Any machine with the same name will be replaced!\n"
+                        );
+
+        LinearLayout.LayoutParams searchViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mLayout.addView(imageNameView, searchViewParams);
+        alertDialog.setView(mLayout);
+
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                promptForImportDir();
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+
+                return;
+            }
+        });
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+
+                return;
+
+            }
+        });
+        alertDialog.show();
+
+    }
+
+    private void promptForImportDir() {
+        FileManager.browse(this, FileType.IMPORT_FILE, Config.OPEN_IMPORT_FILE_REQUEST_CODE);
+    }
+
+
+    public void importFile(String importFilePath) {
+        // For each line create a Machine
+        progDialog = ProgressDialog.show(activity, "Please Wait", "Importing Machines...", true);
+        disableListeners();
+        disableRemovableDiskListeners();
+        currMachine = null;
+        mMachine.setSelection(0);
+        ImportMachines importer = new ImportMachines();
+        importer.importFilePath = importFilePath;
+        importer.execute();
+    }
+
+    private void onLicense() {
+        PackageInfo pInfo = null;
+
+        try {
+            pInfo = getPackageManager().getPackageInfo(getClass().getPackage().getName(), PackageManager.GET_META_DATA);
+        } catch (NameNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        final PackageInfo finalPInfo = pInfo;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    UIAlertLicense(Config.APP_NAME + " v" + finalPInfo.versionName,
+                            FileUtils.LoadFile(activity, "LICENSE", false),
+                            activity);
+                } catch (IOException e) {
+
+                    e.printStackTrace();
+                }
+            }
+        });
+
+    }
+
+    public void exit() {
+        onStopButton(true);
+    }
+
+    private void unlockRemovableDevices(boolean flag) {
+
+        mCDenable.setEnabled(flag);
+        mFDAenable.setEnabled(flag);
+        mFDBenable.setEnabled(flag);
+        mSDenable.setEnabled(flag);
+
+    }
+
+    private void enableRemovableDeviceOptions(boolean flag) {
+
+        unlockRemovableDevices(flag);
+        enableRemovableDiskValues(flag);
+    }
+
+    private void enableRemovableDiskValues(boolean flag) {
+        mCD.setEnabled(flag && mCDenable.isChecked());
+        mFDA.setEnabled(flag && mFDAenable.isChecked());
+        mFDB.setEnabled(flag && mFDBenable.isChecked());
+        mSD.setEnabled(flag && mSDenable.isChecked());
+    }
+
+    private void enableNonRemovableDeviceOptions(boolean flag) {
+
+        //snapshot
+        this.mSnapshot.setEnabled(flag);
+
+
+        //ui
+        this.mUI.setEnabled(flag);
+        this.mKeyboard.setEnabled(Config.enableKeyboardLayoutOption && flag);
+        this.mMouse.setEnabled(Config.enableMouseOption && flag);
+        //XXX: disabled for now, use the Emulated mouse property to fix mouse
+//        this.mDesktopMode.setEnabled(false);
+
+        // Everything Except removable devices
+        this.mArch.setEnabled(flag);
+        this.mMachineType.setEnabled(flag);
+        this.mCPU.setEnabled(flag);
+        this.mCPUNum.setEnabled(flag);
+        this.mRamSize.setEnabled(flag);
+        this.mEnableKVM.setEnabled(flag && (Config.enable_KVM || !flag));
+        this.mEnableMTTCG.setEnabled(flag && (Config.enableMTTCG || !flag));
+
+        //lock drives
+        mHDAenable.setEnabled(flag);
+        mHDBenable.setEnabled(flag);
+        mHDCenable.setEnabled(flag);
+        mHDDenable.setEnabled(flag);
+        mSharedFolderenable.setEnabled(flag);
+
+        //drives
+        mHDA.setEnabled(flag && mHDAenable.isChecked());
+        mHDB.setEnabled(flag && mHDBenable.isChecked());
+        mHDC.setEnabled(flag && mHDCenable.isChecked());
+        mHDD.setEnabled(flag && mHDDenable.isChecked());
+        mSharedFolder.setEnabled(flag && mSharedFolderenable.isChecked());
+        mHDCacheConfig.setEnabled(flag && (Config.enableHDCache || !flag));
+
+        //boot
+        this.mBootDevices.setEnabled(flag);
+        this.mKernel.setEnabled(flag);
+        this.mInitrd.setEnabled(flag);
+        this.mAppend.setEnabled(flag);
+
+        //graphics
+        this.mVGAConfig.setEnabled(flag);
+
+        //audio
+        if (Config.enable_SDL_sound
+                && currMachine != null && currMachine.ui != null
+                && currMachine.ui.equals("SDL") && currMachine.paused == 0)
+            this.mSoundCard.setEnabled(flag);
+        else
+            this.mSoundCard.setEnabled(false);
+
+        //net
+        this.mNetConfig.setEnabled(flag);
+        this.mNicCard.setEnabled(flag && mNetConfig.getSelectedItemPosition() > 0);
+        this.mDNS.setEnabled(flag && mNetConfig.getSelectedItemPosition() > 0);
+        this.mHOSTFWD.setEnabled(flag && mNetConfig.getSelectedItemPosition() > 0);
+
+        //advanced
+        this.mDisableACPI.setEnabled(flag);
+        this.mDisableHPET.setEnabled(flag);
+        this.mDisableTSC.setEnabled(flag);
+        this.mPrio.setEnabled(flag);
+        this.mExtraParams.setEnabled(flag);
+
+    }
+
+    // Main event function
+    // Retrives values from saved preferences
+    private void onStartButton() {
+
+        if (this.mMachine.getSelectedItemPosition() == 0 || this.currMachine == null ) {
+            UIUtils.toastShort(activity, "Select or Create a Virtual Machine first");
+            return;
+        }
+        try {
+            validateFiles();
+        } catch (Exception ex) {
+            UIUtils.toastLong(this, ex.toString());
+            return;
+        }
+        if (currMachine.snapshot_name != null && !currMachine.snapshot_name.toLowerCase().equals("none")
+                && !currMachine.snapshot_name.toLowerCase().equals("") && currMachine.soundcard != null
+                && !currMachine.soundcard.toLowerCase().equals("none") && mUI.getSelectedItemPosition() != 1) {
+            UIUtils.toastLong(getApplicationContext(),
+                    "Snapshot was saved with soundcard enabled please use SDL \"User Interface\"");
+            return;
+        }
+
+        if (currMachine != null && currMachine.cpu != null && currMachine.cpu.endsWith("(arm)")
+                && (currMachine.kernel == null || currMachine.kernel.equals(""))) {
+            UIUtils.toastLong(LimboActivity.this, "Couldn't find a Kernel image\nPlease attach a Kernel image first!");
+            return;
+        }
+
+        if (currMachine != null && currMachine.machine_type != null && currMachine.cpu.endsWith("(arm)")
+                && currMachine.machine_type.equals("None")) {
+            UIUtils.toastLong(LimboActivity.this, "Please select an ARM machine type first!");
+            return;
+        }
+
+
+        if (vmexecutor == null) {
+
+            try {
+                vmexecutor = new VMExecutor(currMachine, this);
+            } catch (Exception ex) {
+                UIUtils.toastLong(activity, "Error: " + ex);
+                return;
+
+            }
+        }
+        if (mCDenable.isChecked() && vmexecutor.cd_iso_path == null)
+            vmexecutor.cd_iso_path = "";
+        if (mFDAenable.isChecked() && vmexecutor.fda_img_path == null)
+            vmexecutor.fda_img_path = "";
+        if (mFDBenable.isChecked() && vmexecutor.fdb_img_path == null)
+            vmexecutor.fdb_img_path = "";
+        if (Config.enableFlashMemoryImages && mSDenable.isChecked() && vmexecutor.sd_img_path == null)
+            vmexecutor.sd_img_path = "";
+
+        // Global settings
+
+        // dns
+        vmexecutor.dns_addr = mDNS.getText().toString();
+
+        // Append only when kernel is set
+
+        if (currMachine.kernel != null && !currMachine.kernel.equals(""))
+            vmexecutor.append = mAppend.getText().toString();
+
+        vmexecutor.paused = currMachine.paused;
+
+        if (!vmStarted) {
+            UIUtils.toastShort(LimboActivity.this, "Starting VM, please wait");
+            //XXX: make sure that bios files are installed in case we ran out of space in the last
+            //  run
+            FileInstaller.installFiles(activity, false);
+        } else {
+            UIUtils.toastShort(LimboActivity.this, "Connecting to VM, please wait");
+        }
+
+        if (mUI.getSelectedItemPosition() == 0) { // VNC
+            vmexecutor.enableqmp = 1; // We enable qemu monitor
+            startVNC();
+            //we don't flag the VNC as started yet because we need
+            //  to send cont via QEMU console first
+        } else if (mUI.getSelectedItemPosition() == 1) { // SDL
+            // XXX: We need to enable qmp server to be able to save the state
+            // We could do it via the Monitor but SDL for Android
+            // doesn't support multiple Windows
+            vmexecutor.enableqmp = 1;
+            startSDL();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.PAUSED,
+                    0 + "");
+        } else if (mUI.getSelectedItemPosition() == 2) { // SPICE
+            startSPICE();
+            currMachine.paused = 0;
+            MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.PAUSED,
+                    0 + "");
+        }
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (vmStarted) {
+                    //do nothing
+                } else if (vmexecutor.paused == 1) {
+                    UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
+                } else {
+//					if (!vmStarted) {
+//						UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
+//					}
+                    enableNonRemovableDeviceOptions(false);
+                    mStart.setImageResource(R.drawable.play);
+                }
+            }
+        });
+
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
+                mMachine.setEnabled(false);
+            }
+        });
+
+    }
+
+    private String getLanguageCode(int index) {
+        // TODO: Add more languages from /assets/roms/keymaps
+        switch (index) {
+            case 0:
+                return "en-us";
+            case 1:
+                return "es";
+            case 2:
+                return "fr";
+        }
+        return null;
+    }
+
+    public void startSDL() {
+
+        Thread tsdl = new Thread(new Runnable() {
+            public void run() {
+                startsdl();
+            }
+        });
+        if (mPrio.isChecked())
+            tsdl.setPriority(Thread.MAX_PRIORITY);
+        tsdl.start();
+    }
+
+    private void startVNC() {
+
+        VncCanvas.retries = 0;
+        if (!vmStarted) {
+
+            Thread tvm = new Thread(new Runnable() {
+                public void run() {
+                    startvm(LimboActivity.this, Config.UI_VNC);
+                }
+            });
+            if (mPrio.isChecked())
+                tvm.setPriority(Thread.MAX_PRIORITY);
+            tvm.start();
+        } else {
+            activity.startvnc();
+        }
+
+
+    }
+
+    private void startSPICE() {
+
+        if (!vmStarted) {
+
+            Thread tvm = new Thread(new Runnable() {
+                public void run() {
+                    startvm(LimboActivity.this, Config.UI_SPICE);
+                }
+            });
+            if (mPrio.isChecked())
+                tvm.setPriority(Thread.MAX_PRIORITY);
+            tvm.start();
+        }
+
+    }
+
+    private boolean validateFiles() {
+
+
+        if (!FileUtils.fileValid(this, currMachine.hda_img_path)
+                || !FileUtils.fileValid(this, currMachine.hdb_img_path)
+                || !FileUtils.fileValid(this, currMachine.hdc_img_path)
+                || !FileUtils.fileValid(this, currMachine.hdd_img_path)
+                || !FileUtils.fileValid(this, currMachine.fda_img_path)
+                || !FileUtils.fileValid(this, currMachine.fdb_img_path)
+                || !FileUtils.fileValid(this, currMachine.sd_img_path)
+                || !FileUtils.fileValid(this, currMachine.cd_iso_path)
+                || !FileUtils.fileValid(this, currMachine.kernel)
+                || !FileUtils.fileValid(this, currMachine.initrd)
+                )
+            return false;
+
+        return true;
+    }
+
+    private void onStopButton(boolean exit) {
+        stopVM(exit);
+    }
+
+    private void onRestartButton() {
+
+        execTimer();
+
+        if (vmexecutor == null) {
+            if (this.currMachine != null && this.currMachine.paused == 1) {
+                promptDiscardVMState();
+                return;
+            } else {
+                UIUtils.toastShort(LimboActivity.this, "VM not running");
+                return;
+            }
+        }
+
+        Machine.resetVM(activity);
+    }
+
+    private void onSaveButton() {
+
+        // TODO: This probably has no effect
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                promptStateName(activity);
+            }
+        });
+        t.start();
+    }
+
+    private void onResumeButton() {
+
+        // TODO: This probably has no effect
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                resumevm();
+            }
+        });
+        t.start();
+    }
+
+    public void toggleVisibility(View view) {
+        if (view.getVisibility() == View.VISIBLE) {
+            view.setVisibility(View.GONE);
+        } else if (view.getVisibility() == View.GONE || view.getVisibility() == View.INVISIBLE) {
+            view.setVisibility(View.VISIBLE);
+        }
+    }
+
+    // Setting up the UI
+    public void setupWidgets() {
+
+        setupSections();
+
+        this.mScrollView = findViewById(R.id.scroll_view);
+
+        this.mStatus = (ImageView) findViewById(R.id.statusVal);
+        this.mStatus.setImageResource(R.drawable.off);
+        this.mStatusText = (TextView) findViewById(R.id.statusStr);
+
+        mStart = (ImageButton) findViewById(R.id.startvm);
+        mStop = (ImageButton) findViewById(R.id.stopvm);
+        mRestart = (ImageButton) findViewById(R.id.restartvm);
+
+        //Machine
+        this.mMachine = (Spinner) findViewById(R.id.machineval);
+
+        //snapshots not used currently
+        this.mSnapshot = (Spinner) findViewById(R.id.snapshotval);
+
+        //ui
+        if (!Config.enable_SDL)
+            this.mUI.setEnabled(false);
+        this.mVNCAllowExternal = (CheckBox) findViewById(R.id.vncexternalval);
+        mVNCAllowExternal.setChecked(false);
+        this.mDesktopMode = (CheckBox) findViewById(R.id.desktopmodeval);
+        this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
+        this.mMouse = (Spinner) findViewById(R.id.mouseval);
+        this.mOrientation = (Spinner) findViewById(R.id.orientationval);
+        this.mToolBar = (CheckBox) findViewById(R.id.showtoolbarval);
+        this.mFullScreen = (CheckBox) findViewById(R.id.fullscreenval);
+
+        //cpu/board
+        this.mCPU = (Spinner) findViewById(R.id.cpuval);
+        this.mArch = (Spinner) findViewById(R.id.archtypeval);
+        this.mMachineType = (Spinner) findViewById(R.id.machinetypeval);
+        this.mCPUNum = (Spinner) findViewById(R.id.cpunumval);
+        this.mUI = (Spinner) findViewById(R.id.uival);
+        this.mRamSize = (Spinner) findViewById(R.id.rammemval);
+        this.mEnableKVM = (CheckBox) findViewById(R.id.enablekvmval);
+        this.mEnableMTTCG = (CheckBox) findViewById(R.id.enablemttcgval);
+        this.mDisableACPI = (CheckBox) findViewById(R.id.acpival);
+        this.mDisableHPET = (CheckBox) findViewById(R.id.hpetval);
+        this.mDisableTSC = (CheckBox) findViewById(R.id.tscval);
+
+        //disks
+        this.mHDAenable = (CheckBox) findViewById(R.id.hdimgcheck);
+        this.mHDBenable = (CheckBox) findViewById(R.id.hdbimgcheck);
+        this.mHDCenable = (CheckBox) findViewById(R.id.hdcimgcheck);
+        this.mHDDenable = (CheckBox) findViewById(R.id.hddimgcheck);
+        this.mHDA = (Spinner) findViewById(R.id.hdimgval);
+        this.mHDB = (Spinner) findViewById(R.id.hdbimgval);
+        this.mHDC = (Spinner) findViewById(R.id.hdcimgval);
+        this.mHDD = (Spinner) findViewById(R.id.hddimgval);
+        this.mSharedFolderenable = (CheckBox) findViewById(R.id.sharedfoldercheck);
+        this.mSharedFolder = (Spinner) findViewById(R.id.sharedfolderval);
+        this.mHDCacheConfig = (Spinner) findViewById(R.id.hdcachecfgval);
+        this.mHDCacheConfig.setEnabled(false); // Disabled for now
+
+        //Removable storage
+        this.mCD = (Spinner) findViewById(R.id.cdromimgval);
+        this.mFDA = (Spinner) findViewById(R.id.floppyimgval);
+        this.mFDB = (Spinner) findViewById(R.id.floppybimgval);
+        if(!Config.enableEmulatedFloppy) {
+            LinearLayout mFDALayout = (LinearLayout) findViewById(R.id.floppyimgl);
+            mFDALayout.setVisibility(View.GONE);
+            LinearLayout mFDBLayout = (LinearLayout) findViewById(R.id.floppybimgl);
+            mFDBLayout.setVisibility(View.GONE);
+        }
+        this.mSD = (Spinner) findViewById(R.id.sdcardimgval);
+        if(!Config.enableEmulatedSDCard) {
+            LinearLayout mSDCardLayout = (LinearLayout) findViewById(R.id.sdcardimgl);
+            mSDCardLayout.setVisibility(View.GONE);
+        }
+        this.mCDenable = (CheckBox) findViewById(R.id.cdromimgcheck);
+        this.mFDAenable = (CheckBox) findViewById(R.id.floppyimgcheck);
+        this.mFDBenable = (CheckBox) findViewById(R.id.floppybimgcheck);
+        this.mSDenable = (CheckBox) findViewById(R.id.sdcardimgcheck);
+
+        //boot
+        this.mBootDevices = (Spinner) findViewById(R.id.bootfromval);
+        this.mKernel = (Spinner) findViewById(R.id.kernelval);
+        this.mInitrd = (Spinner) findViewById(R.id.initrdval);
+        this.mAppend = (EditText) findViewById(R.id.appendval);
+
+        //display
+        this.mVGAConfig = (Spinner) findViewById(R.id.vgacfgval);
+
+        //sound
+        this.mSoundCard = (Spinner) findViewById(R.id.soundcfgval);
+
+        //network
+        this.mNetConfig = (Spinner) findViewById(R.id.netcfgval);
+        this.mNicCard = (Spinner) findViewById(R.id.netDevicesVal);
+        this.mDNS = (EditText) findViewById(R.id.dnsval);
+        setDefaultDNServer();
+        this.mHOSTFWD = (EditText) findViewById(R.id.hostfwdval);
+
+        // advanced
+        this.mPrio = (CheckBox) findViewById(R.id.prioval);
+        this.mExtraParams = (EditText) findViewById(R.id.extraparamsval);
+
+        enableRemovableDeviceOptions(false);
+        enableNonRemovableDeviceOptions(false);
+
+    }
+
+    private void setDefaultDNServer() {
+        // TODO Auto-generated method stub
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
+                final String defaultDNSServer = LimboSettingsManager.getDNSServer(activity);
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    public void run() {
+                        // Code here will run in UI thread
+                        mDNS.setText(defaultDNSServer);
+                    }
+                });
+            }
+        });
+        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.start();
+
+    }
+
+    private void setupSections() {
+
+        if (Config.collapseSections) {
+            mCPUSectionDetails = (LinearLayout) findViewById(R.id.cpusectionDetails);
+            mCPUSectionDetails.setVisibility(View.GONE);
+            mCPUSectionSummary = (TextView) findViewById(R.id.cpusectionsummaryStr);
+            mCPUSectionHeader = (LinearLayout) findViewById(R.id.cpusectionheaderl);
+            mCPUSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mCPUSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mStorageSectionDetails = (LinearLayout) findViewById(R.id.storagesectionDetails);
+            mStorageSectionDetails.setVisibility(View.GONE);
+            mStorageSectionSummary = (TextView) findViewById(R.id.storagesectionsummaryStr);
+            mStorageSectionHeader = (LinearLayout) findViewById(R.id.storageheaderl);
+            mStorageSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mStorageSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mUserInterfaceSectionDetails = (LinearLayout) findViewById(R.id.userInterfaceDetails);
+            mUserInterfaceSectionDetails.setVisibility(View.GONE);
+            mUISectionSummary = (TextView) findViewById(R.id.uisectionsummaryStr);
+            mUserInterfaceSectionHeader = (LinearLayout) findViewById(R.id.userinterfaceheaderl);
+            mUserInterfaceSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mUserInterfaceSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+
+            mRemovableStorageSectionDetails = (LinearLayout) findViewById(R.id.removableStoragesectionDetails);
+            mRemovableStorageSectionDetails.setVisibility(View.GONE);
+            mRemovableStorageSectionSummary = (TextView) findViewById(R.id.removablesectionsummaryStr);
+            mRemovableStorageSectionHeader = (LinearLayout) findViewById(R.id.removablestorageheaderl);
+            mRemovableStorageSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mRemovableStorageSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mGraphicsSectionDetails = (LinearLayout) findViewById(R.id.graphicssectionDetails);
+            mGraphicsSectionDetails.setVisibility(View.GONE);
+            mGraphicsSectionSummary = (TextView) findViewById(R.id.graphicssectionsummaryStr);
+            mGraphicsSectionHeader = (LinearLayout) findViewById(R.id.graphicsheaderl);
+            mGraphicsSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mGraphicsSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mAudioSectionDetails = (LinearLayout) findViewById(R.id.audiosectionDetails);
+            mAudioSectionDetails.setVisibility(View.GONE);
+            mAudioSectionSummary = (TextView) findViewById(R.id.audiosectionsummaryStr);
+            mAudioSectionHeader = (LinearLayout) findViewById(R.id.audioheaderl);
+            mAudioSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mAudioSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mNetworkSectionDetails = (LinearLayout) findViewById(R.id.networksectionDetails);
+            mNetworkSectionDetails.setVisibility(View.GONE);
+            mNetworkSectionSummary = (TextView) findViewById(R.id.networksectionsummaryStr);
+            mNetworkSectionHeader = (LinearLayout) findViewById(R.id.networkheaderl);
+            mNetworkSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mNetworkSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mBootSectionDetails = (LinearLayout) findViewById(R.id.bootsectionDetails);
+            mBootSectionDetails.setVisibility(View.GONE);
+            mBootSectionSummary = (TextView) findViewById(R.id.bootsectionsummaryStr);
+            mBootSectionHeader = (LinearLayout) findViewById(R.id.bootheaderl);
+            mBootSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mBootSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+
+            mAdvancedSectionDetails = (LinearLayout) findViewById(R.id.advancedSectionDetails);
+            mAdvancedSectionDetails.setVisibility(View.GONE);
+            mAdvancedSectionSummary = (TextView) findViewById(R.id.advancedsectionsummaryStr);
+            mAdvancedSectionHeader = (LinearLayout) findViewById(R.id.advancedheaderl);
+            mAdvancedSectionHeader.setOnClickListener(new OnClickListener() {
+                public void onClick(View view) {
+                    disableListeners();
+                    disableRemovableDiskListeners();
+                    toggleVisibility(mAdvancedSectionDetails);
+                    enableListenersDelayed(1000);
+                }
+            });
+        }
+    }
+
+    private void enableListenersDelayed(int msecs) {
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                enableListeners();
+                enableRemovableDiskListeners();
+            }
+        },msecs);
+    }
+
+    public void updateUISummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mUISectionSummary.setText("");
+        else {
+            String text = currMachine.ui
+                    + ", Orientation: " + mOrientation.getSelectedItem().toString()
+                    + ", Keyboard: " + mKeyboard.getSelectedItem().toString()
+                    + ", Mouse: " + mMouse.getSelectedItem().toString()
+                    + (mToolBar.isChecked() ? ", Toolbar On" : "")
+                    + (mFullScreen.isChecked() ? ", Fullscreen" : "")
+                    + (mVNCAllowExternal.isChecked() ? ", External VNC Server: On" : "")
+                    + (mDesktopMode.isChecked() ? ", Desktop Mode" : "");
+
+            mUISectionSummary.setText(text);
+        }
+    }
+
+    public void updateCPUSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mCPUSectionSummary.setText("");
+        else {
+            String text = "Arch: " + currMachine.arch
+                    + ", Machine Type: " + currMachine.machine_type
+                    + ", CPU: " + currMachine.cpu
+                    + ", " + currMachine.cpuNum + " CPU" + ((currMachine.cpuNum > 1) ? "s" : "")
+                    + ", " + currMachine.memory + " MB";
+            if (mEnableMTTCG.isChecked())
+                text = appendOption("Enable MTTCG", text);
+            if (mEnableKVM.isChecked())
+                text = appendOption("Enable KVM", text);
+            if (mDisableACPI.isChecked())
+                text = appendOption("Disable ACPI", text);
+            if (mDisableHPET.isChecked())
+                text = appendOption("Disable HPET", text);
+            if (mDisableTSC.isChecked())
+                text = appendOption("Disable TSC", text);
+            mCPUSectionSummary.setText(text);
+        }
+    }
+
+    public void updateStorageSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mStorageSectionSummary.setText("");
+        else {
+            String text = null;
+            text = appendDriveFilename(currMachine.hda_img_path, text, "HDA", false);
+            text = appendDriveFilename(currMachine.hdb_img_path, text, "HDB", false);
+            text = appendDriveFilename(currMachine.hdc_img_path, text, "HDC", false);
+            text = appendDriveFilename(currMachine.hdd_img_path, text, "HDD", false);
+
+            text = appendDriveFilename(currMachine.shared_folder, text, "Shared Folder", false);
+
+            if (text == null || text.equals("'"))
+                text = "None";
+            mStorageSectionSummary.setText(text);
+        }
+    }
+
+    public void updateRemovableStorageSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mRemovableStorageSectionSummary.setText("");
+        else {
+            String text = null;
+
+            text = appendDriveFilename(currMachine.cd_iso_path, text, "CDROM", true);
+            text = appendDriveFilename(currMachine.fda_img_path, text, "FDA", true);
+            text = appendDriveFilename(currMachine.fdb_img_path, text, "FDB", true);
+            text = appendDriveFilename(currMachine.sd_img_path, text, "SD", true);
+
+
+            if (text == null || text.equals("'"))
+                text = "None";
+
+            mRemovableStorageSectionSummary.setText(text);
+        }
+    }
+
+    private String appendDriveFilename(String driveFile, String text, String drive, boolean allowEmptyDrive) {
+
+        String file = null;
+        if (driveFile != null) {
+            if((driveFile.equals("") || driveFile.equals("None") ) && allowEmptyDrive){
+                file = drive + ": Empty";
+            } else if (!driveFile.equals("") && !driveFile.equals("None"))
+                file = drive + ": " + FileUtils.getFilenameFromPath(driveFile);
+        }
+        if (text == null && file != null)
+            text = file;
+        else if (file != null)
+            text += (", " + file);
+        return text;
+    }
+
+    public void updateGraphicsSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mGraphicsSectionSummary.setText("");
+        else {
+            String text = "Video Card: " + currMachine.vga_type;
+            mGraphicsSectionSummary.setText(text);
+        }
+    }
+
+    public void updateAudioSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mAudioSectionSummary.setText("");
+        else {
+            String text = mUI.getSelectedItemPosition() == 1 ? ("Audio Card: " + currMachine.soundcard) : "Audio Card: None";
+
+            mAudioSectionSummary.setText(text);
+        }
+    }
+
+    public void updateNetworkSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mNetworkSectionSummary.setText("");
+        else {
+            String text = "Net: " + currMachine.net_cfg;
+            if (!currMachine.net_cfg.equals("None")) {
+                text = text + ", NIC Card: " + currMachine.nic_card
+                        + ", DNS Server: " + mDNS.getText();
+                if (!(mHOSTFWD.getText() + "").equals(""))
+                    text += (", Host Forward: " + mHOSTFWD.getText());
+            }
+            mNetworkSectionSummary.setText(text);
+        }
+    }
+
+    public void updateBootSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mBootSectionSummary.setText("");
+        else {
+            String text = "Boot from: " + currMachine.bootdevice
+                    + ((mKernel.getSelectedItemPosition() > 0) ? (", kernel:" + currMachine.kernel) : "")
+                    + ((mInitrd.getSelectedItemPosition() > 0) ? (", initrd:" + currMachine.initrd) : "")
+                    + (!mAppend.getText().toString().equals("") ? (", append command: " + mAppend.getText()) : "");
+
+            mBootSectionSummary.setText(text);
+        }
+    }
+
+    public void updateAdvancedSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mAdvancedSectionSummary.setText("");
+        else {
+            String text = null;
+            if (mPrio.isChecked())
+                text = appendOption("High Priority", text);
+            if (currMachine.extra_params != null && !currMachine.extra_params.equals(""))
+                text = appendOption("Extra Params: " + currMachine.extra_params, text);
+            mAdvancedSectionSummary.setText(text);
+        }
+    }
+
+    private String appendOption(String option, String text) {
+
+        if (text == null && option != null)
+            text = option;
+        else if (option != null)
+            text += (", " + option);
+        return text;
+    }
+
+    private void triggerUpdateSpinner(final Spinner spinner) {
+
+        final int position = (int) spinner.getSelectedItemId();
+        spinner.setSelection(0);
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                spinner.setSelection(position);
+            }
+        }, 100);
+
+    }
+
+    private void promptPrio(final Activity activity) {
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Enable High Priority!");
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setPadding(20, 20, 20, 20);
+        textView.setText("Warning! High Priority might increase emulation speed but " + "will slow your phone down!");
+
+        alertDialog.setView(textView);
+
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                LimboSettingsManager.setPrio(activity, true);
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                mPrio.setChecked(false);
+                return;
+            }
+        });
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                mPrio.setChecked(false);
+            }
+        });
+        alertDialog.show();
+    }
+
+
+    private void promptSharedFolder(final Activity activity) {
+
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Enable Shared Folder!");
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setPadding(20, 20, 20, 20);
+        textView.setText(
+                "Warning! Enabling Shared folder is buggy under Limbo. " +
+                        "\nIf you use Storage Cleaning apps exclude this folder. " +
+                        "\nMake sure you keep a backup of your files. " +
+                        "\nPausing the Virtual Machine is not supported with this feature." +
+                        "\nIf you experience crashes disable this option. " +
+                        "\nDo you want to continue?");
+
+        ScrollView scrollView = new ScrollView(activity);
+        scrollView.addView(textView);
+
+        alertDialog.setView(scrollView);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                mSharedFolderenable.setChecked(false);
+                return;
+            }
+        });
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                mSharedFolderenable.setChecked(false);
+            }
+        });
+        alertDialog.setCancelable(false);
+        alertDialog.show();
+    }
+
+    public void promptVNCAllowExternal(final Activity activity) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Enable VNC server");
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setPadding(20, 20, 20, 20);
+        textView.setText("VNC Server: " + this.getLocalIpAddress() + ":" + Config.defaultVNCPort + "\n"
+                + "Warning: VNC Connection is UNencrypted and not secure make sure you're on a private network!\n");
+
+        final EditText passwdView = new EditText(activity);
+        passwdView.setInputType(InputType.TYPE_CLASS_TEXT |
+                InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        passwdView.setSelection(passwdView.getText().length());
+        passwdView.setHint("Password");
+        passwdView.setEnabled(true);
+        passwdView.setVisibility(View.VISIBLE);
+        passwdView.setSingleLine();
+
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20, 20, 20, 20);
         mLayout.setOrientation(LinearLayout.VERTICAL);
 
         LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(textView, textViewParams);
+        mLayout.addView(textView, textViewParams);
 
         LinearLayout.LayoutParams passwordViewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-		mLayout.addView(passwdView, passwordViewParams);
+        mLayout.addView(passwdView, passwordViewParams);
 
-		alertDialog.setView(mLayout);
+        alertDialog.setView(mLayout);
+        passwdView.setTag(false);
+        passwdView.setTransformationMethod(new PasswordTransformationMethod());
+        passwdView.setSelection(passwdView.getText().length());
 
-		final Handler handler = this.handler;
-
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Set", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-
-
-				if (passwdView.getText().toString().trim().equals("")) {
-					Toast.makeText(getApplicationContext(), "Password cannot be empty!", Toast.LENGTH_SHORT).show();
-					vnc_passwd = null;
-					vnc_allow_external = 0;
-					mVNCAllowExternal.setChecked(false);
-					return;
-				} else {
-					sendHandlerMessage(handler, Config.VNC_PASSWORD, "vnc_passwd", "passwd");
-					vnc_passwd = passwdView.getText().toString();
-					vnc_allow_external = 1;
-				}
-
-			}
-		});
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				vnc_passwd = null;
-				vnc_allow_external = 0;
-				mVNCAllowExternal.setChecked(false);
-				return;
-			}
-		});
-		alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				mVNCAllowExternal.setChecked(false);
-				vnc_passwd = null;
-				vnc_allow_external = 0;
-			}
-		});
-		alertDialog.show();
-
-	}
-
-	private void loadMachine(String machine, String snapshot) {
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Set", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
 
 
-		machineLoaded = true;
-		this.setUserPressed(false);
+                if (passwdView.getText().toString().trim().equals("")) {
+                    UIUtils.toastShort(getApplicationContext(), "Password cannot be empty!");
+                    vnc_passwd = null;
+                    vnc_allow_external = 0;
+                    mVNCAllowExternal.setChecked(false);
+                    return;
+                } else {
+                    vnc_passwd = passwdView.getText().toString();
+                    vnc_allow_external = 1;
+                }
 
-		// Load machine from DB
-		this.currMachine = MachineOpenHelper.getInstance(activity).getMachine(machine, snapshot);
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                vnc_passwd = null;
+                vnc_allow_external = 0;
+                mVNCAllowExternal.setChecked(false);
+                return;
+            }
+        });
 
-		if (currMachine == null) {
-			return;
-		}
-		new Handler(Looper.getMainLooper()).post(new Runnable() {
-			public void run() {
+
+
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                mVNCAllowExternal.setChecked(false);
+                vnc_passwd = null;
+                vnc_allow_external = 0;
+            }
+        });
+        alertDialog.show();
+
+//        alertDialog.setButton(DialogInterface.BUTTON_NEUTRAL, " ", new DialogInterface.OnClickListener() {
+//            public void onClick(DialogInterface dialog, int which) {
+//            }
+//        });
+        try {
+            Button passwordButton = alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+//        passwordButton.setWidth(24);
+//        passwordButton.setHeight(24);
+            passwordButton.setVisibility(View.VISIBLE);
+            passwordButton.setBackgroundResource(android.R.drawable.ic_menu_view);
+            passwordButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if ((boolean) passwdView.getTag()) {
+                        passwdView.setTransformationMethod(new PasswordTransformationMethod());
+                    } else
+                        passwdView.setTransformationMethod(new HideReturnsTransformationMethod());
+                    passwdView.setTag(!(boolean) passwdView.getTag());
+                    passwdView.setSelection(passwdView.getText().length());
+                }
+            });
+        } finally{}
+    }
+
+    private void loadMachine(String machine, String snapshot) {
+
+
+        machineLoaded = true;
+        this.setUserPressed(false);
+
+        // Load machine from DB
+        this.currMachine = MachineOpenHelper.getInstance(activity).getMachine(machine, snapshot);
+
+        if (currMachine == null) {
+            return;
+        }
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            public void run() {
 
                 mVNCAllowExternal.setChecked(false);
 
-				populateMachineType(currMachine.machine_type);
-				populateCPUs(currMachine.cpu);
-				populateNetDevices(currMachine.nic_driver);
+                populateMachineType(currMachine.machine_type);
+                populateCPUs(currMachine.cpu);
+                populateNetDevices(currMachine.nic_card);
 
-				setArch(currMachine.arch);
-				setCPUNum(currMachine.cpuNum);
-				setRAM(currMachine.memory);
-				setKernel(currMachine.kernel);
-				setInitrd(currMachine.initrd);
-				if (currMachine.append != null)
-					mAppend.setText(currMachine.append);
-				else
-					mAppend.setText("");
+                setAdapter(mArch, currMachine.arch);
+                setCPUNum(currMachine.cpuNum);
+                setRAM(currMachine.memory);
+                setDiskValue(FileType.KERNEL, currMachine.kernel);
+                setDiskValue(FileType.INITRD, currMachine.initrd);
+                if (currMachine.append != null)
+                    mAppend.setText(currMachine.append);
+                else
+                    mAppend.setText("");
 
-				if (currMachine.hostfwd != null)
-					mHOSTFWD.setText(currMachine.hostfwd);
-				else
-					mHOSTFWD.setText("");
+                if (currMachine.hostfwd != null)
+                    mHOSTFWD.setText(currMachine.hostfwd);
+                else
+                    mHOSTFWD.setText("");
 
-				if (currMachine.extra_params != null)
-					mExtraParams.setText(currMachine.extra_params);
-				else
-					mExtraParams.setText("");
+                if (currMachine.extra_params != null)
+                    mExtraParams.setText(currMachine.extra_params);
+                else
+                    mExtraParams.setText("");
 
                 // CDROM
-				setCDROM(currMachine.cd_iso_path);
+                setDiskValue(FileType.CD, currMachine.cd_iso_path);
 
-				// Floppy
-				setFDA(currMachine.fda_img_path);
-				setFDB(currMachine.fdb_img_path);
+                // Floppy
+                setDiskValue(FileType.FDA, currMachine.fda_img_path);
+                setDiskValue(FileType.FDB, currMachine.fdb_img_path);
 
-				// SD Card
-				setSD(currMachine.sd_img_path);
+                // SD Card
+                setDiskValue(FileType.SD, currMachine.sd_img_path);
 
-				// HDD
-				setHDA(currMachine.hda_img_path);
-				setHDB(currMachine.hdb_img_path);
-				setHDC(currMachine.hdc_img_path);
-				setHDD(currMachine.hdd_img_path);
-				setSharedFolder(currMachine.shared_folder);
+                // HDD
+                setDiskValue(FileType.HDA, currMachine.hda_img_path);
+                setDiskValue(FileType.HDB, currMachine.hdb_img_path);
+                setDiskValue(FileType.HDC, currMachine.hdc_img_path);
+                setDiskValue(FileType.HDD, currMachine.hdd_img_path);
 
-				// Advance
-				setBootDevice(currMachine.bootdevice);
-				setNetCfg(currMachine.net_cfg, false);
-				// this.setNicDevice(currMachine.nic_driver, false);
-				setVGA(currMachine.vga_type);
-				setHDCache(currMachine.hd_cache);
-				setSoundcard(currMachine.soundcard);
-				setUI(currMachine.ui);
-				mACPI.setChecked(currMachine.disableacpi == 1 ? true : false);
-				mHPET.setChecked(currMachine.disablehpet == 1 ? true : false);
-				mFDBOOTCHK.setChecked(currMachine.disablefdbootchk == 1 ? true : false);
+                //sharedfolder
+                setDiskValue(FileType.SHARED_DIR, currMachine.shared_folder);
+
+                // Advance
+                setBootDevice(currMachine.bootdevice);
+                setNetCfg(currMachine.net_cfg, false);
+                // this.setNicDevice(currMachine.nic_card, false);
+                setVGA(currMachine.vga_type);
+                setHDCache(currMachine.hd_cache);
+                setSoundcard(currMachine.soundcard);
+                setUI(currMachine.ui);
+                setMouse(currMachine.mouse);
+                setKeyboard(currMachine.keyboard);
+                mDisableACPI.setChecked(currMachine.disableacpi == 1 ? true : false);
+                mDisableHPET.setChecked(currMachine.disablehpet == 1 ? true : false);
+                mDisableTSC.setChecked(currMachine.disabletsc == 1 ? true : false);
+                mEnableKVM.setChecked(currMachine.enableKVM == 1 ? true : false);
+                mEnableMTTCG.setChecked(currMachine.enableMTTCG == 1 ? true : false);
+
 //				userPressedBluetoothMouse = false;
 
 
-				// We finished loading now when a user change a setting it will
-				// fire an
-				// event
+                // We finished loading now when a user change a setting it will
+                // fire an
+                // event
 
-				enableNonRemovableDeviceOptions(true);
-				enableRemovableDeviceOptions(true);
+                enableNonRemovableDeviceOptions(true);
+                enableRemovableDeviceOptions(true);
 
-				if (Config.enable_SDL_sound) {
-					if (currMachine.ui != null && currMachine.ui.equals("SDL")) {
-						mSoundCardConfig.setEnabled(true);
-					} else
-						mSoundCardConfig.setEnabled(false);
-				} else
-					mSoundCardConfig.setEnabled(false);
+                if (Config.enable_SDL_sound) {
+                    if (currMachine.ui != null && currMachine.ui.equals("SDL") && currMachine.paused == 0) {
+                        mSoundCard.setEnabled(true);
+                    } else
+                        mSoundCard.setEnabled(false);
+                } else
+                    mSoundCard.setEnabled(false);
 
-				mMachine.setEnabled(false);
+                mMachine.setEnabled(false);
 
-				new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-					@Override
-					public void run() {
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
 
 
-						if (currMachine.fda_img_path != null) {
-							mFDAenable.setChecked(true);
-						} else
-							mFDAenable.setChecked(false);
+                        if (currMachine.fda_img_path != null) {
+                            mFDAenable.setChecked(true);
+                        } else
+                            mFDAenable.setChecked(false);
 
-						if (currMachine.fdb_img_path != null) {
-							mFDBenable.setChecked(true);
-						} else
-							mFDBenable.setChecked(false);
+                        if (currMachine.fdb_img_path != null) {
+                            mFDBenable.setChecked(true);
+                        } else
+                            mFDBenable.setChecked(false);
 
-						if (currMachine.hda_img_path != null) {
-							mHDAenable.setChecked(true);
-						} else
-							mHDAenable.setChecked(false);
+                        if (currMachine.hda_img_path != null) {
+                            mHDAenable.setChecked(true);
+                        } else
+                            mHDAenable.setChecked(false);
 
-						if (currMachine.hdb_img_path != null) {
-							mHDBenable.setChecked(true);
-						} else
-							mHDBenable.setChecked(false);
+                        if (currMachine.hdb_img_path != null) {
+                            mHDBenable.setChecked(true);
+                        } else
+                            mHDBenable.setChecked(false);
 
-						if (currMachine.hdc_img_path != null) {
-							mHDCenable.setChecked(true);
-						} else
-							mHDCenable.setChecked(false);
+                        if (currMachine.hdc_img_path != null) {
+                            mHDCenable.setChecked(true);
+                        } else
+                            mHDCenable.setChecked(false);
 
-						if (currMachine.hdd_img_path != null) {
-							mHDDenable.setChecked(true);
-						} else
-							mHDDenable.setChecked(false);
+                        if (currMachine.hdd_img_path != null) {
+                            mHDDenable.setChecked(true);
+                        } else
+                            mHDDenable.setChecked(false);
 
-						if (currMachine.cd_iso_path != null) {
-							mCDenable.setChecked(true);
-						} else
-							mCDenable.setChecked(false);
+                        if (currMachine.cd_iso_path != null) {
+                            mCDenable.setChecked(true);
+                        } else
+                            mCDenable.setChecked(false);
 
-						if (currMachine.sd_img_path != null) {
-							mSDenable.setChecked(true);
-						} else
-							mSDenable.setChecked(false);
+                        if (currMachine.sd_img_path != null) {
+                            mSDenable.setChecked(true);
+                        } else
+                            mSDenable.setChecked(false);
 
-						if (currMachine.shared_folder != null) {
-							mSharedFolderenable.setChecked(true);
-						} else
-							mSharedFolderenable.setChecked(false);
+                        if (currMachine.shared_folder != null) {
+                            mSharedFolderenable.setChecked(true);
+                        } else
+                            mSharedFolderenable.setChecked(false);
 
-						if (currMachine.paused == 1) {
-							sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "PAUSED");
-							enableNonRemovableDeviceOptions(false);
-							enableRemovableDeviceOptions(false);
-						} else {
-							sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "READY");
-							enableNonRemovableDeviceOptions(true);
-							enableRemovableDeviceOptions(true);
-						}
+                        if (currMachine.paused == 1) {
+                            changeStatus(VMStatus.Paused);
+                            enableNonRemovableDeviceOptions(false);
+                            enableRemovableDeviceOptions(false);
+                        } else {
+                            changeStatus(VMStatus.Ready);
+                            enableNonRemovableDeviceOptions(true);
+                            enableRemovableDeviceOptions(true);
+                        }
 
-						setUserPressed(true);
-						machineLoaded = false;
-						mMachine.setEnabled(true);
-					}
-				}, 1000);
+                        setUserPressed(true);
+                        machineLoaded = false;
+                        mMachine.setEnabled(true);
+                        updateSummary(false);
 
-			}
-		});
-	}
+                    }
+                }, 1000);
 
-	public void promptMachineName(final Activity activity) {
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Machine Name");
-		final EditText vmNameTextView = new EditText(activity);
-		vmNameTextView.setPadding(20, 20, 20, 20);
-		vmNameTextView.setEnabled(true);
-		vmNameTextView.setVisibility(View.VISIBLE);
-		vmNameTextView.setSingleLine();
-		alertDialog.setView(vmNameTextView);
-		final Handler handler = this.handler;
+            }
+        });
 
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
+    }
 
-		alertDialog.show();
+    private void updateSummary(boolean clear) {
 
-		Button button = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-		button.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View view) {
-				if (vmNameTextView.getText().toString().trim().equals(""))
-					UIUtils.toastShort(activity, "Machine name cannot be empty");
-				else {
-					sendHandlerMessage(handler, Config.VM_CREATED, "machine_name", vmNameTextView.getText().toString());
-					alertDialog.dismiss();
-				}
-			}
-		});
+        updateUISummary(clear);
+        updateCPUSummary(clear);
+        updateStorageSummary(clear);
+        updateRemovableStorageSummary(clear);
+        updateGraphicsSummary(clear);
+        updateAudioSummary(clear);
+        updateNetworkSummary(clear);
+        updateBootSummary(clear);
+        updateAdvancedSummary(clear);
+    }
 
-	}
+    public void promptMachineName(final Activity activity) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Machine Name");
+        final EditText vmNameTextView = new EditText(activity);
+        vmNameTextView.setPadding(20, 20, 20, 20);
+        vmNameTextView.setEnabled(true);
+        vmNameTextView.setVisibility(View.VISIBLE);
+        vmNameTextView.setSingleLine();
+        alertDialog.setView(vmNameTextView);
+        alertDialog.setCanceledOnTouchOutside(false);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
 
-	public void promptImageName(final Activity activity, String hd) {
-        final String hd_string = hd;
+        alertDialog.show();
+
+        Button button = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (vmNameTextView.getText().toString().trim().equals(""))
+                    UIUtils.toastShort(activity, "Machine name cannot be empty");
+                else {
+                    createMachine(vmNameTextView.getText().toString());
+                    alertDialog.dismiss();
+                }
+            }
+        });
+        alertDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.toggleSoftInput(InputMethodManager.HIDE_IMPLICIT_ONLY, 0);
+            }
+        });
+    }
+
+    public void promptImageName(final Activity activity, final FileType fileType) {
+
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
         alertDialog.setTitle("Image Name");
@@ -3289,10 +3785,8 @@ public class LimboActivity extends AppCompatActivity {
 
         alertDialog.setView(mLayout);
 
-        final Handler handler = this.handler;
-
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
-		alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Change Directory", (DialogInterface.OnClickListener) null);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", (DialogInterface.OnClickListener) null);
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Change Directory", (DialogInterface.OnClickListener) null);
 
         alertDialog.show();
 
@@ -3301,7 +3795,7 @@ public class LimboActivity extends AppCompatActivity {
 
             @Override
             public void onClick(View view) {
-				if (FileUtils.getImagesDir(LimboActivity.this) == null) {
+                if (LimboSettingsManager.getImagesDir(LimboActivity.this) == null) {
                     changeImagesDir();
                     return;
                 }
@@ -3316,18 +3810,19 @@ public class LimboActivity extends AppCompatActivity {
                     templateImage = "hd20g.qcow2";
                 }
 
-
-                //progDialog = ProgressDialog.show(activity, "Please Wait", "Creating HD Image...", true);
-
                 String image = imageNameView.getText().toString();
-                if (!image.endsWith(".qcow2")) {
-                    image += ".qcow2";
+                if (image.trim().equals(""))
+                    UIUtils.toastShort(activity, "Image filename cannot be empty");
+                else {
+                    if (!image.endsWith(".qcow2")) {
+                        image += ".qcow2";
+                    }
+                    boolean res = createImg(templateImage, image, fileType);
+                    if (res) {
+                        alertDialog.dismiss();
+                    }
+
                 }
-                boolean res = createImg(templateImage, image, hd_string);
-                if (res){
-                	//progDialog.dismiss();
-					alertDialog.dismiss();
-				}
             }
         });
 
@@ -3341,320 +3836,347 @@ public class LimboActivity extends AppCompatActivity {
             }
         });
 
-	}
+    }
 
-	public void changeImagesDir() {
-			UIUtils.toastLong(LimboActivity.this, "Choose a directory to create your image");
-			LimboFileManager.promptDirAccess(LimboActivity.this);
-	}
-	protected boolean createImg(String templateImage, String destImage, String hd_string) {
 
-		String imagesDir = FileUtils.getImagesDir(this);
-		Uri imagesDirUri = Uri.parse(imagesDir);
 
-		Uri fileCreatedUri = FileInstaller.installFileSDCard(activity, templateImage,
-				imagesDirUri, "hdtemplates", destImage);
-		if(fileCreatedUri!=null) {
-			sendHandlerMessage(handler, Config.IMG_CREATED, new String[]{"image_name", "hd"},
-					new String[]{fileCreatedUri.toString(), hd_string});
-			return true;
-		}
-		return false;
-	}
+    public void promptExportName(final Activity activity) {
 
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Export Filename");
 
-		if (keyCode == KeyEvent.KEYCODE_BACK) {
-			moveTaskToBack(true);
-			return true; // return
-		}
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20, 20, 20, 20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
 
-		return false;
-	}
+        final EditText exportNameView = new EditText(activity);
+        exportNameView.setEnabled(true);
+        exportNameView.setVisibility(View.VISIBLE);
+        exportNameView.setSingleLine();
+        LinearLayout.LayoutParams imageNameViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mLayout.addView(exportNameView, imageNameViewParams);
 
-	public void promptStateName(final Activity activity) {
-		final AlertDialog alertDialog;
-		alertDialog = new AlertDialog.Builder(activity).create();
-		alertDialog.setTitle("Snapshot/State Name");
-		final EditText stateNameView = new EditText(activity);
+        alertDialog.setView(mLayout);
+
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Export", (DialogInterface.OnClickListener) null);
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Change Directory", (DialogInterface.OnClickListener) null);
+
+        alertDialog.show();
+
+        Button positiveButton = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        positiveButton.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View view) {
+                if (LimboSettingsManager.getExportDir(LimboActivity.this) == null) {
+                    changeExportDir();
+                    return;
+                }
+
+                String exportFilename = exportNameView.getText().toString();
+                if (exportFilename.trim().equals(""))
+                    UIUtils.toastShort(activity, "Export filename cannot be empty");
+                else {
+
+                    if(!exportFilename.endsWith(".csv"))
+                        exportFilename += ".csv";
+
+                    exportMachines(exportFilename);
+                    alertDialog.dismiss();
+                }
+            }
+        });
+
+        Button negativeButton = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        negativeButton.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View view) {
+                changeExportDir();
+
+            }
+        });
+
+    }
+
+    public void changeExportDir() {
+        UIUtils.toastLong(LimboActivity.this, "Choose a directory to export your VMs");
+        FileManager.browse(LimboActivity.this, FileType.EXPORT_DIR, Config.OPEN_EXPORT_DIR_REQUEST_CODE);
+    }
+
+    public void changeImagesDir() {
+        UIUtils.toastLong(LimboActivity.this, "Choose a directory to create your image");
+        FileManager.browse(LimboActivity.this, FileType.IMAGE_DIR, Config.OPEN_IMAGE_DIR_REQUEST_CODE);
+    }
+
+    public void changeSharedDir() {
+        UIUtils.toastLong(LimboActivity.this, "Choose a directory to shared files with the VM");
+        FileManager.browse(LimboActivity.this, FileType.SHARED_DIR, Config.OPEN_SHARED_DIR_REQUEST_CODE);
+    }
+
+
+    protected boolean createImg(String templateImage, String destImage, FileType imgType) {
+
+        String imagesDir = LimboSettingsManager.getImagesDir(this);
+        String displayName = null;
+        String filePath = null;
+        if(imagesDir.startsWith("content://")) {
+            Uri imagesDirUri = Uri.parse(imagesDir);
+            Uri fileCreatedUri = FileInstaller.installImageTemplateToSDCard(activity, templateImage,
+                    imagesDirUri, "hdtemplates", destImage);
+            displayName = FileUtils.getFullPathFromDocumentFilePath(fileCreatedUri.toString());
+            filePath = fileCreatedUri.toString();
+        } else {
+            filePath = FileInstaller.installImageTemplateToExternalStorage(activity, templateImage, imagesDir, "hdtemplates", destImage);
+            displayName = filePath;
+        }
+
+        if (progDialog != null && progDialog.isShowing()) {
+            progDialog.dismiss();
+        }
+
+        if (displayName != null) {
+            UIUtils.toastShort(activity, "Image Created: " + displayName);
+            updateDrive(imgType, filePath);
+
+            return true;
+        }
+        return false;
+    }
+
+    protected String exportMachinesToFile(String exportFileName) {
+
+        String exportDir = LimboSettingsManager.getExportDir(this);
+        String displayName = null;
+        if(exportDir.startsWith("content://")) {
+            Uri exportDirUri = Uri.parse(exportDir);
+            Uri fileCreatedUri = FileUtils.exportFileSDCard(activity,
+                    exportDirUri, exportFileName);
+            displayName = FileUtils.getFullPathFromDocumentFilePath(fileCreatedUri.toString());
+        } else {
+            String filePath = FileUtils.exportFileLegacy(this, exportDir, exportFileName);
+            displayName = filePath;
+        }
+
+        if (progDialog != null && progDialog.isShowing()) {
+            progDialog.dismiss();
+        }
+
+        return displayName;
+    }
+
+
+
+
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            moveTaskToBack(true);
+            return true; // return
+        }
+
+        return false;
+    }
+
+    public void promptStateName(final Activity activity) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Snapshot/State Name");
+        final EditText stateNameView = new EditText(activity);
         stateNameView.setPadding(20, 20, 20, 20);
         stateNameView.setEnabled(true);
         stateNameView.setVisibility(View.VISIBLE);
         stateNameView.setSingleLine();
-		alertDialog.setView(stateNameView);
-		final Handler handler = this.handler;
+        alertDialog.setView(stateNameView);
 
-		// alertDialog.setMessage(body);
-		alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
+        // alertDialog.setMessage(body);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Create", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                savevm(stateNameView.getText() + "");
 
-				sendHandlerMessage(handler, Config.SNAPSHOT_CREATED, new String[] { "snapshot_name" },
-						new String[] { stateNameView.getText().toString() });
-				return;
-			}
-		});
-		alertDialog.show();
+                return;
+            }
+        });
+        alertDialog.show();
 
-	}
+    }
 
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		super.onActivityResult(requestCode, resultCode, data);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-		if (resultCode == Config.FILEMAN_RETURN_CODE) {
-			// Read from activity
-			String currDir = LimboSettingsManager.getLastDir(this);
-			String file = "";
-			String fileType = "";
-			Bundle b = data.getExtras();
-			fileType = b.getString("fileType");
-			file = b.getString("file");
-			currDir = b.getString("currDir");
-			if (currDir != null && !currDir.trim().equals("")) {
-				LimboSettingsManager.setLastDir(this, currDir);
-			}
-			if (fileType != null && file != null) {
-				setDriveAttr(fileType, file);
-			}
-
-		} else if (resultCode == Config.VNC_RESET_RESULT_CODE) {
+        if (resultCode == Config.VNC_RESET_RESULT_CODE) {
             Log.d(TAG, "Reconnecting");
-			this.startvnc();
+            this.startvnc();
 
-		} else if (resultCode == Config.SDL_QUIT_RESULT_CODE) {
+        } else if (resultCode == Config.SDL_QUIT_RESULT_CODE) {
 
-			Toast.makeText(getApplicationContext(), "SDL Quit", Toast.LENGTH_SHORT).show();
-			if (LimboActivity.vmexecutor != null) {
-				LimboActivity.vmexecutor.stopvm(0);
-			} else if (activity.getParent() != null) {
-				activity.getParent().finish();
-			}
+            UIUtils.toastShort(getApplicationContext(), "SDL Quit");
+            if (LimboActivity.vmexecutor != null) {
+                LimboActivity.vmexecutor.stopvm(0);
+            } else if (activity.getParent() != null) {
+                activity.getParent().finish();
+            }
+            activity.finish();
+        } else if (requestCode == Config.OPEN_IMPORT_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, false);
+            } else {
+                file = FileUtils.getFilePathFromIntent(this, data);
+            }
+            if(file!=null)
+                importFile(file);
+        } else if (requestCode == Config.OPEN_EXPORT_DIR_REQUEST_CODE || requestCode == Config.OPEN_EXPORT_DIR_ASF_REQUEST_CODE) {
+            String exportDir = null;
+            if(requestCode == Config.OPEN_EXPORT_DIR_ASF_REQUEST_CODE) {
+                exportDir = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                exportDir = FileUtils.getDirPathFromIntent(this, data);
+            }
+            if(exportDir != null)
+                LimboSettingsManager.setExportDir(this, exportDir);
 
-			activity.finish();
-
-		} else if (requestCode == Config.REQUEST_SDCARD_CODE) {
-			if (data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-				Uri uri = data.getData();
-				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
-				String file = uri.toString();
-				if(!file.contains("com.android.externalstorage.documents"))
-				{
-					UIUtils.showFileNotSupported(this);
-					return;
-				}
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-
-				final int takeFlags = data.getFlags()
-						& (
-						Intent.FLAG_GRANT_READ_URI_PERMISSION |
-								Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-				);
-				getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                // Protect from qemu thinking it's a protocol
-                file = ("/" + file).replace(":", "");
-				setDriveAttr(filetype, file);
-
-			}
-
-		} else if (requestCode == Config.REQUEST_SDCARD_DIR_CODE) {
-			if (data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-				Uri uri = data.getData();
-				DocumentFile pickedFile = DocumentFile.fromSingleUri(activity, uri);
-				String file = uri.toString();
-				if(!file.contains("com.android.externalstorage.documents")
-				|| file.endsWith("primary"))
-				{
-					UIUtils.showFileNotSupported(this);
-					return;
-				}
-				activity.grantUriPermission(activity.getPackageName(), uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-
-				final int takeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-				getContentResolver().takePersistableUriPermission(uri, takeFlags);
-				FileUtils.setImagesDir(this, uri.toString());
-
-			}
-
-		}
-
-	}
-
-	private void setDriveAttr(String fileType, String file) {
-
-		this.addDriveToList(file, fileType);
-		if (fileType != null && fileType.startsWith("hd") && file != null && !file.trim().equals("")) {
-
-			if (fileType.startsWith("hda")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDA, file);
-				if (this.hdaAdapter.getPosition(file) < 0) {
-					this.hdaAdapter.add(file);
-				}
-				this.setHDA(file);
-			} else if (fileType.startsWith("hdb")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDB, file);
-				if (this.hdbAdapter.getPosition(file) < 0) {
-					this.hdbAdapter.add(file);
-				}
-				this.setHDB(file);
-			} else if (fileType.startsWith("hdc")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDC, file);
-				if (this.hdcAdapter.getPosition(file) < 0) {
-					this.hdcAdapter.add(file);
-				}
-				this.setHDC(file);
-			} else if (fileType.startsWith("hdd")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.HDD, file);
-				if (this.hddAdapter.getPosition(file) < 0) {
-					this.hddAdapter.add(file);
-				}
-				this.setHDD(file);
-			}
-		} else if (fileType != null && fileType.startsWith("cd") && file != null && !file.trim().equals("")) {
-			int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.CDROM, file);
-			if (this.cdromAdapter.getPosition(file) < 0) {
-				this.cdromAdapter.add(file);
-			}
-			setCDROM(file);
-		} else if (fileType != null && fileType.startsWith("fd") && file != null && !file.trim().equals("")) {
-			if (fileType.startsWith("fda")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDA, file);
-				if (this.fdaAdapter.getPosition(file) < 0) {
-					this.fdaAdapter.add(file);
-				}
-				this.setFDA(file);
-			} else if (fileType.startsWith("fdb")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.FDB, file);
-				if (this.fdbAdapter.getPosition(file) < 0) {
-					this.fdbAdapter.add(file);
-				}
-				this.setFDB(file);
-			}
-		} else if (fileType != null && fileType.startsWith("sd") && file != null && !file.trim().equals("")) {
-			if (fileType.startsWith("sd")) {
-				int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.SD, file);
-				if (this.sdAdapter.getPosition(file) < 0) {
-					this.sdAdapter.add(file);
-				}
-				this.setSD(file);
-			}
-		} else if (fileType != null && fileType.startsWith("kernel") && file != null && !file.trim().equals("")) {
-
-			int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.KERNEL, file);
-			if (this.kernelAdapter.getPosition(file) < 0) {
-				this.kernelAdapter.add(file);
-			}
-			this.setKernel(file);
-
-		} else if (fileType != null && fileType.startsWith("initrd") && file != null && !file.trim().equals("")) {
-
-			int ret = MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.INITRD, file);
-			if (this.initrdAdapter.getPosition(file) < 0) {
-				this.initrdAdapter.add(file);
-			}
-			this.setInitrd(file);
-
-		}
-
-		int res = this.mHDA.getSelectedItemPosition();
-		if (res == 1) {
-			this.mHDA.setSelection(0);
-		}
-		res = this.mHDB.getSelectedItemPosition();
-		if (res == 1) {
-			this.mHDB.setSelection(0);
-		}
-
-		res = this.mHDC.getSelectedItemPosition();
-		if (res == 1) {
-			this.mHDC.setSelection(0);
-		}
-
-		res = this.mHDD.getSelectedItemPosition();
-		if (res == 1) {
-			this.mHDD.setSelection(0);
-		}
-
-		res = this.mCD.getSelectedItemPosition();
-		if (res == 1) {
-			this.mCD.setSelection(0);
-		}
-
-		res = this.mFDA.getSelectedItemPosition();
-		if (res == 1) {
-			this.mFDA.setSelection(0);
-		}
-
-		res = this.mFDB.getSelectedItemPosition();
-		if (res == 1) {
-			this.mFDB.setSelection(0);
-
-		}
-
-		res = this.mSD.getSelectedItemPosition();
-		if (res == 1) {
-			this.mSD.setSelection(0);
-
-		}
-
-		res = this.mKernel.getSelectedItemPosition();
-		if (res == 1) {
-			this.mKernel.setSelection(0);
-
-		}
-
-		res = this.mInitrd.getSelectedItemPosition();
-		if (res == 1) {
-			this.mInitrd.setSelection(0);
-
-		}
-	}
-
-	@Override
-	public void onStop() {
-		super.onStop();
-	}
-
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
-		this.stopTimeListener();
-
-	}
-
-	public void startvnc() {
-
-		// Wait till Qemu settles
-		try {
-			Thread.sleep(2000);
-		} catch (InterruptedException ex) {
-			Logger.getLogger(LimboActivity.class.getName()).log(Level.SEVERE, null, ex);
-		}
-
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				mVNCAllowExternal.setEnabled(false);
-			}
-		});
+        } else if (requestCode == Config.OPEN_IMAGE_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMAGE_FILE_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_IMAGE_FILE_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                filetype = FileUtils.getFileTypeFromIntent(this, data);
+                file = FileUtils.getFilePathFromIntent(this, data);
+            }
+            if(file!=null)
+                updateDrive(filetype, file);
 
 
-		if (this.mVNCAllowExternal.isChecked()
+        } else if (requestCode == Config.OPEN_IMAGE_DIR_REQUEST_CODE || requestCode == Config.OPEN_IMAGE_DIR_ASF_REQUEST_CODE) {
+            String imageDir = null;
+            if(requestCode == Config.OPEN_IMAGE_DIR_ASF_REQUEST_CODE) {
+                imageDir = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                imageDir = FileUtils.getDirPathFromIntent(this, data);
+            }
+            if(imageDir != null)
+                LimboSettingsManager.setImagesDir(this, imageDir);
+
+        } else if (requestCode == Config.OPEN_SHARED_DIR_REQUEST_CODE || requestCode == Config.OPEN_SHARED_DIR_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_SHARED_DIR_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                filetype = FileUtils.getFileTypeFromIntent(this, data);
+                file = FileUtils.getDirPathFromIntent(this, data);
+            }
+            if(file!=null) {
+                updateDrive(filetype, file);
+                LimboSettingsManager.setSharedDir(this, file);
+            }
+        } else if (requestCode == Config.OPEN_LOG_FILE_DIR_REQUEST_CODE|| requestCode == Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE) {
+            String file = null;
+            if(requestCode == Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, true);
+            } else {
+                file = FileUtils.getDirPathFromIntent(this, data);
+            }
+            if(file!=null) {
+                FileUtils.saveLogToFile(activity, file);
+            }
+        }
+
+    }
+
+    private void updateDrive(FileType fileType, String diskValue) {
+
+        //FIXME: sometimes the array adapters try to set invalid values
+        if (fileType == null || diskValue == null) {
+            return;
+        }
+
+        Spinner spinner = getSpinner(fileType);
+        ArrayAdapter adapter = getAdapter(fileType);
+
+        if (fileType != null && diskValue != null && !diskValue.trim().equals("")) {
+            String colName = getColName(fileType);
+
+            MachineOpenHelper.getInstance(activity).update(currMachine, colName, diskValue);
+            if (adapter.getPosition(diskValue) < 0) {
+                adapter.add(diskValue);
+            }
+            this.addDriveToList(diskValue, fileType);
+            this.setDiskValue(fileType, diskValue);
+        }
+
+        int res = spinner.getSelectedItemPosition();
+        if (res == 1) {
+            spinner.setSelection(0);
+        }
+
+    }
+
+    private String getColName(FileType fileType) {
+        if (diskMapping.containsKey(fileType))
+            return diskMapping.get(fileType).colName;
+        return null;
+    }
+
+    private ArrayAdapter getAdapter(FileType fileType) {
+        Spinner spinner = getSpinner(fileType);
+        return (ArrayAdapter) spinner.getAdapter();
+    }
+
+    private Spinner getSpinner(FileType fileType) {
+        if (diskMapping.containsKey(fileType))
+            return diskMapping.get(fileType).spinner;
+        return null;
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+    }
+
+    @Override
+    public void onDestroy() {
+        savePendingEditText();
+        super.onDestroy();
+        this.stopTimeListener();
+
+    }
+
+    public void startvnc() {
+
+        // Wait till Qemu settles
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(LimboActivity.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mVNCAllowExternal.setEnabled(false);
+            }
+        });
+
+
+        if (this.mVNCAllowExternal.isChecked()
                 && vnc_passwd != null && !vnc_passwd.equals("")) {
-			vmexecutor.change_vnc_password();
+            vmexecutor.change_vnc_password();
 
-            if(currMachine.paused != 1)
+            if (currMachine.paused != 1)
                 promptConnectLocally(activity);
             else
                 connectLocally();
-		} else {
+        } else {
             connectLocally();
-		}
+        }
 
-	}
+    }
 
-	public void promptConnectLocally(final Activity activity) {
+    public void promptConnectLocally(final Activity activity) {
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
@@ -3663,7 +4185,7 @@ public class LimboActivity extends AppCompatActivity {
                 alertDialog = new AlertDialog.Builder(activity).create();
                 alertDialog.setTitle("VNC Started");
                 TextView stateView = new TextView(activity);
-                stateView.setText("VNC Server started: " + getLocalIpAddress() + ":" + "5901\n"
+                stateView.setText("VNC Server started: " + getLocalIpAddress() + ":" + Config.defaultVNCPort + "\n"
                         + "Warning: VNC Connection is Unencrypted and not secure make sure you're on a private network!\n");
 
                 stateView.setPadding(20, 20, 20, 20);
@@ -3684,898 +4206,753 @@ public class LimboActivity extends AppCompatActivity {
         }, 100);
 
 
-	}
+    }
 
-	public void connectLocally() {
+    public void connectLocally() {
         //UIUtils.toastShort(LimboActivity.this, "Connecting to VM Display");
         Intent intent = getVNCIntent();
         startActivityForResult(intent, Config.VNC_REQUEST_CODE);
     }
 
-	public void startsdl() {
+    public void startsdl() {
 
-		Intent intent = null;
+        Intent intent = null;
 
-		intent = new Intent(this, LimboSDLActivity.class);
+        intent = new Intent(this, LimboSDLActivity.class);
 
-		android.content.ContentValues values = new android.content.ContentValues();
-		startActivityForResult(intent, Config.SDL_REQUEST_CODE);
-	}
+        android.content.ContentValues values = new android.content.ContentValues();
+        startActivityForResult(intent, Config.SDL_REQUEST_CODE);
+    }
 
-	public void restartvm() {
-		if (vmexecutor != null) {
+    public void savevm(String name) {
+        if (vmexecutor != null) {
+            if (//
+                    (currMachine.hda_img_path == null || currMachine.hda_img_path.equals(""))
+                            && (currMachine.hdb_img_path == null || currMachine.hdb_img_path.equals(""))
+                            && (currMachine.hdc_img_path == null || currMachine.hdc_img_path.equals(""))
+                            && (currMachine.hdd_img_path == null || currMachine.hdd_img_path.equals(""))) {
+                UIUtils.toastLong(LimboActivity.this, "Couldn't find a QCOW2 image\nPlease attach an HDA or HDB image first!");
+            } else {
+                vmexecutor.savevm("test_snapshot");
+                UIUtils.toastShort(LimboActivity.this, "VM Saved");
+            }
+        } else {
 
-			vmexecutor.stopvm(1);
-            vmStarted = true;
-			sendHandlerMessage(handler, Config.VM_RESTARTED);
+            UIUtils.toastShort(LimboActivity.this, "VM not running");
+        }
 
-		} else {
-			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-		}
+    }
 
-	}
+    public void resumevm() {
+        if (vmexecutor != null) {
+            vmexecutor.resumevm();
+            UIUtils.toastShort(LimboActivity.this, "VM Reset");
+        } else {
 
-	public void savevm(String name) {
-		if (vmexecutor != null) {
-			if (//
-			(currMachine.hda_img_path == null || currMachine.hda_img_path.equals(""))
-					&& (currMachine.hdb_img_path == null || currMachine.hdb_img_path.equals(""))
-					&& (currMachine.hdc_img_path == null || currMachine.hdc_img_path.equals(""))
-					&& (currMachine.hdd_img_path == null || currMachine.hdd_img_path.equals(""))) {
-				sendHandlerMessage(handler, Config.VM_NO_QCOW2);
-			} else {
+            UIUtils.toastShort(LimboActivity.this, "VM not running");
+        }
 
-				vmexecutor.savevm("test_snapshot");
-				sendHandlerMessage(handler, Config.VM_SAVED);
-			}
-		} else {
+    }
 
-			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-		}
+    // Set Hard Disk
+    private void populateRAM() {
 
-	}
+        String[] arraySpinner = new String[256];
 
-	public void resumevm() {
-		if (vmexecutor != null) {
-			vmexecutor.resumevm();
-			sendHandlerMessage(handler, Config.VM_RESTARTED);
-		} else {
+        arraySpinner[0] = 4 + "";
+        for (int i = 1; i < arraySpinner.length; i++) {
+            arraySpinner[i] = i * 8 + "";
+        }
+        ;
 
-			sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-		}
+        ArrayAdapter<String> ramAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        ramAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mRamSize.setAdapter(ramAdapter);
+        this.mRamSize.invalidate();
+    }
 
-	}
+    private void populateCPUNum() {
+        String[] arraySpinner = new String[Config.MAX_CPU_NUM];
 
-	// Set Hard Disk
-	private void populateRAM() {
-
-		String[] arraySpinner = new String[128];
-
-		arraySpinner[0] = 4 + "";
-		for (int i = 1; i < arraySpinner.length; i++) {
-			arraySpinner[i] = i * 8 + "";
-		}
-		;
-
-		ramAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		ramAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mRamSize.setAdapter(ramAdapter);
-		this.mRamSize.invalidate();
-	}
-
-	private void populateCPUNum() {
-		String[] arraySpinner = new String[4];
-
-		for (int i = 0; i < arraySpinner.length; i++) {
-			arraySpinner[i] = (i + 1) + "";
-		}
+        for (int i = 0; i < arraySpinner.length; i++) {
+            arraySpinner[i] = (i + 1) + "";
+        }
 
 
-		cpuNumAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		cpuNumAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mCPUNum.setAdapter(cpuNumAdapter);
-		this.mCPUNum.invalidate();
-	}
+        ArrayAdapter<String> cpuNumAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        cpuNumAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mCPUNum.setAdapter(cpuNumAdapter);
+        this.mCPUNum.invalidate();
+    }
 
-	// Set Hard Disk
-	private void setRAM(final int ram) {
+    // Set Hard Disk
+    private void setRAM(final int ram) {
 
-		this.mRamSize.post(new Runnable() {
-			public void run() {
-				if (ram != 0) {
-					int pos = ramAdapter.getPosition(ram + "");
-					mRamSize.setSelection(pos);
-				}
-			}
-		});
+        this.mRamSize.post(new Runnable() {
+            public void run() {
+                if (ram != 0) {
+                    int pos = ((ArrayAdapter<String>) mRamSize.getAdapter()).getPosition(ram + "");
+                    mRamSize.setSelection(pos);
+                }
+            }
+        });
 
-	}
+    }
 
-	private void setCPUNum(final int cpuNum) {
+    private void setCPUNum(final int cpuNum) {
 
-		this.mCPUNum.post(new Runnable() {
-			public void run() {
-				if (cpuNum != 0) {
-					int pos = cpuNumAdapter.getPosition(cpuNum + "");
-					mCPUNum.setSelection(pos);
-				}
-			}
-		});
+        this.mCPUNum.post(new Runnable() {
+            public void run() {
+                if (cpuNum != 0) {
+                    int pos = ((ArrayAdapter<String>) mCPUNum.getAdapter()).getPosition(cpuNum + "");
+                    mCPUNum.setSelection(pos);
+                }
+            }
+        });
 
-	}
+    }
 
-	// Set Hard Disk
-	private void populateBootDevices() {
+    // Set Hard Disk
+    private void populateBootDevices() {
+        ArrayList<String> bootDevicesList = new ArrayList<String>();
+        bootDevicesList.add("Default");
+        bootDevicesList.add("CD Rom");
+        bootDevicesList.add("Hard Disk");
+        if(Config.enableEmulatedFloppy)
+            bootDevicesList.add("Floppy");
 
-		String[] arraySpinner = { "Default", "CD Rom", "Floppy", "Hard Disk" };
+        String[] arraySpinner = bootDevicesList.toArray(new String[bootDevicesList.size()]);
 
-		bootDevAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		bootDevAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mBootDevices.setAdapter(bootDevAdapter);
-		this.mBootDevices.invalidate();
-	}
+        ArrayAdapter<String> bootDevAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        bootDevAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mBootDevices.setAdapter(bootDevAdapter);
+        this.mBootDevices.invalidate();
+    }
 
-	// Set Net Cfg
-	private void populateNet() {
-		String[] arraySpinner = { "None", "User", "TAP" };
-		netAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		netAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mNetConfig.setAdapter(netAdapter);
-		this.mNetConfig.invalidate();
-	}
+    // Set Net Cfg
+    private void populateNet() {
+        String[] arraySpinner = {"None", "User", "TAP"};
+        ArrayAdapter<String> netAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        netAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mNetConfig.setAdapter(netAdapter);
+        this.mNetConfig.invalidate();
+    }
 
-	// Set VGA Cfg
-	private void populateVGA() {
+    // Set VGA Cfg
+    private void populateVGA() {
 
-		String[] arraySpinner = {};
+        String[] arraySpinner = {};
 
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-        arrList.add("Default");
-		arrList.add("std");
-		arrList.add("cirrus");
-		arrList.add("vmware");
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
 
-		if (Config.enable_SPICE)
-			arrList.add("qxl");
+        if (Config.enable_X86 || Config.enable_X86_64
+        || Config.enable_ARM || Config.enable_ARM64
+                || Config.enable_PPC || Config.enable_PPC64
+                ) {
+            arrList.add("std");
+        }
 
-		if(Config.enable_ARM || Config.enable_ARM64){
+        if (Config.enable_X86 || Config.enable_X86_64
+                ) {
+            arrList.add("cirrus");
+            arrList.add("vmware");
+        }
+
+        //override vga for sun4m (32bit) machines to cg3
+        if (Config.enable_sparc) {
+            arrList.add("cg3");
+        }
+
+        if (Config.enable_ARM || Config.enable_ARM64) {
             arrList.add("virtio-gpu-pci");
         }
 
+        if (Config.enable_SPICE)
+            arrList.add("qxl");
+
+        //XXX: some archs don't support vga on QEMU like SPARC64
         arrList.add("nographic");
-                // Add XEN
-		// "xenfb",
-		// None for console only
-		// "none"
 
-		vgaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-		vgaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mVGAConfig.setAdapter(vgaAdapter);
-		this.mVGAConfig.invalidate();
-	}
+        //TODO: Add XEN???
+        // "xenfb"
 
-	private void populateOrientation() {
+        ArrayAdapter<String> vgaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        vgaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mVGAConfig.setAdapter(vgaAdapter);
+        this.mVGAConfig.invalidate();
+    }
 
-		String[] arraySpinner = {};
+    private void populateOrientation() {
 
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		arrList.add("Auto");
-		arrList.add("Landscape");
-		arrList.add("Landscape Reverse");
-		arrList.add("Portrait");
+        String[] arraySpinner = {};
+
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        arrList.add("Auto");
+        arrList.add("Landscape");
+        arrList.add("Landscape Reverse");
+        arrList.add("Portrait");
         arrList.add("Portrait Reverse");
 
-		orientationAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-		orientationAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mOrientation.setAdapter(orientationAdapter);
-		this.mOrientation.invalidate();
+        ArrayAdapter<String> orientationAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        orientationAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mOrientation.setAdapter(orientationAdapter);
+        this.mOrientation.invalidate();
 
-		int pos = LimboSettingsManager.getOrientationSetting(activity);
-		if (pos >= 0) {
-			this.mOrientation.setSelection(pos);
-		}
-	}
+        int pos = LimboSettingsManager.getOrientationSetting(activity);
+        if (pos >= 0) {
+            this.mOrientation.setSelection(pos);
+        }
+    }
 
-	private void populateKeyboardLayout() {
+    private void populateKeyboardLayout() {
 
-		String[] arraySpinner = {};
+        String[] arraySpinner = {};
 
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		arrList.add("English");
-		// FIXME: Need to enable in VNC & SDL interfaces
-		// arrList.add("Spanish");
-		// arrList.add("French");
 
-		keyboardAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-		keyboardAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mKeyboard.setAdapter(keyboardAdapter);
-		this.mKeyboard.invalidate();
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        arrList.add("en-us");
 
-		int pos = LimboSettingsManager.getKeyboardSetting(activity);
-		if (pos >= 0) {
-			this.mKeyboard.setSelection(pos);
-		}
-	}
+
+        ArrayAdapter<String> keyboardAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        keyboardAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mKeyboard.setAdapter(keyboardAdapter);
+        this.mKeyboard.invalidate();
+
+        //TODO: for now we use only English keyboard, add more layouts
+        int pos = 0;
+        if (pos >= 0) {
+            this.mKeyboard.setSelection(pos);
+        }
+    }
 
     private void populateMouse() {
 
         String[] arraySpinner = {};
 
         ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-        arrList.add("PS/2");
-        arrList.add("USB");
-        arrList.add("Tablet");
+        arrList.add("ps2");
+        arrList.add("usb-mouse");
+        arrList.add("usb-tablet" + fixMouseDescr);
 
-        mouseAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        ArrayAdapter<String> mouseAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
         mouseAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
         this.mMouse.setAdapter(mouseAdapter);
         this.mMouse.invalidate();
+//
+//        int pos = LimboSettingsManager.getMouseSetting(activity);
+//        if (pos >= 0) {
+//            this.mMouse.setSelection(pos);
+//        }
+    }
 
-        int pos = LimboSettingsManager.getMouseSetting(activity);
+    private void populateSoundcardConfig() {
+
+        String[] arraySpinner = {"None", "sb16", "ac97", "adlib", "cs4231a", "gus", "es1370", "hda", "pcspk", "all"};
+
+        ArrayAdapter<String> sndAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        sndAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mSoundCard.setAdapter(sndAdapter);
+        this.mSoundCard.invalidate();
+    }
+
+    // Set Cache Cfg
+    private void populateHDCacheConfig() {
+
+        String[] arraySpinner = {"default", "none", "writeback", "writethrough"};
+
+        ArrayAdapter<String> hdCacheAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
+        hdCacheAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mHDCacheConfig.setAdapter(hdCacheAdapter);
+        this.mHDCacheConfig.invalidate();
+    }
+
+    // Set Hard Disk
+    private void populateNetDevices(String nic) {
+
+        String[] arraySpinner = {"e1000", "pcnet", "rtl8139", "ne2k_pci", "i82551", "i82557b", "i82559er", "virtio"};
+
+        // String[] arraySpinner = {
+        // ne2k_pci,i82551,i82557b,i82559er,rtl8139,e1000,pcnet,virtio
+
+        ArrayList<String> arrList = new ArrayList<String>();
+
+        if (currMachine != null && currMachine.arch != null) {
+            if (currMachine.arch.equals("x86")) {
+
+                arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+            } else if (currMachine.arch.equals("x64")) {
+                arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+            } else if (currMachine.arch.equals("ARM")
+                    || currMachine.arch.equals("ARM64")) {
+                arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+                arrList.add("smc91c111");
+            } else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64")) {
+                arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+            } else if (currMachine.arch.equals("SPARC") || currMachine.arch.equals("SPARC64")) {
+                arrList.add("lance");
+            }
+        } else {
+            arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        }
+
+        ArrayAdapter<String> nicCfgAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        nicCfgAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mNicCard.setAdapter(nicCfgAdapter);
+
+
+        this.mNicCard.invalidate();
+
+        int pos = nicCfgAdapter.getPosition(nic);
         if (pos >= 0) {
-            this.mMouse.setSelection(pos);
+            this.mNicCard.setSelection(pos);
         }
     }
 
-	private void populateSoundcardConfig() {
-
-		String[] arraySpinner = { "None", "sb16", "ac97", "adlib", "cs4231a", "gus", "es1370", "hda", "pcspk", "all" };
-
-		sndAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		sndAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mSoundCardConfig.setAdapter(sndAdapter);
-		this.mSoundCardConfig.invalidate();
-	}
-
-	// Set Cache Cfg
-	private void populateHDCacheConfig() {
-
-		String[] arraySpinner = { "default", "none", "writeback", "writethrough" };
-
-		hdCacheAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		hdCacheAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mHDCacheConfig.setAdapter(hdCacheAdapter);
-		this.mHDCacheConfig.invalidate();
-	}
-
-	// Set Hard Disk
-	private void populateNetDevices(String nic) {
-
-		String[] arraySpinner = { "e1000", "pcnet", "rtl8139", "ne2k_pci", "i82551", "i82557b", "i82559er", "virtio" };
-
-		// String[] arraySpinner = {
-		// ne2k_pci,i82551,i82557b,i82559er,rtl8139,e1000,pcnet,virtio
-
-		ArrayList<String> arrList = new ArrayList<String>();
-
-		if (currMachine != null) {
-			if (currMachine.arch.equals("x86")) {
-
-				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-			} else if (currMachine.arch.equals("x64")) {
-				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-			} else if (currMachine.arch.equals("ARM")
-                    || currMachine.arch.equals("ARM64")) {
-				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-				arrList.add("smc91c111");
-			} else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64") ) {
-				arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-			} else if (currMachine.arch.equals("SPARC")) {
-				arrList.add("lance");
-			}
-		} else {
-			arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		}
-
-		if (nicCfgAdapter == null) {
-			nicCfgAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-			nicCfgAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mNetDevices.setAdapter(nicCfgAdapter);
-		} else {
-			nicCfgAdapter.clear();
-			for (int i = 0; i < arrList.size(); i++) {
-				nicCfgAdapter.add(arrList.get(i));
-			}
-
-		}
-
-		this.mNetDevices.invalidate();
-
-		int pos = this.nicCfgAdapter.getPosition(nic);
-		if (pos >= 0) {
-			this.mNetDevices.setSelection(pos);
-		}
-	}
-
-	private void setMachine(final String machine) {
-
-		this.mMachine.post(new Runnable() {
-			public void run() {
-				if (machine != null) {
-					int pos = machineAdapter.getPosition(machine);
-
-					mMachine.setSelection(pos);
-				}
-			}
-		});
-
-	}
-
-	// Set Hard Disk
-	private void populateMachines(final String machineValue) {
-
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-
-				ArrayList<String> machines = MachineOpenHelper.getInstance(activity).getMachines();
-				int length = 0;
-				if (machines == null || machines.size() == 0) {
-					length = 0;
-				} else {
-					length = machines.size();
-				}
-
-				final String[] arraySpinner = new String[machines.size() + 2];
-				arraySpinner[0] = "None";
-				arraySpinner[1] = "New";
-				int index = 2;
-				Iterator<String> i = machines.iterator();
-				while (i.hasNext()) {
-					String file = (String) i.next();
-					if (file != null) {
-						arraySpinner[index++] = file;
-					}
-				}
-
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					public void run() {
-						machineAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
-						machineAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-						mMachine.setAdapter(machineAdapter);
-						mMachine.invalidate();
-                        if(machineValue != null)
-                            setMachine(machineValue);
-					}
-				});
-
-			}
-		});
-		thread.setPriority(Thread.MIN_PRIORITY);
-		thread.start();
-
-	}
-
-	// Set Hard Disk
-	private void setCPU(final String cpu) {
-
-		this.mCPU.post(new Runnable() {
-			public void run() {
-				if (cpu != null) {
-					int pos = cpuAdapter.getPosition(cpu);
-
-					mCPU.setSelection(pos);
-				}
-			}
-		});
-
-	}
-
-	private void setArch(final String arch) {
-
-		this.mArch.post(new Runnable() {
-			public void run() {
-				if (arch != null) {
-					int pos = archAdapter.getPosition(arch);
-
-					mArch.setSelection(pos);
-				}
-			}
-		});
-
-	}
-
-	private void setMachineType(final String machineType) {
-
-		this.mMachineType.post(new Runnable() {
-			public void run() {
-				if (machineType != null) {
-					int pos = machineTypeAdapter.getPosition(machineType);
-					mMachineType.setSelection(pos);
-				}
-
-			}
-		});
-
-	}
-
-	private void setCDROM(final String cdrom) {
-
-		this.currMachine.cd_iso_path = cdrom;
-
-		mCD.post(new Runnable() {
-			public void run() {
-				if (cdrom != null) {
-					int pos = cdromAdapter.getPosition(cdrom);
-					if (pos > 1) {
-						mCD.setSelection(pos);
-					} else {
-						mCD.setSelection(0);
-					}
-				} else {
-					mCD.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setKernel(final String kernel) {
-		currMachine.kernel = kernel;
-		mKernel.post(new Runnable() {
-			public void run() {
-				if (kernel != null) {
-					int pos = kernelAdapter.getPosition(kernel);
-
-					if (pos >= 0) {
-						mKernel.setSelection(pos);
-					} else {
-						mKernel.setSelection(0);
-					}
-				} else {
-					mKernel.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setInitrd(final String initrd) {
-		currMachine.initrd = initrd;
-
-		mInitrd.post(new Runnable() {
-			public void run() {
-				if (initrd != null) {
-					int pos = initrdAdapter.getPosition(initrd);
-
-					if (pos >= 0) {
-						mInitrd.setSelection(pos);
-					} else {
-						mInitrd.setSelection(0);
-					}
-				} else {
-					mInitrd.setSelection(0);
-
-				}
-
-			}
-		});
-	}
-
-	private void setHDA(final String hda) {
-		currMachine.hda_img_path = hda;
-
-		mHDA.post(new Runnable() {
-			public void run() {
-				if (hda != null) {
-					int pos = hdaAdapter.getPosition(hda);
-
-					if (pos >= 0) {
-						mHDA.setSelection(pos);
-					} else {
-						mHDA.setSelection(0);
-					}
-				} else {
-					mHDA.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setHDB(final String hdb) {
-		this.currMachine.hdb_img_path = hdb;
-
-		mHDB.post(new Runnable() {
-			public void run() {
-				if (hdb != null) {
-					int pos = hdbAdapter.getPosition(hdb);
-
-					if (pos >= 0) {
-						mHDB.setSelection(pos);
-					} else {
-						mHDB.setSelection(0);
-					}
-				} else {
-					mHDB.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setHDC(final String hdc) {
-
-		this.currMachine.hdc_img_path = hdc;
-
-		mHDC.post(new Runnable() {
-			public void run() {
-				if (hdc != null) {
-					int pos = hdcAdapter.getPosition(hdc);
-
-					if (pos >= 0) {
-						mHDC.setSelection(pos);
-					} else {
-						mHDC.setSelection(0);
-					}
-				} else {
-					mHDC.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setHDD(final String hdd) {
-		this.currMachine.hdd_img_path = hdd;
-
-		mHDD.post(new Runnable() {
-			public void run() {
-				if (hdd != null) {
-					int pos = hddAdapter.getPosition(hdd);
-
-					if (pos >= 0) {
-						mHDD.setSelection(pos);
-					} else {
-						mHDD.setSelection(0);
-					}
-				} else {
-					mHDD.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setFDA(final String fda) {
-
-		this.currMachine.fda_img_path = fda;
-
-		mFDA.post(new Runnable() {
-			public void run() {
-				if (fda != null) {
-					int pos = fdaAdapter.getPosition(fda);
-
-					if (pos >= 0) {
-						mFDA.setSelection(pos);
-					} else {
-						mFDA.setSelection(0);
-					}
-				} else {
-					mFDA.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setFDB(final String fdb) {
-
-		this.currMachine.fdb_img_path = fdb;
-
-		mFDB.post(new Runnable() {
-			public void run() {
-				if (fdb != null) {
-					int pos = fdbAdapter.getPosition(fdb);
-
-					if (pos >= 0) {
-						mFDB.setSelection(pos);
-					} else {
-						mFDB.setSelection(0);
-					}
-				} else {
-					mFDB.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setSD(final String sd) {
-
-		this.currMachine.sd_img_path = sd;
-
-		mSD.post(new Runnable() {
-			public void run() {
-				if (sd != null) {
-					int pos = sdAdapter.getPosition(sd);
-
-					if (pos >= 0) {
-						mSD.setSelection(pos);
-					} else {
-						mSD.setSelection(0);
-					}
-				} else {
-					mSD.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setSharedFolder(final String sharedFolder) {
-
-		this.currMachine.shared_folder = sharedFolder;
-
-		mSharedFolder.post(new Runnable() {
-			public void run() {
-				String sharedMode = null;
-				if (currMachine.shared_folder_mode == 0) {
-					sharedMode = "(read-only)";
-				} else if (currMachine.shared_folder_mode == 1) {
-					sharedMode = "(read-write)";
-				}
-				if (sharedFolder != null) {
-					int pos = sharedFolderAdapter.getPosition(sharedFolder + " " + sharedMode);
-
-					if (pos >= 0) {
-						mSharedFolder.setSelection(pos);
-					} else {
-						mSharedFolder.setSelection(0);
-					}
-				} else {
-					mSharedFolder.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	//XXX: Not supported
-	private void setHDCache(final String hdcache) {
-
-		mHDCacheConfig.post(new Runnable() {
-			public void run() {
-				if (hdcache != null) {
-					int pos = hdCacheAdapter.getPosition(hdcache);
-
-					if (pos >= 0) {
-						mHDCacheConfig.setSelection(pos);
-					} else {
-						mHDCacheConfig.setSelection(0);
-					}
-				} else {
-					mHDCacheConfig.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setSoundcard(final String soundcard) {
-
-		this.mSoundCardConfig.post(new Runnable() {
-			public void run() {
-				if (soundcard != null) {
-					int pos = sndAdapter.getPosition(soundcard);
-
-					if (pos >= 0) {
-						mSoundCardConfig.setSelection(pos);
-					} else {
-						mSoundCardConfig.setSelection(0);
-					}
-				} else {
-					mSoundCardConfig.setSelection(0);
-				}
-			}
-		});
-
-	}
-
-	private void setUI(final String ui) {
-
-		this.mUI.post(new Runnable() {
-			public void run() {
-				if (ui != null) {
-					int pos = uiAdapter.getPosition(ui);
-
-					if (pos >= 0) {
-						mUI.setSelection(pos);
-					} else {
-						mUI.setSelection(0);
-					}
-				} else {
-					mUI.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setVGA(final String vga) {
-
-		this.mVGAConfig.post(new Runnable() {
-			public void run() {
-				if (vga != null) {
-					int pos = vgaAdapter.getPosition(vga);
-
-					if (pos >= 0) {
-						mVGAConfig.setSelection(pos);
-					} else {
-						mVGAConfig.setSelection(0);
-					}
-				} else {
-					mVGAConfig.setSelection(0);
-
-				}
-			}
-		});
-
-	}
-
-	private void setNetCfg(final String net, boolean userPressed) {
+    // Set Hard Disk
+    private void populateMachines(final String machineValue) {
+
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
+
+                ArrayList<String> machines = MachineOpenHelper.getInstance(activity).getMachines();
+                int length = 0;
+                if (machines == null || machines.size() == 0) {
+                    length = 0;
+                } else {
+                    length = machines.size();
+                }
+
+                final String[] arraySpinner = new String[machines.size() + 2];
+                arraySpinner[0] = "None";
+                arraySpinner[1] = "New";
+                int index = 2;
+                Iterator<String> i = machines.iterator();
+                while (i.hasNext()) {
+                    String file = (String) i.next();
+                    if (file != null) {
+                        arraySpinner[index++] = file;
+                    }
+                }
+
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    public void run() {
+                        ArrayAdapter<String> machineAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
+                        machineAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+                        mMachine.setAdapter(machineAdapter);
+                        mMachine.invalidate();
+                        if (machineValue != null)
+                            setAdapter(mMachine, machineValue);
+                    }
+                });
+
+            }
+        });
+        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.start();
+
+    }
+
+    // Set Hard Disk
+    private void setCPU(final String cpu) {
+
+        this.mCPU.post(new Runnable() {
+            public void run() {
+                if (cpu != null) {
+                    int pos = ((ArrayAdapter<String>) mCPU.getAdapter()).getPosition(cpu);
+
+                    mCPU.setSelection(pos);
+                }
+            }
+        });
+
+    }
+
+    private void setAdapter(final Spinner spinner, final String value) {
+
+        spinner.post(new Runnable() {
+            public void run() {
+                if (value != null) {
+                    int pos = ((ArrayAdapter<String>) spinner.getAdapter()).getPosition(value);
+                    spinner.setSelection(pos);
+                }
+            }
+        });
+
+    }
+
+    private void setMachineFieldValue(FileType type, final String diskValue) {
+        if (type == FileType.HDA) {
+            currMachine.hda_img_path = diskValue;
+        } else if (type == FileType.HDB) {
+            currMachine.hdb_img_path = diskValue;
+        } else if (type == FileType.HDC) {
+            currMachine.hdc_img_path = diskValue;
+        } else if (type == FileType.HDD) {
+            currMachine.hdd_img_path = diskValue;
+        } else if (type == FileType.SHARED_DIR) {
+            currMachine.shared_folder = diskValue;
+        } else if (type == FileType.CD) {
+            currMachine.cd_iso_path = diskValue;
+        } else if (type == FileType.FDA) {
+            currMachine.fda_img_path = diskValue;
+        } else if (type == FileType.FDB) {
+            currMachine.fdb_img_path = diskValue;
+        } else if (type == FileType.SD) {
+            currMachine.sd_img_path = diskValue;
+        } else if (type ==  FileType.KERNEL) {
+            currMachine.kernel = diskValue;
+        } else if (type == FileType.INITRD) {
+            currMachine.initrd = diskValue;
+        }
+    }
+
+    private void setDiskValue(FileType fileType, final String diskValue) {
+        Spinner spinner = getSpinner(fileType);
+        ArrayAdapter adapter = getAdapter(fileType);
+
+        setMachineFieldValue(fileType, diskValue);
+        setDiskAdapter(spinner, diskValue);
+    }
+
+    private void setDiskAdapter(final Spinner spinner, final String value) {
+        spinner.post(new Runnable() {
+            public void run() {
+                if (value != null) {
+                    int pos = ((ArrayAdapter<String>) spinner.getAdapter()).getPosition(value);
+
+                    if (pos >= 0) {
+                        spinner.setSelection(pos);
+                    } else {
+                        spinner.setSelection(0);
+                    }
+                } else {
+                    spinner.setSelection(0);
+                }
+            }
+        });
+    }
+
+    private void setHDA(final String hda) {
+        currMachine.hda_img_path = hda;
+        setDiskAdapter(mHDA, hda);
+    }
+
+    private void setHDB(final String hdb) {
+        this.currMachine.hdb_img_path = hdb;
+        setDiskAdapter(mHDB, hdb);
+    }
+
+    private void setHDC(final String hdc) {
+
+        this.currMachine.hdc_img_path = hdc;
+        setDiskAdapter(mHDC, hdc);
+    }
+
+    private void setHDD(final String hdd) {
+        this.currMachine.hdd_img_path = hdd;
+        setDiskAdapter(mHDD, hdd);
+    }
+
+    private void setFDA(final String fda) {
+        this.currMachine.fda_img_path = fda;
+        setDiskAdapter(mFDA, fda);
+    }
+
+    private void setFDB(final String fdb) {
+        this.currMachine.fdb_img_path = fdb;
+        setDiskAdapter(mFDB, fdb);
+    }
+
+    private void setSD(final String sd) {
+        this.currMachine.sd_img_path = sd;
+        setDiskAdapter(mSD, sd);
+    }
+
+
+    //XXX: Not supported
+    private void setHDCache(final String hdcache) {
+
+        mHDCacheConfig.post(new Runnable() {
+            public void run() {
+                if (hdcache != null) {
+                    int pos = ((ArrayAdapter<String>) mHDCacheConfig.getAdapter()).getPosition(hdcache);
+
+                    if (pos >= 0) {
+                        mHDCacheConfig.setSelection(pos);
+                    } else {
+                        mHDCacheConfig.setSelection(0);
+                    }
+                } else {
+                    mHDCacheConfig.setSelection(0);
+
+                }
+            }
+        });
+
+    }
+
+    private void setSoundcard(final String soundcard) {
+
+        this.mSoundCard.post(new Runnable() {
+            public void run() {
+                if (soundcard != null) {
+                    int pos = ((ArrayAdapter<String>) mSoundCard.getAdapter()).getPosition(soundcard);
+
+                    if (pos >= 0) {
+                        mSoundCard.setSelection(pos);
+                    } else {
+                        mSoundCard.setSelection(0);
+                    }
+                } else {
+                    mSoundCard.setSelection(0);
+                }
+            }
+        });
+
+    }
+
+    private void setUI(final String ui) {
+
+        this.mUI.post(new Runnable() {
+            public void run() {
+                if (ui != null) {
+                    int pos = ((ArrayAdapter<String>) mUI.getAdapter()).getPosition(ui);
+
+                    if (pos >= 0) {
+                        mUI.setSelection(pos);
+                    } else {
+                        mUI.setSelection(0);
+                    }
+                } else {
+                    mUI.setSelection(0);
+
+                }
+            }
+        });
+
+    }
+
+    private void setVGA(final String vga) {
+
+        this.mVGAConfig.post(new Runnable() {
+            public void run() {
+                if (vga != null) {
+                    int pos = ((ArrayAdapter<String>) mVGAConfig.getAdapter()).getPosition(vga);
+
+                    if (pos >= 0) {
+                        mVGAConfig.setSelection(pos);
+                    } else {
+                        mVGAConfig.setSelection(0);
+                    }
+                } else {
+                    mVGAConfig.setSelection(0);
+
+                }
+            }
+        });
+
+    }
+
+
+    private void setMouse(final String mouse) {
+
+        this.mMouse.post(new Runnable() {
+            public void run() {
+                if (mouse!= null) {
+                    String mouseStr = mouse;
+                    if(mouseStr.startsWith("usb-tablet"))
+                        mouseStr+= fixMouseDescr;
+                    int pos = ((ArrayAdapter<String>) mMouse.getAdapter()).getPosition(mouseStr);
+
+                    if (pos >= 0) {
+                        mMouse.setSelection(pos);
+                    } else {
+                        mMouse.setSelection(0);
+                    }
+                } else {
+                    mMouse.setSelection(0);
+
+                }
+            }
+        });
+
+    }
+
+    private void setKeyboard(final String keyboard) {
+
+        this.mKeyboard.post(new Runnable() {
+            public void run() {
+                if (keyboard!= null) {
+                    String mouseStr = keyboard;
+                    int pos = ((ArrayAdapter<String>) mKeyboard.getAdapter()).getPosition(keyboard);
+
+                    if (pos >= 0) {
+                        mKeyboard.setSelection(pos);
+                    } else {
+                        mKeyboard.setSelection(0);
+                    }
+                } else {
+                    mKeyboard.setSelection(0);
+
+                }
+            }
+        });
+
+    }
+
+
+    private void setNetCfg(final String net, boolean userPressed) {
 //		this.userPressedNetCfg = userPressed;
 
-		this.mNetConfig.post(new Runnable() {
-			public void run() {
-				if (net != null) {
-					int pos = netAdapter.getPosition(net);
+        this.mNetConfig.post(new Runnable() {
+            public void run() {
+                if (net != null) {
+                    int pos = ((ArrayAdapter<String>) mNetConfig.getAdapter()).getPosition(net);
 
-					if (pos >= 0) {
-						mNetConfig.setSelection(pos);
-					} else {
-						mNetConfig.setSelection(0);
-					}
-				} else {
-					mNetConfig.setSelection(0);
+                    if (pos >= 0) {
+                        mNetConfig.setSelection(pos);
+                    } else {
+                        mNetConfig.setSelection(0);
+                    }
+                } else {
+                    mNetConfig.setSelection(0);
 
-				}
-			}
-		});
+                }
+            }
+        });
 
-	}
+    }
 
-	private void setBootDevice(final String bootDevice) {
+    private void setBootDevice(final String bootDevice) {
 
-		this.mBootDevices.post(new Runnable() {
-			public void run() {
-				if (bootDevice != null) {
-					int pos = bootDevAdapter.getPosition(bootDevice);
+        this.mBootDevices.post(new Runnable() {
+            public void run() {
+                if (bootDevice != null) {
+                    int pos = ((ArrayAdapter<String>) mBootDevices.getAdapter()).getPosition(bootDevice);
 
-					if (pos >= 0) {
-						mBootDevices.setSelection(pos);
-					} else {
-						mBootDevices.setSelection(0);
-					}
-				} else {
-					mBootDevices.setSelection(0);
+                    if (pos >= 0) {
+                        mBootDevices.setSelection(pos);
+                    } else {
+                        mBootDevices.setSelection(0);
+                    }
+                } else {
+                    mBootDevices.setSelection(0);
 
-				}
-			}
-		});
+                }
+            }
+        });
 
-	}
+    }
 
-	private void setSnapshot(final String snapshot) {
+    private void setSnapshot(final String snapshot) {
 
-		this.mSnapshot.post(new Runnable() {
-			public void run() {
-				if (snapshot != null && !snapshot.equals("")) {
-					int pos = snapshotAdapter.getPosition(snapshot);
+        this.mSnapshot.post(new Runnable() {
+            public void run() {
+                if (snapshot != null && !snapshot.equals("")) {
+                    int pos = ((ArrayAdapter<String>) mSnapshot.getAdapter()).getPosition(snapshot);
 
-					if (pos >= 0) {
-						mSnapshot.setSelection(pos);
-						mSnapshot.invalidate();
-					} else {
-						mSnapshot.setSelection(0);
-					}
-				} else {
-					mSnapshot.setSelection(0);
+                    if (pos >= 0) {
+                        mSnapshot.setSelection(pos);
+                        mSnapshot.invalidate();
+                    } else {
+                        mSnapshot.setSelection(0);
+                    }
+                } else {
+                    mSnapshot.setSelection(0);
 
-				}
+                }
 
-			}
-		});
+            }
+        });
 
-	}
+    }
 
-	private void setNicDevice(final String nic) {
+    private void setNicDevice(final String nic) {
 
-		this.mNetDevices.post(new Runnable() {
-			public void run() {
-				if (nic != null) {
-					int pos = nicCfgAdapter.getPosition(nic);
+        this.mNicCard.post(new Runnable() {
+            public void run() {
+                if (nic != null) {
+                    int pos = ((ArrayAdapter<String>) mNicCard.getAdapter()).getPosition(nic);
 
-					if (pos >= 0) {
-						mNetDevices.setSelection(pos);
-					} else {
-						mNetDevices.setSelection(3);
-					}
-				} else {
-					mNetDevices.setSelection(3);
+                    if (pos >= 0) {
+                        mNicCard.setSelection(pos);
+                    } else {
+                        mNicCard.setSelection(3);
+                    }
+                } else {
+                    mNicCard.setSelection(3);
 
-				}
-			}
-		});
+                }
+            }
+        });
 
-	}
+    }
 
-	private void populateCPUs(String cpu) {
+    private void populateCPUs(String cpu) {
 
-		String[] arraySpinner = {};
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        String[] arraySpinner = {};
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
-		// x86 cpus 32 bit
-		ArrayList<String> arrX86 = new ArrayList<String>();
-		arrX86.add("Default");
-		arrX86.add("qemu32");// QEMU Virtual CPU version 2.3.0
-		arrX86.add("kvm32");// Common 32-bit KVM processor
-		arrX86.add("coreduo");// Genuine Intel(R) CPU T2600 @ 2.16GHz
-		arrX86.add("486");
-		arrX86.add("pentium");
-		arrX86.add("pentium2");
-		arrX86.add("pentium3");
-		arrX86.add("athlon"); // QEMU Virtual CPU version 2.3.0
-		arrX86.add("n270"); // Intel(R) Atom(TM) CPU N270 @ 1.60GHz
+        // x86 cpus 32 bit
+        ArrayList<String> arrX86 = new ArrayList<String>();
+        arrX86.add("Default");
+        arrX86.add("qemu32");// QEMU Virtual CPU version 2.3.0
+        arrX86.add("kvm32");// Common 32-bit KVM processor
+        arrX86.add("coreduo");// Genuine Intel(R) CPU T2600 @ 2.16GHz
+        arrX86.add("486");
+        arrX86.add("pentium");
+        arrX86.add("pentium2");
+        arrX86.add("pentium3");
+        arrX86.add("athlon"); // QEMU Virtual CPU version 2.3.0
+        arrX86.add("n270"); // Intel(R) Atom(TM) CPU N270 @ 1.60GHz
 
-		// x86 cpus 64 bit
-		ArrayList<String> arrX86_64 = new ArrayList<String>();
-		arrX86_64.add("Default");
-		arrX86_64.add("qemu64");// QEMU Virtual CPU version 2.3.0
-		arrX86_64.add("kvm64");// Common KVM processor
-		arrX86_64.add("phenom");// AMD Phenom(tm) 9550 Quad-Core Processor
-		arrX86_64.add("core2duo");// Intel(R) Core(TM)2 Duo CPU T7700 @
-									// 2.40GHz
-		arrX86_64.add("Conroe");// Intel Celeron_4x0 (Conroe/Merom Class Core
-								// 2)
-		arrX86_64.add("Penryn");// Intel Core 2 Duo P9xxx (Penryn Class Core
-								// 2)
-		arrX86_64.add("Nehalem");// Intel Core i7 9xx (Nehalem Class Core i7)
-		arrX86_64.add("Westmere");// e Westmere E56xx/L56xx/X56xx (Nehalem-C)
-		arrX86_64.add("SandyBridge");// Intel Xeon E312xx (Sandy Bridge)
-		arrX86_64.add("IvyBridge");// Intel Xeon E3-12xx v2 (Ivy Bridge)
-		arrX86_64.add("Haswell-noTSX");// Intel Core Processor (Haswell, no
-										// TSX)
-		arrX86_64.add("Haswell");// Intel Core Processor (Haswell)
-		arrX86_64.add("Broadwell-noTSX");// Intel Core Processor (Broadwell,
-											// no TSX)
-		arrX86_64.add("Broadwell");// Intel Core Processor (Broadwell)
-		arrX86_64.add("Opteron_G1");// AMD Opteron 240 (Gen 1 Class Opteron)
-		arrX86_64.add("Opteron_G2");// AMD Opteron 22xx (Gen 2 Class Opteron)
-		arrX86_64.add("Opteron_G3");// AMD Opteron 23xx (Gen 3 Class Opteron)
-		arrX86_64.add("Opteron_G4");// AMD Opteron 62xx class CPU
-		arrX86_64.add("Opteron_G5");// AMD Opteron 63xx class CPU
+        // x86 cpus 64 bit
+        ArrayList<String> arrX86_64 = new ArrayList<String>();
+        arrX86_64.add("Default");
+        arrX86_64.add("qemu64");// QEMU Virtual CPU version 2.3.0
+        arrX86_64.add("kvm64");// Common KVM processor
+        arrX86_64.add("phenom");// AMD Phenom(tm) 9550 Quad-Core Processor
+        arrX86_64.add("core2duo");// Intel(R) Core(TM)2 Duo CPU T7700 @
+        // 2.40GHz
+        arrX86_64.add("Conroe");// Intel Celeron_4x0 (Conroe/Merom Class Core
+        // 2)
+        arrX86_64.add("Penryn");// Intel Core 2 Duo P9xxx (Penryn Class Core
+        // 2)
+        arrX86_64.add("Nehalem");// Intel Core i7 9xx (Nehalem Class Core i7)
+        arrX86_64.add("Westmere");// e Westmere E56xx/L56xx/X56xx (Nehalem-C)
+        arrX86_64.add("SandyBridge");// Intel Xeon E312xx (Sandy Bridge)
+        arrX86_64.add("IvyBridge");// Intel Xeon E3-12xx v2 (Ivy Bridge)
+        arrX86_64.add("Haswell-noTSX");// Intel Core Processor (Haswell, no
+        // TSX)
+        arrX86_64.add("Haswell");// Intel Core Processor (Haswell)
+        arrX86_64.add("Broadwell-noTSX");// Intel Core Processor (Broadwell,
+        // no TSX)
+        arrX86_64.add("Broadwell");// Intel Core Processor (Broadwell)
+        arrX86_64.add("Opteron_G1");// AMD Opteron 240 (Gen 1 Class Opteron)
+        arrX86_64.add("Opteron_G2");// AMD Opteron 22xx (Gen 2 Class Opteron)
+        arrX86_64.add("Opteron_G3");// AMD Opteron 23xx (Gen 3 Class Opteron)
+        arrX86_64.add("Opteron_G4");// AMD Opteron 62xx class CPU
+        arrX86_64.add("Opteron_G5");// AMD Opteron 63xx class CPU
 
-		// ARM cpus
-		ArrayList<String> arrARM = new ArrayList<String>();
+        // ARM cpus
+        ArrayList<String> arrARM = new ArrayList<String>();
         arrARM.add("Default");
-		arrARM.add("arm926");
+        arrARM.add("arm926");
         arrARM.add("arm920t");
-		arrARM.add("arm946");
-		arrARM.add("arm1026");
-		arrARM.add("arm1136");
-		arrARM.add("arm1136-r2");
-		arrARM.add("arm1176");
-		arrARM.add("arm11mpcore");
-		arrARM.add("cortex-m3");
+        arrARM.add("arm946");
+        arrARM.add("arm1026");
+        arrARM.add("arm1136");
+        arrARM.add("arm1136-r2");
+        arrARM.add("arm1176");
+        arrARM.add("arm11mpcore");
+        arrARM.add("cortex-m3");
         arrARM.add("cortex-m4");
         arrARM.add("cortex-m5");
         arrARM.add("cortex-a7");
         arrARM.add("cortex-a8");
-		arrARM.add("cortex-a9");
-		arrARM.add("cortex-a15");
+        arrARM.add("cortex-a9");
+        arrARM.add("cortex-a15");
         arrARM.add("cortex-r5");
         arrARM.add("pxa250");
         arrARM.add("pxa255");
@@ -4594,54 +4971,54 @@ public class LimboActivity extends AppCompatActivity {
         arrARM.add("ti925t");
 
         ArrayList<String> arrARM64 = new ArrayList<String>();
-        arrARM.add("Default");
+        arrARM64.add("Default");
         arrARM64.add("cortex-a53");
         arrARM64.add("cortex-a57");
 
-		// Mips cpus
-		ArrayList<String> arrMips = new ArrayList<String>();
-		arrMips.add("Default");
+        // Mips cpus
+        ArrayList<String> arrMips = new ArrayList<String>();
+        arrMips.add("Default");
 
-		ArrayList<String> arrPpc = new ArrayList<String>();
-		arrPpc.add("Default");
-		arrPpc.add("601");// (alias for 601_v2)
-		arrPpc.add("603");// PVR 00030100
-		arrPpc.add("Vanilla");// (alias for 603)
-		arrPpc.add("604");// PVR 00040103
-		arrPpc.add("ppc32");// (alias for 604)
-		arrPpc.add("ppc");// (alias for 604)
-		arrPpc.add("default");// (alias for 604)
-		arrPpc.add("602");// PVR 00050100
-		arrPpc.add("Goldeneye");// (alias for 603e7t)
-		arrPpc.add("740e");// PVR 00080100
-		arrPpc.add("G3");// (alias for 750_v3.1)
-		arrPpc.add("Arthur");// (alias for 740_v3.1)
-		arrPpc.add("745");// (alias for 745_v2.8)
-		arrPpc.add("Goldfinger");// (alias for 755_v2.8)
-		arrPpc.add("LoneStar");// (alias for 750l_v3.2)
-		arrPpc.add("Mach5");// (alias for 604r)
-		arrPpc.add("G4");// (alias for 7400_v2.9)
-		arrPpc.add("403");// (alias for 403GC)
-		arrPpc.add("G2");// PVR 00810011
-		arrPpc.add("Cobra");// PVR 10100000
-		arrPpc.add("STB03");// PVR 40310000
-		arrPpc.add("STB04");// PVR 41810000
-		arrPpc.add("405");// (alias for 405D4)
-		arrPpc.add("STB25");// PVR 51510950
-		arrPpc.add("750fl");// PVR 70000203
-		arrPpc.add("750gl");// PVR 70020102
-		arrPpc.add("7450");// (alias for 7450_v2.1)
-		arrPpc.add("Vger");// (alias for 7450_v2.1)
-		arrPpc.add("7441");// (alias for 7441_v2.3)
-		arrPpc.add("7451");// (alias for 7451_v2.3)
-		arrPpc.add("7445");// (alias for 7445_v3.2)
-		arrPpc.add("7455");// (alias for 7455_v3.2)
-		arrPpc.add("7457");// (alias for 7457_v1.2)
-		arrPpc.add("e600");// PVR 80040010
-		arrPpc.add("7448");// (alias for 7448_v2.1)
-		arrPpc.add("7410");// (alias for 7410_v1.4)
-		arrPpc.add("Nitro");// (alias for 7410_v1.4)
-		arrPpc.add("e500");// (alias for e500v2_v22)
+        ArrayList<String> arrPpc = new ArrayList<String>();
+        arrPpc.add("Default");
+        arrPpc.add("601");// (alias for 601_v2)
+        arrPpc.add("603");// PVR 00030100
+        arrPpc.add("Vanilla");// (alias for 603)
+        arrPpc.add("604");// PVR 00040103
+        arrPpc.add("ppc32");// (alias for 604)
+        arrPpc.add("ppc");// (alias for 604)
+        arrPpc.add("default");// (alias for 604)
+        arrPpc.add("602");// PVR 00050100
+        arrPpc.add("Goldeneye");// (alias for 603e7t)
+        arrPpc.add("740e");// PVR 00080100
+        arrPpc.add("G3");// (alias for 750_v3.1)
+        arrPpc.add("Arthur");// (alias for 740_v3.1)
+        arrPpc.add("745");// (alias for 745_v2.8)
+        arrPpc.add("Goldfinger");// (alias for 755_v2.8)
+        arrPpc.add("LoneStar");// (alias for 750l_v3.2)
+        arrPpc.add("Mach5");// (alias for 604r)
+        arrPpc.add("G4");// (alias for 7400_v2.9)
+        arrPpc.add("403");// (alias for 403GC)
+        arrPpc.add("G2");// PVR 00810011
+        arrPpc.add("Cobra");// PVR 10100000
+        arrPpc.add("STB03");// PVR 40310000
+        arrPpc.add("STB04");// PVR 41810000
+        arrPpc.add("405");// (alias for 405D4)
+        arrPpc.add("STB25");// PVR 51510950
+        arrPpc.add("750fl");// PVR 70000203
+        arrPpc.add("750gl");// PVR 70020102
+        arrPpc.add("7450");// (alias for 7450_v2.1)
+        arrPpc.add("Vger");// (alias for 7450_v2.1)
+        arrPpc.add("7441");// (alias for 7441_v2.3)
+        arrPpc.add("7451");// (alias for 7451_v2.3)
+        arrPpc.add("7445");// (alias for 7445_v3.2)
+        arrPpc.add("7455");// (alias for 7455_v3.2)
+        arrPpc.add("7457");// (alias for 7457_v1.2)
+        arrPpc.add("e600");// PVR 80040010
+        arrPpc.add("7448");// (alias for 7448_v2.1)
+        arrPpc.add("7410");// (alias for 7410_v1.4)
+        arrPpc.add("Nitro");// (alias for 7410_v1.4)
+        arrPpc.add("e500");// (alias for e500v2_v22)
 
         ArrayList<String> arrPpc64 = new ArrayList<String>();
         arrPpc64.add("Default");
@@ -5054,238 +5431,260 @@ public class LimboActivity extends AppCompatActivity {
         arrPpc64.add("g2lels");
 
 
-
         // m68k cpus
-		ArrayList<String> arrM68k = new ArrayList<String>();
-		arrM68k.add("Default");
-		arrM68k.add("cfv4e");
-		arrM68k.add("m5206");
-		arrM68k.add("m5208");
-		arrM68k.add("m68000");
-		arrM68k.add("m68020");
-		arrM68k.add("m68030");
-		arrM68k.add("m68040");
-		arrM68k.add("m68060");
-		arrM68k.add("any");
+        ArrayList<String> arrM68k = new ArrayList<String>();
+        arrM68k.add("Default");
+        arrM68k.add("cfv4e");
+        arrM68k.add("m5206");
+        arrM68k.add("m5208");
+        arrM68k.add("m68000");
+        arrM68k.add("m68020");
+        arrM68k.add("m68030");
+        arrM68k.add("m68040");
+        arrM68k.add("m68060");
+        arrM68k.add("any");
 
-		// Sparc
-		ArrayList<String> arrSparc = new ArrayList<String>();
-		arrSparc.add("Default");
+        // Sparc
+        ArrayList<String> arrSparc = new ArrayList<String>();
+        arrSparc.add("Default");
+        //XXX: something is wrong with quoting and doesn't let qemu find the cpu
+        //  when it contains a space for now we don't add any cpus
+//        arrSparc.add("Fujitsu MB86904");
+//        arrSparc.add("Fujitsu MB86907");
+//        arrSparc.add("TI MicroSparc I");
+//        arrSparc.add("TI MicroSparc II");
+//        arrSparc.add("TI MicroSparc IIep");
+//        arrSparc.add("TI SuperSparc 40");
+//        arrSparc.add("TI SuperSparc 50");
+//        arrSparc.add("TI SuperSparc 51");
+//        arrSparc.add("TI SuperSparc 60");
+//        arrSparc.add("TI SuperSparc 61");
+//        arrSparc.add("TI SuperSparc II");
+//        arrSparc.add("LEON2");
+//        arrSparc.add("LEON3");
 
-		// "arm1136 (arm)", "arm1136-r2 (arm)", "arm1176 (arm)",
-		// "arm11mpcore (arm)", "cortex-m3 (arm)", "cortex-a8 (arm)",
-		// "cortex-a8-r2 (arm)", "cortex-a9 (arm)", "cortex-a15 (arm)",
+        // Sparc
+        ArrayList<String> arrSparc64 = new ArrayList<String>();
+        arrSparc64.add("Default");
+        //XXX: something is wrong with quoting and doesn't let qemu find the cpu
+        //  when it contains a space for now we don't add any cpus
+//        arrSparc64.add("Fujitsu Sparc64");
+//        arrSparc64.add("Fujitsu Sparc64 III");
+//        arrSparc64.add("Fujitsu Sparc64 IV");
+//        arrSparc64.add("Fujitsu Sparc64 V");
+//        arrSparc64.add("TI UltraSparc I");
+//        arrSparc64.add("TI UltraSparc II");
+//        arrSparc64.add("TI UltraSparc IIi");
+//        arrSparc64.add("TI UltraSparc IIe");
+//        arrSparc64.add("Sun UltraSparc III");
+//        arrSparc64.add("Sun UltraSparc III");
+//        arrSparc64.add("Sun UltraSparc IIIi");
+//        arrSparc64.add("Sun UltraSparc IV");
+//        arrSparc64.add("Sun UltraSparc IV+");
+//        arrSparc64.add("Sun UltraSparc IIIi+");
+//        arrSparc64.add("Sun UltraSparc T1");
+//        arrSparc64.add("Sun UltraSparc T2");
+//        arrSparc64.add("NEC UltraSparc I");
 
-		// "ti925t (arm)", "pxa250 (arm)", "sa1100 (arm)", "sa1110
-		// (arm)",
-		// "pxa255 (arm)", "pxa260 (arm)", "pxa261 (arm)", "pxa262
-		// (arm)",
-		// "pxa270 (arm)", "pxa270-a0 (arm)", "pxa270-a1 (arm)",
-		// "pxa270-b0 (arm)", "pxa270-b1 (arm)", "pxa270-c0 (arm)",
-		// "pxa270-c5 (arm)", "any (arm)"
 
-		if (currMachine != null) {
-			if (currMachine.arch.equals("x86")) {
-				arrList.addAll(arrX86);
-			} else if (currMachine.arch.equals("x64")) {
-				arrList.addAll(arrX86_64);
-			} else if (currMachine.arch.equals("ARM")) {
-				arrList.addAll(arrARM);
+        if (currMachine != null && currMachine.arch != null)  {
+            if (currMachine.arch.equals("x86")) {
+                arrList.addAll(arrX86);
+            } else if (currMachine.arch.equals("x64")) {
+                arrList.addAll(arrX86_64);
+            } else if (currMachine.arch.equals("ARM")) {
+                arrList.addAll(arrARM);
             } else if (currMachine.arch.equals("ARM64")) {
                 arrList.addAll(arrARM64);
-			} else if (currMachine.arch.equals("MIPS")) {
-				arrList.addAll(arrMips);
-			} else if (currMachine.arch.equals("PPC")) {
-				arrList.addAll(arrPpc);
+            } else if (currMachine.arch.equals("MIPS")) {
+                arrList.addAll(arrMips);
+            } else if (currMachine.arch.equals("PPC")) {
+                arrList.addAll(arrPpc);
             } else if (currMachine.arch.equals("PPC64")) {
                 arrList.addAll(arrPpc64);
-			} else if (currMachine.arch.equals("m68k")) {
-				arrList.addAll(arrM68k);
-			} else if (currMachine.arch.equals("SPARC")) {
-				arrList.addAll(arrSparc);
-			}
-		} else {
-			arrList.addAll(arrX86);
-		}
+            } else if (currMachine.arch.equals("m68k")) {
+                arrList.addAll(arrM68k);
+            } else if (currMachine.arch.equals("SPARC")) {
+                arrList.addAll(arrSparc);
+            } else if (currMachine.arch.equals("SPARC64")) {
+                arrList.addAll(arrSparc64);
+            }
+        } else {
+            arrList.addAll(arrX86);
+        }
 
         arrList.add("host");
+        ArrayAdapter<String> cpuAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        cpuAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mCPU.setAdapter(cpuAdapter);
 
-		if (cpuAdapter == null) {
-			cpuAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-			cpuAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mCPU.setAdapter(cpuAdapter);
-		} else {
-			cpuAdapter.clear();
-			for (int i = 0; i < arrList.size(); i++) {
-				cpuAdapter.add(arrList.get(i));
-			}
+        this.mCPU.invalidate();
 
-		}
+        int pos = cpuAdapter.getPosition(cpu);
+        if (pos >= 0) {
+            this.mCPU.setSelection(pos);
+        }
 
-		this.mCPU.invalidate();
+    }
 
-		int pos = this.cpuAdapter.getPosition(cpu);
-		if (pos >= 0) {
-			this.mCPU.setSelection(pos);
-		}
+    private void populateArch() {
 
-	}
+        String[] arraySpinner = {};
 
-	private void populateArch() {
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
-		String[] arraySpinner = {};
+        if (Config.enable_X86)
+            arrList.add("x86");
+        if (Config.enable_X86_64)
+            arrList.add("x64");
 
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-
-		if (Config.enable_X86)
-			arrList.add("x86");
-		if (Config.enable_X86_64)
-			arrList.add("x64");
-
-		if (Config.enable_ARM)
-			arrList.add("ARM");
+        if (Config.enable_ARM)
+            arrList.add("ARM");
         if (Config.enable_ARM64)
             arrList.add("ARM64");
 
-		if (Config.enable_MIPS)
-			arrList.add("MIPS");
+        if (Config.enable_MIPS)
+            arrList.add("MIPS");
 
-		if (Config.enable_PPC)
-			arrList.add("PPC");
+        if (Config.enable_PPC)
+            arrList.add("PPC");
 
         if (Config.enable_PPC)
             arrList.add("PPC64");
 
-		if (Config.enable_m68k)
-			arrList.add("m68k");
+        if (Config.enable_m68k)
+            arrList.add("m68k");
 
-		if (Config.enable_sparc)
-			arrList.add("SPARC");
+        if (Config.enable_sparc)
+            arrList.add("SPARC");
 
-		archAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        if (Config.enable_sparc64)
+            arrList.add("SPARC64");
 
-		archAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mArch.setAdapter(archAdapter);
+        ArrayAdapter<String> archAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        archAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
 
-		this.mArch.invalidate();
+        this.mArch.setAdapter(archAdapter);
 
-	}
+        this.mArch.invalidate();
 
-	private void populateMachineType(String machineType) {
+    }
 
-		String[] arraySpinner = {
+    private void populateMachineType(String machineType) {
 
-		};
+        String[] arraySpinner = {
 
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        };
 
-		if (currMachine != null) {
-			if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
-				arrList.add("pc");
-				arrList.add("pc-i440fx-2.9");
-				arrList.add("pc-i440fx-2.8");
-				arrList.add("pc-i440fx-2.7");
-				arrList.add("pc-i440fx-2.6");
-				arrList.add("pc-i440fx-2.5");
-				arrList.add("pc-i440fx-2.4");
-				arrList.add("pc-i440fx-2.3");
-				arrList.add("pc-i440fx-2.2");
-				arrList.add("pc-i440fx-2.1");
-				arrList.add("pc-i440fx-2.0");
-				arrList.add("pc-i440fx-1.7");
-				arrList.add("pc-i440fx-1.6");
-				arrList.add("pc-i440fx-1.5");
-				arrList.add("pc-i440fx-1.4");
-				arrList.add("pc-1.3");
-				arrList.add("pc-1.2");
-				arrList.add("pc-1.1");
-				arrList.add("pc-1.0");
-				arrList.add("pc-0.15");
-				arrList.add("pc-0.14");
-				arrList.add("pc-0.13");
-				arrList.add("pc-0.12");
-				arrList.add("pc-0.11");
-				arrList.add("pc-0.10");
-				arrList.add("q35");
-				arrList.add("pc-q35-2.9");
-				arrList.add("pc-q35-2.8");
-				arrList.add("pc-q35-2.7");
-				arrList.add("pc-q35-2.6");
-				arrList.add("pc-q35-2.5");
-				arrList.add("pc-q35-2.4");
-				arrList.add("isapc");
-				arrList.add("none");
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
 
-			} else if (currMachine.arch.equals("ARM")|| currMachine.arch.equals("ARM64")) {
-				arrList.add("akita");
-				arrList.add("ast2500-evb");
-				arrList.add("borzoi");
-				arrList.add("canon-a1100");
-				arrList.add("cheetah");
-				arrList.add("collie");
-				arrList.add("connex");
-				arrList.add("cubieboard");
-				arrList.add("highbank");
-				arrList.add("imx25-pdk");
-				arrList.add("integratorcp");
-				arrList.add("kzm");
-				arrList.add("lm3s6965evb");
-				arrList.add("lm3s811evb");
-				arrList.add("mainstone");
-				arrList.add("midway");
-				arrList.add("musicpal");
-				arrList.add("n800");
-				arrList.add("n810");
-				arrList.add("netduino2");
-				arrList.add("none");
-				arrList.add("nuri");
-				arrList.add("palmetto-bmc");
-				arrList.add("raspi2");
-				arrList.add("realview-eb");
-				arrList.add("realview-eb-mpcore");
-				arrList.add("realview-pb-a8");
-				arrList.add("realview-pbx-a9");
-				arrList.add("romulus-bmc");
-				arrList.add("sabrelite");
-				arrList.add("smdkc210");
-				arrList.add("spitz");
-				arrList.add("sx1");
-				arrList.add("sx1-v1");
-				arrList.add("terrier");
-				arrList.add("tosa");
-				arrList.add("verdex");
-				arrList.add("versatileab");
-				arrList.add("versatilepb");
-				arrList.add("vexpress-a15");
-				arrList.add("vexpress-a9");
-				arrList.add("virt-2.6");
-				arrList.add("virt-2.7");
-				arrList.add("virt-2.8");
-				arrList.add("virt");
-				arrList.add("virt-2.9");
-				arrList.add("xilinx-zynq-a9");
+        if (currMachine != null && currMachine.arch!=null) {
+            if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
+                arrList.add("pc");
+                arrList.add("pc-i440fx-2.9");
+                arrList.add("pc-i440fx-2.8");
+                arrList.add("pc-i440fx-2.7");
+                arrList.add("pc-i440fx-2.6");
+                arrList.add("pc-i440fx-2.5");
+                arrList.add("pc-i440fx-2.4");
+                arrList.add("pc-i440fx-2.3");
+                arrList.add("pc-i440fx-2.2");
+                arrList.add("pc-i440fx-2.1");
+                arrList.add("pc-i440fx-2.0");
+                arrList.add("pc-i440fx-1.7");
+                arrList.add("pc-i440fx-1.6");
+                arrList.add("pc-i440fx-1.5");
+                arrList.add("pc-i440fx-1.4");
+                arrList.add("pc-1.3");
+                arrList.add("pc-1.2");
+                arrList.add("pc-1.1");
+                arrList.add("pc-1.0");
+                arrList.add("pc-0.15");
+                arrList.add("pc-0.14");
+                arrList.add("pc-0.13");
+                arrList.add("pc-0.12");
+                arrList.add("pc-0.11");
+                arrList.add("pc-0.10");
+                arrList.add("q35");
+                arrList.add("pc-q35-2.9");
+                arrList.add("pc-q35-2.8");
+                arrList.add("pc-q35-2.7");
+                arrList.add("pc-q35-2.6");
+                arrList.add("pc-q35-2.5");
+                arrList.add("pc-q35-2.4");
+                arrList.add("isapc");
+                arrList.add("none");
+
+            } else if (currMachine.arch.equals("ARM") || currMachine.arch.equals("ARM64")) {
+                arrList.add("akita");
+                arrList.add("ast2500-evb");
+                arrList.add("borzoi");
+                arrList.add("canon-a1100");
+                arrList.add("cheetah");
+                arrList.add("collie");
+                arrList.add("connex");
+                arrList.add("cubieboard");
+                arrList.add("highbank");
+                arrList.add("imx25-pdk");
+                arrList.add("integratorcp");
+                arrList.add("kzm");
+                arrList.add("lm3s6965evb");
+                arrList.add("lm3s811evb");
+                arrList.add("mainstone");
+                arrList.add("midway");
+                arrList.add("musicpal");
+                arrList.add("n800");
+                arrList.add("n810");
+                arrList.add("netduino2");
+                arrList.add("none");
+                arrList.add("nuri");
+                arrList.add("palmetto-bmc");
+                arrList.add("raspi2");
+                arrList.add("realview-eb");
+                arrList.add("realview-eb-mpcore");
+                arrList.add("realview-pb-a8");
+                arrList.add("realview-pbx-a9");
+                arrList.add("romulus-bmc");
+                arrList.add("sabrelite");
+                arrList.add("smdkc210");
+                arrList.add("spitz");
+                arrList.add("sx1");
+                arrList.add("sx1-v1");
+                arrList.add("terrier");
+                arrList.add("tosa");
+                arrList.add("verdex");
+                arrList.add("versatileab");
+                arrList.add("versatilepb");
+                arrList.add("vexpress-a15");
+                arrList.add("vexpress-a9");
+                arrList.add("virt-2.6");
+                arrList.add("virt-2.7");
+                arrList.add("virt-2.8");
+                arrList.add("virt");
+                arrList.add("virt-2.9");
+                arrList.add("xilinx-zynq-a9");
                 arrList.add("xlnx-ep108");
                 arrList.add("xlnx-zcu102");
                 arrList.add("z2");
 
-			} else if (currMachine.arch.equals("MIPS")) {
-				arrList.add("malta");
-				arrList.add("mips");
-				arrList.add("mipssim");
-				arrList.add("none");
-			} else if (currMachine.arch.equals("PPC")) {
-				arrList.add("Default");
-				arrList.add("40p");
-				arrList.add("bamboo");
-				arrList.add("g3beige");
-				arrList.add("mac99");
-				arrList.add("mpc8544ds");
-				arrList.add("none");
-				arrList.add("ppce500");
-				arrList.add("prep");
-				arrList.add("ref405ep");
-				arrList.add("taihu");
-				arrList.add("virtex-ml507");
+            } else if (currMachine.arch.equals("MIPS")) {
+                arrList.add("malta");
+                arrList.add("mips");
+                arrList.add("mipssim");
+                arrList.add("none");
+            } else if (currMachine.arch.equals("PPC")) {
+                arrList.add("Default");
+                arrList.add("40p");
+                arrList.add("bamboo");
+                arrList.add("g3beige");
+                arrList.add("mac99");
+                arrList.add("mpc8544ds");
+                arrList.add("none");
+                arrList.add("ppce500");
+                arrList.add("prep");
+                arrList.add("ref405ep");
+                arrList.add("taihu");
+                arrList.add("virtex-ml507");
             } else if (currMachine.arch.equals("PPC64")) {
                 arrList.add("Default");
                 arrList.add("40p");
@@ -5314,764 +5713,623 @@ public class LimboActivity extends AppCompatActivity {
                 arrList.add("virtex-ml507");
 
 
+            } else if (currMachine.arch.equals("m68k")) {
+                arrList.add("Default");
+                arrList.add("an5206"); // Arnewsh 5206
+                arrList.add("mcf5208evb"); // MCF5206EVB (default0
+                arrList.add("none");
+            } else if (currMachine.arch.equals("SPARC")) {
+                arrList.add("Default");
+                arrList.add("LX"); // Arnewsh 5206
+                arrList.add("SPARCClassic"); // MCF5206EVB (default0
+                arrList.add("SS-10");
+                arrList.add("SS-20");
+                arrList.add("SS-4");
+                arrList.add("SS-5");
+                arrList.add("SS-600MP");
+                arrList.add("Voyager");
+                arrList.add("leon3_generic");
+
+            } if (currMachine.arch.equals("SPARC64")) {
+                arrList.add("Default");
+                arrList.add("niagara");
+                arrList.add("sun4u");
+                arrList.add("sun4v");
+                arrList.add("none");
 
-
-			} else if (currMachine.arch.equals("m68k")) {
-				arrList.add("Default");
-				arrList.add("an5206"); // Arnewsh 5206
-				arrList.add("mcf5208evb"); // MCF5206EVB (default0
-				arrList.add("none");
-			} else if (currMachine.arch.equals("SPARC")) {
-				arrList.add("Default");
-				arrList.add("LX"); // Arnewsh 5206
-				arrList.add("SPARCClassic"); // MCF5206EVB (default0
-				arrList.add("SS-10");
-				arrList.add("SS-20");
-				arrList.add("SS-4");
-				arrList.add("SS-5");
-				arrList.add("SS-600MP");
-				arrList.add("Voyager");
-				arrList.add("leon3_generic");
-
-			}
-
-		}
-		// else {
-		// arrList.add("pc");
-		// arrList.add("q35");
-		// arrList.add("isapc");
-		// }
-
-		if (machineTypeAdapter == null) {
-			machineTypeAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-			machineTypeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mMachineType.setAdapter(machineTypeAdapter);
-		} else {
-			machineTypeAdapter.clear();
-			for (int i = 0; i < arrList.size(); i++) {
-				machineTypeAdapter.add(arrList.get(i));
-			}
-
-		}
-
-		this.mMachineType.invalidate();
-		int pos = this.machineTypeAdapter.getPosition(machineType);
-		if (pos >= 0) {
-			this.mMachineType.setSelection(pos);
-		} else {
-			this.mMachineType.setSelection(0);
-		}
-
-	}
-
-	private void populateUI() {
-
-		String[] arraySpinner = { "VNC" };
-
-		ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
-		if (Config.enable_SDL)
-			arrList.add("SDL");
-		if (Config.enable_SPICE)
-			arrList.add("SPICE");
-
-		uiAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
-		uiAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mUI.setAdapter(uiAdapter);
-		this.mUI.invalidate();
-	}
-
-	private void populateKernel() {
-
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-
-				ArrayList<String> kernels = FavOpenHelper.getInstance(activity).getFavURL("kernel");
-				int length = 0;
-				if (kernels == null || kernels.size() == 0) {
-					length = 0;
-				} else {
-					length = kernels.size();
-				}
-
-				final ArrayList<String> arraySpinner = new ArrayList<String>();
-				arraySpinner.add("None");
-				arraySpinner.add("Open");
-				Iterator<String> i = kernels.iterator();
-				while (i.hasNext()) {
-					String file = (String) i.next();
-					if (file != null) {
-						arraySpinner.add(file);
-					}
-				}
-
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					public void run() {
-						kernelAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
-						kernelAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-						mKernel.setAdapter(kernelAdapter);
-						mKernel.invalidate();
-					}
-				});
-
-			}
-		});
-		thread.setPriority(Thread.MIN_PRIORITY);
-
-		thread.start();
-
-	}
-
-	private void populateInitrd() {
-
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-
-				ArrayList<String> initrds = FavOpenHelper.getInstance(activity).getFavURL("initrd");
-				int length = 0;
-				if (initrds == null || initrds.size() == 0) {
-					length = 0;
-				} else {
-					length = initrds.size();
-				}
-
-				final ArrayList<String> arraySpinner = new ArrayList<String>();
-				arraySpinner.add("None");
-				arraySpinner.add("Open");
-				Iterator<String> i = initrds.iterator();
-				while (i.hasNext()) {
-					String file = (String) i.next();
-					if (file != null) {
-						arraySpinner.add(file);
-					}
-				}
-
-				new Handler(Looper.getMainLooper()).post(new Runnable() {
-					public void run() {
-						// Code here will run in UI thread
-						initrdAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
-						initrdAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-						mInitrd.setAdapter(initrdAdapter);
-						mInitrd.invalidate();
-					}
-				});
-			}
-		});
-		thread.setPriority(Thread.MIN_PRIORITY);
-		thread.start();
-
-	}
-
-	// Set Hard Disk
-	private void populateHD(String fileType) {
-		// Add from History
-		ArrayList<String> oldHDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
-		int length = 0;
-		if (oldHDs == null || oldHDs.size() == 0) {
-			length = 0;
-		} else {
-			length = oldHDs.size();
-		}
-
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		arraySpinner.add("New");
-		arraySpinner.add("Open");
-		Iterator<String> i = oldHDs.iterator();
-		while (i.hasNext()) {
-			String file = (String) i.next();
-			if (file != null) {
-				arraySpinner.add(file);
-			}
-		}
-
-		if (fileType.equals("hda")) {
-
-			hdaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			hdaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mHDA.setAdapter(hdaAdapter);
-			this.mHDA.invalidate();
-		} else if (fileType.equals("hdb")) {
-			hdbAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			hdbAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mHDB.setAdapter(hdbAdapter);
-			this.mHDB.invalidate();
-		} else if (fileType.equals("hdc")) {
-			hdcAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			hdcAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mHDC.setAdapter(hdcAdapter);
-			this.mHDC.invalidate();
-		} else if (fileType.equals("hdd")) {
-			hddAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			hddAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mHDD.setAdapter(hddAdapter);
-			this.mHDD.invalidate();
-		}
-	}
-
-	private void populateSnapshot() {
-		// Add from History
-		ArrayList<String> oldSnapshots = null;
-		if (currMachine != null) {
-			oldSnapshots = MachineOpenHelper.getInstance(activity).getSnapshots(currMachine);
-		}
-
-		int length = 0;
-		if (oldSnapshots == null) {
-			length = 0;
-		} else {
-			length = oldSnapshots.size();
-		}
-
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		if (oldSnapshots != null) {
-			Iterator<String> i = oldSnapshots.iterator();
-			while (i.hasNext()) {
-				String file = (String) i.next();
-				if (file != null) {
-					arraySpinner.add(file);
-				}
-			}
-		}
-
-		snapshotAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		snapshotAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mSnapshot.setAdapter(snapshotAdapter);
-		this.mSnapshot.invalidate();
-
-		if (oldSnapshots == null) {
-			this.mSnapshot.setEnabled(false);
-		} else {
-			this.mSnapshot.setEnabled(true);
-		}
-
-	}
-
-	// Set CDROM
-	private void populateCDRom(String fileType) {
-
-		// Add from History
-		ArrayList<String> oldCDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
-		int length = 0;
-		if (oldCDs == null || oldCDs.size() == 0) {
-			length = 0;
-		} else {
-			length = oldCDs.size();
-		}
-
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		arraySpinner.add("Open");
-		if (oldCDs != null) {
-			Iterator<String> i = oldCDs.iterator();
-			while (i.hasNext()) {
-				String file = (String) i.next();
-				if (file != null) {
-					arraySpinner.add(file);
-				}
-			}
-		}
-		cdromAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		cdromAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mCD.setAdapter(cdromAdapter);
-		this.mCD.invalidate();
-	}
-
-	// Set Hard Disk
-	private void populateFloppy(String fileType) {
-		// Add from History
-		ArrayList<String> oldFDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
-		int length = 0;
-		if (oldFDs == null || oldFDs.size() == 0) {
-			length = 0;
-		} else {
-			length = oldFDs.size();
-		}
-
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		arraySpinner.add("Open");
-		if (oldFDs != null) {
-			Iterator<String> i = oldFDs.iterator();
-			while (i.hasNext()) {
-				String file = (String) i.next();
-				if (file != null) {
-					arraySpinner.add(file);
-				}
-			}
-		}
-
-		if (fileType.equals("fda")) {
-			fdaAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			fdaAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mFDA.setAdapter(fdaAdapter);
-			this.mFDA.invalidate();
-		} else if (fileType.equals("fdb")) {
-			fdbAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			fdbAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mFDB.setAdapter(fdbAdapter);
-			this.mFDB.invalidate();
-		}
-	}
-
-	private void populateSDCard(String fileType) {
-		// Add from History
-		ArrayList<String> oldSDs = FavOpenHelper.getInstance(activity).getFavURL(fileType);
-		int length = 0;
-		if (oldSDs == null || oldSDs.size() == 0) {
-			length = 0;
-		} else {
-			length = oldSDs.size();
-		}
-
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		arraySpinner.add("Open");
-		if (oldSDs != null) {
-			Iterator<String> i = oldSDs.iterator();
-			while (i.hasNext()) {
-				String file = (String) i.next();
-				if (file != null) {
-					arraySpinner.add(file);
-				}
-			}
-		}
-
-		if (fileType.equals("sd")) {
-			sdAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-			sdAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-			this.mSD.setAdapter(sdAdapter);
-			this.mSD.invalidate();
-		}
-	}
-
-	private void populateSharedFolder() {
-		ArrayList<String> arraySpinner = new ArrayList<String>();
-		arraySpinner.add("None");
-		//arraySpinner.add(Config.sharedFolder + " (read-only)");
-		arraySpinner.add(Config.getSharedFolder(this) + " (read-write)");  //Hard Disks are always Read/Write
-
-		sharedFolderAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arraySpinner);
-		sharedFolderAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
-		this.mSharedFolder.setAdapter(sharedFolderAdapter);
-		this.mSharedFolder.invalidate();
-
-	}
-
-	public void browse(String fileType) {
-		// Check if SD card is mounted
-		String state = Environment.getExternalStorageState();
-		if (!Environment.MEDIA_MOUNTED.equals(state)) {
-			UIUtils.toastShort(this, "Error: SD card is not mounted");
-			return;
-		}
-
-		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP || !Config.enableExternalSD) {
-
-			String dir = null;
-			// GET THE LAST ACCESSED DIR FROM THE REG
-			String lastDir = LimboSettingsManager.getLastDir(this);
-			try {
-				Intent i = null;
-				i = getFileManIntent();
-				Bundle b = new Bundle();
-				b.putString("lastDir", lastDir);
-				b.putString("fileType", fileType);
-				i.putExtras(b);
-				startActivityForResult(i, Config.FILEMAN_REQUEST_CODE);
-
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		} else {
-			this.filetype = fileType;
-			LimboFileManager.promptSDCardAccess(activity, fileType);
-		}
-	}
-
-
-
-	public Intent getFileManIntent() {
-		return new Intent(LimboActivity.this, com.max2idea.android.limbo.main.LimboFileManager.class);
-	}
-
-	public Intent getVNCIntent() {
-		return new Intent(LimboActivity.this, com.max2idea.android.limbo.main.LimboVNCActivity.class);
-
-	}
-
-	private void addDriveToList(String file, String type) {
-
-		if (file == null)
-			return;
-
-		int res = FavOpenHelper.getInstance(activity).getFavUrlSeq(file, type);
-		if (res == -1) {
-			if (type.equals("hda")) {
-				this.mHDA.getAdapter().getCount();
-			} else if (type.equals("hdb")) {
-				this.mHDB.getAdapter().getCount();
-			} else if (type.equals("hdc")) {
-				this.mHDC.getAdapter().getCount();
-			} else if (type.equals("hdd")) {
-				this.mHDD.getAdapter().getCount();
-			} else if (type.equals("cd")) {
-				this.mCD.getAdapter().getCount();
-			} else if (type.equals("fda")) {
-				this.mFDA.getAdapter().getCount();
-			} else if (type.equals("fdb")) {
-				this.mFDB.getAdapter().getCount();
-			} else if (type.equals("sd")) {
-				this.mSD.getAdapter().getCount();
-			}
-			if (file != null && !file.equals(""))
-				FavOpenHelper.getInstance(activity).insertFavURL(file, type);
-		}
-
-	}
-
-	@Override
-	public boolean onPrepareOptionsMenu(Menu menu) {
-		menu.clear();
-		return this.setupMenu(menu);
-	}
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		menu.clear();
-		return this.setupMenu(menu);
-	}
-
-	public boolean setupMenu(Menu menu) {
-
-		menu.add(0, HELP, 0, "Help").setIcon(android.R.drawable.ic_menu_help);
-		menu.add(0, INSTALL, 0, "Install Roms").setIcon(R.drawable.install);
-		menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.cpu);
-		menu.add(0, DELETE, 0, "Delete Machine").setIcon(R.drawable.delete);
-		menu.add(0, DISCARD_VM_STATE, 0, "Discard Saved State").setIcon(R.drawable.delete);
-		menu.add(0, ISOSIMAGES, 0, "ISOs & HD Images").setIcon(R.drawable.cdrom);
-		menu.add(0, VIEWLOG, 0, "View Log").setIcon(android.R.drawable.ic_menu_view);
-		menu.add(0, EXPORT, 0, "Export Machines").setIcon(R.drawable.exportvms);
-		menu.add(0, IMPORT, 0, "Import Machines").setIcon(R.drawable.importvms);
-		menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
-		menu.add(0, CHANGELOG, 0, "Changelog").setIcon(android.R.drawable.ic_menu_help);
-		menu.add(0, LICENSE, 0, "License").setIcon(android.R.drawable.ic_menu_help);
-		menu.add(0, QUIT, 0, "Exit").setIcon(android.R.drawable.ic_lock_power_off);
-
-		for (int i = 0; i < menu.size() && i < 1; i++) {
-			MenuItemCompat.setShowAsAction(menu.getItem(i), MenuItemCompat.SHOW_AS_ACTION_IF_ROOM);
-		}
-
-		return true;
-
-	}
-
-	@Override
-	public boolean onOptionsItemSelected(final MenuItem item) {
-
-		super.onOptionsItemSelected(item);
-		if (item.getItemId() == this.INSTALL) {
-			this.install(true);
-		} else if (item.getItemId() == this.DELETE) {
-			this.onDeleteMachine();
-		} else if (item.getItemId() == this.DISCARD_VM_STATE) {
-			if(currMachine!=null && currMachine.paused==1)
-				promptDiscardVMState();
-		} else if (item.getItemId() == this.CREATE) {
-			this.promptMachineName(this);
-		} else if (item.getItemId() == this.ISOSIMAGES) {
-			this.goToURL(Config.isosImagesURL);
-		} else if (item.getItemId() == this.EXPORT) {
-			this.onExportMachines();
-		} else if (item.getItemId() == this.IMPORT) {
-			this.onImportMachines();
-		} else if (item.getItemId() == this.HELP) {
-			UIUtils.onHelp(this);
-		} else if (item.getItemId() == this.VIEWLOG) {
-			this.onViewLog();
-		} else if (item.getItemId() == this.CHANGELOG) {
-			this.onChangeLog();
-		} else if (item.getItemId() == this.LICENSE) {
-			this.onLicense();
-		} else if (item.getItemId() == this.QUIT) {
-			this.exit();
-		}
-		return true;
-	}
-
-	public void onViewLog() {
-        FileUtils.viewLimboLog(this);
-    }
-
-	private void goToURL(String url) {
-
-		Intent i = new Intent(Intent.ACTION_VIEW);
-		i.setData(Uri.parse(url));
-		activity.startActivity(i);
-
-	}
-
-
-	public void promptDiscardVMState(){
-		new AlertDialog.Builder(this).setTitle("Discard VM State")
-				.setMessage("The VM is Paused. If you discard the state you might lose data. Continue?")
-				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						currMachine.paused = 0;
-						MachineOpenHelper.getInstance(activity).update(currMachine,
-								MachineOpenHelper.getInstance(activity).PAUSED, 0 + "");
-						sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", "READY");
-						enableNonRemovableDeviceOptions(true);
-						enableRemovableDeviceOptions(true);
-
-					}
-				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-			}
-		}).show();
-	}
-
-	public void stopVM(boolean exit) {
-		execTimeListener();
-		if (vmexecutor == null && !exit) {
-			if (this.currMachine != null && this.currMachine.paused == 1) {
-				promptDiscardVMState();
-				return;
-			} else {
-				sendHandlerMessage(handler, Config.VM_NOTRUNNING);
-				return;
-			}
-		}
-
-		new AlertDialog.Builder(this).setTitle("Shutdown VM")
-				.setMessage("To avoid any corrupt data make sure you "
-						+ "have already shutdown the Operating system from within the VM. Continue?")
-				.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-
-					public void onClick(DialogInterface dialog, int which) {
-						if (LimboActivity.vmexecutor != null) {
-							LimboActivity.vmexecutor.stopvm(0);
-						} else if (activity.getParent() != null) {
-							activity.getParent().finish();
-						} else {
-							activity.finish();
-						}
-					}
-				}).setNegativeButton("No", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-					}
-				}).show();
-	}
-
-	public void saveSnapshotDB(String snapshot_name) {
-		currMachine.snapshot_name = snapshot_name;
-		int ret = MachineOpenHelper.getInstance(activity).deleteMachine(currMachine);
-		ret = MachineOpenHelper.getInstance(activity).insertMachine(currMachine);
-		if (this.snapshotAdapter.getPosition(snapshot_name) < 0) {
-			this.snapshotAdapter.add(snapshot_name);
-		}
-	}
-
-	public void saveStateVMDB() {
-		MachineOpenHelper.getInstance(activity).update(currMachine, MachineOpenHelper.getInstance(activity).PAUSED,
-				1 + "");
-	}
-
-	public void stopTimeListener() {
-
-		synchronized (this.lockTime) {
-			this.timeQuit = true;
-			this.lockTime.notifyAll();
-		}
-	}
-
-	public void onPause() {
-		super.onPause();
-
-		this.stopTimeListener();
-	}
-
-	public void onResume() {
-
-		super.onResume();
-
-		execTimeListener();
-	}
-
-	public void timeListener() {
-		//XXX: No timers just ping a few times
-		for(int i=0; i<3; i++){
-			if (vmexecutor != null) {
-				String status = checkStatus();
-				if (!status.equals(currStatus)) {
-					currStatus = status;
-					sendHandlerMessage(handler, Config.STATUS_CHANGED, "status_changed", status);
-				}
-			}
-
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException ex) {
-				ex.printStackTrace();
-			}
-		}
-
-	}
-
-	void execTimeListener() {
-
-		Thread t = new Thread(new Runnable() {
-			public void run() {
-				startTimeListener();
-			}
-		});
-		t.start();
-	}
-
-	public void startTimeListener() {
-		this.stopTimeListener();
-
-		timeQuit = false;
-		try {
-
-			timeListener();
-			synchronized (lockTime) {
-				while (timeQuit == false) {
-					lockTime.wait();
-				}
-				lockTime.notifyAll();
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-
-		}
-
-	}
-
-	private String checkStatus() {
-		String state = "READY";
-		if (vmexecutor != null && vmexecutor.libLoaded && vmexecutor.get_state().toUpperCase().equals("RUNNING")) {
-			state = "RUNNING";
-		} else if (vmexecutor != null) {
-			String res = QmpClient.sendCommand(QmpClient.query_migrate());
-            String pause_state = "";
-            if(res!=null && !res.equals("")) {
-                //Log.d(TAG, "Migrate status: " + res);
-                try {
-                    JSONObject resObj = new JSONObject(res);
-                    String resInfo = resObj.getString("return");
-                    JSONObject resInfoObj = new JSONObject(resInfo);
-                    pause_state = resInfoObj.getString("status");
-                } catch (JSONException e) {
-                    if (Config.debug)
-                        e.printStackTrace();
-                }
             }
 
-			// Shutdown if paused done
-			if(pause_state == null) {
-				state = "READY";
-			}else if (pause_state.equals("ACTIVE")) {
-				return "SAVING";
-			} else if (pause_state.equals("COMPLETED")) {
-				if (LimboActivity.vmexecutor != null) {
-					LimboActivity.vmexecutor.stopvm(0);
-				}
-			} else if(pause_state.toUpperCase().equals("FAILED")){
-                Log.e(TAG, "Error: " + res);
+        }
+        // else {
+        // arrList.add("pc");
+        // arrList.add("q35");
+        // arrList.add("isapc");
+        // }
+
+        ArrayAdapter<String> machineTypeAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        machineTypeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mMachineType.setAdapter(machineTypeAdapter);
+
+        this.mMachineType.invalidate();
+        int pos = machineTypeAdapter.getPosition(machineType);
+        if (pos >= 0) {
+            this.mMachineType.setSelection(pos);
+        } else {
+            this.mMachineType.setSelection(0);
+        }
+
+    }
+
+    private void populateUI() {
+
+        String[] arraySpinner = {"VNC"};
+
+        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        if (Config.enable_SDL)
+            arrList.add("SDL");
+        if (Config.enable_SPICE)
+            arrList.add("SPICE");
+
+        ArrayAdapter<String> uiAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
+        uiAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+        this.mUI.setAdapter(uiAdapter);
+        this.mUI.invalidate();
+    }
+
+    // Set File Adapters
+    public void populateDiskAdapter(final Spinner spinner, final FileType fileType, final boolean createOption) {
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+
+                ArrayList<String> oldHDs = FavOpenHelper.getInstance(activity).getFav(fileType.toString().toLowerCase());
+                int length = 0;
+                if (oldHDs == null || oldHDs.size() == 0) {
+                    length = 0;
+                } else {
+                    length = oldHDs.size();
+                }
+
+                final ArrayList<String> arraySpinner = new ArrayList<String>();
+                arraySpinner.add("None");
+                if (createOption)
+                    arraySpinner.add("New");
+                arraySpinner.add("Open");
+                final int index = arraySpinner.size();
+                Iterator<String> i = oldHDs.iterator();
+                while (i.hasNext()) {
+                    String file = (String) i.next();
+                    if (file != null) {
+                        arraySpinner.add(file);
+                    }
+                }
+
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    public void run() {
+                        LimboFileSpinnerAdapter adapter = new LimboFileSpinnerAdapter(activity, R.layout.custom_spinner_item, arraySpinner, index);
+                        adapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+                        spinner.setAdapter(adapter);
+                        spinner.invalidate();
+                    }
+                });
+            }
+        });
+        t.start();
+    }
+
+    private void populateSnapshot() {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                ArrayList<String> oldSnapshots = null;
+                if (currMachine != null) {
+                    oldSnapshots = MachineOpenHelper.getInstance(activity).getSnapshots(currMachine);
+                }
+
+                int length = 0;
+                if (oldSnapshots == null) {
+                    length = 0;
+                } else {
+                    length = oldSnapshots.size();
+                }
+
+                final ArrayList<String> arraySpinner = new ArrayList<String>();
+                arraySpinner.add("None");
+                if (oldSnapshots != null) {
+                    Iterator<String> i = oldSnapshots.iterator();
+                    while (i.hasNext()) {
+                        String file = (String) i.next();
+                        if (file != null) {
+                            arraySpinner.add(file);
+                        }
+                    }
+                }
+
+                final ArrayList<String> finalOldSnapshots = oldSnapshots;
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    public void run() {
+                        ArrayAdapter<String> snapshotAdapter = new ArrayAdapter<String>(activity, R.layout.custom_spinner_item, arraySpinner);
+                        snapshotAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
+                        mSnapshot.setAdapter(snapshotAdapter);
+                        mSnapshot.invalidate();
+
+                        if (finalOldSnapshots == null) {
+                            mSnapshot.setEnabled(false);
+                        } else {
+                            mSnapshot.setEnabled(true);
+                        }
+                    }
+                });
+
+
+            }
+        });
+        t.start();
+
+
+    }
+
+
+    public Intent getVNCIntent() {
+        return new Intent(LimboActivity.this, com.max2idea.android.limbo.main.LimboVNCActivity.class);
+
+    }
+
+    public enum FileType {
+        HDA, HDB, HDC,HDD, CD,FDA,FDB,SD,KERNEL, INITRD, SHARED_DIR, EXPORT_DIR, IMAGE_DIR, LOG_DIR, IMPORT_FILE
+    }
+
+    private void addDriveToList(String file, FileType type) {
+
+        if (file == null)
+            return;
+
+        int res = FavOpenHelper.getInstance(activity).getFavSeq(file, type.toString().toLowerCase());
+        if (res == -1) {
+            if (type == FileType.HDA) {
+                this.mHDA.getAdapter().getCount();
+            } else if (type == FileType.HDB) {
+                this.mHDB.getAdapter().getCount();
+            } else if (type == FileType.HDC) {
+                this.mHDC.getAdapter().getCount();
+            } else if (type == FileType.HDD) {
+                this.mHDD.getAdapter().getCount();
+            } else if (type == FileType.SHARED_DIR) {
+                this.mSharedFolder.getAdapter().getCount();
+            } else if (type == FileType.CD) {
+                this.mCD.getAdapter().getCount();
+            } else if (type == FileType.FDA) {
+                this.mFDA.getAdapter().getCount();
+            } else if (type == FileType.FDB) {
+                this.mFDB.getAdapter().getCount();
+            } else if (type == FileType.SD) {
+                this.mSD.getAdapter().getCount();
+            }
+            if (file != null && !file.equals("")) {
+                FavOpenHelper.getInstance(activity).insertFav(file, type.toString().toLowerCase());
+            }
+        }
+
+    }
+
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        this.invalidateOptionsMenu();
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.clear();
+        return this.setupMenu(menu);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.clear();
+        return this.setupMenu(menu);
+    }
+
+    public boolean setupMenu(Menu menu) {
+
+        menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
+        menu.add(0, INSTALL, 0, "Install Roms").setIcon(R.drawable.install);
+        menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.settings);
+        menu.add(0, DELETE, 0, "Delete Machine").setIcon(R.drawable.delete);
+        if (currMachine != null && currMachine.paused == 1)
+            menu.add(0, DISCARD_VM_STATE, 0, "Discard Saved State").setIcon(R.drawable.close);
+        menu.add(0, EXPORT, 0, "Export Machines").setIcon(R.drawable.exportvms);
+        menu.add(0, IMPORT, 0, "Import Machines").setIcon(R.drawable.importvms);
+        if(Config.enableASFExternalSD)
+            menu.add(0, ENABLE_FILEMANAGER, 0, "Enable Legacy File Manager").setIcon(R.drawable.drives);
+        else
+            menu.add(0, ENABLE_FILEMANAGER, 0, "Enable Android File Manager").setIcon(R.drawable.drives);
+
+        menu.add(0, VIEWLOG, 0, "View Log").setIcon(android.R.drawable.ic_menu_view);
+        menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
+        menu.add(0, CHANGELOG, 0, "Changelog").setIcon(android.R.drawable.ic_menu_help);
+        menu.add(0, LICENSE, 0, "License").setIcon(android.R.drawable.ic_menu_help);
+        menu.add(0, QUIT, 0, "Exit").setIcon(android.R.drawable.ic_lock_power_off);
+
+
+        int maxMenuItemsShown = 3;
+        int actionShow = MenuItemCompat.SHOW_AS_ACTION_IF_ROOM;
+        if(UIUtils.isLandscapeOrientation(this)) {
+            maxMenuItemsShown = 4;
+            actionShow = MenuItemCompat.SHOW_AS_ACTION_ALWAYS;
+        }
+
+        for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
+            MenuItemCompat.setShowAsAction(menu.getItem(i), actionShow);
+        }
+
+        return true;
+
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(final MenuItem item) {
+
+        super.onOptionsItemSelected(item);
+        if (item.getItemId() == this.INSTALL) {
+            this.install(true);
+        } else if (item.getItemId() == this.DELETE) {
+            this.promptDeleteMachine();
+        } else if (item.getItemId() == this.DISCARD_VM_STATE) {
+                promptDiscardVMState();
+        } else if (item.getItemId() == this.CREATE) {
+            this.promptMachineName(this);
+        } else if (item.getItemId() == this.EXPORT) {
+            this.onExportMachines();
+        } else if (item.getItemId() == this.IMPORT) {
+            this.onImportMachines();
+        } else if (item.getItemId() == this.ENABLE_FILEMANAGER) {
+            this.toggleFileManager();
+        } else if (item.getItemId() == this.HELP) {
+            UIUtils.onHelp(this);
+        } else if (item.getItemId() == this.VIEWLOG) {
+            this.onViewLog();
+        } else if (item.getItemId() == this.CHANGELOG) {
+            UIUtils.onChangeLog(activity);
+        } else if (item.getItemId() == this.LICENSE) {
+            this.onLicense();
+        } else if (item.getItemId() == this.QUIT) {
+            this.exit();
+        }
+        return true;
+    }
+
+    private void toggleFileManager() {
+        if(LimboSettingsManager.getEnableLegacyFileManager(this)) {
+            Config.enableASFExternalSD = true;
+            LimboSettingsManager.setEnableLegacyFileManager(this, false);
+        } else {
+            Config.enableASFExternalSD = false;
+            LimboSettingsManager.setEnableLegacyFileManager(this, true);
+        }
+    }
+
+    public void onViewLog() {
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                FileUtils.viewLimboLog(activity);
+            }
+        });
+        t.start();
+    }
+
+    private void goToURL(String url) {
+
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setData(Uri.parse(url));
+        activity.startActivity(i);
+
+    }
+
+    public void promptDeleteMachine() {
+        if(currMachine == null) {
+            UIUtils.toastShort(this, "No Machine selected");
+            return;
+        }
+        new AlertDialog.Builder(this).setTitle("Delete VM: " + currMachine.machinename)
+                .setMessage("Delete VM? Only machine definition and state will be deleted, disk images files will not be deleted")
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        onDeleteMachine();
+                    }
+                }).setNegativeButton("No", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+            }
+        }).show();
+    }
+
+
+    public void promptDiscardVMState() {
+        new AlertDialog.Builder(this).setTitle("Discard VM State")
+                .setMessage("The VM is Paused. If you discard the state you might lose data. Continue?")
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        currMachine.paused = 0;
+                        MachineOpenHelper.getInstance(activity).update(currMachine,
+                                MachineOpenHelper.PAUSED, 0 + "");
+                        changeStatus(VMStatus.Ready);
+                        enableNonRemovableDeviceOptions(true);
+                        enableRemovableDeviceOptions(true);
+
+                    }
+                }).setNegativeButton("No", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+            }
+        }).show();
+    }
+
+    public void stopVM(boolean exit) {
+        execTimer();
+        if (vmexecutor == null && !exit) {
+            if (this.currMachine != null && this.currMachine.paused == 1) {
+                promptDiscardVMState();
+                return;
             } else {
-				state = "READY";
-			}
-		} else {
-			state = "READY";
-		}
 
-		return state;
-	}
+                UIUtils.toastShort(LimboActivity.this, "VM not running");
+                return;
+            }
+        }
 
-    private static class Installer extends AsyncTask<Void, Void, Void> {
-		public boolean force;
+        Machine.stopVM(activity);
+    }
 
-		@Override
-		protected Void doInBackground(Void... arg0) {
-			onInstall(force);
-			if (progDialog.isShowing()) {
-				progDialog.dismiss();
-			}
-			return null;
-		}
+    public void saveSnapshotDB(String snapshot_name) {
+        currMachine.snapshot_name = snapshot_name;
+        MachineOpenHelper.getInstance(activity).deleteMachineDB(currMachine);
+        MachineOpenHelper.getInstance(activity).insertMachine(currMachine);
+        if (((ArrayAdapter<String>) mSnapshot.getAdapter()).getPosition(snapshot_name) < 0) {
+            ((ArrayAdapter<String>) mSnapshot.getAdapter()).add(snapshot_name);
+        }
+    }
 
-		@Override
-		protected void onPostExecute(Void test) {
+    public void stopTimeListener() {
 
-		}
-	}
+        synchronized (this.lockTime) {
+            this.timeQuit = true;
+            this.lockTime.notifyAll();
+        }
+    }
 
-	public class AutoScrollView extends ScrollView {
+    public void onPause() {
+        View currentView = getCurrentFocus();
+        if (currentView != null && currentView instanceof EditText) {
+            ((EditText) currentView).setFocusable(false);
+        }
+        super.onPause();
+        this.stopTimeListener();
+    }
 
-		public AutoScrollView(Context context, AttributeSet attrs) {
-			super(context, attrs);
-		}
+    public void onResume() {
 
-		public AutoScrollView(Context context) {
-			super(context);
-		}
-	}
+        super.onResume();
+        updateValues();
+        execTimer();
+    }
 
-	private class ExportMachines extends AsyncTask<Void, Void, Void> {
+    private void updateValues() {
 
-		@Override
-		protected Void doInBackground(Void... arg0) {
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                checkAndUpdateStatus(true);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateRemovableDiskValues();
+                        updateGlobalSettings();
+                        updateSummary(false);
+                    }
+                });
+            }
+        });
+        t.start();
+    }
 
-			// Export
-			String machinesToExport = MachineOpenHelper.getInstance(activity).exportMachines();
-			FileUtils.saveFileContents(Config.DBFile, machinesToExport);
+    private void updateGlobalSettings() {
+        final boolean enableFullscreen = LimboSettingsManager.getFullscreen(activity);
+        final boolean enablehighPriority = LimboSettingsManager.getPrio(activity);
+        final boolean enableDesktopMode = LimboSettingsManager.getDesktopMode(activity);
+        final boolean enableShowToolbar = LimboSettingsManager.getAlwaysShowMenuToolbar(activity);
 
-			return null;
-		}
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mFullScreen.setChecked(enableFullscreen);
+                mPrio.setChecked(enablehighPriority);
+                mDesktopMode.setChecked(enableDesktopMode);
+                if(enableDesktopMode) {
+                    Config.mouseMode = Config.MouseMode.External;
+                } else
+                    Config.mouseMode = Config.MouseMode.Trackpad;
+                mToolBar.setChecked(enableShowToolbar);
 
-		@Override
-		protected void onPostExecute(Void test) {
+            }
+        });
 
-			sendHandlerMessage(handler, Config.VM_EXPORT);
+    }
 
-		}
-	}
+    private void updateRemovableDiskValues() {
+        if(currMachine!=null) {
+            disableRemovableDiskListeners();
+            this.updateDrive(FileType.CD, currMachine.cd_iso_path);
+            this.updateDrive(FileType.FDA, currMachine.fda_img_path);
+            this.updateDrive(FileType.FDB, currMachine.fdb_img_path);
+            this.updateDrive(FileType.SD, currMachine.sd_img_path);
+            enableRemovableDiskListeners();
+        }
+    }
 
-	private class ImportMachines extends AsyncTask<Void, Void, Void> {
+    public void timer() {
+        //XXX: No timers just ping a few times
+        for (int i = 0; i < 3; i++) {
+            checkAndUpdateStatus(false);
 
-		@Override
-		protected Void doInBackground(Void... arg0) {
-			// Import
-			ArrayList<Machine> machines = FileUtils.getVMs(Config.DBFile);
-			if (machines == null) {
-				return null;
-			}
-			for (int i = 0; i < machines.size(); i++) {
-				Machine machine = machines.get(i);
-				if (MachineOpenHelper.getInstance(activity).getMachine(machine.machinename, "") != null) {
-					MachineOpenHelper.getInstance(activity).deleteMachine(machine);
-				}
-				MachineOpenHelper.getInstance(activity).insertMachine(machine);
-				addDriveToList(machine.cd_iso_path, "cd");
-				addDriveToList(machine.hda_img_path, "hda");
-				addDriveToList(machine.hdb_img_path, "hdb");
-				addDriveToList(machine.fda_img_path, "fda");
-				addDriveToList(machine.fdb_img_path, "fdb");
-				addDriveToList(machine.sd_img_path, "sd");
-				addDriveToList(machine.kernel, "kernel");
-				addDriveToList(machine.initrd, "initrd");
-			}
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+        }
 
-			return null;
-		}
+    }
 
-		@Override
-		protected void onPostExecute(Void test) {
+    private void checkAndUpdateStatus(boolean force) {
+        if (vmexecutor != null) {
+            VMStatus status = checkStatus();
+            if (force || status != currStatus) {
+                currStatus = status;
+                changeStatus(status);
+            }
+        }
+    }
 
-			sendHandlerMessage(handler, Config.VM_IMPORT);
+    void execTimer() {
 
-		}
-	}
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                startTimer();
+            }
+        });
+        t.start();
+    }
 
+    public void startTimer() {
+        this.stopTimeListener();
+
+        timeQuit = false;
+        try {
+            timer();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+        }
+
+    }
+
+
+    public enum VMStatus {
+        Ready, Stopped, Saving, Paused, Completed, Failed, Unknown, Running
+    }
+
+    private VMStatus checkStatus() {
+        VMStatus state = VMStatus.Ready;
+        if (vmexecutor != null && libLoaded && vmexecutor.get_state().toUpperCase().equals("RUNNING")) {
+            state = VMStatus.Running;
+        }
+        return state;
+    }
+
+    private class InstallerTask extends AsyncTask<Void, Void, Void> {
+        public boolean force;
+
+        @Override
+        protected Void doInBackground(Void... arg0) {
+            onInstall(force);
+            if (progDialog.isShowing()) {
+                progDialog.dismiss();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void test) {
+
+        }
+    }
+
+    private class ExportMachines extends AsyncTask<Void, Void, Void> {
+
+        public String exportFilePath;
+        private String displayName;
+
+        @Override
+        protected Void doInBackground(Void... arg0) {
+
+            // Export
+            displayName = exportMachinesToFile(exportFilePath);
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void test) {
+            if (progDialog.isShowing()) {
+                progDialog.dismiss();
+            }
+            if(displayName != null)
+            UIUtils.toastLong(LimboActivity.this, "Machines are exported in " + displayName);
+
+        }
+    }
+
+    private class ImportMachines extends AsyncTask<Void, Void, Void> {
+
+        private String importFilePath;
+        private ArrayList<Machine> machines;
+        private String displayImportFilePath;
+
+        @Override
+        protected Void doInBackground(Void... arg0) {
+            // Import
+            displayImportFilePath = FileUtils.getFullPathFromDocumentFilePath(importFilePath);
+            machines = FileUtils.getVMsFromFile(activity, importFilePath);
+            if (machines == null) {
+                return null;
+            }
+
+            for (int i = 0; i < machines.size(); i++) {
+                Machine machine = machines.get(i);
+                if (MachineOpenHelper.getInstance(activity).getMachine(machine.machinename, "") != null) {
+                    MachineOpenHelper.getInstance(activity).deleteMachineDB(machine);
+                }
+                MachineOpenHelper.getInstance(activity).insertMachine(machine);
+                addDriveToList(machine.cd_iso_path, FileType.CD);
+                addDriveToList(machine.hda_img_path,FileType.HDA );
+                addDriveToList(machine.hdb_img_path, FileType.HDB);
+                addDriveToList(machine.hdc_img_path, FileType.HDC);
+                addDriveToList(machine.hdd_img_path, FileType.HDD);
+                addDriveToList(machine.shared_folder, FileType.SHARED_DIR);
+                addDriveToList(machine.fda_img_path, FileType.FDA);
+                addDriveToList(machine.fdb_img_path, FileType.FDB);
+                addDriveToList(machine.sd_img_path, FileType.SD);
+                addDriveToList(machine.kernel, FileType.KERNEL);
+                addDriveToList(machine.initrd, FileType.INITRD);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void test) {
+            if (progDialog.isShowing()) {
+                progDialog.dismiss();
+            }
+            if(machines!=null) {
+                UIUtils.toastLong(LimboActivity.this, "Machines are imported from " + displayImportFilePath);
+                populateAttributes();
+                enableListeners();
+                enableRemovableDiskListeners();
+            }
+
+        }
+    }
+
+    private class DiskInfo {
+        public CheckBox enableCheckBox;
+        public Spinner spinner;
+        public String colName;
+        ;
+
+        public DiskInfo(Spinner spinner, CheckBox enableCheckbox, String dbColName) {
+            this.spinner = spinner;
+            this.enableCheckBox = enableCheckbox;
+            this.colName = dbColName;
+        }
+    }
 }

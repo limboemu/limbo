@@ -21,6 +21,7 @@ package com.max2idea.android.limbo.main;
 import android.androidVNC.COLORMODEL;
 import android.androidVNC.VncCanvasActivity;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Environment;
 import android.widget.ImageView.ScaleType;
 
@@ -33,8 +34,6 @@ import java.util.Hashtable;
 public class Config {
 
 	// Constants
-	public static final int MIN_AIO_THREADS = 1;
-	public static final int MAX_AIO_THREADS = 64;
 	public static final int UI_VNC = 0;
 	public static final int UI_SDL = 1;
 	public static final int UI_SPICE = 2;
@@ -44,85 +43,108 @@ public class Config {
 	public static final int SETTINGS_RETURN_CODE = 1000;
 	public static final int SETTINGS_REQUEST_CODE = 1001;
 	public static final int FILEMAN_RETURN_CODE = 1002;
-	public static final int FILEMAN_REQUEST_CODE = 1003;
+
 	public static final int VNC_REQUEST_CODE = 1004;
 	public static final int VNC_RESULT_CODE = 1005;
 	public static final int VNC_RESET_RESULT_CODE = 1006;
 	public static final int SDL_REQUEST_CODE = 1007;
 	public static final int SDL_RESULT_CODE = 1008;
 	public static final int SDL_QUIT_RESULT_CODE = 1009;
-	public static final int REQUEST_SDCARD_CODE = 1010;
-	public static final int REQUEST_SDCARD_DIR_CODE = 1011;
-	public static final int STATUS_NULL = -1;
+
+    public static final int OPEN_IMAGE_FILE_REQUEST_CODE = 2001;
+	public static final int OPEN_IMAGE_FILE_ASF_REQUEST_CODE = 2002;
+
+	public static final int OPEN_IMAGE_DIR_REQUEST_CODE = 2003;
+    public static final int OPEN_IMAGE_DIR_ASF_REQUEST_CODE = 2004;
+
+    public static final int OPEN_SHARED_DIR_REQUEST_CODE = 2005;
+    public static final int OPEN_SHARED_DIR_ASF_REQUEST_CODE = 2006;
+
+    public static final int OPEN_EXPORT_DIR_REQUEST_CODE = 2007;
+    public static final int OPEN_EXPORT_DIR_ASF_REQUEST_CODE = 2008;
+
+    public static final int OPEN_IMPORT_FILE_REQUEST_CODE = 2009;
+    public static final int OPEN_IMPORT_FILE_ASF_REQUEST_CODE = 2010;
+
+    public static final int OPEN_LOG_FILE_DIR_REQUEST_CODE = 2011;
+    public static final int OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE = 2012;
+
+    public static final int STATUS_NULL = -1;
 	public static final int STATUS_CREATED = 1000;
 	public static final int STATUS_PAUSED = 1001;
-	public static final int VM_CREATED = 1002;
-	public static final int VM_STARTED = 1003;
-	public static final int VM_STOPPED = 1004;
-	public static final int VM_NOTRUNNING = 1005;
-	public static final int VM_RESTARTED = 1006;
-	public static final int VM_PAUSED = 1007;
-	public static final int VM_RESUMED = 1008;
-	public static final int VM_SAVED = 1009;
-	public static final int IMG_CREATED = 1010;
-	public static final int VNC_PASSWORD = 1011;
-	public static final int SNAPSHOT_CREATED = 1012;
-	public static final int UIUTILS_SHOWALERT_HTML = 1013;
-	public static final int VM_NO_QCOW2 = 1014;
-	public static final int STATUS_CHANGED = 1015;
-	public static final int UIUTILS_SHOWALERT_LICENSE = 1016;
-	public static final int VM_NO_KERNEL = 1017;
-	public static final int VM_NO_INITRD = 1018;
-	public static final int VM_EXPORT = 1019;
-	public static final int VM_IMPORT = 1020;
-	public static final int UI_RESET = 1021;
-	public static final int VM_ARM_NOMACHINE = 1022;
 	public static final String ACTION_START = "com.max2idea.android.limbo.action.STARTVM";
-	public static final String SEND_VNC_DATA = "com.max2idea.android.limbo.action.SEND_VNC_DATA";
 
 	// GUI Options
 	public static final boolean enable_SDL = true;
 	public static final boolean enable_SDL_sound = true;
 	public static final boolean enable_SPICE = false;
 
-
-    //Backend libs
-    public static final boolean enable_iconv= false; //not needed for now
+    public static final int MAX_CPU_NUM = 8;
 
     //Do not update these directly, see inherited project java files
-	public static boolean enable_X86 = false; //Enable if you build QEMU with x86 softmmu
-	public static boolean enable_X86_64 = false; //Enable if you build QEMU with x86_64 softmmu
-	public static boolean enable_ARM = false; //Enable if you build QEMU with Arm softmmu
-    public static boolean enable_ARM64 = false; //Enable if you build QEMU with Arm64 softmmu
-	public static boolean enable_MIPS = false; //Enable if you build QEMU with Mips softmmu
-	public static boolean enable_PPC = false; //Enable if you build QEMU with PPC softmmu
-    public static boolean enable_PPC64 = false; //Enable if you build QEMU with PPC64 softmmu
-	public static boolean enable_m68k = false;
-	public static boolean enable_sparc = false;
-	
-	//Enable if you build with KVM support, needes android-21 platform
+	public static boolean enable_X86; //Enable if you build QEMU with x86 softmmu
+	public static boolean enable_X86_64; //Enable if you build QEMU with x86_64 softmmu
+	public static boolean enable_ARM; //Enable if you build QEMU with Arm softmmu
+    public static boolean enable_ARM64; //Enable if you build QEMU with Arm64 softmmu
+	public static boolean enable_MIPS; //Enable if you build QEMU with Mips softmmu
+	public static boolean enable_PPC; //Enable if you build QEMU with PPC softmmu
+    public static boolean enable_PPC64; //Enable if you build QEMU with PPC64 softmmu
+	public static boolean enable_m68k ;
+	public static boolean enable_sparc ;
+    public static boolean enable_sparc64;
+
+    //Enable if you build with KVM support, needes android-21 platform
 	public static boolean enable_KVM = false;
 	
 	public static final boolean enable_qemu_fullScreen = true;
-	public static boolean enable_trackpad_relative_position = true; //We should also support "-usbdevice tablet" that needs absolute positions
-	public static boolean enableSDLAlwaysFullscreen = true;
 
 	// App config
-	public static final String APP_NAME = "Limbo PC Emulator (QEMU)";
-	public static final String storagedir = Environment.getExternalStorageDirectory().toString();
-    public static boolean enableSMPOnlyOnKVM = true; //Some OSes don't like emulated multi cores
+	public static final String APP_NAME = "Limbo Emulator";
+	public static String storagedir = null;
+
+    //Some OSes don't like emulated multi cores for QEMU 2.9.1 you can disable here
+    /// thought there is also the Disable TSC feature so you don't have to do it here
+	public static boolean enableSMPOnlyOnKVM = false;
+
+    //set to false if you need to debug native library loading
+    public static boolean loadNativeLibsEarly = false;
+
+    //XXX: QEMU 3.1.0 needs the libraries to be loaded from the main thread
+    public static boolean loadNativeLibsMainThread = true;
+
+	public static String wakeLockTag = "limbo:wakelock";
+    public static String wifiLockTag = "limbo:wifilock";
+
+    //this will be populated later
+    public static String cacheDir = null;
+
+    //we disable mouse modes for now
+    public static boolean disableMouseModes = true;
+
+    //double tap an hold is still buggy so we keep using the old-way trackpad
+    public static boolean enableDragOnLongPress = true;
+
+    //we need to define the configuration for the VNC client since we replaced some deprecated
+    //  functions
+    public static Bitmap.Config bitmapConfig = Bitmap.Config.RGB_565;
+
+    //XXX set scaling to linear it's a tad slower but it's worth it
+    public static int SDLHintScale=1;
+    public static boolean viewLogInternally = true;
+
+
+    //XXX some archs don't support floppy or sd card
+    public static boolean enableEmulatedFloppy = true;
+    public static boolean enableEmulatedSDCard;
+    public static String destLogFilename = "limbolog.txt";
 
     public static final String getCacheDir(Context context){
-		return context.getCacheDir().toString();
+		return cacheDir.toString();
 	}
     public static final String getBasefileDir(Context context) {
     	return getCacheDir(context) + "/limbo/";
 	}
-	public static final String DBFile = storagedir + "/limbo/machines.csv";
 
-	public static String getSharedFolder (Context context) {
-		return storagedir + "/limbo/shared";
-	}
 	public static String getTmpFolder(Context context) {
 		return getBasefileDir(context) + "var/tmp"; // Do not modify
 	}
@@ -130,14 +152,21 @@ public class Config {
 	public static String getMachineDir(Context context){
 		return getBasefileDir(context) + machineFolder;
 	}
-	public static String logFilePath = storagedir + "/limbo/limbolog.txt";
+	public static String logFilePath = null;
 
 
-	public static boolean enableExternalSD = true; // set to true for Lollipop+ devices
-	public static boolean enableOpenSL; //future enhancement
+    // set to true for Lollipop+ devices, some devices don't have ASF correctly implemented
+    ///  in that case they will fall back to the legacy file manager
+	public static boolean enableASFExternalSD = false;
+
+    //TODO: future enhancement
+	public static boolean enableOpenSL;
 	
 
+	//hd cache is not quite applicable for Android
 	public static final boolean enableHDCache = false;
+
+
 	public static final String defaultDNSServer = "8.8.8.8";
 	public static final String defaultUI = "VNC";
 	public static String state_filename = "vm.state";
@@ -145,20 +174,28 @@ public class Config {
 	//QMP
 	public static String QMPServer = "localhost"; 
 	public static int QMPPort = 4444;
+
 	//Enable only for debugging purposes, make sure you're on a private network
 	public static boolean enable_QMP_External = false;
 
     public static int MAX_DISPLAY_REFRESH_RATE = 100; //Hz
 	
 	// App Config
-	public static final String downloadLink = "http://limboemulator.weebly.com/downloads";
+	public static final String downloadLink = "https://limboemulator.weebly.com/downloads";
+    public static final String guidesLink = "https://limboemulator.weebly.com/guides";
+    public static final String kvmLink = "https://limboemulator.weebly.com/kvm";
+    public static final String faqLink = "https://limboemulator.weebly.com/faq";
 	public static final String downloadUpdateLink = "https://raw.githubusercontent.com/limboemu/limbo/master/VERSION";
 
 	// VNC Defaults
-	public static final String defaultVNCHost = "localhost";
+	public static String defaultVNCHost = "localhost";
 	public static final String defaultVNCUsername = "limbo";
 	public static final String defaultVNCPasswd = "";
-	public static final int defaultVNCPort = 5901;
+
+	//It seems that for new veersion of qemu it expectes a relative number
+    //  so we stop using absolute port numbers
+	public static final int defaultVNCPort = 1;
+
 	public static final String defaultVNCColorMode = COLORMODEL.C24bit.nameString();
 	public static final ScaleType defaultFullscreenScaleMode = ScaleType.FIT_CENTER;
 	public static final ScaleType defaultScaleModeCenter = ScaleType.CENTER;
@@ -166,15 +203,19 @@ public class Config {
 	
 	//Keyboard Layout
 	public static String defaultKeyboardLayout = "en-us";
-	public static boolean collapseSections = false;
-	public static boolean enableFlashMemoryImages = false;
+
+
+	//a little nicer ui
+	public static boolean collapseSections = true;
+
+	public static boolean enableFlashMemoryImages = true;
 	public static boolean enableToggleKeyboard = false;
 
+	//override this at the app level it dependes on the host arch
+	public static boolean enableMTTCG;
 
-	public static boolean enableMTTCG = false;
+
 	public static String isosImagesURL = "http://limboemulator.weebly.com/guides";
-	
-	
 
 	public static final boolean enableKeyboardLayoutOption = true;
     public static final boolean enableMouseOption = true;
@@ -187,25 +228,20 @@ public class Config {
 
 	// Debug
 	public static final boolean debug = false;
+    public static boolean debugQmp = false;
 
-    // VNC
-	public static final String VNC_BYTE = "VNC_BYTE";
-	public static final String VNC_DATA_TYPE = "VNC_DATA_TYPE";
-	public static final String VNC_BYTES = "VNC_BYTES";
-	public static final String VNC_OFFSET = "VNC_OFFSET";
-	public static final String VNC_COUNT = "VNC_COUNT";
-	public static final int VNC_SEND_BYTE = 1;
-	public static final int VNC_SEND_BYTES = 2;
-	public static final int VNC_SEND_BYTES_OFFSET = 3;
-	
-	public static Hashtable<String, String> osImages = new Hashtable<String, String>();
+    //remove in production
+    public static boolean debugStrictMode = false;
+
+    public static Hashtable<String, String> osImages = new Hashtable<String, String>();
     public static boolean processMouseHistoricalEvents = false;
     public static enum MouseMode {
         Trackpad, External
     }
     public static MouseMode mouseMode = MouseMode.Trackpad;
 
-    public static boolean enable_hd_if = false; //specify hd interface
+    //specify hd interface, alternative we don't need it right now
+    public static boolean enable_hd_if = false;
 	public static String hd_if_type = "ide";
 
     //Change to true in prod if you want to be notified by default for new versions
