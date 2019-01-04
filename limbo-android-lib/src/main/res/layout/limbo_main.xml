@@ -1465,7 +1465,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center_vertical"
                                 android:paddingRight="5dp"
-                                android:src="@drawable/floppy" />
+                                android:src="@drawable/sysfile" />
 
                             <TextView
                                 android:id="@+id/kernelStr"
@@ -1498,7 +1498,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center_vertical"
                                 android:paddingRight="5dp"
-                                android:src="@drawable/floppy" />
+                                android:src="@drawable/sysfile" />
 
                             <TextView
                                 android:id="@+id/initrdStr"
@@ -1860,7 +1860,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center_vertical"
                                 android:paddingRight="5dp"
-                                android:src="@drawable/dns" />
+                                android:src="@drawable/dnsserver" />
 
                             <TextView
                                 android:id="@+id/dnsStr"
@@ -1933,7 +1933,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/terminal" />
+                            android:src="@drawable/advanced" />
 
 
                         <TextView

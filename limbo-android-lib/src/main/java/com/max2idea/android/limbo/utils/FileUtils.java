@@ -673,13 +673,13 @@ public class FileUtils {
                 || ext.equals("vhd") || ext.equals("fs"))
             return R.drawable.harddisk;
         else if(ext.equals("iso"))
-            return R.drawable.cdrom;
+            return R.drawable.cd;
         else if(ext.equals("ima"))
             return R.drawable.floppy;
         else if(ext.equals("csv"))
             return R.drawable.importvms;
         else if(file.contains("kernel")  || file.contains("vmlinuz") || file.contains("initrd"))
-            return R.drawable.drives;
+            return R.drawable.sysfile;
         else
             return R.drawable.close;
 
