@@ -2172,7 +2172,7 @@ public class LimboActivity extends AppCompatActivity {
         Thread t = new Thread(new Runnable() {
             public void run() {
 
-                if (isFirstLaunch()) {
+                if (LimboSettingsManager.isFirstLaunch(activity)) {
                     onFirstLaunch();
                 }
 
