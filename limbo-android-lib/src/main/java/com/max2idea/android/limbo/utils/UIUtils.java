@@ -116,13 +116,10 @@ public class UIUtils {
                 bos.write(buff, 0, read);
             }
             byte[] streamData = bos.toByteArray();
-            String contents = new String(streamData).trim();
-            final String [] versionStr = contents.split(":");
-            final String versionNumStr = versionStr[0];
-            double version = Double.parseDouble(versionNumStr);
-            String versionName = version +"";
-            if(versionStr.length>1 && versionStr[1] != null && !versionStr[1].equals(""))
-                versionName = versionStr[1];
+
+            final String versionStr = new String(streamData).trim();
+            float version = Float.parseFloat(versionStr);
+            String versionName = getVersionName(versionStr);
 
             PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
                     PackageManager.GET_META_DATA);
@@ -158,6 +155,18 @@ public class UIUtils {
                 }
             }
         }
+    }
+
+    private static String getVersionName(String versionStr) {
+        String [] versionSegments = versionStr.split("\\.");
+        int maj = Integer.parseInt(versionSegments[0]) / 100;
+        int min = Integer.parseInt(versionSegments[0]) % 100;
+        int mic = 0;
+        if(versionSegments.length > 1){
+            mic = Integer.parseInt(versionSegments[1]);
+        }
+        String versionName = maj +"." + min + "." + mic;
+        return versionName;
     }
 
 
