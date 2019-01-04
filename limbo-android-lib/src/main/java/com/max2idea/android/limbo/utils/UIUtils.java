@@ -62,9 +62,10 @@ public class UIUtils {
             ForegroundColorSpan colorSpan = null;
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-                if (line.startsWith("E/")) {
+                //FIXME: some devices don't have standard format for the log
+                if (line.startsWith("E/") || line.contains(" E ")) {
                     colorSpan = new ForegroundColorSpan(Color.rgb(255, 22, 22));
-                } else if (line.startsWith("W/")) {
+                } else if (line.startsWith("W/") || line.contains(" W ")) {
                     colorSpan = new ForegroundColorSpan(Color.rgb(22, 44, 255));
                 } else {
                     colorSpan = null;
