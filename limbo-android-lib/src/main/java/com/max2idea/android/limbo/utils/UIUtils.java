@@ -470,6 +470,7 @@ public class UIUtils {
         ScrollView view = new ScrollView(activity);
         view.addView(textView);
         alertDialog.setView(view);
+        alertDialog.setCanceledOnTouchOutside(false);
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 return;
