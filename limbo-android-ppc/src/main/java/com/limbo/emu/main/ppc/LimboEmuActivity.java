@@ -5,6 +5,7 @@ import android.os.Bundle;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.utils.Machine;
 
 public class LimboEmuActivity extends LimboActivity {
 
@@ -14,8 +15,9 @@ public class LimboEmuActivity extends LimboActivity {
 
         Config.enable_KVM = false;
 
-        //XXX: ppc 64bit for QEMU 3.1.0 and above is mttcg capable
-        Config.enableMTTCG = true;
+        //XXX; only for 64bit hosts, also make sure you have qemu 3.1.0 ppc64-softmmu and above compiled
+//        if(Machine.isHost64Bit())
+//            Config.enableMTTCG = true;
 
         Config.hd_if_type = "scsi";
         Config.machineFolder = Config.machineFolder + "other/ppc_machines/";
