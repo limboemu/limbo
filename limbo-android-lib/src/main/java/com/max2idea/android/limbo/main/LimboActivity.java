@@ -27,7 +27,6 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -42,7 +41,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager.WakeLock;
 import android.os.StrictMode;
-import android.preference.PreferenceManager;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.support.v7.app.ActionBar;
@@ -2094,7 +2092,6 @@ public class LimboActivity extends AppCompatActivity {
                     enableRemovableDeviceOptions(false);
                     mVNCAllowExternal.setEnabled(false);
                     currMachine = null;
-
                 } else if (position == 1) {
                     mMachine.setSelection(0);
                     promptMachineName(activity);
@@ -3778,10 +3775,12 @@ public class LimboActivity extends AppCompatActivity {
         LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 
-        String[] arraySpinner = new String[3];
-        arraySpinner[0] = "5 GB (Growable)";
-        arraySpinner[1] = "10 GB (Growable)";
-        arraySpinner[2] = "20 GB (Growable)";
+        String[] arraySpinner = new String[5];
+        arraySpinner[0] = "1GB (Growable)";
+        arraySpinner[1] = "2GB (Growable)";
+        arraySpinner[2] = "4GB (Growable)";
+        arraySpinner[3] = "10 GB (Growable)";
+        arraySpinner[4] = "20 GB (Growable)";
 
         ArrayAdapter<?> sizeAdapter = new ArrayAdapter<Object>(this, R.layout.custom_spinner_item, arraySpinner);
         sizeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
@@ -3808,10 +3807,14 @@ public class LimboActivity extends AppCompatActivity {
                 int sizeSel = size.getSelectedItemPosition();
                 String templateImage = "hd1g.qcow2";
                 if (sizeSel == 0) {
-                    templateImage = "hd5g.qcow2";
+                    templateImage = "hd1g.qcow2";
                 } else if (sizeSel == 1) {
-                    templateImage = "hd10g.qcow2";
+                    templateImage = "hd2g.qcow2";
                 } else if (sizeSel == 2) {
+                    templateImage = "hd4g.qcow2";
+                } else if (sizeSel == 3) {
+                    templateImage = "hd10g.qcow2";
+                }else if (sizeSel == 4) {
                     templateImage = "hd20g.qcow2";
                 }
 
@@ -3822,7 +3825,7 @@ public class LimboActivity extends AppCompatActivity {
                     if (!image.endsWith(".qcow2")) {
                         image += ".qcow2";
                     }
-                    boolean res = createImg(templateImage, image, fileType);
+                    boolean res = createImgFromTemplate(templateImage, image, fileType);
                     if (res) {
                         alertDialog.dismiss();
                     }
@@ -3922,7 +3925,7 @@ public class LimboActivity extends AppCompatActivity {
     }
 
 
-    protected boolean createImg(String templateImage, String destImage, FileType imgType) {
+    protected boolean createImgFromTemplate(String templateImage, String destImage, FileType imgType) {
 
         String imagesDir = LimboSettingsManager.getImagesDir(this);
         String displayName = null;
