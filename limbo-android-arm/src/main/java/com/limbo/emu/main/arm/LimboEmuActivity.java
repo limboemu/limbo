@@ -17,7 +17,7 @@ public class LimboEmuActivity extends LimboActivity {
 		Config.enableEmulatedFloppy = false;
 		Config.enableEmulatedSDCard = true;
 
-        //XXX; only for 64bit hosts, also make sure you have qemu 3.1.0 and above compiled
+        //XXX; only for 64bit hosts, also make sure you have qemu 2.9.1 arm-softmmu and above compiled
         if(Machine.isHost64Bit())
             Config.enableMTTCG = true;
 
