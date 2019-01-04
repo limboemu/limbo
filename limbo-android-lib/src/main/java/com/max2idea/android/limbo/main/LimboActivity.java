@@ -818,8 +818,12 @@ public class LimboActivity extends AppCompatActivity {
                         if(currMachine.machine_type==null)
                             currMachine.machine_type = "pc";
                         populateMachineType(currMachine.machine_type);
-                        if(currMachine.cpu==null)
-                            currMachine.cpu = "x86";
+                        if(currMachine.cpu==null) {
+                            if(currMachine.arch.equals("x86"))
+                                currMachine.cpu = "n270";
+                            else
+                                currMachine.cpu = "phenom";
+                        }
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
                             currMachine.nic_card = "ne2k_pci";
@@ -2396,6 +2400,7 @@ public class LimboActivity extends AppCompatActivity {
         // default settings for each architecture, this helps user with the most common setup
         if (Config.enable_X86 || Config.enable_X86_64) {
             currMachine.arch = "x86";
+            currMachine.cpu = "n270";
             currMachine.machine_type = "pc";
             currMachine.nic_card = "ne2k_pci";
             currMachine.disabletsc = 1;
@@ -3062,7 +3067,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mCPUSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3075,7 +3080,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mStorageSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3088,7 +3093,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mUserInterfaceSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3102,7 +3107,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mRemovableStorageSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3115,7 +3120,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mGraphicsSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3128,7 +3133,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mAudioSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3141,7 +3146,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mNetworkSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3154,7 +3159,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mBootSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
 
@@ -3167,7 +3172,7 @@ public class LimboActivity extends AppCompatActivity {
                     disableListeners();
                     disableRemovableDiskListeners();
                     toggleVisibility(mAdvancedSectionDetails);
-                    enableListenersDelayed(1000);
+                    enableListenersDelayed(500);
                 }
             });
         }
@@ -3746,7 +3751,7 @@ public class LimboActivity extends AppCompatActivity {
             @Override
             public void onDismiss(DialogInterface dialog) {
                 InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.toggleSoftInput(InputMethodManager.HIDE_IMPLICIT_ONLY, 0);
+                imm.hideSoftInputFromWindow(vmNameTextView.getWindowToken(), 0);
             }
         });
     }
@@ -6003,9 +6008,11 @@ public class LimboActivity extends AppCompatActivity {
         if(LimboSettingsManager.getEnableLegacyFileManager(this)) {
             Config.enableASFExternalSD = true;
             LimboSettingsManager.setEnableLegacyFileManager(this, false);
+            UIUtils.toastShort(this, "Android File Manager enabled");
         } else {
             Config.enableASFExternalSD = false;
             LimboSettingsManager.setEnableLegacyFileManager(this, true);
+            UIUtils.toastShort(this, "Legacy File Manager enabled");
         }
     }
 
