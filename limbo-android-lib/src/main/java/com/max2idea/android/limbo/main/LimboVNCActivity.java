@@ -436,6 +436,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
             MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
             Config.mouseMode = Config.MouseMode.Trackpad;
+            LimboSettingsManager.setDesktopMode(this, false);
             onFitToScreen();
             onMouse();
 
@@ -498,6 +499,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	    try {
             MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
             Config.mouseMode = Config.MouseMode.External;
+            LimboSettingsManager.setDesktopMode(this, true);
             UIUtils.toastShort(LimboVNCActivity.this, "External Mouse Enabled");
             onNormalScreen();
             AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);

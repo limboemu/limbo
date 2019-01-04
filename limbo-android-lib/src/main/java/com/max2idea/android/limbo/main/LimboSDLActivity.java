@@ -520,6 +520,7 @@ public class LimboSDLActivity extends SDLActivity {
 		//TODO: needed?
         //LimboSDLActivity.singleClick(a, 0);
         Config.mouseMode = Config.MouseMode.Trackpad;
+        LimboSettingsManager.setDesktopMode(this, false);
 		LimboActivity.vmexecutor.setRelativeMouseMode(1);
         UIUtils.toastShort(this.getApplicationContext(), "Trackpad Enabled");
         onFitToScreen();
@@ -593,6 +594,7 @@ public class LimboSDLActivity extends SDLActivity {
             //SDLActivity.onNativeMouseReset(0, 0, MotionEvent.ACTION_MOVE, vm_width, vm_height, 0);
 
             Config.mouseMode = Config.MouseMode.External;
+            LimboSettingsManager.setDesktopMode(this, true);
             LimboActivity.vmexecutor.setRelativeMouseMode(0);
             UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
             onNormalScreen();
