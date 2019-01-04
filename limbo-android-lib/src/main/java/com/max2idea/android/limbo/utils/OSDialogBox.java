@@ -2,6 +2,7 @@ package com.max2idea.android.limbo.utils;
 
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Iterator;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
@@ -98,9 +99,9 @@ public class OSDialogBox extends Dialog {
     private void populateSpinner() {
         ArrayList<String> arraySpinner = new ArrayList<>();
         arraySpinner.add("Other");
-        Enumeration<String> iter = Config.osImages.keys();
-        while (iter.hasMoreElements()) {
-            arraySpinner.add(iter.nextElement());
+        Iterator<String> iter = Config.osImages.keySet().iterator();
+        while (iter.hasNext()) {
+            arraySpinner.add(iter.next());
         }
 
         ArrayAdapter<String> osAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, arraySpinner);

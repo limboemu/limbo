@@ -773,10 +773,10 @@ public class LimboActivity extends AppCompatActivity {
 
                     if (!machineLoaded) {
                         if(currMachine.machine_type==null)
-                            currMachine.machine_type = "integratorcp";
+                            currMachine.machine_type = "versatilepb";
                         populateMachineType(currMachine.machine_type);
                         if(currMachine.cpu==null)
-                            currMachine.cpu = "arm926";
+                            currMachine.cpu = "Default";
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
                             currMachine.nic_card = "smc91c111";
@@ -2403,8 +2403,8 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.disabletsc = 1;
         } else if (Config.enable_ARM || Config.enable_ARM64) {
             currMachine.arch = "ARM";
-            currMachine.machine_type = "integratorcp";
-            currMachine.cpu = "arm926";
+            currMachine.machine_type = "versatilepb";
+            currMachine.cpu = "Default";
             currMachine.nic_card = "smc91c111";
         } else if (Config.enable_MIPS) {
             currMachine.arch = "MIPS";
@@ -3255,10 +3255,23 @@ public class LimboActivity extends AppCompatActivity {
             text = appendDriveFilename(currMachine.sd_img_path, text, "SD", true);
 
 
-            if (text == null || text.equals("'"))
+            if (text == null || text.equals(""))
                 text = "None";
 
             mRemovableStorageSectionSummary.setText(text);
+        }
+    }
+
+    public void updateBootSummary(boolean clear) {
+        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
+            mBootSectionSummary.setText("");
+        else {
+            String text = "Boot from: " + currMachine.bootdevice;
+            text = appendDriveFilename(currMachine.kernel, text, "kernel", false);
+            text = appendDriveFilename(currMachine.initrd, text, "initrd", false);
+            text = appendDriveFilename(currMachine.append, text, "append", false);
+
+            mBootSectionSummary.setText(text);
         }
     }
 
@@ -3312,18 +3325,6 @@ public class LimboActivity extends AppCompatActivity {
         }
     }
 
-    public void updateBootSummary(boolean clear) {
-        if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)
-            mBootSectionSummary.setText("");
-        else {
-            String text = "Boot from: " + currMachine.bootdevice
-                    + ((mKernel.getSelectedItemPosition() > 0) ? (", kernel:" + currMachine.kernel) : "")
-                    + ((mInitrd.getSelectedItemPosition() > 0) ? (", initrd:" + currMachine.initrd) : "")
-                    + (!mAppend.getText().toString().equals("") ? (", append command: " + mAppend.getText()) : "");
-
-            mBootSectionSummary.setText(text);
-        }
-    }
 
     public void updateAdvancedSummary(boolean clear) {
         if (clear || currMachine == null || mMachine.getSelectedItemPosition() < 2)

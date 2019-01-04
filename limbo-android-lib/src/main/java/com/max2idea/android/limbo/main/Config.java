@@ -26,6 +26,7 @@ import android.os.Environment;
 import android.widget.ImageView.ScaleType;
 
 import java.util.Hashtable;
+import java.util.LinkedHashMap;
 
 /**
  *
@@ -233,7 +234,7 @@ public class Config {
     //remove in production
     public static boolean debugStrictMode = false;
 
-    public static Hashtable<String, String> osImages = new Hashtable<String, String>();
+    public static LinkedHashMap<String, String> osImages = new LinkedHashMap<String, String>();
     public static boolean processMouseHistoricalEvents = false;
     public static enum MouseMode {
         Trackpad, External
