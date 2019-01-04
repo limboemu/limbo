@@ -41,6 +41,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -298,7 +300,13 @@ public class FileManager extends ListActivity {
         }
         currentDir.setText(currdir.getPath());
 
-        checkPermissionsAndBrowse();
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+
+                checkPermissionsAndBrowse();
+            }
+        },500);
 
     }
 
@@ -307,7 +315,6 @@ public class FileManager extends ListActivity {
                 != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-
                 UIUtils.UIAlert(this, "WRITE ACCESS", "Warning! Providing FULL ACCESS to the write disk is discouraged!\n\n" +
                                 "You either request for Shared Access to the local drive or your device doesn't have Android Storage Framework implemented. " +
                                 "If you understand the risks press OK to continue", 16, false,
@@ -316,15 +323,14 @@ public class FileManager extends ListActivity {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
                                 ActivityCompat.requestPermissions(FileManager.this,
-                                        new String [] { Manifest.permission.READ_CONTACTS},
+                                        new String [] { Manifest.permission.WRITE_EXTERNAL_STORAGE},
                                         REQUEST_WRITE_PERMISSION);
                             }
                         }, null, null, null, null);
 
             } else {
-                // No explanation needed, we can request the permission.
                 ActivityCompat.requestPermissions(this,
-                        new String [] { Manifest.permission.READ_CONTACTS},
+                        new String [] { Manifest.permission.WRITE_EXTERNAL_STORAGE},
                         REQUEST_WRITE_PERMISSION);
             }
         } else {
@@ -338,11 +344,9 @@ public class FileManager extends ListActivity {
                                            String permissions[], int[] grantResults) {
         switch (requestCode) {
             case REQUEST_WRITE_PERMISSION: {
-                // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
+                    fill(currdir.listFiles());
                 } else {
                     UIUtils.toastShort(this, "Feature disabled");
                     finish();
