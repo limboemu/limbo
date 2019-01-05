@@ -19,6 +19,8 @@ public class LimboEmuActivity extends LimboActivity {
 //        if(Machine.isHost64Bit())
 //            Config.enableMTTCG = true;
 
+        Config.enableEmulatedSDCard = false;
+
         Config.hd_if_type = "scsi";
         Config.machineFolder = Config.machineFolder + "other/ppc_machines/";
 		

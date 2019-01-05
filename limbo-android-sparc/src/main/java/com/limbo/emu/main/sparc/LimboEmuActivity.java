@@ -23,6 +23,10 @@ public class LimboEmuActivity extends LimboActivity {
 
         Config.hd_if_type = "scsi";
 
+        Config.enable_SDL_sound = false;
+
+        Config.enableEmulatedSDCard = false;
+
         Config.machineFolder = Config.machineFolder + "other/sparc_machines/";
 
         Config.osImages.put("Debian Sparc Linux", "http://limboemulator.weebly.com/debian-sparc-linux.html");

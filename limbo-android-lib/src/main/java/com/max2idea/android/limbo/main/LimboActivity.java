@@ -1046,7 +1046,7 @@ public class LimboActivity extends AppCompatActivity {
                             cpuNum);
 
                 }
-                if(position>0)
+                if(position>0 && (Config.enable_X86 || Config.enable_X86_64))
                     mDisableTSC.setChecked(true);
                 else
                     mDisableTSC.setChecked(false);
@@ -2418,6 +2418,7 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.machine_type = "Default";
         } else if (Config.enable_sparc || Config.enable_sparc64) {
             currMachine.arch = "SPARC";
+            currMachine.vga_type="cg3";
             currMachine.machine_type = "Default";
             currMachine.nic_card = "lance";
         }
@@ -3029,9 +3030,33 @@ public class LimboActivity extends AppCompatActivity {
         this.mPrio = (CheckBox) findViewById(R.id.prioval);
         this.mExtraParams = (EditText) findViewById(R.id.extraparamsval);
 
+        disableFeatures();
         enableRemovableDeviceOptions(false);
         enableNonRemovableDeviceOptions(false);
 
+    }
+
+    private void disableFeatures() {
+
+        LinearLayout mAudioSectionLayout = (LinearLayout) findViewById(R.id.audiosectionl);
+        if(!Config.enable_SDL_sound) {
+            mAudioSectionLayout.setVisibility(View.GONE);
+        }
+
+        LinearLayout mDisableTSCLayout = (LinearLayout) findViewById(R.id.tscl);
+        LinearLayout mDisableACPILayout = (LinearLayout) findViewById(R.id.acpil);
+        LinearLayout mDisableHPETLayout = (LinearLayout) findViewById(R.id.hpetl);
+        LinearLayout mEnableKVMLayout = (LinearLayout) findViewById(R.id.kvml);
+
+        if(!Config.enable_X86 && !Config.enable_X86_64) {
+            mDisableTSCLayout.setVisibility(View.GONE);
+            mDisableACPILayout.setVisibility(View.GONE);
+            mDisableHPETLayout.setVisibility(View.GONE);
+        }
+        if(!Config.enable_X86 && !Config.enable_X86_64
+                && !Config.enable_ARM && !Config.enable_ARM64) {
+            mEnableKVMLayout.setVisibility(View.GONE);
+        }
     }
 
     private void setDefaultDNServer() {
@@ -3120,7 +3145,6 @@ public class LimboActivity extends AppCompatActivity {
                     enableListenersDelayed(500);
                 }
             });
-
             mAudioSectionDetails = (LinearLayout) findViewById(R.id.audiosectionDetails);
             mAudioSectionDetails.setVisibility(View.GONE);
             mAudioSectionSummary = (TextView) findViewById(R.id.audiosectionsummaryStr);
@@ -3609,7 +3633,8 @@ public class LimboActivity extends AppCompatActivity {
                 setKeyboard(currMachine.keyboard);
                 mDisableACPI.setChecked(currMachine.disableacpi == 1 ? true : false);
                 mDisableHPET.setChecked(currMachine.disablehpet == 1 ? true : false);
-                mDisableTSC.setChecked(currMachine.disabletsc == 1 ? true : false);
+                if(Config.enable_X86 || Config.enable_X86_64)
+                    mDisableTSC.setChecked(currMachine.disabletsc == 1 ? true : false);
                 mEnableKVM.setChecked(currMachine.enableKVM == 1 ? true : false);
                 mEnableMTTCG.setChecked(currMachine.enableMTTCG == 1 ? true : false);
 
@@ -5522,7 +5547,9 @@ public class LimboActivity extends AppCompatActivity {
             arrList.addAll(arrX86);
         }
 
-        arrList.add("host");
+        if(Config.enable_X86 || Config.enable_X86_64 || Config.enable_ARM || Config.enable_ARM64)
+            arrList.add("host");
+
         ArrayAdapter<String> cpuAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
         cpuAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
         this.mCPU.setAdapter(cpuAdapter);

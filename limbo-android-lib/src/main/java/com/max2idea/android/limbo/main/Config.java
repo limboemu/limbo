@@ -77,7 +77,7 @@ public class Config {
 
 	// GUI Options
 	public static final boolean enable_SDL = true;
-	public static final boolean enable_SDL_sound = true;
+	public static boolean enable_SDL_sound = true;
 	public static final boolean enable_SPICE = false;
 
     public static final int MAX_CPU_NUM = 8;
