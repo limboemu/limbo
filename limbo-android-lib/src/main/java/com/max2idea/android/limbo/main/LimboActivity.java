@@ -773,13 +773,13 @@ public class LimboActivity extends AppCompatActivity {
 
                     if (!machineLoaded) {
                         if(currMachine.machine_type==null)
-                            currMachine.machine_type = "versatilepb";
+                            currMachine.machine_type = "Default";
                         populateMachineType(currMachine.machine_type);
                         if(currMachine.cpu==null)
                             currMachine.cpu = "Default";
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
-                            currMachine.nic_card = "smc91c111";
+                            currMachine.nic_card = "Default";
                         populateNetDevices(currMachine.nic_card);
                     }
 
@@ -795,17 +795,22 @@ public class LimboActivity extends AppCompatActivity {
 
                     }
 
-                } else if (currMachine.arch.equals("PPC")) {
+                } else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64")) {
 
                     if (!machineLoaded) {
-                        if(currMachine.machine_type==null)
-                            currMachine.machine_type = "Default";
+                        if(currMachine.machine_type==null) {
+                            if(currMachine.arch.equals("PPC"))
+                                currMachine.machine_type = "g3beige";
+                            else if (currMachine.arch.equals("PPC64")){
+                                currMachine.machine_type = "Default";
+                            }
+                        }
                         populateMachineType(currMachine.machine_type);
                         if(currMachine.cpu==null)
                             currMachine.cpu = "Default";
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
-                            currMachine.nic_card = "e1000";
+                            currMachine.nic_card = "Default";
                         populateNetDevices(currMachine.nic_card);
 
                     }
@@ -819,12 +824,12 @@ public class LimboActivity extends AppCompatActivity {
                         if(currMachine.cpu==null) {
                             if(currMachine.arch.equals("x86"))
                                 currMachine.cpu = "n270";
-                            else
+                            else  if(currMachine.arch.equals("x64"))
                                 currMachine.cpu = "phenom";
                         }
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
-                            currMachine.nic_card = "ne2k_pci";
+                            currMachine.nic_card = "Default";
                         populateNetDevices(currMachine.nic_card);
                     }
 
@@ -850,7 +855,7 @@ public class LimboActivity extends AppCompatActivity {
                             currMachine.cpu = "Default";
                         populateCPUs(currMachine.cpu);
                         if(currMachine.nic_card==null)
-                            currMachine.nic_card = "lance";
+                            currMachine.nic_card = "Default";
                         populateNetDevices(currMachine.nic_card);
 
                     }
@@ -2399,20 +2404,20 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.arch = "x86";
             currMachine.cpu = "n270";
             currMachine.machine_type = "pc";
-            currMachine.nic_card = "ne2k_pci";
+            currMachine.nic_card = "Default";
             currMachine.disabletsc = 1;
         } else if (Config.enable_ARM || Config.enable_ARM64) {
             currMachine.arch = "ARM";
-            currMachine.machine_type = "versatilepb";
+            currMachine.machine_type = "Default";
             currMachine.cpu = "Default";
-            currMachine.nic_card = "smc91c111";
+            currMachine.nic_card = "Default";
         } else if (Config.enable_MIPS) {
             currMachine.arch = "MIPS";
             currMachine.machine_type = "malta";
         } else if (Config.enable_PPC || Config.enable_PPC64) {
             currMachine.arch = "PPC";
             currMachine.machine_type = "Default";
-            currMachine.nic_card = "e1000";
+            currMachine.nic_card = "Default";
         } else if (Config.enable_m68k) {
             currMachine.arch = "m68k";
             currMachine.machine_type = "Default";
@@ -2420,7 +2425,7 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.arch = "SPARC";
             currMachine.vga_type="cg3";
             currMachine.machine_type = "Default";
-            currMachine.nic_card = "lance";
+            currMachine.nic_card = "Default";
         }
 
         MachineOpenHelper.getInstance(activity).insertMachine(currMachine);
@@ -4374,10 +4379,7 @@ public class LimboActivity extends AppCompatActivity {
 
     // Set VGA Cfg
     private void populateVGA() {
-
-        String[] arraySpinner = {};
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
 
 
         if (Config.enable_X86 || Config.enable_X86_64
@@ -4419,9 +4421,7 @@ public class LimboActivity extends AppCompatActivity {
 
     private void populateOrientation() {
 
-        String[] arraySpinner = {};
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
         arrList.add("Auto");
         arrList.add("Landscape");
         arrList.add("Landscape Reverse");
@@ -4440,11 +4440,7 @@ public class LimboActivity extends AppCompatActivity {
     }
 
     private void populateKeyboardLayout() {
-
-        String[] arraySpinner = {};
-
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
         arrList.add("en-us");
 
 
@@ -4461,10 +4457,7 @@ public class LimboActivity extends AppCompatActivity {
     }
 
     private void populateMouse() {
-
-        String[] arraySpinner = {};
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
         arrList.add("ps2");
         arrList.add("usb-mouse");
         arrList.add("usb-tablet" + fixMouseDescr);
@@ -4504,12 +4497,11 @@ public class LimboActivity extends AppCompatActivity {
     // Set Hard Disk
     private void populateNetDevices(String nic) {
 
-        String[] arraySpinner = {"e1000", "pcnet", "rtl8139", "ne2k_pci", "i82551", "i82557b", "i82559er", "virtio"};
-
-        // String[] arraySpinner = {
-        // ne2k_pci,i82551,i82557b,i82559er,rtl8139,e1000,pcnet,virtio
+        String[] arraySpinner = {"Default","e1000", "pcnet", "rtl8139", "ne2k_pci", "i82551", "i82557b",
+                "i82559er", "virtio"};
 
         ArrayList<String> arrList = new ArrayList<String>();
+        arrList.add("Default");
 
         if (currMachine != null && currMachine.arch != null) {
             if (currMachine.arch.equals("x86")) {
@@ -4521,6 +4513,11 @@ public class LimboActivity extends AppCompatActivity {
                     || currMachine.arch.equals("ARM64")) {
                 arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
                 arrList.add("smc91c111");
+                arrList.add("xgmac");
+                arrList.add("lan9118");
+                arrList.add("cadence_gem");
+                arrList.add("allwinner-emac");
+                arrList.add("mv88w8618");
             } else if (currMachine.arch.equals("PPC") || currMachine.arch.equals("PPC64")) {
                 arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
             } else if (currMachine.arch.equals("SPARC") || currMachine.arch.equals("SPARC64")) {
@@ -4925,8 +4922,7 @@ public class LimboActivity extends AppCompatActivity {
 
     private void populateCPUs(String cpu) {
 
-        String[] arraySpinner = {};
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
 
         // x86 cpus 32 bit
         ArrayList<String> arrX86 = new ArrayList<String>();
@@ -5565,9 +5561,7 @@ public class LimboActivity extends AppCompatActivity {
 
     private void populateArch() {
 
-        String[] arraySpinner = {};
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
 
         if (Config.enable_X86)
             arrList.add("x86");
@@ -5608,14 +5602,11 @@ public class LimboActivity extends AppCompatActivity {
 
     private void populateMachineType(String machineType) {
 
-        String[] arraySpinner = {
-
-        };
-
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
 
         if (currMachine != null && currMachine.arch!=null) {
             if (currMachine.arch.equals("x86") || currMachine.arch.equals("x64")) {
+                arrList.add("Default");
                 arrList.add("pc");
                 arrList.add("pc-i440fx-2.9");
                 arrList.add("pc-i440fx-2.8");
@@ -5652,6 +5643,7 @@ public class LimboActivity extends AppCompatActivity {
                 arrList.add("none");
 
             } else if (currMachine.arch.equals("ARM") || currMachine.arch.equals("ARM64")) {
+//                arrList.add("Default"); //no default for ARM
                 arrList.add("akita");
                 arrList.add("ast2500-evb");
                 arrList.add("borzoi");
@@ -5704,6 +5696,7 @@ public class LimboActivity extends AppCompatActivity {
                 arrList.add("z2");
 
             } else if (currMachine.arch.equals("MIPS")) {
+                arrList.add("Default");
                 arrList.add("malta");
                 arrList.add("mips");
                 arrList.add("mipssim");
@@ -5723,15 +5716,8 @@ public class LimboActivity extends AppCompatActivity {
                 arrList.add("virtex-ml507");
             } else if (currMachine.arch.equals("PPC64")) {
                 arrList.add("Default");
-                arrList.add("40p");
-                arrList.add("bamboo");
-                arrList.add("g3beige");
-                arrList.add("mac99");
-                arrList.add("mpc8544ds");
                 arrList.add("none");
                 arrList.add("powernv");
-                arrList.add("ppce500");
-                arrList.add("prep");
                 arrList.add("pseries-2.1");
                 arrList.add("pseries-2.10");
                 arrList.add("pseries");
@@ -5744,9 +5730,7 @@ public class LimboActivity extends AppCompatActivity {
                 arrList.add("pseries-2.7");
                 arrList.add("pseries-2.8");
                 arrList.add("pseries-2.9");
-                arrList.add("ref405ep");
-                arrList.add("taihu");
-                arrList.add("virtex-ml507");
+
 
 
             } else if (currMachine.arch.equals("m68k")) {
@@ -5776,11 +5760,6 @@ public class LimboActivity extends AppCompatActivity {
             }
 
         }
-        // else {
-        // arrList.add("pc");
-        // arrList.add("q35");
-        // arrList.add("isapc");
-        // }
 
         ArrayAdapter<String> machineTypeAdapter = new ArrayAdapter<String>(this, R.layout.custom_spinner_item, arrList);
         machineTypeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
@@ -5798,9 +5777,9 @@ public class LimboActivity extends AppCompatActivity {
 
     private void populateUI() {
 
-        String[] arraySpinner = {"VNC"};
 
-        ArrayList<String> arrList = new ArrayList<String>(Arrays.asList(arraySpinner));
+        ArrayList<String> arrList = new ArrayList<String>();
+        arrList.add("VNC");
         if (Config.enable_SDL)
             arrList.add("SDL");
         if (Config.enable_SPICE)

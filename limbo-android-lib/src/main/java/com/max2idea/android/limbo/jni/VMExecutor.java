@@ -606,11 +606,10 @@ public class VMExecutor {
             paramsList.add(this.cpuNum + "");
         }
 
-        if (machine_type != null) {
+        if (machine_type != null && !machine_type.equals("Default")) {
             paramsList.add("-M");
             paramsList.add(machine_type);
         }
-
 
         //FIXME: something is wrong with quoting that doesn't let sparc qemu find the cpu def
         // for now we remove the cpu drop downlist items for sparc
@@ -680,13 +679,12 @@ public class VMExecutor {
 
         if (nic_card != null) {
             paramsList.add("-net");
-            if (net_cfg.equals("user")) {
-                String nicParams = "nic,model=" + nic_card;
-                paramsList.add(nicParams);
-            } else if (net_cfg.equals("tap")) {
-                String nicParams = "nic,vlan=0,model=" + nic_card;
-                paramsList.add(nicParams);
-            }
+            String nicParams = "nic";
+            if (net_cfg.equals("tap"))
+                nicParams += ",vlan=0";
+            if(!nic_card.equals("Default"))
+                nicParams += (",model=" + nic_card );
+            paramsList.add(nicParams);
         }
     }
 
