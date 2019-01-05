@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Limbo</string>
+    <string name="app_name">Limbo Emulator</string>
     <string name="app_short_name">Limbo</string>
     <string name="address_caption">Address</string>
     <string name="alt_check">Alt</string>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Limbo PowerPC</string>
+    <string name="app_name">Limbo PowerPC Emulator</string>
     <string name="app_short_name">Limbo</string>
     
 </resources>

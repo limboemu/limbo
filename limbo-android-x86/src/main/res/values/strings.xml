@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Limbo x86</string>
+    <string name="app_name">Limbo x86 PC Emulator</string>
     <string name="app_short_name">Limbo x86</string>
     
 </resources>
