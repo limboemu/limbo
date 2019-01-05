@@ -218,13 +218,13 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	public void onPause() {
 	    if(LimboActivity.currMachine!=null)
-		    LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running in Background");
+		    LimboService.updateServiceNotification(LimboActivity.currMachine.machinename + ": VM Running in Background");
 		super.onPause();
 	}
 
 	public void onResume() {
 	    if(LimboActivity.currMachine!=null)
-		    LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
+		    LimboService.updateServiceNotification(LimboActivity.currMachine.machinename + ": VM Running");
 		super.onResume();
 	}
 

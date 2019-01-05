@@ -946,7 +946,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 	protected void onPause() {
 		Log.v("SDL", "onPause()");
-		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Suspended");
+		LimboService.updateServiceNotification(LimboActivity.currMachine.machinename + ": VM Suspended");
 		super.onPause();
 
 	}
@@ -1019,7 +1019,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 	protected void onResume() {
 		Log.v("SDL", "onResume()");
-		LimboService.notifyNotification(LimboActivity.currMachine.machinename + ": VM Running");
+		LimboService.updateServiceNotification(LimboActivity.currMachine.machinename + ": VM Running");
 		super.onResume();
 	}
 

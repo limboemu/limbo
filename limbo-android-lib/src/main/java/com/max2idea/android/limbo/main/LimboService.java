@@ -160,7 +160,7 @@ public class LimboService extends Service {
 				PendingIntent.FLAG_UPDATE_CURRENT);
 
 		builder = new NotificationCompat.Builder(service);
-		mNotification = builder.setContentIntent(pi).setContentTitle("Limbo PC Emulator").setContentText(text)
+		mNotification = builder.setContentIntent(pi).setContentTitle(getString(R.string.app_name)).setContentText(text)
 				.setSmallIcon(R.drawable.limbo)
 				.setLargeIcon(BitmapFactory.decodeResource(service.getResources(), R.drawable.limbo)).build();
 		mNotification.tickerText = text;
@@ -172,7 +172,7 @@ public class LimboService extends Service {
 
     }
 
-	public static void notifyNotification(String text) {
+	public static void updateServiceNotification(String text) {
 		if (builder != null) {
 			builder.setContentText(text);
 			mNotification = builder.build();
