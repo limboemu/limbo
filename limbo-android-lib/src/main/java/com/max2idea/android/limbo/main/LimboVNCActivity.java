@@ -368,7 +368,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
             public void onClick(DialogInterface dialog, int i) {
                 switch(i){
                     case 0:
-                        setUIModeMobile();
+                        setUIModeMobile(true);
                         break;
                     case 1:
                         promptSetUIModeDesktop(LimboVNCActivity.this, false);
@@ -430,14 +430,17 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
     }
 
-    private void setUIModeMobile(){
+    private void setUIModeMobile(boolean fitToScreen){
 
         try {
             MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
 
             Config.mouseMode = Config.MouseMode.Trackpad;
             LimboSettingsManager.setDesktopMode(this, false);
-            onFitToScreen();
+            if(fitToScreen)
+                onFitToScreen();
+            else
+                onNormalScreen();
             onMouse();
 
             //UIUtils.toastShort(LimboVNCActivity.this, "Trackpad Calibrating");
@@ -475,7 +478,9 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
         LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        mLayout.addView(textView, textViewParams);
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.addView(textView);
+        mLayout.addView(scrollView, textViewParams);
         alertDialog.setView(mLayout);
 
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
@@ -862,7 +867,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
-                            setUIModeMobile();
+                            setUIModeMobile(screenMode == VNCScreenMode.FitToScreen);
 						}
 					}, 500);
 
@@ -1074,7 +1079,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 if(Config.mouseMode == Config.MouseMode.External)
                     setUIModeDesktop();
                 else
-                    setUIModeMobile();
+                    setUIModeMobile(screenMode == VNCScreenMode.FitToScreen);
             }
         },1000);
 

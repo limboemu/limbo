@@ -475,7 +475,7 @@ public class LimboSDLActivity extends SDLActivity {
             public void onClick(DialogInterface dialog, int i) {
                 switch(i){
                     case 0:
-                        setUIModeMobile();
+                        setUIModeMobile(true);
                         break;
                     case 1:
                     	promptSetUIModeDesktop(false);
@@ -511,7 +511,7 @@ public class LimboSDLActivity extends SDLActivity {
 		//XXX: No need to calibrate for SDL trackpad.
     }
 
-    private void setUIModeMobile(){
+    private void setUIModeMobile(boolean fitToScreen){
 
 	    try {
         UIUtils.setOrientation(this);
@@ -523,7 +523,10 @@ public class LimboSDLActivity extends SDLActivity {
         LimboSettingsManager.setDesktopMode(this, false);
 		LimboActivity.vmexecutor.setRelativeMouseMode(1);
         UIUtils.toastShort(this.getApplicationContext(), "Trackpad Enabled");
-        onFitToScreen();
+        if(fitToScreen)
+            onFitToScreen();
+        else
+            onNormalScreen();
         calibration();
         invalidateOptionsMenu();
         }catch (Exception ex){
@@ -1166,7 +1169,7 @@ public class LimboSDLActivity extends SDLActivity {
 						    if(Config.mouseMode == Config.MouseMode.External)
 						        setUIModeDesktop();
 						    else
-							    setUIModeMobile();
+							    setUIModeMobile(screenMode == SDLScreenMode.FitToScreen);
 						}
 					}, 500);
 				}
@@ -1455,7 +1458,7 @@ public class LimboSDLActivity extends SDLActivity {
                     if(Config.mouseMode == Config.MouseMode.External)
                         setUIModeDesktop();
                     else
-                        setUIModeMobile();
+                        setUIModeMobile(screenMode == SDLScreenMode.FitToScreen);
                 }
             },3000);
 		}
