@@ -25,7 +25,7 @@ https://github.com/limboemu/limbo
 
 3. Known Issues:
 	https://github.com/limboemu/limbo/issues
-	
+
 ===============================================================================
 4. Setup Environment
 
@@ -45,7 +45,7 @@ https://github.com/limboemu/limbo
     #Note: if some of these file links don't download with wget use your browser to download them
 
     ##### Get QEMU
-	wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
+    wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-2.9.1.tar.xz
     mv qemu-2.9.1 qemu
 
@@ -84,12 +84,10 @@ https://github.com/limboemu/limbo
 
     ### Apply QEMU patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/qemu/
-	dos2unix ../patches/qemu-2.9.1.patch
 	patch -p1 < ../patches/qemu-2.9.1.patch
 
     ### Apply glib patch for Limbo:
 	cd ./limbo-android-lib/src/main/jni/glib/
-	dos2unix ../patches/glib-2.56.1.patch
 	patch -p1 < ../patches/glib-2.56.1.patch
 
     Note:
