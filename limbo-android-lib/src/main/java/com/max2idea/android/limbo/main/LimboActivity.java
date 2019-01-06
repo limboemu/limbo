@@ -773,7 +773,7 @@ public class LimboActivity extends AppCompatActivity {
 
                     if (!machineLoaded) {
                         if(currMachine.machine_type==null)
-                            currMachine.machine_type = "Default";
+                            currMachine.machine_type = "versatilepb";
                         populateMachineType(currMachine.machine_type);
                         if(currMachine.cpu==null)
                             currMachine.cpu = "Default";
@@ -2408,7 +2408,7 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.disabletsc = 1;
         } else if (Config.enable_ARM || Config.enable_ARM64) {
             currMachine.arch = "ARM";
-            currMachine.machine_type = "Default";
+            currMachine.machine_type = "versatilepb";
             currMachine.cpu = "Default";
             currMachine.nic_card = "Default";
         } else if (Config.enable_MIPS) {
