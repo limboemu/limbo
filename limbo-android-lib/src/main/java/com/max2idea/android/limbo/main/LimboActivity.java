@@ -2416,7 +2416,7 @@ public class LimboActivity extends AppCompatActivity {
             currMachine.machine_type = "malta";
         } else if (Config.enable_PPC || Config.enable_PPC64) {
             currMachine.arch = "PPC";
-            currMachine.machine_type = "Default";
+            currMachine.machine_type = "g3beige";
             currMachine.nic_card = "Default";
         } else if (Config.enable_m68k) {
             currMachine.arch = "m68k";
