@@ -379,15 +379,6 @@ public class VMExecutor {
             return res;
         }
 
-
-//		Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-//			@Override
-//			public void uncaughtException(Thread thread, Throwable e) {
-//				e.printStackTrace();
-//				Log.e(TAG, "Limbo Uncaught Exception: " + e.toString());
-//			}
-//		});
-
         //set the exit code
         LimboSettingsManager.setExitCode(context, 2);
 
