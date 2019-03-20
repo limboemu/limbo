@@ -1,7 +1,7 @@
 # Limbo Emulator (QEMU) for Android
 #
-# For APK Downloads, Guides, Help, and Virtual Disk images visit the Limbo Website:
-# https://limbopcemulator.wixsite.com/home
+# For APK Downloads, Guides, and Help visit the Limbo Wiki:
+# https://github.com/limboemu/limbo/wiki
 
 Limbo is a QEMU-based emulator for Android supports emulation for these architectures:
 	x86/x86_64
