@@ -77,6 +77,7 @@ public class VMExecutor {
     public String mouse = null;
     public int enablevnc;
     public int vnc_allow_external = 0;
+    public int qmp_allow_external = 0;
     public String vnc_passwd = null;
 
     // cpu/board settings
@@ -132,8 +133,8 @@ public class VMExecutor {
     public VMExecutor(Machine machine, Context context) throws Exception {
 
         name = machine.machinename;
-        base_dir = Config.getBasefileDir(context);
-        save_dir = Config.getMachineDir(context) + name;
+        base_dir = Config.getBasefileDir();
+        save_dir = Config.getMachineDir() + name;
         save_state_name = save_dir + "/" + Config.state_filename;
         this.context = context;
         this.memory = machine.memory;
@@ -443,18 +444,17 @@ public class VMExecutor {
         if (enablevnc != 0) {
             Log.v(TAG, "Enable VNC server");
             paramsList.add("-vnc");
+
             if (vnc_allow_external != 0) {
-//				paramsList.add(":"+Config.defaultVNCPort+",password");
-                paramsList.add(":1,password");
-
-                //Config.defaultVNCHost = LimboActivity.getLocalIpAddress();
                 //TODO: Allow connections from External
-                //this is still not secure we prompt the user from the UI
                 // Use with x509 auth and TLS for encryption
+                paramsList.add(":1,password");
             } else {
-
-                paramsList.add("localhost:" + Config.defaultVNCPort); // Allow only connections from localhost without password
-//                paramsList.add("localhost:1"); // Allow only connections from localhost without password
+                // Allow connections only from localhost using localsocket without a password
+                //paramsList.add(Config.defaultVNCHost+":" + Config.defaultVNCPort);
+                String qmpParams = "unix:";
+                qmpParams += Config.getLocalVNCSocketPath();
+                paramsList.add(qmpParams);
             }
             //Allow monitor console only for VNC,
             // SDL for android doesn't support more
@@ -472,7 +472,7 @@ public class VMExecutor {
                 spiceParams += ",password=";
                 spiceParams += vnc_passwd;
             } else
-                spiceParams += ",addr=localhost"; // Allow only connections from localhost without password
+                spiceParams += ",addr=127.0.0.1"; // Allow only connections from localhost without password
 
             spiceParams += ",disable-ticketing";
             //argv.add("-chardev");
@@ -549,13 +549,22 @@ public class VMExecutor {
         if (enableqmp != 0) {
 
             paramsList.add("-qmp");
-            String qmpParams = "tcp:";
-            if (qmp_server != null && !Config.enable_QMP_External)
-                qmpParams += qmp_server;
 
-            qmpParams += (":" + this.qmp_port);
-            qmpParams += ",server,nowait";
-            paramsList.add(qmpParams);
+            if(qmp_allow_external != 0) {
+                String qmpParams = "tcp:";
+                qmpParams += (":" + this.qmp_port);
+                qmpParams += ",server,nowait";
+                paramsList.add(qmpParams);
+            } else {
+                //Specify a unix local domain as localhost to limit to local connections only
+                String qmpParams = "unix:";
+                qmpParams += Config.getLocalQMPSocketPath();
+                qmpParams += ",server,nowait";
+                paramsList.add(qmpParams);
+
+            }
+
+
         }
 
         //Enable Tracing log

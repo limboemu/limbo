@@ -26,6 +26,8 @@
 
 package android.androidVNC;
 
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
@@ -311,7 +313,9 @@ public class RfbProto {
   // Constructor. Make TCP connection to RFB server.
   //
 
-  
+    LocalSocket localSocket = null;
+    public static boolean allow_external = false;
+
   //-RfbProto(String h, int p, VncViewer v) throws IOException {
   RfbProto(String h, int p) throws IOException{
   	//- viewer = v;
@@ -336,10 +340,23 @@ public class RfbProto {
       }
     } */
     //+
-    sock = new Socket(host, port);
-    is = new DataInputStream(new BufferedInputStream(sock.getInputStream(),
-						     16384));
-    sos = sock.getOutputStream();
+
+      if(!allow_external) {
+          localSocket = new LocalSocket();
+          String localVNCSocketPath = Config.getLocalVNCSocketPath();
+          LocalSocketAddress localSocketAddr = new LocalSocketAddress(localVNCSocketPath, LocalSocketAddress.Namespace.FILESYSTEM);
+          localSocket.connect(localSocketAddr);
+          is = new DataInputStream(new BufferedInputStream(localSocket.getInputStream(),
+                  32768));
+          sos = localSocket.getOutputStream();
+
+      } else {
+          sock = new Socket(host, port);
+          is = new DataInputStream(new BufferedInputStream(sock.getInputStream(),
+                  16384));
+          sos = sock.getOutputStream();
+      }
+
     os = new LimboOutputStream(sos);
 
     timing = false;

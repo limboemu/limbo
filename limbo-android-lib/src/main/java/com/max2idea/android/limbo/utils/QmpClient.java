@@ -1,5 +1,7 @@
 package com.max2idea.android.limbo.utils;
 
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.util.Log;
 
 import com.max2idea.android.limbo.main.Config;
@@ -7,6 +9,7 @@ import com.max2idea.android.limbo.main.Config;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -16,19 +19,32 @@ public class QmpClient {
 
 	private static final String TAG = "QmpClient";
 	private static String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
+	public static boolean allow_external = false;
 
 	public synchronized static String sendCommand(String command) {
 		String response = null;
 		int trial=0;
 		Socket pingSocket = null;
+		LocalSocket localSocket = null;
 		PrintWriter out = null;
 		BufferedReader in = null;
 
 		try {
-			pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
-			pingSocket.setSoTimeout(5000);
-			out = new PrintWriter(pingSocket.getOutputStream(), true);
-			in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
+		    if(allow_external) {
+                pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
+                pingSocket.setSoTimeout(5000);
+                out = new PrintWriter(pingSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
+		    } else {
+		        localSocket = new LocalSocket();
+		        String localQMPSocketPath = Config.getLocalQMPSocketPath();
+                LocalSocketAddress localSocketAddr = new LocalSocketAddress(localQMPSocketPath, LocalSocketAddress.Namespace.FILESYSTEM);
+                localSocket.connect(localSocketAddr);
+                localSocket.setSoTimeout(5000);
+                out = new PrintWriter(localSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(localSocket.getInputStream()));
+            }
+
 
 			sendRequest(out, QmpClient.requestCommandMode);
 			while(true){
