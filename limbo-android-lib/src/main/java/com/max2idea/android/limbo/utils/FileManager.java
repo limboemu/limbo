@@ -113,7 +113,7 @@ public class FileManager extends ListActivity {
         }
 
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP // device is old
-                || !Config.enableASFExternalSD // app configuration ASF is disallowed
+                || LimboSettingsManager.getEnableLegacyFileManager(activity) // app configuration ASF is disallowed
                 || fileType == LimboActivity.FileType.SHARED_DIR //TODO: allow sd card access for SHARED DIR (called from c-jni and create the readdir() dirent structs)
                 ) {
             LimboFileManager.promptLegacyStorageAccess(activity, fileType, requestCode, lastDir);

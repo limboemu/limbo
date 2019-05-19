@@ -43,29 +43,29 @@ public class FileInstaller {
     public static void installFiles(Activity activity, boolean force) {
 
         Log.v("Installer", "Installing files...");
-        File tmpDir = new File(Config.getBasefileDir(activity));
+        File tmpDir = new File(Config.getBasefileDir());
         if (!tmpDir.exists()) {
             tmpDir.mkdirs();
         }
 
-        File tmpDir1 = new File(Config.getMachineDir(activity));
+        File tmpDir1 = new File(Config.getMachineDir());
         if (!tmpDir1.exists()) {
             tmpDir1.mkdirs();
         }
 
 
         //Install base dir
-        File dir = new File(Config.getBasefileDir(activity));
+        File dir = new File(Config.getBasefileDir());
         if (dir.exists() && dir.isDirectory()) {
             //don't create again
         } else if (dir.exists() && !dir.isDirectory()) {
-            Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir(activity));
+            Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir());
             return;
         } else if (!dir.exists()) {
             dir.mkdir();
         }
 
-        String destDir = Config.getBasefileDir(activity);
+        String destDir = Config.getBasefileDir();
 
         //Get each file in assets under ./roms/ and install in SDCARD
         AssetManager am = activity.getResources().getAssets();
@@ -88,11 +88,11 @@ public class FileInstaller {
             }
             if (subfiles != null && subfiles.length > 0) {
                 //Install base dir
-                File dir1 = new File(Config.getBasefileDir(activity) + files[i]);
+                File dir1 = new File(Config.getBasefileDir() + files[i]);
                 if (dir1.exists() && dir1.isDirectory()) {
                     //don't create again
                 } else if (dir1.exists() && !dir1.isDirectory()) {
-                    Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir(activity) + files[i]);
+                    Log.v("Installer", "Could not create Dir, file found: " + Config.getBasefileDir() + files[i]);
                     return;
                 } else if (!dir1.exists()) {
                     dir1.mkdir();
@@ -109,7 +109,7 @@ public class FileInstaller {
                 File file = new File(destDir, files[i]);
                 if(!file.exists() || force) {
                     Log.v("Installer", "Installing file: " + file.getPath());
-                    installAssetFile(activity, files[i], Config.getBasefileDir(activity), "roms", null);
+                    installAssetFile(activity, files[i], Config.getBasefileDir(), "roms", null);
                 }
             }
         }

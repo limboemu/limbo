@@ -19,6 +19,7 @@
 package com.max2idea.android.limbo.main;
 
 import android.androidVNC.ConnectionBean;
+import android.androidVNC.RfbProto;
 import android.androidVNC.VncCanvas;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -77,9 +78,11 @@ import com.max2idea.android.limbo.utils.FavOpenHelper;
 import com.max2idea.android.limbo.utils.FileInstaller;
 import com.max2idea.android.limbo.utils.FileManager;
 import com.max2idea.android.limbo.utils.FileUtils;
+import com.max2idea.android.limbo.utils.LinksManager;
 import com.max2idea.android.limbo.utils.Machine;
 import com.max2idea.android.limbo.utils.MachineOpenHelper;
 import com.max2idea.android.limbo.utils.OSDialogBox;
+import com.max2idea.android.limbo.utils.QmpClient;
 import com.max2idea.android.limbo.utils.UIUtils;
 import com.max2idea.android.limbo.utils.UIUtils.LimboFileSpinnerAdapter;
 
@@ -114,6 +117,7 @@ public class LimboActivity extends AppCompatActivity {
     private static final int ISOSIMAGES = 10;
     private static final int DISCARD_VM_STATE = 11;
     private static final int ENABLE_FILEMANAGER = 12;
+    private static final int SETTINGS = 13;
 
     public static VMStatus currStatus = VMStatus.Ready;
     public static boolean vmStarted = false;
@@ -122,6 +126,7 @@ public class LimboActivity extends AppCompatActivity {
     private static LimboActivity activity = null;
     private static String vnc_passwd = null;
     private static int vnc_allow_external = 0;
+    private static int qmp_allow_external = 0;
     public ProgressDialog progDialog;
     public View parent;
     private InstallerTask installerTaskTask;
@@ -183,6 +188,7 @@ public class LimboActivity extends AppCompatActivity {
     // private CheckBox mSnapshot;
 
     private CheckBox mVNCAllowExternal;
+    private CheckBox mQMPAllowExternal;
     private CheckBox mPrio;
     private CheckBox mEnableKVM;
     private CheckBox mEnableMTTCG;
@@ -271,12 +277,16 @@ public class LimboActivity extends AppCompatActivity {
 
     // Start calling the JNI interface
     public static void startvm(Activity activity, int UI) {
+        QmpClient.allow_external = (qmp_allow_external == 1);
+        vmexecutor.qmp_allow_external = qmp_allow_external;
+
         if (UI == Config.UI_VNC) {
             // disable sound card with VNC
             vmexecutor.enablevnc = 1;
             vmexecutor.enablespice = 0;
             vmexecutor.sound_card = null;
             vmexecutor.vnc_allow_external = vnc_allow_external;
+            RfbProto.allow_external = (vnc_allow_external == 1);
             vmexecutor.vnc_passwd = vnc_passwd;
         } else if (UI == Config.UI_SDL) {
             vmexecutor.enablevnc = 0;
@@ -463,6 +473,32 @@ public class LimboActivity extends AppCompatActivity {
                         +"/n",
                 16, false, "OK", okListener,
                 null, null, "TAP Help", helpListener);
+    }
+
+
+    private void onNetworkUser() {
+        ApplicationInfo pInfo = null;
+
+        DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                updateSummary(false);
+            }
+        };
+
+        DialogInterface.OnClickListener helpListener =
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        goToURL(Config.faqLink);
+                        return;
+                    }
+                };
+
+        UIUtils.UIAlert(activity,
+                "Network",
+                "Warning! Enabling external network for images you don't trust or containing old OSes is not recommended. " +
+                        "If not use network \"None\" before running the virtual machine.\n",
+                16, false, "OK", okListener,
+                null, null, "FAQ", helpListener);
     }
 
     public void setUserPressed(boolean pressed) {
@@ -1479,6 +1515,8 @@ public class LimboActivity extends AppCompatActivity {
 
                 if (netfcg.equals("TAP")) {
                     onTap();
+                } else if (netfcg.equals("User")) {
+                    onNetworkUser();
                 }
 
                 updateSummary(false);
@@ -1705,6 +1743,22 @@ public class LimboActivity extends AppCompatActivity {
             }
         });
 
+        mQMPAllowExternal.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
+
+                if (isChecked) {
+                    promptQMPAllowExternal(activity);
+                } else {
+                    qmp_allow_external = 0;
+                }
+                updateSummary(false);
+
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
         mDesktopMode.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton viewButton, boolean isChecked) {
 
@@ -1777,7 +1831,7 @@ public class LimboActivity extends AppCompatActivity {
 
                     UIUtils.UIAlert(activity,
                             "Enable KVM",
-                            "Warning! You'll need a Android Device with the same architecture as the emulated Guest. " +
+                            "Warning! You'll need an Android Device with the same architecture as the emulated Guest. " +
                                     "Make sure you have installed an Android kernel with KVM support." +
                                     "If you don't know what this is press Cancel now.\n\nIf you experience crashes disable this option. Do you want to continue?",
                             16, false, "OK", okListener, "Cancel", cancelListener, "KVM Help", helpListener);
@@ -1933,7 +1987,7 @@ public class LimboActivity extends AppCompatActivity {
 
     protected synchronized void setDNSServer(String string) {
 
-        File resolvConf = new File(Config.getBasefileDir(this) + "/etc/resolv.conf");
+        File resolvConf = new File(Config.getBasefileDir() + "/etc/resolv.conf");
         FileOutputStream fileStream = null;
         try {
             fileStream = new FileOutputStream(resolvConf);
@@ -2035,7 +2089,16 @@ public class LimboActivity extends AppCompatActivity {
         checkUpdate();
         checkLog();
         checkAndLoadLibs();
+        setupLinks();
 
+    }
+
+    private void setupLinks() {
+
+        Config.osImages.put("Advanced Tools", new LinksManager.LinkInfo("Advanced Tools",
+                "Get Full Qwerty Keyboard, Download Manager for ISO and virtual disks images, SSH/FTP Client for network connection",
+                Config.toolsLink,
+                LinksManager.LinkType.TOOL));
     }
 
     private void checkAndLoadLibs() {
@@ -2209,13 +2272,12 @@ public class LimboActivity extends AppCompatActivity {
     private void setupFolders() {
         Thread t = new Thread(new Runnable() {
             public void run() {
-                Config.enableASFExternalSD = !LimboSettingsManager.getEnableLegacyFileManager(activity);
 
                 Config.cacheDir = getCacheDir().getAbsolutePath();
                 Config.storagedir = Environment.getExternalStorageDirectory().toString();
 
                 // Create Temp folder
-                File folder = new File(Config.getTmpFolder(LimboActivity.this));
+                File folder = new File(Config.getTmpFolder());
                 if (!folder.exists())
                     folder.mkdirs();
 
@@ -2399,6 +2461,9 @@ public class LimboActivity extends AppCompatActivity {
 
         currMachine = new Machine(machineValue);
 
+        // We set SDL as default interface
+        currMachine.ui = "SDL";
+
         // default settings for each architecture, this helps user with the most common setup
         if (Config.enable_X86 || Config.enable_X86_64) {
             currMachine.arch = "x86";
@@ -2442,6 +2507,7 @@ public class LimboActivity extends AppCompatActivity {
         enableNonRemovableDeviceOptions(true);
         enableRemovableDeviceOptions(true);
         this.mVNCAllowExternal.setEnabled(true);
+        this.mQMPAllowExternal.setEnabled(true);
 
     }
 
@@ -2781,6 +2847,7 @@ public class LimboActivity extends AppCompatActivity {
             public void run() {
                 if (vmStarted) {
                     //do nothing
+                    mQMPAllowExternal.setEnabled(false);
                 } else if (vmexecutor.paused == 1) {
                     UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
                 } else {
@@ -2958,6 +3025,9 @@ public class LimboActivity extends AppCompatActivity {
             this.mUI.setEnabled(false);
         this.mVNCAllowExternal = (CheckBox) findViewById(R.id.vncexternalval);
         mVNCAllowExternal.setChecked(false);
+        this.mQMPAllowExternal = (CheckBox) findViewById(R.id.qmpexternalval);
+        mQMPAllowExternal.setChecked(false);
+
         this.mDesktopMode = (CheckBox) findViewById(R.id.desktopmodeval);
         this.mKeyboard = (Spinner) findViewById(R.id.keyboardval);
         this.mMouse = (Spinner) findViewById(R.id.mouseval);
@@ -3225,6 +3295,7 @@ public class LimboActivity extends AppCompatActivity {
                     + (mToolBar.isChecked() ? ", Toolbar On" : "")
                     + (mFullScreen.isChecked() ? ", Fullscreen" : "")
                     + (mVNCAllowExternal.isChecked() ? ", External VNC Server: On" : "")
+                    + (mQMPAllowExternal.isChecked() ? ", External QMP Server: On" : "")
                     + (mDesktopMode.isChecked() ? ", Desktop Mode" : "");
 
             mUISectionSummary.setText(text);
@@ -3476,7 +3547,9 @@ public class LimboActivity extends AppCompatActivity {
         textView.setVisibility(View.VISIBLE);
         textView.setPadding(20, 20, 20, 20);
         textView.setText("VNC Server: " + this.getLocalIpAddress() + ":" + Config.defaultVNCPort + "\n"
-                + "Warning: VNC Connection is UNencrypted and not secure make sure you're on a private network!\n");
+                + "Warning: Allowing VNC to serve external connections is not Recommended! " +
+                "VNC connections are Unencrypted therefore NOT secure. " +
+                "Make sure you're on a private network and you trust other apps installed in your device!\n");
 
         final EditText passwdView = new EditText(activity);
         passwdView.setInputType(InputType.TYPE_CLASS_TEXT |
@@ -3566,6 +3639,56 @@ public class LimboActivity extends AppCompatActivity {
         } finally{}
     }
 
+
+    public void promptQMPAllowExternal(final Activity activity) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle("Enable QMP server");
+
+        TextView textView = new TextView(activity);
+        textView.setVisibility(View.VISIBLE);
+        textView.setPadding(20, 20, 20, 20);
+        textView.setText("QMP Server: " + this.getLocalIpAddress() + ":" + Config.QMPPort + "\n"
+                + "Warning: Allowing QMP to serve external connections is NOT Recommended! " +
+                "QMP connections are Passwordless and Unencrypted therefore NOT secure. " +
+                "Make sure you're on a private network and you trust other apps installed in your device!\n");
+
+        LinearLayout mLayout = new LinearLayout(this);
+        mLayout.setPadding(20, 20, 20, 20);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mLayout.addView(textView, textViewParams);
+
+        alertDialog.setView(mLayout);
+
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Continue", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                    qmp_allow_external = 1;
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                qmp_allow_external = 0;
+                mQMPAllowExternal.setChecked(false);
+                return;
+            }
+        });
+
+
+
+        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                mQMPAllowExternal.setChecked(false);
+                vnc_allow_external = 0;
+            }
+        });
+        alertDialog.show();
+
+    }
+
     private void loadMachine(String machine, String snapshot) {
 
 
@@ -3582,6 +3705,7 @@ public class LimboActivity extends AppCompatActivity {
             public void run() {
 
                 mVNCAllowExternal.setChecked(false);
+                mQMPAllowExternal.setChecked(false);
 
                 populateMachineType(currMachine.machine_type);
                 populateCPUs(currMachine.cpu);
@@ -3752,7 +3876,7 @@ public class LimboActivity extends AppCompatActivity {
     public void promptMachineName(final Activity activity) {
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle("Machine Name");
+        alertDialog.setTitle("New Machine Name");
         final EditText vmNameTextView = new EditText(activity);
         vmNameTextView.setPadding(20, 20, 20, 20);
         vmNameTextView.setEnabled(true);
@@ -5949,17 +6073,13 @@ public class LimboActivity extends AppCompatActivity {
 
         menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
         menu.add(0, INSTALL, 0, "Install Roms").setIcon(R.drawable.install);
-        menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.settings);
+        menu.add(0, CREATE, 0, "Create machine").setIcon(R.drawable.machinetype);
         menu.add(0, DELETE, 0, "Delete Machine").setIcon(R.drawable.delete);
+        menu.add(0, SETTINGS, 0, "Settings").setIcon(R.drawable.settings);
         if (currMachine != null && currMachine.paused == 1)
             menu.add(0, DISCARD_VM_STATE, 0, "Discard Saved State").setIcon(R.drawable.close);
         menu.add(0, EXPORT, 0, "Export Machines").setIcon(R.drawable.exportvms);
         menu.add(0, IMPORT, 0, "Import Machines").setIcon(R.drawable.importvms);
-        if(Config.enableASFExternalSD)
-            menu.add(0, ENABLE_FILEMANAGER, 0, "Enable Legacy File Manager").setIcon(R.drawable.drives);
-        else
-            menu.add(0, ENABLE_FILEMANAGER, 0, "Enable Android File Manager").setIcon(R.drawable.drives);
-
         menu.add(0, VIEWLOG, 0, "View Log").setIcon(android.R.drawable.ic_menu_view);
         menu.add(0, HELP, 0, "Help").setIcon(R.drawable.help);
         menu.add(0, CHANGELOG, 0, "Changelog").setIcon(android.R.drawable.ic_menu_help);
@@ -5994,12 +6114,12 @@ public class LimboActivity extends AppCompatActivity {
                 promptDiscardVMState();
         } else if (item.getItemId() == this.CREATE) {
             this.promptMachineName(this);
+        } else if (item.getItemId() == this.SETTINGS) {
+            this.goToSettings();
         } else if (item.getItemId() == this.EXPORT) {
             this.onExportMachines();
         } else if (item.getItemId() == this.IMPORT) {
             this.onImportMachines();
-        } else if (item.getItemId() == this.ENABLE_FILEMANAGER) {
-            this.toggleFileManager();
         } else if (item.getItemId() == this.HELP) {
             UIUtils.onHelp(this);
         } else if (item.getItemId() == this.VIEWLOG) {
@@ -6014,16 +6134,9 @@ public class LimboActivity extends AppCompatActivity {
         return true;
     }
 
-    private void toggleFileManager() {
-        if(LimboSettingsManager.getEnableLegacyFileManager(this)) {
-            Config.enableASFExternalSD = true;
-            LimboSettingsManager.setEnableLegacyFileManager(this, false);
-            UIUtils.toastShort(this, "Android File Manager enabled");
-        } else {
-            Config.enableASFExternalSD = false;
-            LimboSettingsManager.setEnableLegacyFileManager(this, true);
-            UIUtils.toastShort(this, "Legacy File Manager enabled");
-        }
+    private void goToSettings() {
+        Intent i = new Intent(this, LimboSettingsManager.class);
+        activity.startActivity(i);
     }
 
     public void onViewLog() {

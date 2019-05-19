@@ -512,6 +512,33 @@
                                 </LinearLayout>
 
 
+                                <LinearLayout
+                                    android:id="@+id/qmpexternall"
+                                    android:layout_width="fill_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="right|center_vertical"
+                                    android:gravity="right|center_vertical"
+                                    android:orientation="horizontal"
+                                    android:padding="5dp">
+
+                                    <TextView
+                                        android:id="@+id/qmpExternalStr"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical"
+                                        android:text="External QMP"
+                                        android:textSize="15sp" />
+
+                                    <CheckBox
+                                        android:id="@+id/qmpexternalval"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="right|center_vertical"
+                                        android:gravity="right|center_vertical" />
+                                </LinearLayout>
+
+
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
@@ -1878,6 +1905,7 @@
                                 android:gravity="right"
                                 android:inputType="textFilter|textNoSuggestions"
                                 android:singleLine="true"
+                                android:digits="0123456789."
                                 android:text="8.8.8.8"
                                 android:textSize="15sp" />
                         </LinearLayout>

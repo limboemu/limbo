@@ -112,5 +112,6 @@
     <string name="reconnect">Reconnect</string>
 
     <string name="calibrate_mouse">Calibrate (Fix) Mouse</string>
+    <string name="isos_and_tools_descr">Do you want to view a list of Compatible OSes and Download Links?</string>
 
 </resources>

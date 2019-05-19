@@ -389,9 +389,13 @@ public class UIUtils {
 
         FileUtils fileutils = new FileUtils();
         UIAlert(activity, Config.APP_NAME + " v" + pInfo.versionName,
-                "For Downloads, Guides, Help, and Virtual Disk files visit the Limbo Website", 20,
+                "Welcome to Limbo Emulator, a port of QEMU for Android devices. " +
+                        "Limbo can emulate light weight operating systems by loading and running virtual disks images. " +
+                        "\n\nFor Downloads, Guides, Help, ISO, and Virtual Disk images visit the Limbo Wiki. " +
+                        "Make sure you always download isos and images only from websites you trust, generally use at your own risk.",
+                15,
                 false,
-                "Go To Website", new DialogInterface.OnClickListener() {
+                "Go To Wiki", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         UIUtils.openURL(activity, Config.guidesLink);

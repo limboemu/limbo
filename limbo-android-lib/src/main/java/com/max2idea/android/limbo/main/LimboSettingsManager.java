@@ -29,6 +29,8 @@ import android.os.Environment;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
+import com.limbo.emu.lib.R;
+
 public class LimboSettingsManager extends PreferenceActivity {
 
 	static String getDNSServer(Activity activity) {
@@ -149,7 +151,7 @@ public class LimboSettingsManager extends PreferenceActivity {
 	}
 
 	public void addPrefs() {
-		// addPreferencesFromResource(R.xml.settings);
+		addPreferencesFromResource(R.xml.settings);
 	}
 
 
