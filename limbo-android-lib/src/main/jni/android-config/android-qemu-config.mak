@@ -2,20 +2,28 @@
 
 QEMU_TARGET_LIST = $(BUILD_GUEST)
 
-#### QEMU advance options
+#### QEMU version-spcific options
 
 # QEMU version 3.x is not using a stab lib
 # Set this to true for 2.9 and prior versions
-USE_QEMUSTAB ?= true
+USE_QEMUSTAB ?= false
+
+# QEMU version 4.x uses slirp as a static lib
+USE_SLIRP_LIB ?= true
 
 # we need to specify our own pixman library
 # For 2.9.x and prior pixman is included in QEMU so we request this explicitly
 # comment this if you use higher versions of QEMU 3.x
-PIXMAN = --with-system-pixman
+#PIXMAN = --with-system-pixman
 
-# For QEMU 2.11.0 and above we need to disable some features
-#MISC += --disable-capstone
-#MISC += --disable-malloc-trim
+# For QEMU 2.11.0 and above (3.x, 4.x) we need to disable some features
+MISC += --disable-capstone
+MISC += --disable-malloc-trim
+
+# For QEMU 4.0.0 disable the explicit sdlabi
+USE_SDL_ABI ?= false
+
+##### QEMU advance options
 
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
@@ -32,9 +40,11 @@ COROUTINE_POOL = --enable-coroutine-pool
 
 ifeq ($(USE_SDL),true)
 	#ENABLE SDL
-	SDL = --enable-sdl 
-	#SDL += --with-sdlabi=1.2
-	SDL += --with-sdlabi=2.0
+	SDL = --enable-sdl
+	ifeq ($(USE_SDL_ABI),true)
+		#SDL += --with-sdlabi=1.2
+		SDL += --with-sdlabi=2.0
+	endif
 else 
 	# DISABLE
 	SDL = --disable-sdl

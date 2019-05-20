@@ -16,6 +16,7 @@ extern "C" {
 #endif
 void set_jni(JNIEnv* env, jobject obj1, jclass jclass1, const char * storage_dir, const char * limbo_dir);
 void * valloc (size_t size);
+const char* strchrnul(const char* s, int c);
 #ifdef __cplusplus
 }
 #endif

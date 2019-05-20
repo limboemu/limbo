@@ -18,8 +18,8 @@ USE_SECURITY ?= true
 # Note: KVM headers are available only for android-21 platform and above
 USE_KVM ?= true
 
-# Build threads
-BUILD_THREADS = 4
+# Build threads, if use multiple and fails, try building again
+BUILD_THREADS = 1
 
 
 ############## Build Environment (toolchain)
