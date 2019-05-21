@@ -1,3 +1,14 @@
+* Limbo v4.1.0
+Support for compiling with QEMU 4.0.0 see README.developers for instructions
+VNC is now using a Unix domain socket for local connection
+QMP is now using a Unix domain socket for local connection
+Support for allowing QMP external connections
+Updated download and guide links to github repo
+Added software updates option in settings screen
+Moved legacy file manager option to settings screen
+SDL interface is now default
+
+
 * Limbo v4.0.0
 Enabled SDL scaling with linear algorithm
 Fixed loading native libraries for 64 bit hosts
