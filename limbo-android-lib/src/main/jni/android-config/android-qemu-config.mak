@@ -6,22 +6,24 @@ QEMU_TARGET_LIST = $(BUILD_GUEST)
 
 # QEMU version 3.x is not using a stab lib
 # Set this to true for 2.9 and prior versions
-USE_QEMUSTAB ?= false
+$ set to false for QEMU 4.0.0
+USE_QEMUSTAB ?= true
 
-# QEMU version 4.x uses slirp as a static lib
-USE_SLIRP_LIB ?= true
+# For QEMU 4.0.0 uses slirp as a static lib so set to true
+USE_SLIRP_LIB ?= false
+
+# For QEMU 4.0.0 set the explicit sdlabi to false
+USE_SDL_ABI ?= true
 
 # we need to specify our own pixman library
 # For 2.9.x and prior pixman is included in QEMU so we request this explicitly
-# comment this if you use higher versions of QEMU 3.x
-#PIXMAN = --with-system-pixman
+# comment this line if you use higher versions of QEMU 3.x or 4.x
+PIXMAN = --with-system-pixman
 
-# For QEMU 2.11.0 and above (3.x, 4.x) we need to disable some features
-MISC += --disable-capstone
-MISC += --disable-malloc-trim
+# For QEMU 2.11.0 and above (3.x, 4.x) uncomment these lines
+#MISC += --disable-capstone
+#MISC += --disable-malloc-trim
 
-# For QEMU 4.0.0 disable the explicit sdlabi
-USE_SDL_ABI ?= false
 
 ##### QEMU advance options
 
