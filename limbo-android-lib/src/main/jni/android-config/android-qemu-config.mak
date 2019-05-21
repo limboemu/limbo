@@ -6,7 +6,7 @@ QEMU_TARGET_LIST = $(BUILD_GUEST)
 
 # QEMU version 3.x is not using a stab lib
 # Set this to true for 2.9 and prior versions
-$ set to false for QEMU 4.0.0
+# set to false for QEMU 4.0.0
 USE_QEMUSTAB ?= true
 
 # For QEMU 4.0.0 uses slirp as a static lib so set to true
