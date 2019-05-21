@@ -44,7 +44,7 @@ https://github.com/limboemu/limbo
 
     #Note: if some of these file links don't download with wget use your browser to download them
 
-    ##### Get QEMU
+    ##### Get QEMU (modify the path to .../qemu-4.0.0.tar.xz if you compile with QEMU 4.0.0 instead)
     wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-2.9.1.tar.xz
     mv qemu-2.9.1 qemu
