@@ -26,6 +26,9 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -387,28 +390,56 @@ public class UIUtils {
             e.printStackTrace();
         }
 
-        FileUtils fileutils = new FileUtils();
-        UIAlert(activity, Config.APP_NAME + " v" + pInfo.versionName,
-                "Welcome to Limbo Emulator, a port of QEMU for Android devices. " +
-                        "Limbo can emulate light weight operating systems by loading and running virtual disks images. " +
-                        "\n\nFor Downloads, Guides, Help, ISO, and Virtual Disk images visit the Limbo Wiki. " +
-                        "Make sure you always download isos and images only from websites you trust, generally use at your own risk.",
-                15,
-                false,
-                "Go To Wiki", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
+        final AlertDialog alertDialog;
+        alertDialog = new AlertDialog.Builder(activity).create();
+        alertDialog.setTitle(Config.APP_NAME + " v" + pInfo.versionName);
+
+        LinearLayout mLayout = new LinearLayout(activity);
+        mLayout.setOrientation(LinearLayout.VERTICAL);
+        TextView textView = new TextView(activity);
+        textView.setBackgroundColor(Color.WHITE);
+        textView.setTextColor(Color.BLACK);
+        textView.setTextSize(15);
+        textView.setText("Welcome to Limbo Emulator, a port of QEMU for Android devices. " +
+                "Limbo can emulate light weight operating systems by loading and running virtual disks images. " +
+                "\n\nFor Downloads, Guides, Help, ISO, and Virtual Disk images visit the Limbo Wiki. " +
+                "Make sure you always download isos and images only from websites you trust, generally use at your own risk.");
+        textView.setPadding(20, 20, 20, 20);
+        ScrollView scrollView = new ScrollView(activity);
+        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 300));
+        scrollView.addView(textView);
+        mLayout.addView(scrollView);
+
+        CheckBox checkUpdates= new CheckBox(activity);
+        checkUpdates.setText("Check for Updates on Startup");
+        checkUpdates.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                LimboSettingsManager.setPromptUpdateVersion(activity, b);
+            }
+        });
+        checkUpdates.setChecked(true);
+        mLayout.addView(checkUpdates);
+        alertDialog.setView(mLayout);
+
+        // alertDialog.setMessage(body);
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "Go To Wiki",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
                         UIUtils.openURL(activity, Config.guidesLink);
                     }
-                },
-                "OK",
+                });
+
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "OK",
                 new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
+                    public void onClick(DialogInterface dialog, int which) {
 
                     }
-                }, null, null
-        );
+                });
+        alertDialog.show();
+
+
     }
 
     private static void openURL(Activity activity, String url) {

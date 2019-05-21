@@ -5,6 +5,7 @@ import android.os.Bundle;
 
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
+import com.max2idea.android.limbo.utils.LinksManager;
 
 public class LimboEmuActivity extends LimboActivity {
 
@@ -29,7 +30,10 @@ public class LimboEmuActivity extends LimboActivity {
 
         Config.machineFolder = Config.machineFolder + "other/sparc_machines/";
 
-        Config.osImages.put("Debian Sparc Linux", "http://limboemulator.weebly.com/debian-sparc-linux.html");
+        Config.osImages.put("Debian Sparc Linux", new LinksManager.LinkInfo("Debian Sparc Linux",
+                "A Linux-based light weight OS with Desktop Manager, network, and package manager",
+                "https://github.com/limboemu/limbo/wiki/Debian-Sparc-Linux",
+                LinksManager.LinkType.ISO));
 
         super.onCreate(bundle);
 
