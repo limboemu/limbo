@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main.ppc"
     android:installLocation="auto"
-    android:versionCode="40000"
-    android:versionName="4.0.0-ppc" >
+    android:versionCode="40100"
+    android:versionName="4.1.0-ppc" >
 
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -39,55 +39,35 @@
         </activity>
         <activity
             android:name="com.max2idea.android.limbo.main.LimboFileManager"
-            class="com.max2idea.android.limbo.main.LimboFileManager"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
             android:label="File Manager" >
-            <intent-filter>
-                <action
-                    android:name="PFileManager"
-                    android:value="android.intent.action.VIEW" />
-
-                <category
-                    android:name="PFileManager"
-                    android:value="android.intent.category.NORMAL" />
-            </intent-filter>
         </activity>
         <activity
             android:name="com.max2idea.android.limbo.main.LimboSDLActivity"
-            class="com.max2idea.android.limbo.main.LimboSDLActivityToolbar"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
             android:label="@string/app_name"
             android:launchMode="singleTask"
             android:theme="@style/Theme.AppCompat.NoActionBar" >
-            <intent-filter>
-                <action
-                    android:name=".SDLActivity"
-                    android:value="android.intent.action.VIEW" />
-
-                <category
-                    android:name=".SDLActivity"
-                    android:value="android.intent.category.NORMAL" />
-            </intent-filter>
         </activity>
         <activity
             android:name="com.max2idea.android.limbo.main.LimboVNCActivity"
-            class="com.max2idea.android.limbo.main.LimboVNCActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
             android:label="@string/app_name"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustPan" >
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" >
-                </action>
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
-
+        <activity
+            android:name="com.max2idea.android.limbo.main.LimboSettingsManager"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:label="Settings" >
+        </activity>
+        <activity
+            android:name="com.max2idea.android.limbo.utils.LinksManager"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:label="Downloads" >
+        </activity>
         <service
             android:name="com.max2idea.android.limbo.main.LimboService"
             android:enabled="true"
@@ -97,7 +77,6 @@
                 <action android:name="com.max2idea.android.limbo.action.STARTVM" />
             </intent-filter>
         </service>
-        
 
     </application>
 
