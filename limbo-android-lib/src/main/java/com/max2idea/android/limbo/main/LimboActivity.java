@@ -2020,6 +2020,7 @@ public class LimboActivity extends AppCompatActivity {
         mMouse.setOnItemSelectedListener(null);
         mOrientation.setOnItemSelectedListener(null);
         mVNCAllowExternal.setOnCheckedChangeListener(null);
+        mQMPAllowExternal.setOnCheckedChangeListener(null);
         mDesktopMode.setOnCheckedChangeListener(null);
         mToolBar.setOnCheckedChangeListener(null);
         mFullScreen.setOnCheckedChangeListener(null);
@@ -2159,11 +2160,13 @@ public class LimboActivity extends AppCompatActivity {
                     enableNonRemovableDeviceOptions(false);
                     enableRemovableDeviceOptions(false);
                     mVNCAllowExternal.setEnabled(false);
+                    mQMPAllowExternal.setEnabled(false);
                     currMachine = null;
                 } else if (position == 1) {
                     mMachine.setSelection(0);
                     promptMachineName(activity);
                     mVNCAllowExternal.setEnabled(true);
+                    mQMPAllowExternal.setEnabled(true);
 
                 } else {
                     final String machine = (String) ((ArrayAdapter<?>) mMachine.getAdapter()).getItem(position);
@@ -2177,6 +2180,7 @@ public class LimboActivity extends AppCompatActivity {
                     thread.start();
                     populateSnapshot();
                     mVNCAllowExternal.setEnabled(true);
+                    mQMPAllowExternal.setEnabled(true);
 
                 }
                 updateSummary(false);
@@ -2845,9 +2849,11 @@ public class LimboActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                mQMPAllowExternal.setEnabled(false);
+
                 if (vmStarted) {
                     //do nothing
-                    mQMPAllowExternal.setEnabled(false);
+
                 } else if (vmexecutor.paused == 1) {
                     UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
                 } else {
