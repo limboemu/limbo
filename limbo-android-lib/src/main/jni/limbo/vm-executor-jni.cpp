@@ -225,19 +225,50 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 
 	LOGV("Loading symbol main...\n");
 	typedef void (*main_t)(int argc, char **argv, char **envp);
+    typedef void (*qemu_main_loop_t)();
+	typedef void (*qemu_cleanup_t)();
+
+    qemu_main_loop_t qemu_main_loop = NULL;
+    qemu_cleanup_t qemu_cleanup = NULL;
 
 	// reset errors
 	dlerror();
-	main_t qemu_main = (main_t) dlsym(handle, "main");
+	main_t qemu_main = (main_t) dlsym(handle, "qemu_init");
 	const char *dlsym_error = dlerror();
-	if (dlsym_error) {
-		LOGE("Cannot load qemu symbol 'main': %s\n", dlsym_error);
-		dlclose(handle);
-		handle = NULL;
-		return env->NewStringUTF(dlsym_error);
-	}
+	if (dlsym_error) { //older versions of qemu
+		LOGE("Cannot find qemu symbol 'qemu_init' trying 'main': %s\n", dlsym_error);
+	    qemu_main = (main_t) dlsym(handle, "main");
+	    dlsym_error = dlerror();
+	    if (dlsym_error) {
+        	LOGE("Cannot find qemu symbol 'qemu_init' or 'main': %s\n", dlsym_error);
+        	dlclose(handle);
+        	handle = NULL;
+        	return env->NewStringUTF(dlsym_error);
+        }
+        qemu_main(argc, argv, NULL);
+    } else { // new versions of qemu
+        qemu_main_loop = (qemu_main_loop_t) dlsym(handle, "qemu_main_loop");
+	    dlsym_error = dlerror();
+	    if (dlsym_error) {
+        	LOGE("Cannot find qemu symbol 'qemu_main_loop': %s\n", dlsym_error);
+        	dlclose(handle);
+        	handle = NULL;
+        	return env->NewStringUTF(dlsym_error);
+        }
 
-	qemu_main(argc, argv, NULL);
+        qemu_cleanup = (qemu_cleanup_t) dlsym(handle, "qemu_cleanup");
+	    dlsym_error = dlerror();
+	    if (dlsym_error) {
+        	LOGE("Cannot find qemu symbol 'qemu_cleanup': %s\n", dlsym_error);
+        	dlclose(handle);
+        	handle = NULL;
+        	return env->NewStringUTF(dlsym_error);
+        }
+
+        qemu_main(argc, argv, NULL);
+        qemu_main_loop();
+        qemu_cleanup();
+	}
 
 	//UNLOAD LIB
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
@@ -247,7 +278,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	started = 0;
 
     env->ReleaseStringUTFChars(lib_path, lib_path_str);
-
 
 	sprintf(res_msg, "VM shutdown");
 	LOGV("%s", res_msg);
