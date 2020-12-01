@@ -18,21 +18,6 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.utils;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
-import android.support.v4.provider.DocumentFile;
-import android.text.Spannable;
-import android.util.Log;
-import android.webkit.MimeTypeMap;
-
-import com.limbo.emu.lib.R;
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -51,6 +36,21 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+import androidx.documentfile.provider.DocumentFile;
+import android.text.Spannable;
+import android.util.Log;
+import android.webkit.MimeTypeMap;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboActivity;
 
 /**
  * @author dev

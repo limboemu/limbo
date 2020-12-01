@@ -121,12 +121,14 @@ public class Machine {
                     public void onClick(DialogInterface dialog, int which) {
 
                         Log.i(TAG, "VM Paused, Shutting Down");
-                        if (LimboActivity.vmexecutor != null) {
-                            LimboActivity.vmexecutor.stopvm(0);
-                        } else if (activity.getParent() != null) {
+                        if (activity.getParent() != null) {
                             activity.getParent().finish();
                         } else {
                             activity.finish();
+                        }
+
+                        if (LimboActivity.vmexecutor != null) {
+                            LimboActivity.vmexecutor.stopvm(0);
                         }
                     }
                 }).show();
@@ -141,11 +143,12 @@ public class Machine {
                     LimboActivity.vmexecutor.stopvm(1);
 
                     LimboActivity.vmStarted = true;
-                    UIUtils.toastShort(context, "VM Reset");
+                    if(Config.showToast)
+                        UIUtils.toastShort(context, "VM Reset");
 
                 } else {
-
-                    UIUtils.toastShort(context, "VM Not Running");
+                    if(Config.showToast)
+                        UIUtils.toastShort(context, "VM Not Running");
                 }
             }
         });
@@ -178,12 +181,14 @@ public class Machine {
                         + "have already shutdown the Operating system from within the VM. Continue?")
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
-                        if (LimboActivity.vmexecutor != null) {
-                            LimboActivity.vmexecutor.stopvm(0);
-                        } else if (activity.getParent() != null) {
+                        if (activity.getParent() != null) {
                             activity.getParent().finish();
                         } else {
                             activity.finish();
+                        }
+
+                        if (LimboActivity.vmexecutor != null) {
+                            LimboActivity.vmexecutor.stopvm(0);
                         }
                     }
                 }).setNegativeButton("No", new DialogInterface.OnClickListener() {

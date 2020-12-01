@@ -392,7 +392,7 @@ public class VMExecutor {
         return res;
     }
 
-    public void prepareParams() throws FileNotFoundException {
+    public void prepareParams() throws Exception {
 
         params = null;
         ArrayList<String> paramsList = new ArrayList<String>();
@@ -578,8 +578,8 @@ public class VMExecutor {
 //        paramsList.add("-tb-size");
 //        paramsList.add("32M"); //Don't increase it crashes
 
-        paramsList.add("-realtime");
-        paramsList.add("mlock=off");
+//        paramsList.add("-realtime");
+//        paramsList.add("mlock=off");
 
         paramsList.add("-rtc");
         paramsList.add("base=localtime");
@@ -652,15 +652,26 @@ public class VMExecutor {
 
     }
 
-    private void addNetworkOptions(ArrayList<String> paramsList) {
+    private void addNetworkOptions(ArrayList<String> paramsList) throws Exception {
 
         if (this.net_cfg != null) {
             paramsList.add("-net");
             if (net_cfg.equals("user")) {
                 String netParams = net_cfg;
                 if (hostfwd != null) {
-                    netParams += ",";
-                    netParams += hostfwd; // example forward ssh: "hostfwd=tcp:127.0.0.1:2222-:22"
+
+                    //hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport{,hostfwd=...}
+                    // example forward ssh from guest port 2222 to guest port 22:
+                    // hostfwd=tcp::2222-:22
+                    if(hostfwd.startsWith("hostfwd")){
+                        throw new Exception("Invalid format for Host Forward, should be: tcp:hostport1:guestport1,udp:hostport2:questport2,...");
+                    }
+                    String [] hostfwdparams = hostfwd.split(",");
+                    for(int i=0; i<hostfwdparams.length; i++) {
+                        netParams += ",";
+                        String[] hostfwdparam = hostfwdparams[i].split(":");
+                        netParams += ("hostfwd="+hostfwdparam[0]+"::"+hostfwdparam[1]+"-:"+hostfwdparam[2]);
+                    }
                 }
                 if (guestfwd != null) {
                     netParams += ",";

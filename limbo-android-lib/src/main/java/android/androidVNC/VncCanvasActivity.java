@@ -57,7 +57,9 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class VncCanvasActivity extends Activity {
+import androidx.appcompat.app.AppCompatActivity;
+
+public class VncCanvasActivity extends AppCompatActivity {
 
 	static Display display = null;
 	public static Activity activity;
@@ -478,11 +480,17 @@ public class VncCanvasActivity extends Activity {
             float newRemoteY = vncCanvas.mouseY + deltaY;
 
             if (dragMode) {
+                boolean down = false;
                 if (e.getAction() == MotionEvent.ACTION_UP) {
                     dragMode = false;
+                } else if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                    down = true;
                 }
+
                 e.setLocation(newRemoteX, newRemoteY);
-                return vncCanvas.processPointerEvent(e, true);
+                vncCanvas.processPointerEvent(e, down);
+                return super.onTouchEvent(e);
+
             } else if (!Config.enableDragOnLongPress && e.getAction() == MotionEvent.ACTION_MOVE) {
                 e.setLocation(newRemoteX, newRemoteY);
                 return vncCanvas.processPointerEvent(e, false);

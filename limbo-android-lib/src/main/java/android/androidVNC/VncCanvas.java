@@ -38,7 +38,6 @@ import android.graphics.Paint.Style;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Handler;
-import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Display;
@@ -58,6 +57,8 @@ import org.libsdl.app.SDLActivity;
 
 import java.io.IOException;
 import java.util.zip.Inflater;
+
+import androidx.appcompat.widget.AppCompatImageView;
 
 public class VncCanvas extends AppCompatImageView {
 

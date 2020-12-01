@@ -19,7 +19,8 @@
 package com.max2idea.android.limbo.main;
 
 import android.androidVNC.AbstractScaling;
-import android.app.ActionBar;
+import android.androidVNC.VncCanvasActivity;
+import androidx.appcompat.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -28,13 +29,14 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.support.v4.view.MenuItemCompat;
 import android.util.Log;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -67,12 +69,14 @@ import java.util.logging.Logger;
 
 import org.json.JSONObject;
 
+import androidx.core.view.MenuItemCompat;
+
 
 /**
  * 
  * @author Dev
  */
-public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
+public class LimboVNCActivity extends VncCanvasActivity {
 
 	public static final int KEYBOARD = 10000;
 	public static final int QUIT = 10001;
@@ -148,18 +152,25 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-                vnc_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+//                vnc_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+                vnc_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                vnc_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+
                 vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+//                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                vnc_canvas_layout_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+
             } else {
                 vnc_params = new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
                 vnc_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                vnc_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 
                 vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -182,14 +193,24 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
                 );
                 vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
             } else {
+                final Display display = getWindow().getWindowManager().getDefaultDisplay();
+                Point size = new Point();
+                display.getSize(size);
+
+                int h = ViewGroup.LayoutParams.WRAP_CONTENT;
+                if(vncCanvas.rfb.framebufferWidth != 0
+                && vncCanvas.rfb.framebufferHeight != 0) {
+                    h = size.x * vncCanvas.rfb.framebufferHeight / vncCanvas.rfb.framebufferWidth;
+                }
                 vnc_params = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        size.x,
+                        h
                 );
                 vnc_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                vnc_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 
                 vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
                 vnc_canvas_layout_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
@@ -307,10 +328,16 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public boolean onOptionsItemSelected(final MenuItem item) {
 		super.onOptionsItemSelected(item);
 		if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
-			toggleKeyboardFlag = UIUtils.onKeyboard(this, toggleKeyboardFlag);
+			new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    toggleKeyboardFlag = UIUtils.onKeyboard(activity, toggleKeyboardFlag, vncCanvas);
+                }
+            }, 200);
 		} else if (item.getItemId() == R.id.itemReset) {
 			Machine.resetVM(activity);
 		} else if (item.getItemId() == R.id.itemShutdown) {
+		    UIUtils.hideKeyboard(this, vncCanvas);
 			Machine.stopVM(activity);
 		} else if (item.getItemId() == R.id.itemDrives) {
 			// Show up removable devices dialog
@@ -505,7 +532,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
             MotionEvent a = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
             Config.mouseMode = Config.MouseMode.External;
             LimboSettingsManager.setDesktopMode(this, true);
-            UIUtils.toastShort(LimboVNCActivity.this, "External Mouse Enabled");
+            if(Config.showToast)
+                    UIUtils.toastShort(LimboVNCActivity.this, "External Mouse Enabled");
             onNormalScreen();
             AbstractScaling.getById(R.id.itemOneToOne).setScaleTypeForActivity(LimboVNCActivity.this);
             showPanningState();
@@ -541,7 +569,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 	    try {
             UIUtils.setOrientation(this);
-            ActionBar bar = this.getActionBar();
+            ActionBar bar = this.getSupportActionBar();
             if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
                 bar.hide();
             }
@@ -568,7 +596,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	    try {
             //Force only landscape
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-            ActionBar bar = LimboVNCActivity.this.getActionBar();
+            ActionBar bar = LimboVNCActivity.this.getSupportActionBar();
             if (bar != null) {
                 bar.show();
             }
@@ -755,7 +783,8 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	public static boolean toggleKeyboardFlag = true;
 
 	private void onMonitor() {
-        UIUtils.toastShort(this, "Connecting to QEMU Monitor, please wait");
+        if(Config.showToast)
+            UIUtils.toastShort(this, "Connecting to QEMU Monitor");
 
         Thread t = new Thread(new Runnable() {
             public void run() {
@@ -773,7 +802,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	private void onVNC() {
-        UIUtils.toastShort(this, "Connecting to VM, please wait");
+        UIUtils.toastShort(this, "Connecting to VM");
 
         Thread t = new Thread(new Runnable() {
             public void run() {
@@ -1043,7 +1072,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 
 		// super.onBackPressed();
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getActionBar();
+			ActionBar bar = this.getSupportActionBar();
 			if (bar != null) {
 				if (bar.isShowing() && Config.mouseMode == Config.MouseMode.Trackpad) {
 					bar.hide();
@@ -1056,7 +1085,7 @@ public class LimboVNCActivity extends android.androidVNC.VncCanvasActivity {
 	}
 
 	public void onHideToolbar(){
-			ActionBar bar = this.getActionBar();
+			ActionBar bar = this.getSupportActionBar();
 			if (bar != null) {
 					bar.hide();
 			}

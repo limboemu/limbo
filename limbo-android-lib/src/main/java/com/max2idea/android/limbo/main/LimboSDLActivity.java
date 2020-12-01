@@ -1,6 +1,6 @@
 package com.max2idea.android.limbo.main;
 
-import android.app.ActionBar;
+import androidx.appcompat.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -17,7 +17,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
-import android.support.v4.view.MenuItemCompat;
+import androidx.core.view.MenuItemCompat;
 
 import android.util.Log;
 import android.view.Display;
@@ -399,11 +399,19 @@ public class LimboSDLActivity extends SDLActivity {
 		} else if (item.getItemId() == R.id.itemReset) {
 			Machine.resetVM(activity);
 		} else if (item.getItemId() == R.id.itemShutdown) {
+            UIUtils.hideKeyboard(this, mSurface);
             Machine.stopVM(activity);
 		} else if (item.getItemId() == R.id.itemMouse) {
             onMouseMode();
 		} else if (item.getItemId() == this.KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
-			toggleKeyboardFlag = UIUtils.onKeyboard(this, toggleKeyboardFlag);
+            //XXX: need to post after delay to work correctly
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    toggleKeyboardFlag = UIUtils.onKeyboard(activity, toggleKeyboardFlag, mSurface);
+                }
+            }, 200);
+
 		}
         else if (item.getItemId() == R.id.itemMonitor) {
 			if (this.monitorMode) {
@@ -456,7 +464,7 @@ public class LimboSDLActivity extends SDLActivity {
     }
 
     public void onHideToolbar(){
-        ActionBar bar = this.getActionBar();
+        ActionBar bar = this.getSupportActionBar();
         if (bar != null) {
             bar.hide();
         }
@@ -494,7 +502,7 @@ public class LimboSDLActivity extends SDLActivity {
 	public boolean checkVMResolutionFits() {
 		int width = mLayout.getWidth();
 		int height = mLayout.getHeight();
-		ActionBar bar = activity.getActionBar();
+		ActionBar bar = activity.getSupportActionBar();
 
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(LimboSDLActivity.this)
 				&& bar != null && bar.isShowing()) {
@@ -522,7 +530,8 @@ public class LimboSDLActivity extends SDLActivity {
         Config.mouseMode = Config.MouseMode.Trackpad;
         LimboSettingsManager.setDesktopMode(this, false);
 		LimboActivity.vmexecutor.setRelativeMouseMode(1);
-        UIUtils.toastShort(this.getApplicationContext(), "Trackpad Enabled");
+            if(Config.showToast)
+                UIUtils.toastShort(this.getApplicationContext(), "Trackpad Enabled");
         if(fitToScreen)
             onFitToScreen();
         else
@@ -599,7 +608,8 @@ public class LimboSDLActivity extends SDLActivity {
             Config.mouseMode = Config.MouseMode.External;
             LimboSettingsManager.setDesktopMode(this, true);
             LimboActivity.vmexecutor.setRelativeMouseMode(0);
-            UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
+            if(Config.showToast)
+                UIUtils.toastShort(LimboSDLActivity.this, "External Mouse Enabled");
             onNormalScreen();
             calibration();
             invalidateOptionsMenu();
@@ -637,7 +647,8 @@ public class LimboSDLActivity extends SDLActivity {
 				Log.d(TAG, "onStretchToScreen");
 				screenMode = SDLScreenMode.Fullscreen;
                 sendCtrlAltKey(KeyEvent.KEYCODE_F); // not working
-                UIUtils.toastShort(activity, "Resizing, Please Wait");
+                if(Config.showToast)
+                    UIUtils.toastShort(activity, "Resizing, Please Wait");
                 resize(null);
 
 			}
@@ -648,7 +659,7 @@ public class LimboSDLActivity extends SDLActivity {
 	private void onFitToScreen() {
 		try {
 	    UIUtils.setOrientation(this);
-        ActionBar bar = LimboSDLActivity.this.getActionBar();
+        ActionBar bar = LimboSDLActivity.this.getSupportActionBar();
         if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
             bar.hide();
         }
@@ -656,7 +667,8 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				Log.d(TAG, "onFitToScreen");
 				screenMode = SDLScreenMode.FitToScreen;
-                UIUtils.toastShort(activity, "Resizing, Please Wait");
+				if(Config.showToast)
+				    UIUtils.toastShort(activity, "Resizing, Please Wait");
 				resize(null);
 
 			}
@@ -670,7 +682,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 	private void onNormalScreen() {
 	    try {
-		ActionBar bar = LimboSDLActivity.this.getActionBar();
+		ActionBar bar = LimboSDLActivity.this.getSupportActionBar();
 		if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
 			bar.hide();
 		}
@@ -679,7 +691,8 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				Log.d(TAG, "onNormalScreen");
 				screenMode = SDLScreenMode.Normal;
-                UIUtils.toastShort(activity, "Resizing, Please Wait");
+                if(Config.showToast)
+                    UIUtils.toastShort(activity, "Resizing, Please Wait");
 				resize(null);
 
 			}
@@ -702,15 +715,16 @@ public class LimboSDLActivity extends SDLActivity {
 			public void run() {
 				((LimboSDLSurface) mSurface).getHolder().setFixedSize(0, 0);
                 setLayout(newConfig);
+
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        ((LimboSDLSurface) mSurface).doResize(false, newConfig);
+                    }
+                }, 1000);
 			}
 		});
 
-		new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				((LimboSDLSurface) mSurface).doResize(false, newConfig);
-			}
-		}, 1500);
 	}
 
 	private void setZoomIn() {
@@ -1061,8 +1075,8 @@ public class LimboSDLActivity extends SDLActivity {
 						file.delete();
 					}
 				}
-
-				UIUtils.toastShort(getApplicationContext(), "Please wait while saving VM State");
+                if(Config.showToast)
+				    UIUtils.toastShort(getApplicationContext(), "Please wait while saving VM State");
 				LimboActivity.vmexecutor.current_fd = LimboActivity.vmexecutor.get_fd(LimboActivity.vmexecutor.save_state_name);
 
 				String uri = "fd:" + LimboActivity.vmexecutor.current_fd;
@@ -1181,7 +1195,7 @@ public class LimboSDLActivity extends SDLActivity {
 
 	public void onBackPressed() {
 		if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
-			ActionBar bar = this.getActionBar();
+			ActionBar bar = this.getSupportActionBar();
 			if (bar != null) {
 				if (bar.isShowing())
 					bar.hide();
@@ -1189,6 +1203,7 @@ public class LimboSDLActivity extends SDLActivity {
 					bar.show();
 			}
 		} else {
+            UIUtils.hideKeyboard(this, mSurface);
             Machine.stopVM(activity);
 		}
 
@@ -1398,7 +1413,10 @@ public class LimboSDLActivity extends SDLActivity {
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+//                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_IN_PARENT);
+                vnc_canvas_layout_params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+                vnc_canvas_layout_params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+
             } else {
                 vnc_canvas_layout_params = new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1485,7 +1503,7 @@ public class LimboSDLActivity extends SDLActivity {
 			int screen_width = size.x;
 			int screen_height = size.y;
 
-			final ActionBar bar = ((SDLActivity) activity).getActionBar();
+			final ActionBar bar = ((SDLActivity) activity).getSupportActionBar();
 
 			if(LimboSDLActivity.mLayout != null) {
 				width = LimboSDLActivity.mLayout.getWidth();
@@ -1526,7 +1544,7 @@ public class LimboSDLActivity extends SDLActivity {
                 public void run() {
                     isResizing = false;
                 }
-            }, 3000);
+            }, 5000);
 
 
 

@@ -110,7 +110,7 @@ public class Config {
     public static boolean enableSMPOnlyOnKVM = false;
 
     //set to false if you need to debug native library loading
-    public static boolean loadNativeLibsEarly = false;
+    public static boolean loadNativeLibsEarly = true;
 
     //XXX: QEMU 3.1.0 needs the libraries to be loaded from the main thread
     public static boolean loadNativeLibsMainThread = true;
@@ -140,6 +140,11 @@ public class Config {
     public static boolean enableEmulatedFloppy = true;
     public static boolean enableEmulatedSDCard;
     public static String destLogFilename = "limbolog.txt";
+
+    public static String notificationChannelID = "limbo";
+    public static String notificationChannelName = "limbo";
+    public static boolean showToast = false;
+
 
     public static final String getCacheDir(){
         return cacheDir.toString();
@@ -207,7 +212,7 @@ public class Config {
     public static boolean enableToggleKeyboard = false;
 
     //override this at the app level it dependes on the host arch
-    public static boolean enableMTTCG = false;
+    public static boolean enableMTTCG = true;
 
 
 

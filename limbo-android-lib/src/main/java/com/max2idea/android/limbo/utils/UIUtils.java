@@ -1,6 +1,5 @@
 package com.max2idea.android.limbo.utils;
 
-import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -32,7 +31,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Toolbar;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
@@ -46,6 +44,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Scanner;
+
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 public class UIUtils {
 
@@ -241,22 +243,24 @@ public class UIUtils {
 	}
 
 
-	public static boolean onKeyboard(Activity activity, boolean toggle) {
-		// Prevent crashes from activating mouse when machine is paused
-		if (LimboActivity.vmexecutor.paused == 1)
-			return !toggle;
+	public static boolean onKeyboard(Activity activity, boolean toggle, View view) {
+        // Prevent crashes from activating mouse when machine is paused
+        if (LimboActivity.vmexecutor.paused == 1)
+            return !toggle;
 
-		InputMethodManager inputMgr = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager inputMgr = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
 
-		//XXX: we need to get the focused view to make this always work
-		//inputMgr.toggleSoftInput(0, 0);
+        //XXX: we need to get the focused view to make this always work
+        //inputMgr.toggleSoftInput(0, 0);
 
 
-		View view = activity.getCurrentFocus();
-		if(toggle || !Config.enableToggleKeyboard)
-			inputMgr.showSoftInput(view, InputMethodManager.SHOW_FORCED);
-		else {
-
+//        View view = activity.getCurrentFocus();
+        if (toggle || !Config.enableToggleKeyboard){
+            if(view!=null) {
+                view.requestFocus();
+                inputMgr.showSoftInput(view, InputMethodManager.SHOW_FORCED);
+            }
+        } else {
 			if (view != null) {
 				inputMgr.hideSoftInputFromWindow(view.getWindowToken(), 0);
 			}
@@ -264,6 +268,13 @@ public class UIUtils {
 
         return !toggle;
 	}
+
+	public static void hideKeyboard(Activity activity, View view) {
+        InputMethodManager inputMgr = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (view != null) {
+            inputMgr.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+    }
 
 	public static void toastShortTop(final Activity activity, final String errStr) {
 		UIUtils.toast(activity, errStr, Gravity.TOP | Gravity.CENTER, Toast.LENGTH_SHORT);
@@ -341,13 +352,13 @@ public class UIUtils {
 
 	}
 
-	public static void setupToolBar(Activity activity) {
+	public static void setupToolBar(AppCompatActivity activity) {
 		
 		Toolbar tb = (Toolbar) activity.findViewById(R.id.toolbar);
-		activity.setActionBar(tb);
+		activity.setSupportActionBar(tb);
 
 		// Get the ActionBar here to configure the way it behaves.
-		final ActionBar ab = activity.getActionBar();
+		ActionBar ab = activity.getSupportActionBar();
 		ab.setHomeAsUpIndicator(R.drawable.limbo); // set a custom icon for
 													// the
 													// default home button

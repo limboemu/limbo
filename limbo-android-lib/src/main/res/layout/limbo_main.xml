@@ -6,7 +6,7 @@
     android:keepScreenOn="true"
     android:orientation="vertical">
 
-    <android.support.v7.widget.Toolbar
+    <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
@@ -18,7 +18,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <android.support.v4.widget.NestedScrollView
+        <androidx.core.widget.NestedScrollView
             android:id="@+id/scroll_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1932,7 +1932,7 @@
                                 android:layout_height="wrap_content"
                                 android:enabled="false"
                                 android:gravity="right"
-                                android:hint="hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport{,hostfwd=...}"
+                                android:hint="tcp:hostport1:guestport1,udp:hostport2:questport2,..."
                                 android:inputType="textFilter|textNoSuggestions"
                                 android:singleLine="true"
                                 android:text=""
@@ -2107,7 +2107,7 @@
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
-        </android.support.v4.widget.NestedScrollView>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
 
 </LinearLayout>

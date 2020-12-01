@@ -42,11 +42,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager.WakeLock;
 import android.os.StrictMode;
-import android.support.v4.view.MenuItemCompat;
-import android.support.v4.widget.NestedScrollView;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
+
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.MenuItemCompat;
 import android.text.InputType;
 import android.text.method.HideReturnsTransformationMethod;
 import android.text.method.PasswordTransformationMethod;
@@ -99,6 +98,9 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.widget.NestedScrollView;
 
 public class LimboActivity extends AppCompatActivity {
 
@@ -2817,12 +2819,12 @@ public class LimboActivity extends AppCompatActivity {
         vmexecutor.paused = currMachine.paused;
 
         if (!vmStarted) {
-            UIUtils.toastShort(LimboActivity.this, "Starting VM, please wait");
+            UIUtils.toastShort(LimboActivity.this, "Starting VM");
             //XXX: make sure that bios files are installed in case we ran out of space in the last
             //  run
             FileInstaller.installFiles(activity, false);
         } else {
-            UIUtils.toastShort(LimboActivity.this, "Connecting to VM, please wait");
+            UIUtils.toastShort(LimboActivity.this, "Connecting to VM");
         }
 
         if (mUI.getSelectedItemPosition() == 0) { // VNC
@@ -2855,7 +2857,7 @@ public class LimboActivity extends AppCompatActivity {
                     //do nothing
 
                 } else if (vmexecutor.paused == 1) {
-                    UIUtils.toastShort(LimboActivity.this, "VM Resuming, Please Wait");
+                    UIUtils.toastShort(LimboActivity.this, "VM Resuming");
                 } else {
 //					if (!vmStarted) {
 //						UIUtils.toastLong(LimboActivity.this, "VM Started\nPause the VM instead so you won't have to boot again!");
@@ -4181,14 +4183,15 @@ public class LimboActivity extends AppCompatActivity {
             this.startvnc();
 
         } else if (resultCode == Config.SDL_QUIT_RESULT_CODE) {
+            if (activity.getParent() != null) {
+                activity.getParent().finish();
+            }
+            activity.finish();
 
             UIUtils.toastShort(getApplicationContext(), "SDL Quit");
             if (LimboActivity.vmexecutor != null) {
                 LimboActivity.vmexecutor.stopvm(0);
-            } else if (activity.getParent() != null) {
-                activity.getParent().finish();
             }
-            activity.finish();
         } else if (requestCode == Config.OPEN_IMPORT_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE) {
             String file = null;
             if(requestCode == Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE) {
@@ -6212,7 +6215,7 @@ public class LimboActivity extends AppCompatActivity {
                 return;
             }
         }
-
+        UIUtils.hideKeyboard(this, mScrollView);
         Machine.stopVM(activity);
     }
 

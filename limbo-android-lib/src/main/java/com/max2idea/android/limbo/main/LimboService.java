@@ -1,6 +1,7 @@
 package com.max2idea.android.limbo.main;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -9,14 +10,13 @@ import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
-import android.support.v7.app.NotificationCompat;
-import android.support.v7.app.NotificationCompat.Builder;
 import android.util.Log;
 
 import com.limbo.emu.lib.R;
@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+
+import androidx.core.app.NotificationCompat;
 
 public class LimboService extends Service {
 
@@ -46,7 +48,7 @@ public class LimboService extends Service {
 	}
 
 	public static VMExecutor executor;
-	private static Builder builder;
+	private static NotificationCompat.Builder builder;
 
 	public static final int notifID = 1000;
 
@@ -159,7 +161,14 @@ public class LimboService extends Service {
 		PendingIntent pi = PendingIntent.getActivity(service.getApplicationContext(), 0, intent,
 				PendingIntent.FLAG_UPDATE_CURRENT);
 
-		builder = new NotificationCompat.Builder(service);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel chan = new NotificationChannel(Config.notificationChannelID, Config.notificationChannelName, NotificationManager.IMPORTANCE_NONE);
+            NotificationManager notifService = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notifService.createNotificationChannel(chan);
+            builder = new NotificationCompat.Builder(service, Config.notificationChannelID);
+
+        } else
+		    builder = new NotificationCompat.Builder(service, "");
 		mNotification = builder.setContentIntent(pi).setContentTitle(getString(R.string.app_name)).setContentText(text)
 				.setSmallIcon(R.drawable.limbo)
 				.setLargeIcon(BitmapFactory.decodeResource(service.getResources(), R.drawable.limbo)).build();
