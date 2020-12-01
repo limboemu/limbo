@@ -109,8 +109,8 @@ public class Config {
     /// thought there is also the Disable TSC feature so you don't have to do it here
     public static boolean enableSMPOnlyOnKVM = false;
 
-    //set to false if you need to debug native library loading
-    public static boolean loadNativeLibsEarly = true;
+    //set to true if you need to debug native library loading
+    public static boolean loadNativeLibsEarly = false; 
 
     //XXX: QEMU 3.1.0 needs the libraries to be loaded from the main thread
     public static boolean loadNativeLibsMainThread = true;
