@@ -6,7 +6,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath 'com.android.tools.build:gradle:4.1.1'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -15,8 +15,8 @@ buildscript {
 
 allprojects {
     repositories {
-        jcenter()
         google()
+        jcenter()
     }
 
 //    gradle.projectsEvaluated {
@@ -36,5 +36,11 @@ idea {
   module {
 //Exclude C source code from indexing
     excludeDirs.add(file('limbo-android-lib/src/main/jni'))
+    excludeDirs.add(file('limbo-android-lib/build'))
+    excludeDirs.add(file('limbo-android-arm/build'))
+    excludeDirs.add(file('limbo-android-sparc/build'))
+    excludeDirs.add(file('limbo-android-ppc/build'))
+    excludeDirs.add(file('limbo-android-x86/build'))	
+    excludeDirs.add(file('gradle'))	
   }
 }
