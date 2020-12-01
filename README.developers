@@ -44,10 +44,10 @@ https://github.com/limboemu/limbo
 
     #Note: if some of these file links don't download with wget use your browser to download them
 
-    ##### Get QEMU (modify the path to .../qemu-4.0.0.tar.xz if you compile with QEMU 4.0.0 instead)
-    wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
-    tar -xJf /tmp/qemu-2.9.1.tar.xz
-    mv qemu-2.9.1 qemu
+    ##### Get QEMU
+    wget http://download.qemu-project.org/qemu-5.1.0.tar.xz -P /tmp/
+    tar -xJf /tmp/qemu-5.1.0.tar.xz
+    mv qemu-5.1.0 qemu
 
     ##### GET glib
     wget https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz -P /tmp/
@@ -82,32 +82,28 @@ https://github.com/limboemu/limbo
         SDL2/
 
 
-    ### If you want to compile with QEMU 2.9.1:
+    ### Apply patch for QEMU 5.1.0:
+    Make sure the following line is uncommented in android-qemu-config.mak
+    include android-qemu-config-5.1.0.mak
+    Apply the patch on the terminal:
     cd ./limbo-android-lib/src/main/jni/qemu/
-    patch -p1 < ../patches/qemu-2.9.1.patch
+    patch -p1 < ../patches/qemu-5.1.0.patch
 
-    ### Or if you want to compile with QEMU 4.0.0:
-    cd ./limbo-android-lib/src/main/jni/qemu/
-    patch -p1 < ../patches/qemu-4.0.0.patch
-    For QEMU 4.0.0 you also need to modify file android-config/android-qemu-config.mak:
-        set to false: USE_QEMUSTAB ?= false
-        set to true: USE_SLIRP_LIB ?= true
-        comment line: #PIXMAN = --with-system-pixman
-        #MISC += --disable-capstone
-        #MISC += --disable-malloc-trim
-        set to false: USE_SDL_ABI ?= false
-     Also if you want to enable to explicitly enable MTTCG modify Config.java:
+    # for QEMU versions 4 and above you can enable MTTCG on the ui
+    # this will only work if your android device is 64bit
+    modify Config.java:
         set to true: public static boolean enableMTTCG = true;
 
     ### Apply glib patch for Limbo:
     cd ./limbo-android-lib/src/main/jni/glib/
     patch -p1 < ../patches/glib-2.56.1.patch
 
-
     ### Other QEMU versions:
-    If you want to distribute Limbo build with other QEMU versions, create your own patch like this:
+    # If you want to distribute Limbo build with other QEMU versions, create your own patch like this:
     cd /limbo-android-lib/src/main/jni/qemu/
     diff -ru --no-dereference /tmp/qemu-x.x.x . | grep -v '^Only in' > ../patches/qemu-x.x.x.patch
+    Don't forget to create your android-qemu-config-x.x.x.mak file
+      and include it in android-qemu-config.mak
 
 ===============================================================================
 5. Build
@@ -145,13 +141,13 @@ https://github.com/limboemu/limbo
         BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
 
         Examples:
-        1) To build Limbo x86 Emulator for ARM phones type:
-            export BUILD_HOST=armeabi-v7a
+        1) To build Limbo x86 Emulator for ARM64 phones type:
+            export BUILD_HOST=arm64-v8a
             export BUILD_GUEST=x86_64-softmmu
             make limbo
 
-        2) To build Limbo x86 Emulator for ARM64 phones type:
-            export BUILD_HOST=arm64-v8a
+        2) To build Limbo x86 Emulator for ARM phones type:
+            export BUILD_HOST=armeabi-v7a
             export BUILD_GUEST=x86_64-softmmu
             make limbo
 
@@ -177,7 +173,6 @@ https://github.com/limboemu/limbo
             make limbo
 
         7) To build multiple Limbo emulators for ARM phones type:
-            export NDK_DEBUG=1
             export BUILD_HOST=arm64-v8a
             export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
             make limbo
@@ -205,11 +200,11 @@ https://github.com/limboemu/limbo
         Make sure the *.so libraries are zipped in the final .apk
 
     e. If you want to build the debugging version:
-           Set variables in Config.java:
-             debug = true;
-           Modify android-config/android-limbo-config.mak and point to a configuration
-         with no optimization:
-         USE_OPTIMIZATION ?= false
+        Set variables in Config.java:
+          debug = true;
+        Modify android-config/android-limbo-config.mak and point to a configuration
+          with no optimization:
+        USE_OPTIMIZATION=false
 
         Follow the steps to build the native libraries as described above
         export NDK_DEBUG=1
@@ -217,18 +212,17 @@ https://github.com/limboemu/limbo
         Important:
            From Android studio click Build> Rebuild Project and Run > Debug
          
-    f. To start debugging the native code for a particular guest arch type
-        for x86 guest:
+    f. To debug the native code for a particular guest:
+
+        # for x86 guest and ARM64 phone:
+        export BUILD_HOST=arm64-v8a
+        export BUILD_GUEST=x86_64-softmmu
         make ndk-gdb PKG_NAME=com.limbo.emu.main
 
-        for arm guest:
+        # for other guests use respectively:
         make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
-
-        for sparc guest:
-        make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
-
-        for ppc guest:
-        make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
+		make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
+		make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
 
         Note: you might want to disable signal handling in gdb:
         handle all nostop noprint
