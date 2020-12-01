@@ -35,6 +35,7 @@ QEMU_UTIL_LIB=../libqemuutil.a
 
 RELINK_PARAMS=--redefine-sym open=android_open \
               	--redefine-sym fopen=android_fopen \
+              	--redefine-sym close=android_close \
               	--redefine-sym stat=android_stat \
               	--redefine-sym mkstemp=android_mkstemp
 
