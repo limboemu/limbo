@@ -1,0 +1,361 @@
+diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
+--- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 22:17:15.000000000 +0300
++++ ./accel/kvm/kvm-all.c	2020-11-27 17:37:08.266482182 +0200
+@@ -2015,7 +2015,12 @@
+     s->vmfd = -1;
+     s->fd = qemu_open("/dev/kvm", O_RDWR);
+     if (s->fd == -1) {
++#ifdef __LIMBO__
++         //no m specifier in android
++        fprintf(stderr, "Could not access KVM kernel module: /dev/kvm\n");
++#else
+         fprintf(stderr, "Could not access KVM kernel module: %m\n");
++#endif
+         ret = -errno;
+         goto err;
+     }
+diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
+--- /tmp/qemu-5.1.0/configure	2020-08-11 22:17:15.000000000 +0300
++++ ./configure	2020-11-27 17:37:08.290482245 +0200
+@@ -2501,7 +2501,8 @@
+ # pkg-config probe
+ 
+ if ! has "$pkg_config_exe"; then
+-  error_exit "pkg-config binary '$pkg_config_exe' not found"
++  #error_exit "pkg-config binary '$pkg_config_exe' not found"
++  echo Limbo: ignoring pkg-config
+ fi
+ 
+ ##########################################
+@@ -3283,16 +3284,21 @@
+     sdlversion=$($sdlconfig --version)
+   else
+     if test "$sdl" = "yes" ; then
+-      feature_not_found "sdl" "Install SDL2-devel"
++      #feature_not_found "sdl" "Install SDL2-devel"
++      echo Limbo: ignoring SDL2-devel
+     fi
+-    sdl=no
++    #Limbo: force sdl
++    #sdl=no
+     # no need to do the rest
+-    return
++    #return
+   fi
+   if test -n "$cross_prefix" && test "$(basename "$sdlconfig")" = sdl2-config; then
+     echo warning: using "\"$sdlconfig\"" to detect cross-compiled sdl >&2
+   fi
+ 
++#Limbo: force sdl after bypassing probe
++sdl=yes
++
+   cat > $TMPC << EOF
+ #include <SDL.h>
+ #undef main /* We don't want SDL to override our main() */
+@@ -3924,7 +3930,8 @@
+ # glib support probe
+ 
+ glib_req_ver=2.48
+-glib_modules=gthread-2.0
++# Limbo: no need for gthread
++#glib_modules=gthread-2.0
+ if test "$modules" = yes; then
+     glib_modules="$glib_modules gmodule-export-2.0"
+ fi
+@@ -4072,8 +4079,9 @@
+   pixman_cflags=$($pkg_config --cflags pixman-1)
+   pixman_libs=$($pkg_config --libs pixman-1)
+ else
+-  error_exit "pixman >= 0.21.8 not present." \
++  #error_exit "pixman >= 0.21.8 not present." \
+       "Please install the pixman devel package."
++  echo Limbo: ignoring pixman devel 
+ fi
+ 
+ ##########################################
+@@ -4366,7 +4374,8 @@
+ EOF
+ preadv=no
+ if compile_prog "" "" ; then
+-  preadv=yes
++  # Limbo: no copy_file_range for Android
++  preadv=no
+ fi
+ 
+ ##########################################
+@@ -5526,7 +5535,8 @@
+ int main(void) { return strchrnul(haystack, 'x') != &haystack[6]; }
+ EOF
+ if compile_prog "" "" ; then
+-    strchrnul=yes
++    echo Limbo: disabling strchrnul 
++    strchrnul=no
+ fi
+ 
+ #########################################
+@@ -6066,6 +6076,7 @@
+ ###############################################
+ # Check if copy_file_range is provided by glibc
+ have_copy_file_range=no
++
+ cat > $TMPC << EOF
+ #include <unistd.h>
+ int main(void) {
+@@ -6074,7 +6085,8 @@
+ }
+ EOF
+ if compile_prog "" "" ; then
+-    have_copy_file_range=yes
++    #Limbo: no copy_file_range for Android
++    have_copy_file_range=no
+ fi
+ 
+ ##########################################
+diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/osdep.h
+--- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 22:17:15.000000000 +0300
++++ ./include/qemu/osdep.h	2020-11-27 17:37:08.290482245 +0200
+@@ -36,6 +36,10 @@
+ 
+ #include "qemu/compiler.h"
+ 
++#ifdef __ANDROID__
++#include <linux/mman.h>
++#endif
++
+ /* Older versions of C++ don't get definitions of various macros from
+  * stdlib.h unless we define these macros before first inclusion of
+  * that system header.
+diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/console.h
+--- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 22:17:14.000000000 +0300
++++ ./include/ui/console.h	2020-11-27 17:37:08.290482245 +0200
+@@ -26,7 +26,13 @@
+ #define QEMU_CAPS_LOCK_LED   (1 << 2)
+ 
+ /* in ms */
++#ifdef __LIMBO__
++extern int limbo_sdl_scale_hint;
++extern int gui_refresh_interval_default;
++#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
++#else
+ #define GUI_REFRESH_INTERVAL_DEFAULT    30
++#endif //__LIMBO__
+ #define GUI_REFRESH_INTERVAL_IDLE     3000
+ 
+ /* Color number is match to standard vga palette */
+diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
+--- /tmp/qemu-5.1.0/Makefile	2020-08-11 22:17:15.000000000 +0300
++++ ./Makefile	2020-11-27 17:37:08.290482245 +0200
+@@ -338,7 +338,8 @@
+ vhost-user-json-y =
+ HELPERS-y = $(HELPERS)
+ 
+-HELPERS-$(call land,$(CONFIG_SOFTMMU),$(CONFIG_LINUX)) += qemu-bridge-helper$(EXESUF)
++#Limbo: no need for this
++#HELPERS-$(call land,$(CONFIG_SOFTMMU),$(CONFIG_LINUX)) += qemu-bridge-helper$(EXESUF)
+ 
+ ifeq ($(CONFIG_LINUX)$(CONFIG_VIRGL)$(CONFIG_GBM)$(CONFIG_TOOLS),yyyy)
+ HELPERS-y += vhost-user-gpu$(EXESUF)
+@@ -477,7 +478,8 @@
+                 common-obj-m \
+                 trace-obj-y)
+ 
+-include $(SRC_PATH)/tests/Makefile.include
++#Limbo: ignore
++#include $(SRC_PATH)/tests/Makefile.include
+ 
+ all: $(DOCS) $(if $(BUILD_DOCS),sphinxdocs) $(TOOLS) $(HELPERS-y) recurse-all modules $(vhost-user-json-y)
+ 
+@@ -603,7 +605,8 @@
+ qemu-io$(EXESUF): qemu-io.o $(authz-obj-y) $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+ qemu-storage-daemon$(EXESUF): qemu-storage-daemon.o $(authz-obj-y) $(block-obj-y) $(crypto-obj-y) $(chardev-obj-y) $(io-obj-y) $(qom-obj-y) $(storage-daemon-obj-y) $(COMMON_LDADDS)
+ 
+-qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
++# Limbo: no need for this
++#qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
+ 
+ qemu-keymap$(EXESUF): qemu-keymap.o ui/input-keymap.o $(COMMON_LDADDS)
+ 
+diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
+--- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 22:17:15.000000000 +0300
++++ ./Makefile.target	2020-11-27 17:56:48.228730852 +0200
+@@ -18,6 +18,12 @@
+ 
+ QEMU_CFLAGS+=-iquote $(SRC_PATH)/include
+ 
++# Limbo: we need to force the linux headers for some additional definitions for ARM
++# since the ndk that has support for gcc doesn't have these so we get them from qemu
++ifeq ($(USE_KVM),true)
++QEMU_CFLAGS+= -include $(LIMBO_JNI_ROOT)/qemu/linux-headers/asm/kvm.h
++endif
++
+ ifdef CONFIG_USER_ONLY
+ # user emulator name
+ QEMU_PROG=qemu-$(TARGET_NAME)
+@@ -215,8 +221,10 @@
+ COMMON_LDADDS = ../libqemuutil.a
+ 
+ # build either PROG or PROGW
+-$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS) $(softmmu-main-y)
+-	$(call LINK, $(filter-out %.mak, $^))
++#$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS) $(softmmu-main-y)
++#	$(call LINK, $(filter-out %.mak, $^))
++include ../../android-qemu-build.mak
++
+ ifdef CONFIG_DARWIN
+ 	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
+ 	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
+diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
+--- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 22:17:15.000000000 +0300
++++ ./monitor/misc.c	2020-11-27 17:37:08.298482266 +0200
+@@ -1299,6 +1299,14 @@
+ {
+     mon_fd_t *monfd;
+ 
++
++#ifdef __LIMBO__
++        //FIXME: The lookup for the fd fails below
++        //  so for now we treat the fdname as the actual fd
++        int fd_tmp = atoi(fdname);
++        return fd_tmp;
++#endif //__LIMBO__
++
+     qemu_mutex_lock(&mon->mon_lock);
+     QLIST_FOREACH(monfd, &mon->fds, next) {
+         int fd;
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
+--- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/console.c	2020-11-27 17:37:08.314482307 +0200
+@@ -38,6 +38,10 @@
+ #define DEFAULT_BACKSCROLL 512
+ #define CONSOLE_CURSOR_PERIOD 500
+ 
++#ifdef __LIMBO__
++int gui_refresh_interval_default = 30;
++#endif //__LIMBO__
++
+ typedef struct TextAttributes {
+     uint8_t fgcol:4;
+     uint8_t bgcol:4;
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
+--- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/sdl2-2d.c	2020-11-27 17:37:08.330482349 +0200
+@@ -125,6 +125,12 @@
+                                       surface_width(new_surface),
+                                       surface_height(new_surface));
+     sdl2_2d_redraw(scon);
++
++#ifdef __LIMBO__
++    //TODO: Need to send the resolution to Limbo
++    Android_JNI_SetVMResolution(surface_width(new_surface), surface_height(new_surface));
++#endif //__ANDROID__
++
+ }
+ 
+ void sdl2_2d_refresh(DisplayChangeListener *dcl)
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
+--- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/sdl2.c	2020-11-27 17:37:08.342482380 +0200
+@@ -89,7 +89,16 @@
+                                          surface_width(scon->surface),
+                                          surface_height(scon->surface),
+                                          flags);
+-    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
++
++#if defined(__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__)
++    //LIMBO: We can force SOFTWARE rendering when some devices don't HARDWARE acceleration
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_SOFTWARE);
++#elif defined(__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_ACCELERATED);
++#else
++     scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
++#endif
++
+     if (scon->opengl) {
+         scon->winctx = SDL_GL_GetCurrentContext();
+     }
+@@ -789,6 +798,10 @@
+     }
+ }
+ 
++#ifdef __LIMBO__
++int limbo_sdl_scale_hint = -1;
++#endif
++
+ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
+ {
+     uint8_t data = 0;
+@@ -798,6 +811,7 @@
+ 
+     assert(o->type == DISPLAY_TYPE_SDL);
+ 
++#ifndef __ANDROID__
+ #ifdef __linux__
+     /* on Linux, SDL may use fbcon|directfb|svgalib when run without
+      * accessible $DISPLAY to open X11 window.  This is often the case
+@@ -810,6 +824,12 @@
+      */
+     g_setenv("SDL_VIDEODRIVER", "x11", 0);
+ #endif
++#else
++    if(limbo_sdl_scale_hint == 1) {
++        SDL_bool res = SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
++        LOGI("Setting SDL_HINT_RENDER_SCALE_QUALITY to %d, code = %d", limbo_sdl_scale_hint, res);
++    }
++#endif
+ 
+     if (SDL_Init(SDL_INIT_VIDEO)) {
+         fprintf(stderr, "Could not initialize SDL(%s) - exiting\n",
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
+--- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/vnc.c	2020-11-27 17:37:08.346482390 +0200
+@@ -51,8 +51,19 @@
+ #include "qemu/cutils.h"
+ #include "io/dns-resolver.h"
+ 
++//LIMBO: we can override the refresh rate for VNC here
++#ifdef __LIMBO__
++int vnc_refresh_interval_base = 30;
++#define VNC_REFRESH_INTERVAL_BASE vnc_refresh_interval_base
++
++int vnc_refresh_interval_inc = 30;
++#define VNC_REFRESH_INTERVAL_INC vnc_refresh_interval_inc
++#else
++
+ #define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
+ #define VNC_REFRESH_INTERVAL_INC  50
++#endif //__LIMBO__
++
+ #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
+ static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
+ static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
+diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.objs
+--- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 22:17:15.000000000 +0300
++++ ./util/Makefile.objs	2020-11-27 17:37:08.346482390 +0200
+@@ -39,7 +39,8 @@
+ util-obj-y += range.o
+ util-obj-y += stats64.o
+ util-obj-y += systemd.o
+-util-obj-$(CONFIG_POSIX) += drm.o
++#Limbo: exclude
++#util-obj-$(CONFIG_POSIX) += drm.o
+ util-obj-y += guest-random.o
+ util-obj-$(CONFIG_GIO) += dbus.o
+ dbus.o-cflags = $(GIO_CFLAGS)
+diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpty.c
+--- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 22:17:15.000000000 +0300
++++ ./util/qemu-openpty.c	2020-11-27 17:37:08.346482390 +0200
+@@ -111,6 +111,9 @@
+ }
+ #endif
+ 
++#ifdef __ANDROID__
++int qemu_openpty_raw(int *aslave, char *pty_name){return -1;}
++#else
+ int qemu_openpty_raw(int *aslave, char *pty_name)
+ {
+     int amaster;
+@@ -138,3 +141,4 @@
+ 
+     return amaster;
+ }
++#endif
