@@ -8,14 +8,9 @@ NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
-# Note 1: Building for Android ARM host requires ndk17b and android-21
-# Note 2: Building for Android x86 host requires ndk17b and android-21
-# Note 3: Building for Android x86 host w/ KVM support requires ndk17b and android-21
-# Note 4: Building for Android x86_64 host requires ndk17b and android-21
-# Note 5: Building for Android ARM64 host requires ndk17b and android-21
 
 #SET/RESET vars
-ARCH_CFLAGS := -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ $(USE_NDK11) $(USE_PLATFORM21_FLAGS)
+ARCH_CFLAGS := -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ -DCONFIG_LINUX $(USE_NDK11) $(USE_PLATFORM21_FLAGS)
 ARCH_LD_FLAGS=
 
 ifeq ($(BUILD_HOST), arm64-v8a)
@@ -31,8 +26,6 @@ else ifeq ($(BUILD_HOST), x86_64)
 ######### x86_64 (x86 64bit Phones only, Supports VNC, Needs android-21)
 include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-x86_64.mak
 endif
-
-TARGET_ARCH =
 
 ifeq ($(APP_ABI),armeabi-v7a)
     EABI = arm-linux-androideabi-$(GCC_TOOLCHAIN_VERSION)
