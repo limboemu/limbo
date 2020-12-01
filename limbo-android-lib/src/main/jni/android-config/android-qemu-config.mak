@@ -4,26 +4,11 @@ QEMU_TARGET_LIST = $(BUILD_GUEST)
 
 #### QEMU version-spcific options
 
-# QEMU version 3.x is not using a stab lib
-# Set this to true for 2.9 and prior versions
-# set to false for QEMU 4.0.0
-USE_QEMUSTAB ?= true
+QEMU_CONFIG_DIR=$(LIMBO_JNI_ROOT)/android-config
 
-# For QEMU 4.0.0 uses slirp as a static lib so set to true
-USE_SLIRP_LIB ?= false
-
-# For QEMU 4.0.0 set the explicit sdlabi to false
-USE_SDL_ABI ?= true
-
-# we need to specify our own pixman library
-# For 2.9.x and prior pixman is included in QEMU so we request this explicitly
-# comment this line if you use higher versions of QEMU 3.x or 4.x
-PIXMAN = --with-system-pixman
-
-# For QEMU 2.11.0 and above (3.x, 4.x) uncomment these lines
-#MISC += --disable-capstone
-#MISC += --disable-malloc-trim
-
+#include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
+#include $(QEMU_CONFIG_DIR)/android-qemu-config-4.0.0.mak
+include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
 
 ##### QEMU advance options
 
@@ -81,9 +66,6 @@ USB_REDIR = --disable-usb-redir
 #USB_LIB = --enable-libusb
 USB_LIB = --disable-libusb
 
-#BLUETOOTH
-BLUETOOTH = --disable-bluez
-
 #NETWORK
 #NET = --enable-slirp 
 
@@ -129,12 +111,13 @@ MISC += --disable-vde --disable-netmap --disable-cap-ng --disable-zlib-test
 MISC += --disable-attr --disable-guest-agent --disable-pie
 MISC += --disable-rbd --disable-xfsctl  --disable-lzo  --disable-snappy 
 MISC += --disable-seccomp --disable-bzip2 --disable-glusterfs 
-MISC += --disable-vte --disable-libssh2
+MISC += --disable-vte
 MISC += --disable-opengl
 MISC += --disable-blobs
 MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
+MISC += $(SSH2)
 
 #Stack protector, this doesn't make any difference since we override in android-generic.mak
 #MISC += --enable-stack-protector
@@ -210,8 +193,7 @@ QEMU_LDFLAGS=\
 	-lglib-2.0 \
 	-lpixman-1 \
 	-lc -lm -llog \
-	$(INCLUDE_SYMS) \
-
+	$(INCLUDE_SYMS)
 
 config:
 	echo TOOLCHAIN DIR: $(TOOLCHAIN_DIR)
