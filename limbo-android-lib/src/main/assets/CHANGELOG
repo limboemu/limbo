@@ -1,3 +1,17 @@
+* Limbo v5.0.0
+Support for compiling with QEMU 5.1.0 see README.developers for instructions
+ Better performance
+ Stability
+ Less virtual disk errors
+Fixed scaling problem under vnc portrait mode
+Fixed mouse hold and drag under vnc
+Files are now closed via their file descriptor parcels
+Upgrade to androidx for the ui
+Enabled notification icon for Android 29
+Host forward now accepts format "tcp:hostport:guestport"
+Configuration files for different QEMU versions
+
+
 * Limbo v4.1.0
 Support for compiling with QEMU 4.0.0 see README.developers for instructions
 VNC is now using a Unix domain socket for local connection
