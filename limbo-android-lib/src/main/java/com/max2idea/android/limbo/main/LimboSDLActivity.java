@@ -713,7 +713,7 @@ public class LimboSDLActivity extends SDLActivity {
 		new Handler(Looper.getMainLooper()).post(new Runnable() {
 			@Override
 			public void run() {
-				((LimboSDLSurface) mSurface).getHolder().setFixedSize(0, 0);
+				((LimboSDLSurface) mSurface).getHolder().setFixedSize(1, 1);
                 setLayout(newConfig);
 
                 new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
@@ -1463,6 +1463,14 @@ public class LimboSDLActivity extends SDLActivity {
 		public void surfaceChanged(SurfaceHolder holder,
 								   int format, int width, int height) {
 			super.surfaceChanged(holder, format, width, height);
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+
+                    SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_CTRL_LEFT);
+                    SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_CTRL_LEFT);
+                }
+            }, 500);
 		}
 
 		@Override
@@ -1478,13 +1486,14 @@ public class LimboSDLActivity extends SDLActivity {
                     else
                         setUIModeMobile(screenMode == SDLScreenMode.FitToScreen);
                 }
-            },3000);
+            },1000);
 		}
 
 		@Override
 		public void onConfigurationChanged(Configuration newConfig) {
 			super.onConfigurationChanged(newConfig);
-			resize(newConfig);
+            Log.d(TAG,"Configuration changed");
+            resize(newConfig);
 		}
 
 
@@ -1527,7 +1536,9 @@ public class LimboSDLActivity extends SDLActivity {
 
 			if (portrait) {
 				if(Config.mouseMode != Config.MouseMode.External) {
-					getHolder().setFixedSize(width,(int) (width / (LimboSDLActivity.vm_width / (float) LimboSDLActivity.vm_height)));
+                    int height_n = (int) (width / (LimboSDLActivity.vm_width / (float) LimboSDLActivity.vm_height));
+                    Log.d(TAG, "Resizing portrait: " + width + " x " + height_n);
+					getHolder().setFixedSize(width, height_n);
 				}
 			} else {
 				if ( (screenMode == SDLScreenMode.Fullscreen || screenMode == SDLScreenMode.FitToScreen)
@@ -1535,6 +1546,7 @@ public class LimboSDLActivity extends SDLActivity {
 						&& bar != null && bar.isShowing()) {
 					height += bar.getHeight();
 				}
+                Log.d(TAG, "Resizing landscape: " + width + " x " + height);
 				getHolder().setFixedSize(width, height);
 			}
 			initialized = true;
@@ -1544,7 +1556,7 @@ public class LimboSDLActivity extends SDLActivity {
                 public void run() {
                     isResizing = false;
                 }
-            }, 5000);
+            }, 1000);
 
 
 
