@@ -578,8 +578,8 @@ public class VMExecutor {
 //        paramsList.add("-tb-size");
 //        paramsList.add("32M"); //Don't increase it crashes
 
-//        paramsList.add("-realtime");
-//        paramsList.add("mlock=off");
+        paramsList.add("-realtime");
+        paramsList.add("mlock=off");
 
         paramsList.add("-rtc");
         paramsList.add("base=localtime");
