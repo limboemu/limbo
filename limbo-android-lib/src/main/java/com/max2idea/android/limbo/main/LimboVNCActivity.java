@@ -198,7 +198,8 @@ public class LimboVNCActivity extends VncCanvasActivity {
                 display.getSize(size);
 
                 int h = ViewGroup.LayoutParams.WRAP_CONTENT;
-                if(vncCanvas.rfb.framebufferWidth != 0
+                if(vncCanvas!=null && vncCanvas.rfb!=null
+                        && vncCanvas.rfb.framebufferWidth != 0
                 && vncCanvas.rfb.framebufferHeight != 0) {
                     h = size.x * vncCanvas.rfb.framebufferHeight / vncCanvas.rfb.framebufferWidth;
                 }
