@@ -502,7 +502,9 @@ public class FileUtils {
     }
 
     public static int close_fd(int fd) {
-
+        if(!Config.closeFileDescriptors) {
+            return 0;
+        }
         synchronized (fds) {
 //            Log.d(TAG, "Closing FD: " + fd);
             if (FileUtils.fds.containsKey(fd)) {

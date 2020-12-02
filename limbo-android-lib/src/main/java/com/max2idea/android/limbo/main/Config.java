@@ -144,6 +144,7 @@ public class Config {
     public static String notificationChannelID = "limbo";
     public static String notificationChannelName = "limbo";
     public static boolean showToast = false;
+    public static boolean closeFileDescriptors = true;
 
 
     public static final String getCacheDir(){
