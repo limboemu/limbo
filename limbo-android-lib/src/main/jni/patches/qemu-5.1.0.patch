@@ -83,7 +83,17 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  fi
  
  ##########################################
-@@ -5526,7 +5535,8 @@
+@@ -4554,4 +4563,9 @@
+ signalfd=yes
+ fi
+
++#Limbo: Android x86_64 devices (at least emulator images)
++# have the headers but don't support SYS_signalfd
++# fortunately there is qemu_compat_signalfd
++signalfd=no
++
+ # check if eventfd is supported# check if optreset global is declared by <getopt.h>
+@@ -5531,7 +5540,8 @@
  int main(void) { return strchrnul(haystack, 'x') != &haystack[6]; }
  EOF
  if compile_prog "" "" ; then
@@ -93,7 +103,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  fi
  
  #########################################
-@@ -6066,6 +6076,7 @@
+@@ -6071,6 +6081,7 @@
  ###############################################
  # Check if copy_file_range is provided by glibc
  have_copy_file_range=no
@@ -101,7 +111,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  cat > $TMPC << EOF
  #include <unistd.h>
  int main(void) {
-@@ -6074,7 +6085,8 @@
+@@ -6079,7 +6090,8 @@
  }
  EOF
  if compile_prog "" "" ; then
