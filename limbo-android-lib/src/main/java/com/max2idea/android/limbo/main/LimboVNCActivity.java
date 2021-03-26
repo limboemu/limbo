@@ -92,9 +92,19 @@ public class LimboVNCActivity extends VncCanvasActivity {
 	@Override
 	public void onCreate(Bundle b) {
 
-		if (LimboSettingsManager.getFullscreen(this))
+		if (LimboSettingsManager.getFullscreen(this)) {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+			getWindow().getDecorView().setSystemUiVisibility(
+			   View.SYSTEM_UI_FLAG_LAYOUT_STABLE          // always use full screen
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION // overlayed navigation
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN      // overlayed status bar
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION        // hide navigation buttons
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN             // hide status bar
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY       // keep navigation hidden
+			);
+		}
 
 		super.onCreate(b);
 
@@ -108,6 +118,22 @@ public class LimboVNCActivity extends VncCanvasActivity {
 
 
 	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+
+		if(hasFocus) // hide navigation only when using screen
+			getWindow().getDecorView().setSystemUiVisibility(
+			   View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+			);
+
+	}
+
 
 	private void setDefaulViewMode() {
 		
