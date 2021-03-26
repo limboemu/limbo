@@ -898,7 +898,7 @@ public class LimboSDLActivity extends SDLActivity {
 		// Log.v("SDL", "onCreate()");
         activity = this;
 
-		if (LimboSettingsManager.getFullscreen(this))
+		if (LimboSettingsManager.getFullscreen(this)) {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
@@ -910,6 +910,7 @@ public class LimboSDLActivity extends SDLActivity {
 			 | View.SYSTEM_UI_FLAG_FULLSCREEN             // hide status bar
 			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY       // keep navigation hidden
 			);
+		}
 
 		super.onCreate(savedInstanceState);
         setupVolume();
