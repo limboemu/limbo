@@ -187,111 +187,112 @@ public class FileUtils {
                     String machineAttr[] = line.split(",");
                     Machine mach = new Machine(machineAttr[0]);
                     for (int i = 0; i < machineAttr.length; i++) {
-                        String attr = null;
-                        if (machineAttr[i].equals("\"null\"")) {
+                        String attr = machineAttr[i];
+                        if (attr.equals("\"null\"")) {
                             continue;
                         }
+                        String atNm = attrs.get(i);
+                        attr = attr.replace("\"", "");
 
-                        if (attrs.get(i).equals("MACHINE_NAME"))
-                            mach.machinename = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals("UI"))
-                            mach.ui = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals("PAUSED"))
-                            mach.paused = Integer.parseInt(machineAttr[i].replace("\"", ""));
+                        if (atNm.equals("MACHINE_NAME"))
+                            mach.machinename = attr;
+                        else if (atNm.equals("UI"))
+                            mach.ui = attr;
+                        else if (atNm.equals("PAUSED"))
+                            mach.paused = Integer.parseInt(attr);
 
                             // Arch
-                        else if (attrs.get(i).equals("ARCH"))
-                            mach.arch = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals("MACHINETYPE"))
-                            mach.machine_type = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals("CPU"))
-                            mach.cpu = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals("CPUNUM"))
-                            mach.cpuNum = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                        else if (attrs.get(i).equals("MEMORY"))
-                            mach.memory = Integer.parseInt(machineAttr[i].replace("\"", ""));
+                        else if (atNm.equals("ARCH"))
+                            mach.arch = attr;
+                        else if (atNm.equals("MACHINETYPE"))
+                            mach.machine_type = attr;
+                        else if (atNm.equals("CPU"))
+                            mach.cpu = attr;
+                        else if (atNm.equals("CPUNUM"))
+                            mach.cpuNum = Integer.parseInt(attr);
+                        else if (atNm.equals("MEMORY"))
+                            mach.memory = Integer.parseInt(attr);
 
                             // Storage
-                        else if (attrs.get(i).equals(MachineOpenHelper.HDA))
-                            mach.hda_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.HDB))
-                            mach.hdb_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.HDC))
-                            mach.hdc_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.HDD))
-                            mach.hdd_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.SHARED_FOLDER))
-                            mach.shared_folder = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.SHARED_FOLDER_MODE))
-                            mach.shared_folder_mode = Integer.parseInt(machineAttr[i].replace("\"", ""));
+                        else if (atNm.equals(MachineOpenHelper.HDA))
+                            mach.hda_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.HDB))
+                            mach.hdb_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.HDC))
+                            mach.hdc_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.HDD))
+                            mach.hdd_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.SHARED_FOLDER))
+                            mach.shared_folder = attr;
+                        else if (atNm.equals(MachineOpenHelper.SHARED_FOLDER_MODE))
+                            mach.shared_folder_mode = Integer.parseInt(attr);
 
                             // Removable Media
-                        else if (attrs.get(i).equals(MachineOpenHelper.CDROM))
-                            mach.cd_iso_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.FDA))
-                            mach.fda_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.FDB))
-                            mach.fdb_img_path = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.SD))
-                            mach.sd_img_path = machineAttr[i].replace("\"", "");
+                        else if (atNm.equals(MachineOpenHelper.CDROM))
+                            mach.cd_iso_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.FDA))
+                            mach.fda_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.FDB))
+                            mach.fdb_img_path = attr;
+                        else if (atNm.equals(MachineOpenHelper.SD))
+                            mach.sd_img_path = attr;
 
                             // Misc
-                        else if (attrs.get(i).equals(MachineOpenHelper.VGA))
-                            mach.vga_type = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.SOUNDCARD_CONFIG))
-                            mach.soundcard = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.NET_CONFIG))
-                            mach.net_cfg = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.NIC_CONFIG))
-                            mach.nic_card = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.HOSTFWD))
-                            mach.hostfwd = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.GUESTFWD))
-                            mach.guestfwd = machineAttr[i].replace("\"", "");
+                        else if (atNm.equals(MachineOpenHelper.VGA))
+                            mach.vga_type = attr;
+                        else if (atNm.equals(MachineOpenHelper.SOUNDCARD_CONFIG))
+                            mach.soundcard = attr;
+                        else if (atNm.equals(MachineOpenHelper.NET_CONFIG))
+                            mach.net_cfg = attr;
+                        else if (atNm.equals(MachineOpenHelper.NIC_CONFIG))
+                            mach.nic_card = attr;
+                        else if (atNm.equals(MachineOpenHelper.HOSTFWD))
+                            mach.hostfwd = attr;
+                        else if (atNm.equals(MachineOpenHelper.GUESTFWD))
+                            mach.guestfwd = attr;
 
                             // Depreacated
-                        else if (attrs.get(i).equals(MachineOpenHelper.HDCACHE_CONFIG))
-                            mach.hd_cache = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.SNAPSHOT_NAME))
-                            mach.snapshot_name = machineAttr[i].replace("\"", "");
+                        else if (atNm.equals(MachineOpenHelper.HDCACHE_CONFIG))
+                            mach.hd_cache = attr;
+                        else if (atNm.equals(MachineOpenHelper.SNAPSHOT_NAME))
+                            mach.snapshot_name = attr;
                             // Other
-                        else if (attrs.get(i).equals(MachineOpenHelper.DISABLE_ACPI))
-                            mach.disableacpi = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                        else if (attrs.get(i).equals(MachineOpenHelper.DISABLE_HPET))
-                            mach.disablehpet = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                        else if (attrs.get(i).equals(MachineOpenHelper.DISABLE_TSC))
-                            mach.disabletsc = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                        else if (attrs.get(i).equals(MachineOpenHelper.DISABLE_FD_BOOT_CHK))
-                            mach.disablefdbootchk = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                            // else if(attrs.get(i).equals("DISABLE_TSC"))
-                            // mach.disablefdbootchk=Integer.parseInt(machineAttr[i].replace("\"",
-                            // ""));
+                        else if (atNm.equals(MachineOpenHelper.DISABLE_ACPI))
+                            mach.disableacpi = Integer.parseInt(attr);
+                        else if (atNm.equals(MachineOpenHelper.DISABLE_HPET))
+                            mach.disablehpet = Integer.parseInt(attr);
+                        else if (atNm.equals(MachineOpenHelper.DISABLE_TSC))
+                            mach.disabletsc = Integer.parseInt(attr);
+                        else if (atNm.equals(MachineOpenHelper.DISABLE_FD_BOOT_CHK))
+                            mach.disablefdbootchk = Integer.parseInt(attr);
+                            // else if(atNm.equals("DISABLE_TSC"))
+                            // mach.disablefdbootchk=Integer.parseInt(attr);
                             // else
-                            // if(attrs.get(i).equals("ENABLE_USBMOUSE"))
+                            // if(atNm.equals("ENABLE_USBMOUSE"))
                             // //Disable for now
 
                             // Boot Settings
-                        else if (attrs.get(i).equals(MachineOpenHelper.BOOT_CONFIG))
-                            mach.bootdevice = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.KERNEL))
-                            mach.kernel = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.INITRD))
-                            mach.initrd = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.APPEND))
-                            mach.append = machineAttr[i].replace("\"", "");
+                        else if (atNm.equals(MachineOpenHelper.BOOT_CONFIG))
+                            mach.bootdevice = attr;
+                        else if (atNm.equals(MachineOpenHelper.KERNEL))
+                            mach.kernel = attr;
+                        else if (atNm.equals(MachineOpenHelper.INITRD))
+                            mach.initrd = attr;
+                        else if (atNm.equals(MachineOpenHelper.APPEND))
+                            mach.append = attr;
 
                             // Extra Params
-                        else if (attrs.get(i).equals(MachineOpenHelper.EXTRA_PARAMS))
-                            mach.extra_params = machineAttr[i].replace("\"", "");
+                        else if (atNm.equals(MachineOpenHelper.EXTRA_PARAMS))
+                            mach.extra_params = attr;
 
-                        else if (attrs.get(i).equals(MachineOpenHelper.MOUSE))
-                            mach.mouse = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.KEYBOARD))
-                            mach.keyboard = machineAttr[i].replace("\"", "");
-                        else if (attrs.get(i).equals(MachineOpenHelper.ENABLE_MTTCG))
-                            mach.enableMTTCG = Integer.parseInt(machineAttr[i].replace("\"", ""));
-                        else if (attrs.get(i).equals(MachineOpenHelper.ENABLE_KVM))
-                            mach.enableKVM = Integer.parseInt(machineAttr[i].replace("\"", ""));
+                        else if (atNm.equals(MachineOpenHelper.MOUSE))
+                            mach.mouse = attr;
+                        else if (atNm.equals(MachineOpenHelper.KEYBOARD))
+                            mach.keyboard = attr;
+                        else if (atNm.equals(MachineOpenHelper.ENABLE_MTTCG))
+                            mach.enableMTTCG = Integer.parseInt(attr);
+                        else if (atNm.equals(MachineOpenHelper.ENABLE_KVM))
+                            mach.enableKVM = Integer.parseInt(attr);
 
                     }
                     machines.add(mach);
