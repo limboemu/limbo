@@ -192,7 +192,7 @@ public class FileUtils {
                             continue;
                         }
                         String atNm = attrs.get(i);
-                        attr = attr.replace("\"", "");
+                        attr = attr.replace("\"", "").replaceAll("%22", "\"").replaceAll("%2C", ",").replaceAll("%25", "%");
 
                         if (atNm.equals("MACHINE_NAME"))
                             mach.machinename = attr;
