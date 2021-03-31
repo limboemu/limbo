@@ -497,7 +497,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 		while (!cur.isAfterLast()) {
 			String line = "";
 			for (int i = 0; i < cur.getColumnCount(); i++) {
-				line += ("\"" + cur.getString(i) + "\"");
+				line += ("\"" + (cur.getString(i)).replaceAll("%", "%25").replaceAll("\"", "%22").replaceAll(",", "%2C") + "\"");
 				if (i < cur.getColumnCount() - 1) {
 					line += ",";
 				}
