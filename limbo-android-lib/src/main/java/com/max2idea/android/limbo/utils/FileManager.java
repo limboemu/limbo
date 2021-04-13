@@ -163,7 +163,24 @@ public class FileManager extends ListActivity {
         }
     }
 
+    private static void requestStorageManager(Activity activity, int requestCode) {
+        if (android.os.Build.VERSION.SDK_INT >= 30) { // Android 11
+            try {
+                if(!Environment.isExternalStorageManager()) {
+                    Intent i = new Intent("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION");
+                    i.setData(Uri.fromParts("package", activity.getPackageName(), null));
+                    activity.startActivityForResult(i, requestCode);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error requesting storage manager permission: " +
+                e.getMessage());
+            }
+        }
+    }
+
     public static void promptLegacyStorageAccess(Activity activity, LimboActivity.FileType fileType, int requestCode, String lastDir) {
+
+        requestStorageManager(activity, requestCode);
 
         String dir = null;
         try {
@@ -192,6 +209,9 @@ public class FileManager extends ListActivity {
     }
 
     protected static void promptOpenFileASF(Activity context, LimboActivity.FileType fileType, int requestCode, String lastDir) {
+
+        requestStorageManager(activity, requestCode);
+
         Intent intent = null;
         if (isFileTypeDirectory(fileType))
             intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
