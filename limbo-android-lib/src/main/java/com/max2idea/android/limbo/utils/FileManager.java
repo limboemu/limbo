@@ -167,7 +167,7 @@ public class FileManager extends ListActivity {
         if (android.os.Build.VERSION.SDK_INT >= 30) { // Android 11
             try {
                 if(!Environment.isExternalStorageManager()) {
-                    Intent i = new Intent("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION");
+                    Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                     i.setData(Uri.fromParts("package", activity.getPackageName(), null));
                     activity.startActivityForResult(i, requestCode);
                 }
