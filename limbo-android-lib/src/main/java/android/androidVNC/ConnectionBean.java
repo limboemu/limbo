@@ -30,7 +30,7 @@ public class ConnectionBean {
 		setAddress(Config.defaultVNCHost);
 		setUserName(Config.defaultVNCUsername);
 		setPassword(Config.defaultVNCPasswd);
-		setPort(Config.defaultVNCPort);
+		setPort(Config.defaultVNCPort + 5900);
 		setColorModel(Config.defaultVNCColorMode);
 		if (Config.enable_qemu_fullScreen)
 			setScaleMode(Config.defaultFullscreenScaleMode);

@@ -51,13 +51,16 @@ import android.widget.Toast;
 import com.antlersoft.android.bc.BCFactory;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboVNCActivity;
+import com.max2idea.android.limbo.utils.UIUtils;
 
 import org.libsdl.app.SDLActivity;
 
 import java.io.IOException;
 import java.util.zip.Inflater;
 
-public class VncCanvas extends ImageView {
+import androidx.appcompat.widget.AppCompatImageView;
+
+public class VncCanvas extends AppCompatImageView {
 
 	private final static String TAG = "VncCanvas";
 	private final static boolean LOCAL_LOGV = true;
@@ -113,8 +116,9 @@ public class VncCanvas extends ImageView {
 	 * screen, in full-frame coordinates
 	 */
 	int absoluteXPosition = 0, absoluteYPosition = 0;
+    public boolean mouseDown;
 
-	/**
+    /**
 	 * Constructor used by the inflation apparatus
 	 * 
 	 * @param context
@@ -226,7 +230,7 @@ public class VncCanvas extends ImageView {
 	}
 
 	public void reload() {
-		Log.d(TAG, "Retrying...");
+		Log.d(TAG, "Reconnecting...");
 		Activity activity = ((Activity) getContext());
 		Intent data = new Intent();
 		activity.setResult(Config.VNC_RESET_RESULT_CODE, data);
@@ -383,6 +387,7 @@ public class VncCanvas extends ImageView {
 							rfb.setFramebufferSize(rw, rh);
 							// - updateFramebufferSize();
 							Log.v(TAG, "rfb.EncodingNewFBSize");
+							reload();
 							break;
 						}
 
@@ -460,7 +465,7 @@ public class VncCanvas extends ImageView {
 				case RfbProto.Bell:
 					handler.post(new Runnable() {
 						public void run() {
-							Toast.makeText(context, "VNC Beep", Toast.LENGTH_SHORT);
+                            UIUtils.toastShort(context, "VNC Beep");
 						}
 					});
 					break;
@@ -899,6 +904,7 @@ public class VncCanvas extends ImageView {
         //    + action + ", " + modifiers + ", " + mouseIsDown + ", "
         //        + useRightButton + ", " + useMiddleButton + ", " + scrollUp
         //);
+
             if (rfb != null && rfb.inNormalProtocol) {
                 if (action == MotionEvent.ACTION_DOWN || (mouseIsDown && action == MotionEvent.ACTION_MOVE)) {
                     if (useRightButton) {
@@ -1008,8 +1014,7 @@ public class VncCanvas extends ImageView {
 		default:
 			return -1;
 
-		}
-	}
+		}         	}
 
 	/**
 	 * Moves the scroll while the volume key is held down

@@ -8,6 +8,16 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:layout_gravity="center">
+
+
+    <ImageView
+        android:id="@+id/FILE_ICON"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/close"
+        android:paddingRight="5dp"
+        />
+
     <TextView android:id="@+id/FILE_NAME"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
@@ -15,5 +25,5 @@
               android:textStyle="bold"
               android:textSize="20dip"
               android:layout_weight="1"/>
-        
+
 </LinearLayout>

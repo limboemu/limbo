@@ -8,7 +8,7 @@
 
 #define ENABLE_ASF 1
 
-#define F_TLOCK 0
+#define F_TLOCK 2
 
 typedef struct fd_t {
 	int fd;

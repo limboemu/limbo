@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Limbo</string>
+    <string name="app_name">Limbo Emulator</string>
     <string name="app_short_name">Limbo</string>
     <string name="address_caption">Address</string>
     <string name="alt_check">Alt</string>
@@ -107,5 +107,11 @@
 
     <string name="display">Display</string>
 
-    <string name="desktopInstructions">To use External Mouse:\n\tDisable Mouse Acceleration inside the Guest OS.\n\t\tFor DSL use command: xset m 1\n"\t\tFor Other OSes disable \"Enhance pointer Precision\"\n\tPlug in or Pair your USB/Bluetooth Mouse and press OK\n\tMove your mouse pointer to all desktop sides to calibrate.\n"</string>
+    <string name="desktopInstructions">To use External Mouse:\n\tDisable Mouse Acceleration inside the Guest OS.\n\t\tFor DSL use command: xset m 1\n"\t\tFor Other OSes disable \"Enhance pointer Precision\" or choose Mouse \"usb-tablet\" from Limbo main options.\n\tPlug in or Pair your USB/Bluetooth Mouse and press OK\n\tMove your mouse pointer to all desktop sides to calibrate.\n"</string>
+
+    <string name="reconnect">Reconnect</string>
+
+    <string name="calibrate_mouse">Calibrate (Fix) Mouse</string>
+    <string name="isos_and_tools_descr">Do you want to view a list of Compatible OSes and Download Links?</string>
+
 </resources>

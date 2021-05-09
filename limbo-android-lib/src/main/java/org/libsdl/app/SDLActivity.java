@@ -31,10 +31,12 @@ import android.content.pm.ApplicationInfo;
 
 import com.max2idea.android.limbo.main.LimboActivity;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 /**
     SDL Activity
 */
-public class SDLActivity extends Activity {
+public class SDLActivity extends AppCompatActivity {
     private static final String TAG = "SDL";
 
     public static boolean mIsResumedCalled, mIsSurfaceReady, mHasFocus;

@@ -58,6 +58,8 @@ roms
 gradle
 /gradlew
 /gradlew.bat
+obj/
+jniLibs/
 
 jnilibs
 limbotest

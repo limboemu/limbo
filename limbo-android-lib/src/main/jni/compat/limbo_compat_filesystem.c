@@ -209,13 +209,11 @@ int android_mkstemp(char * path){
     return res;
 
 }
-//XXX: Not needed
-/*
+
 int android_close(int fd) {
 	int res = 0;
 
-
-	//printf("Closing fd: %d", fd);
+	printf("Closing fd: %d", fd);
 #ifdef ENABLE_ASF
 	res = create_thread_close_fd(fd);
 #else
@@ -223,7 +221,7 @@ int android_close(int fd) {
 #endif
 	return res;
 }
-*/
+
 int android_stat(const char* path, struct stat* val){
 
 	int res=-1;

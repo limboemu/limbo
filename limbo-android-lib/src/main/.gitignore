@@ -42,3 +42,5 @@ libs/
 /obj/
 /extra/
 /sh.exe.stackdump
+
+jniLibs
