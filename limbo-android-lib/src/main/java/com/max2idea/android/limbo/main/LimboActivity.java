@@ -6418,6 +6418,8 @@ public class LimboActivity extends AppCompatActivity {
             // Import
             displayImportFilePath = FileUtils.getFullPathFromDocumentFilePath(importFilePath);
             machines = FileUtils.getVMsFromFile(activity, importFilePath);
+            UIUtils.toastLong(LimboActivity.this, "Import machines: " + machines.size());
+                
             if (machines == null) {
                 return null;
             }

@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main.ppc"
     android:installLocation="auto"
-    android:versionCode="50000"
-    android:versionName="5.0.0-ppc" >
+    android:versionCode="50100"
+    android:versionName="5.1.0-ppc" >
 
 
     <uses-permission android:name="android.permission.INTERNET" />

@@ -19,7 +19,7 @@ https://github.com/limboemu/limbo
     Android device with Android OS 5.0 (Lollipop) and above
     Linux Desktop pc (Ubuntu prefered)
     Make sure you have the following packages installed, if not run:
-    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison
+    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison gettext
 
 ===============================================================================
 
@@ -128,7 +128,7 @@ https://github.com/limboemu/limbo
 
         where:
             EABI is the Android device type (host arch): armeabi-v7a, arm64-v8a, x86, x86_64
-            GUEST_ARCH is the Emulator type: x86_64-softmmu,aarch64-softmmu,sparc64-softmmu, ppc64-softmmu
+            GUEST_ARCH is the Emulator type: x86_64-softmmu,aarch64-softmmu,sparc64-softmmu,ppc64-softmmu
             ENABLE_DEBUG is 1 (optional)
 
         If you want to remove ALL previously compiled native objects and libraries:
@@ -198,8 +198,11 @@ https://github.com/limboemu/limbo
 
     d. Build the Android apk for the corresponding guest using Android Studio.
         Make sure the *.so libraries are zipped in the final .apk
+        
+    e. To build from the command line instead of Android Studio:
+    	./gradlew assembleRelease
 
-    e. If you want to build the debugging version:
+    f. If you want to build the debugging version:
         Set variables in Config.java:
           debug = true;
         Modify android-config/android-limbo-config.mak and point to a configuration
@@ -212,7 +215,7 @@ https://github.com/limboemu/limbo
         Important:
            From Android studio click Build> Rebuild Project and Run > Debug
          
-    f. To debug the native code for a particular guest:
+    g. To debug the native code for a particular guest:
 
         # for x86 guest and ARM64 phone:
         export BUILD_HOST=arm64-v8a
@@ -239,7 +242,7 @@ https://github.com/limboemu/limbo
         To see stack (backtrace): bt
 
 ===============================================================================
-6. Development
+6. Development Notes
 
     a. Codes Changes for Android compatibility are in patch files marked with __ANDROID__
 

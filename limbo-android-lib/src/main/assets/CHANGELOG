@@ -1,3 +1,7 @@
+* Limbo v5.1.0
+Fixed issue with importing machines
+No signalfd for better compatibility
+
 * Limbo v5.0.0
 Rebase with QEMU 5.1.0
 Stability and less virtual disk corruptions

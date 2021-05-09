@@ -1,6 +1,6 @@
 diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
 --- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./accel/kvm/kvm-all.c	2020-11-27 17:37:08.266482182 +0200
++++ ./accel/kvm/kvm-all.c	2021-05-06 19:56:41.679845481 +0300
 @@ -2015,7 +2015,12 @@
      s->vmfd = -1;
      s->fd = qemu_open("/dev/kvm", O_RDWR);
@@ -16,7 +16,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-al
      }
 diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
 --- /tmp/qemu-5.1.0/configure	2020-08-11 22:17:15.000000000 +0300
-+++ ./configure	2020-11-27 17:37:08.290482245 +0200
++++ ./configure	2021-05-06 19:59:23.036717050 +0300
 @@ -2501,7 +2501,8 @@
  # pkg-config probe
  
@@ -83,7 +83,19 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  fi
  
  ##########################################
-@@ -5526,7 +5535,8 @@
+@@ -4757,6 +4766,11 @@
+   signalfd=yes
+ fi
+ 
++#Limbo: Android x86_64 devices (at least emulator images)
++# have the headers but don't support SYS_signalfd
++# fortunately there is qemu_compat_signalfd
++signalfd=no
++
+ # check if optreset global is declared by <getopt.h>
+ optreset="no"
+ cat > $TMPC << EOF
+@@ -5526,7 +5540,8 @@
  int main(void) { return strchrnul(haystack, 'x') != &haystack[6]; }
  EOF
  if compile_prog "" "" ; then
@@ -93,7 +105,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  fi
  
  #########################################
-@@ -6066,6 +6076,7 @@
+@@ -6066,6 +6081,7 @@
  ###############################################
  # Check if copy_file_range is provided by glibc
  have_copy_file_range=no
@@ -101,7 +113,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  cat > $TMPC << EOF
  #include <unistd.h>
  int main(void) {
-@@ -6074,7 +6085,8 @@
+@@ -6074,7 +6090,8 @@
  }
  EOF
  if compile_prog "" "" ; then
@@ -113,7 +125,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  ##########################################
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/osdep.h
 --- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 22:17:15.000000000 +0300
-+++ ./include/qemu/osdep.h	2020-11-27 17:37:08.290482245 +0200
++++ ./include/qemu/osdep.h	2021-05-06 19:56:41.695848806 +0300
 @@ -36,6 +36,10 @@
  
  #include "qemu/compiler.h"
@@ -127,7 +139,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/os
   * that system header.
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/console.h
 --- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 22:17:14.000000000 +0300
-+++ ./include/ui/console.h	2020-11-27 17:37:08.290482245 +0200
++++ ./include/ui/console.h	2021-05-06 19:56:41.699849638 +0300
 @@ -26,7 +26,13 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
@@ -144,7 +156,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/cons
  /* Color number is match to standard vga palette */
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
 --- /tmp/qemu-5.1.0/Makefile	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile	2020-11-27 17:37:08.290482245 +0200
++++ ./Makefile	2021-05-06 19:56:41.703850468 +0300
 @@ -338,7 +338,8 @@
  vhost-user-json-y =
  HELPERS-y = $(HELPERS)
@@ -177,7 +189,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
  
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
 --- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile.target	2020-11-27 17:56:48.228730852 +0200
++++ ./Makefile.target	2021-05-06 19:56:41.711852131 +0300
 @@ -18,6 +18,12 @@
  
  QEMU_CFLAGS+=-iquote $(SRC_PATH)/include
@@ -206,7 +218,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
  	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
 diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
 --- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./monitor/misc.c	2020-11-27 17:37:08.298482266 +0200
++++ ./monitor/misc.c	2021-05-06 19:56:41.715852962 +0300
 @@ -1299,6 +1299,14 @@
  {
      mon_fd_t *monfd;
@@ -224,7 +236,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
          int fd;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
 --- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/console.c	2020-11-27 17:37:08.314482307 +0200
++++ ./ui/console.c	2021-05-06 19:56:41.715852962 +0300
 @@ -38,6 +38,10 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
@@ -238,7 +250,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
      uint8_t bgcol:4;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
 --- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2-2d.c	2020-11-27 17:37:08.330482349 +0200
++++ ./ui/sdl2-2d.c	2021-05-06 19:56:41.723854625 +0300
 @@ -125,6 +125,12 @@
                                        surface_width(new_surface),
                                        surface_height(new_surface));
@@ -254,7 +266,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
 --- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2.c	2020-11-27 17:37:08.342482380 +0200
++++ ./ui/sdl2.c	2021-05-06 19:56:41.727855456 +0300
 @@ -89,7 +89,16 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -307,7 +319,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
          fprintf(stderr, "Could not initialize SDL(%s) - exiting\n",
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
 --- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/vnc.c	2020-11-27 17:37:08.346482390 +0200
++++ ./ui/vnc.c	2021-05-06 19:56:41.739857949 +0300
 @@ -51,8 +51,19 @@
  #include "qemu/cutils.h"
  #include "io/dns-resolver.h"
@@ -330,7 +342,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
  static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.objs
 --- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/Makefile.objs	2020-11-27 17:37:08.346482390 +0200
++++ ./util/Makefile.objs	2021-05-06 19:56:41.743858781 +0300
 @@ -39,7 +39,8 @@
  util-obj-y += range.o
  util-obj-y += stats64.o
@@ -343,7 +355,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.obj
  dbus.o-cflags = $(GIO_CFLAGS)
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpty.c
 --- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/qemu-openpty.c	2020-11-27 17:37:08.346482390 +0200
++++ ./util/qemu-openpty.c	2021-05-06 19:56:41.743858781 +0300
 @@ -111,6 +111,9 @@
  }
  #endif

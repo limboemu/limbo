@@ -143,6 +143,7 @@ public class FileUtils {
         // Read machines from csv file
         try {
             // open the file for reading
+            Log.v("CSV Parser", "Import file: " + importFilePath);
             instream = getStreamFromFilePath(context, importFilePath);
 
             // if file the available for reading
@@ -184,7 +185,7 @@ public class FileUtils {
                     // Log.v("CSV Parser", "Line: " + line);
 
                     // Parse
-                    String machineAttr[] = line.split(",");
+                    String machineAttr[] = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
                     Machine mach = new Machine(machineAttr[0]);
                     for (int i = 0; i < machineAttr.length; i++) {
                         String attr = null;
@@ -294,13 +295,13 @@ public class FileUtils {
                             mach.enableKVM = Integer.parseInt(machineAttr[i].replace("\"", ""));
 
                     }
+                    Log.v("CSV Parser", "Adding Machine: " + mach.machinename);
                     machines.add(mach);
                 }
 
             }
         } catch (Exception ex) {
-            // print stack trace.
-            Log.v("Import", "Error:" + ex.getMessage());
+            ex.printStackTrace();
         } finally {
 
             try {
