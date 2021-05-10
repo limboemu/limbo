@@ -1,5 +1,5 @@
 #Generic defs first
-include $(LIMBO_JNI_ROOT)/android-device-config/android-generic.mak
+include $(LIMBO_JNI_ROOT)/android-config/android-device-config/android-generic.mak
 
 #Needs platform android-21
 

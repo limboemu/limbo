@@ -1,5 +1,7 @@
 package com.max2idea.android.limbo.utils;
 
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.util.Log;
 
 import com.max2idea.android.limbo.main.Config;
@@ -7,6 +9,7 @@ import com.max2idea.android.limbo.main.Config;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -16,24 +19,40 @@ public class QmpClient {
 
 	private static final String TAG = "QmpClient";
 	private static String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
+	public static boolean allow_external = false;
 
 	public synchronized static String sendCommand(String command) {
 		String response = null;
 		int trial=0;
 		Socket pingSocket = null;
+		LocalSocket localSocket = null;
 		PrintWriter out = null;
 		BufferedReader in = null;
 
 		try {
-			pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
-			pingSocket.setSoTimeout(5000);
-			out = new PrintWriter(pingSocket.getOutputStream(), true);
-			in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
+		    if(allow_external) {
+                pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
+                pingSocket.setSoTimeout(5000);
+                out = new PrintWriter(pingSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
+		    } else {
+		        localSocket = new LocalSocket();
+		        String localQMPSocketPath = Config.getLocalQMPSocketPath();
+                LocalSocketAddress localSocketAddr = new LocalSocketAddress(localQMPSocketPath, LocalSocketAddress.Namespace.FILESYSTEM);
+                localSocket.connect(localSocketAddr);
+                localSocket.setSoTimeout(5000);
+                out = new PrintWriter(localSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(localSocket.getInputStream()));
+            }
+
 
 			sendRequest(out, QmpClient.requestCommandMode);
-			while((response = getResponse(in)).equals("") && trial <10){
+			while(true){
+                response = getResponse(in);
+                if(response == null || response.equals("") || trial <10)
+				    break;
 
-				Thread.sleep(1000);
+                Thread.sleep(1000);
 				trial++;
 			}
 
@@ -44,10 +63,13 @@ public class QmpClient {
 				trial++;
 			}
 		} catch (java.net.ConnectException e) {
-			Log.w(TAG, "Could not connect: " + e);
+			Log.w(TAG, "Could not connect to QMP: " + e);
+			if(Config.debugQmp)
+			    e.printStackTrace();
 		} catch(Exception e) {
 			// TODO Auto-generated catch block
-//			if(Config.debug)
+            Log.e(TAG, "Error while connecting to QMP: " + e);
+            if(Config.debugQmp)
 				e.printStackTrace();
 		} finally {
 			if (out != null)
@@ -69,7 +91,8 @@ public class QmpClient {
 
 	private static void sendRequest(PrintWriter out, String request) {
 
-		//Log.i(TAG, "QMP request" + request);
+	    if(Config.debugQmp)
+		    Log.i(TAG, "QMP request" + request);
 		out.println(request);
 	}
 
@@ -82,15 +105,18 @@ public class QmpClient {
             do {
                 line = in.readLine();
                 if (line != null) {
-                    //Log.i(TAG, "QMP response: " + line);
+                    if(Config.debugQmp)
+                        Log.i(TAG, "QMP response: " + line);
                     JSONObject object = new JSONObject(line);
                     String returnStr = null;
                     String errStr = null;
 
                     try {
-                        returnStr = object.getString("return");
+                        if(line.contains("return"))
+                            returnStr = object.getString("return");
                     } catch (Exception ex) {
-						//ex.printStackTrace();
+						if(Config.debugQmp)
+                            ex.printStackTrace();
                     }
 
                     if (returnStr != null) {
@@ -100,9 +126,11 @@ public class QmpClient {
                     }
 
                     try {
-                        errStr = object.getString("error");
+                        if(line.contains("error"))
+                            errStr = object.getString("error");
                     } catch (Exception ex) {
-						//ex.printStackTrace();
+                        if(Config.debugQmp)
+						    ex.printStackTrace();
                     }
 
                     stringBuilder.append(line);
@@ -117,7 +145,9 @@ public class QmpClient {
                     break;
             } while (true);
         } catch (Exception ex) {
-
+            Log.e(TAG, "Could not get Response: " + ex.getMessage());
+            if(Config.debugQmp)
+                ex.printStackTrace();
         }
         return stringBuilder.toString();
     }
@@ -131,7 +161,8 @@ public class QmpClient {
 			do {
 				line = in.readLine();
 				if (line != null) {
-					Log.i(TAG, "QMP query-migrate response: " + line);
+				    if(Config.debugQmp)
+					    Log.i(TAG, "QMP query-migrate response: " + line);
 					JSONObject object = new JSONObject(line);
 					String returnStr = null;
 					String errStr = null;

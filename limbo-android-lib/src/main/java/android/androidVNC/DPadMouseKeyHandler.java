@@ -91,14 +91,14 @@ class DPadMouseKeyHandler {
 		boolean result = false;
 
 		switch (keyCode) {
-		case KeyEvent.KEYCODE_DPAD_LEFT:
-		case KeyEvent.KEYCODE_DPAD_RIGHT:
-		case KeyEvent.KEYCODE_DPAD_UP:
-		case KeyEvent.KEYCODE_DPAD_DOWN:
-			mouseMover.stop();
-			isMoving = false;
-			result = true;
-			break;
+//		case KeyEvent.KEYCODE_DPAD_LEFT:
+//		case KeyEvent.KEYCODE_DPAD_RIGHT:
+//		case KeyEvent.KEYCODE_DPAD_UP:
+//		case KeyEvent.KEYCODE_DPAD_DOWN:
+//			mouseMover.stop();
+//			isMoving = false;
+//			result = true;
+//			break;
 		case KeyEvent.KEYCODE_DPAD_CENTER:
 			if (mouseDown) {
 				mouseDown = false;

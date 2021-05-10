@@ -1,18 +1,16 @@
 # Development specific settings
 
-include android-config.mak
-
 QEMU_TARGET_LIST = $(BUILD_GUEST)
 
-#### QEMU advance options
+#### QEMU version-spcific options
 
-# we need to specify our own pixman library
-# For 2.9.x and priror pixman is included in QEMU so we request this explicitly
-PIXMAN = --with-system-pixman
+QEMU_CONFIG_DIR=$(LIMBO_JNI_ROOT)/android-config
 
-# For QEMU 2.11.0 and above we need to disable some features
-#MISC += --disable-capstone
-#MISC += --disable-malloc-trim
+#include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
+#include $(QEMU_CONFIG_DIR)/android-qemu-config-4.0.0.mak
+include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
+
+##### QEMU advance options
 
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
@@ -29,9 +27,11 @@ COROUTINE_POOL = --enable-coroutine-pool
 
 ifeq ($(USE_SDL),true)
 	#ENABLE SDL
-	SDL = --enable-sdl 
-	#SDL += --with-sdlabi=1.2
-	SDL += --with-sdlabi=2.0
+	SDL = --enable-sdl
+	ifeq ($(USE_SDL_ABI),true)
+		#SDL += --with-sdlabi=1.2
+		SDL += --with-sdlabi=2.0
+	endif
 else 
 	# DISABLE
 	SDL = --disable-sdl
@@ -42,6 +42,7 @@ endif
 
 # Or SDL Hardware Acceleration (faster though needs whole screen redraw)
 SDL_RENDERING = -D__LIMBO_SDL_FORCE_HARDWARE_RENDERING__ 
+
 
 #ENABLE SOUND VIA SDL 
 # Note: Most guests can play wav files but it's still choppy
@@ -65,9 +66,6 @@ USB_REDIR = --disable-usb-redir
 #USB_LIB = --enable-libusb
 USB_LIB = --disable-libusb
 
-#BLUETOOTH
-BLUETOOTH = --disable-bluez
-
 #NETWORK
 #NET = --enable-slirp 
 
@@ -76,8 +74,11 @@ DISPLAY = --disable-curses --disable-cocoa --disable-gtk
 
 #VNC 
 VNC +=  --enable-vnc
-#VNC += --enable-vnc-jpeg --enable-vnc-png
-VNC += --disable-vnc-jpeg --disable-vnc-png
+#VNC += --enable-vnc-jpeg
+VNC += --disable-vnc-jpeg
+#VNC +=--enable-vnc-png
+VNC += --disable-vnc-png
+
 VNC += --disable-vnc-sasl
 
 
@@ -110,14 +111,15 @@ MISC += --disable-vde --disable-netmap --disable-cap-ng --disable-zlib-test
 MISC += --disable-attr --disable-guest-agent --disable-pie
 MISC += --disable-rbd --disable-xfsctl  --disable-lzo  --disable-snappy 
 MISC += --disable-seccomp --disable-bzip2 --disable-glusterfs 
-MISC += --disable-vte --disable-libssh2
+MISC += --disable-vte
 MISC += --disable-opengl
 MISC += --disable-blobs
 MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
+MISC += $(SSH2)
 
-#Stack protector (enabled by default for better security)
+#Stack protector, this doesn't make any difference since we override in android-generic.mak
 #MISC += --enable-stack-protector
 #MISC += --disable-stack-protector
 
@@ -160,6 +162,9 @@ XEN = --disable-xen --disable-xen-pci-passthrough
 #SPICE
 SPICE = --disable-spice
 #SPICE = --enable-spice 
+#SPICE_INC= -I$(LIMBO_JNI_ROOT)/spice-protocol  \
+	-I$(LIMBO_JNI_ROOT)/spice/server
+
 
 #TCI
 #TCI = --enable-tcg-interpreter
@@ -188,8 +193,7 @@ QEMU_LDFLAGS=\
 	-lglib-2.0 \
 	-lpixman-1 \
 	-lc -lm -llog \
-	$(INCLUDE_SYMS) \
-
+	$(INCLUDE_SYMS)
 
 config:
 	echo TOOLCHAIN DIR: $(TOOLCHAIN_DIR)
@@ -233,29 +237,23 @@ config:
 	--extra-cflags=\
 	"\
 	$(SYSTEM_INCLUDE) \
-	-I$(LIMBO_JNI_ROOT)/limbo/include \
-	-I$(LIMBO_JNI_ROOT)/glib/glib \
 	-I$(LIMBO_JNI_ROOT)/glib \
+	-I$(LIMBO_JNI_ROOT)/glib/glib \
 	-I$(LIMBO_JNI_ROOT)/glib/gmodule \
 	-I$(LIMBO_JNI_ROOT)/glib/io \
 	-I$(LIMBO_JNI_ROOT)/glib/android \
 	-I$(LIMBO_JNI_ROOT)/pixman \
 	-I$(LIMBO_JNI_ROOT)/pixman/pixman \
 	-I$(LIMBO_JNI_ROOT)/scsi \
-	-I$(LIMBO_JNI_ROOT)/png \
-	-I$(LIMBO_JNI_ROOT)/jpeg \
-	-I$(LIMBO_JNI_ROOT) \
 	-I$(LIMBO_JNI_ROOT)/SDL2/include  \
 	-I$(LIMBO_JNI_ROOT)/compat  \
-	-I$(LIMBO_JNI_ROOT)/spice-protocol  \
-	-I$(LIMBO_JNI_ROOT)/spice/server  \
+	$(SPICE_INC) \
 	$(FDT_INC) \
 	$(INCLUDE_ENC) \
-	$(LIMBO_DISABLE_TSC) \
 	$(SDL_RENDERING) \
 	$(ENV_EXTRA) \
-	$(ARCH_CFLAGS) \
 	$(WARNING_FLAGS) \
+	$(ARCH_CFLAGS) \
 	" \
 	--with-coroutine=$(COROUTINE) \
 	$(DEBUG) \

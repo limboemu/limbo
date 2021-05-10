@@ -6,10 +6,13 @@ package android.androidVNC;
 import java.io.IOException;
 import java.util.Arrays;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.widget.ImageView;
+
+import com.max2idea.android.limbo.main.Config;
 
 /**
  * @author Michael A. MacDonald
@@ -41,7 +44,14 @@ class FullBufferBitmapData extends AbstractBitmapData {
 		public void draw(Canvas canvas) {
 			if (vncCanvas.getScaleType() == ImageView.ScaleType.FIT_CENTER)
 			{
-				canvas.drawBitmap(data.bitmapPixels, 0, data.framebufferwidth, xoffset, yoffset, framebufferwidth, framebufferheight, false, null);				
+				//canvas.drawBitmap(data.bitmapPixels, 0, data.framebufferwidth, xoffset, yoffset, framebufferwidth, framebufferheight, false, null);
+
+                //XXX; Limbo: for Hardware accelerated surfaces we have to stop using the above deprecated method and use a bitmap-backed method
+                // this fixes the issue with Nougat Devices displaying black screen for 24bit color mode C24bit
+                Bitmap bitmapTmp = Bitmap.createBitmap(framebufferwidth, framebufferheight, Config.bitmapConfig);
+                bitmapTmp.setPixels(bitmapPixels, 0, data.framebufferwidth, 0, 0, framebufferwidth, framebufferheight);
+                canvas.drawBitmap(bitmapTmp, xoffset, yoffset, null);
+
 			}
 			else
 			{
@@ -58,7 +68,16 @@ class FullBufferBitmapData extends AbstractBitmapData {
 					int drawHeight = vncCanvas.getVisibleHeight();
 					if (drawHeight + yo > data.framebufferheight)
 						drawHeight = data.framebufferheight - yo;
-					canvas.drawBitmap(data.bitmapPixels, offset(xo, yo), data.framebufferwidth, xo, yo, drawWidth, drawHeight, false, null);
+
+
+					//canvas.drawBitmap(data.bitmapPixels, offset(xo, yo), data.framebufferwidth, xo, yo, drawWidth, drawHeight, false, null);
+
+                    //XXX; for Hardware accelerated surfaces we have to stop using the above deprecated method and use a bitmap-backed method
+                    // this fixes the issue with Nougat Devices displaying black screen for 24bit color mode C24bit
+                    Bitmap bitmapTmp = Bitmap.createBitmap(framebufferwidth, framebufferheight, Config.bitmapConfig);
+                    bitmapTmp.setPixels(bitmapPixels, offset(xo, yo), data.framebufferwidth, 0, 0, drawWidth, drawHeight);
+                    canvas.drawBitmap(bitmapTmp, xo, yo, null);
+
 				/*
 				}
 				else

@@ -24,7 +24,6 @@ import java.util.Date;
 
 import com.max2idea.android.limbo.main.Config;
 
-import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -38,10 +37,11 @@ import android.util.Log;
  */
 public class MachineOpenHelper extends SQLiteOpenHelper {
 
-	private static final int DATABASE_VERSION = 14;
+	private static final int DATABASE_VERSION = 15;
 	private static final String DATABASE_NAME = "LIMBO";
 	private static final String MACHINE_TABLE_NAME = "machines";
-	// COlumns
+
+	// Columns
 	public static final String MACHINE_NAME = "MACHINE_NAME";
 	public static final String SNAPSHOT_NAME = "SNAPSHOT_NAME";
 	public static final String ARCH = "ARCH";
@@ -72,6 +72,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String HDCACHE_CONFIG = "HDCONFIG";
 	public static final String DISABLE_ACPI = "DISABLE_ACPI";
 	public static final String DISABLE_HPET = "DISABLE_HPET";
+    public static final String DISABLE_TSC = "DISABLE_TSC";
 	public static final String DISABLE_FD_BOOT_CHK = "DISABLE_FD_BOOT_CHK";
 	public static final String ENABLE_USBMOUSE = "ENABLE_USBMOUSE";
 	public static final String STATUS = "STATUS";
@@ -79,6 +80,10 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public static final String PAUSED = "PAUSED";
 	public static final String EXTRA_PARAMS = "EXTRA_PARAMS";
 	public static final String UI = "UI";
+    public static final String MOUSE = "MOUSE";
+    public static final String KEYBOARD = "KEYBOARD";
+    public static final String ENABLE_MTTCG = "ENABLE_MTTCG";
+    public static final String ENABLE_KVM = "ENABLE_KVM";
 
 	// Create DDL
 	private static final String MACHINE_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS " + MACHINE_TABLE_NAME + " ("
@@ -90,25 +95,25 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 			+ LASTUPDATED + " DATE, " + KERNEL + " INTEGER, " + INITRD + " TEXT, " + APPEND + " TEXT, " + CPUNUM
 			+ " INTEGER, " + MACHINE_TYPE + " TEXT, " + DISABLE_FD_BOOT_CHK + " INTEGER, " + SD + " TEXT, " + PAUSED
 			+ " INTEGER, " + SHARED_FOLDER + " TEXT, " + SHARED_FOLDER_MODE + " INTEGER, " + EXTRA_PARAMS + " TEXT, "
-			+ HOSTFWD + " TEXT, " + GUESTFWD + " TEXT, " + UI + " TEXT " + ");";
+			+ HOSTFWD + " TEXT, " + GUESTFWD + " TEXT, " + UI + " TEXT, " + DISABLE_TSC + " INTEGER, "
+            + MOUSE + " TEXT, " + KEYBOARD + " TEXT, " + ENABLE_MTTCG + " INTEGER, " + ENABLE_KVM  + " INTEGER "
+            + ");";
 
-	private final Context activity;
 	private String TAG = "MachineOpenHelper";
 
     private static MachineOpenHelper sInstance;
-	public SQLiteDatabase db;
+	private SQLiteDatabase db;
 
 	
-	public MachineOpenHelper(Context activity) {
-		super((Context) activity, DATABASE_NAME, null, DATABASE_VERSION);
-		this.activity = activity;
+	public MachineOpenHelper(Context context) {
+		super(context, DATABASE_NAME, null, DATABASE_VERSION);
 		getDB();
 	}
 	
 	private synchronized void getDB() {
 		
 		if (db == null)
-			db = this.getWritableDatabase();
+			db = getWritableDatabase();
 	}
 
 
@@ -116,10 +121,10 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 
         if (sInstance == null) {
             sInstance = new MachineOpenHelper(context.getApplicationContext());
+            sInstance.setWriteAheadLoggingEnabled(true);
         }
         return sInstance;
     }
-
 	
 	@Override
 	public void onCreate(SQLiteDatabase db) {
@@ -129,188 +134,180 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+
 		Log.w("machineOpenHelper", "Upgrading database from version " + oldVersion + " to " + newVersion);
+
 		if (newVersion >= 3 && oldVersion <= 2) {
-			Log.w("machineOpenHelper", "Upgrading database from version " + oldVersion + " to " + newVersion);
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.KERNEL + " TEXT;");
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.INITRD + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + KERNEL + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + INITRD + " TEXT;");
 
 		}
+
 		if (newVersion >= 4 && oldVersion <= 3) {
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.CPUNUM + " TEXT;");
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.MACHINE_TYPE + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + CPUNUM + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MACHINE_TYPE + " TEXT;");
 		}
+
 		if (newVersion >= 5 && oldVersion <= 4) {
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.HDC + " TEXT;");
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.HDD + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + HDC + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + HDD + " TEXT;");
 		}
+
 		if (newVersion >= 6 && oldVersion <= 5) {
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.APPEND + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + APPEND + " TEXT;");
 		}
+
 		if (newVersion >= 7 && oldVersion <= 6) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.DISABLE_FD_BOOT_CHK + " INTEGER;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + DISABLE_FD_BOOT_CHK + " INTEGER;");
 		}
+
 		if (newVersion >= 8 && oldVersion <= 7) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.ARCH + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + ARCH + " TEXT;");
 		}
+
 		if (newVersion >= 9 && oldVersion <= 8) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SD + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + SD + " TEXT;");
 		}
+
 		if (newVersion >= 10 && oldVersion <= 9) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.PAUSED + " INTEGER;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + PAUSED + " INTEGER;");
 		}
+
 		if (newVersion >= 11 && oldVersion <= 10) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SHARED_FOLDER + " TEXT;");
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.SHARED_FOLDER_MODE + " INTEGER;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + SHARED_FOLDER + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + SHARED_FOLDER_MODE + " INTEGER;");
 		}
+
 		if (newVersion >= 12 && oldVersion <= 11) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.EXTRA_PARAMS + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + EXTRA_PARAMS + " TEXT;");
 		}
 
 		if (newVersion >= 13 && oldVersion <= 12) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.HOSTFWD + " TEXT;");
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.GUESTFWD + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + HOSTFWD + " TEXT;");
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + GUESTFWD + " TEXT;");
 		}
 
 		if (newVersion >= 14 && oldVersion <= 13) {
-
-			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + this.UI + " TEXT;");
-
+			db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + UI + " TEXT;");
 		}
+
+        if (newVersion >= 15 && oldVersion <= 14) {
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + DISABLE_TSC + " INTEGER;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MOUSE + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + KEYBOARD + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + ENABLE_MTTCG + " INTEGER;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + ENABLE_KVM + " INTEGER;");
+        }
 	}
 
-	public synchronized int insertMachine(Machine myMachine) {
+	public synchronized int insertMachine(Machine machine) {
 		int seqnum = -1;
-		SQLiteDatabase db = this.getWritableDatabase();
-		// Insert filename in db
-		// Log.v("DB", "insert urlPath: " + filename);
+		SQLiteDatabase db = getWritableDatabase();
+
+		 Log.v("DB", "insert machine: " + machine.machinename);
 		ContentValues stateValues = new ContentValues();
-		stateValues.put(MACHINE_NAME, myMachine.machinename);
-		stateValues.put(SNAPSHOT_NAME, myMachine.snapshot_name);
-		stateValues.put(this.CPU, myMachine.cpu);
-		stateValues.put(this.CPUNUM, myMachine.cpuNum);
-		stateValues.put(this.MEMORY, myMachine.memory);
-		stateValues.put(this.HDA, myMachine.hda_img_path);
-		stateValues.put(this.HDB, myMachine.hdb_img_path);
-		stateValues.put(this.HDC, myMachine.hdc_img_path);
-		stateValues.put(this.HDD, myMachine.hdd_img_path);
-		stateValues.put(this.CDROM, myMachine.cd_iso_path);
-		stateValues.put(this.FDA, myMachine.fda_img_path);
-		stateValues.put(this.FDB, myMachine.fdb_img_path);
-		stateValues.put(this.SHARED_FOLDER, myMachine.shared_folder);
-		stateValues.put(this.SHARED_FOLDER_MODE, myMachine.shared_folder_mode);
-		stateValues.put(this.BOOT_CONFIG, myMachine.bootdevice);
-		stateValues.put(this.NET_CONFIG, myMachine.net_cfg);
-		stateValues.put(this.NIC_CONFIG, myMachine.nic_driver);
-		stateValues.put(this.VGA, myMachine.vga_type);
-		stateValues.put(this.HDCACHE_CONFIG, myMachine.hd_cache);
-		stateValues.put(this.DISABLE_ACPI, myMachine.disableacpi);
-		stateValues.put(this.DISABLE_HPET, myMachine.disablehpet);
-		stateValues.put(this.DISABLE_FD_BOOT_CHK, myMachine.disablefdbootchk);
-		stateValues.put(this.ENABLE_USBMOUSE, myMachine.bluetoothmouse);
-		stateValues.put(this.SOUNDCARD_CONFIG, myMachine.soundcard);
-		stateValues.put(this.KERNEL, myMachine.kernel);
-		stateValues.put(this.INITRD, myMachine.initrd);
-		stateValues.put(this.APPEND, myMachine.append);
-		stateValues.put(this.MACHINE_TYPE, myMachine.machine_type);
-		stateValues.put(this.ARCH, myMachine.arch);
-		stateValues.put(this.EXTRA_PARAMS, myMachine.extra_params);
-		stateValues.put(this.HOSTFWD, myMachine.hostfwd);
-		stateValues.put(this.GUESTFWD, myMachine.guestfwd);
-		stateValues.put(this.UI, myMachine.ui);
+		stateValues.put(MACHINE_NAME, machine.machinename);
+		stateValues.put(SNAPSHOT_NAME, machine.snapshot_name);
+		stateValues.put(CPU, machine.cpu);
+		stateValues.put(CPUNUM, machine.cpuNum);
+		stateValues.put(MEMORY, machine.memory);
+		stateValues.put(HDA, machine.hda_img_path);
+		stateValues.put(HDB, machine.hdb_img_path);
+		stateValues.put(HDC, machine.hdc_img_path);
+		stateValues.put(HDD, machine.hdd_img_path);
+		stateValues.put(CDROM, machine.cd_iso_path);
+		stateValues.put(FDA, machine.fda_img_path);
+		stateValues.put(FDB, machine.fdb_img_path);
+		stateValues.put(SHARED_FOLDER, machine.shared_folder);
+		stateValues.put(SHARED_FOLDER_MODE, machine.shared_folder_mode);
+		stateValues.put(BOOT_CONFIG, machine.bootdevice);
+		stateValues.put(NET_CONFIG, machine.net_cfg);
+		stateValues.put(NIC_CONFIG, machine.nic_card);
+		stateValues.put(VGA, machine.vga_type);
+		stateValues.put(HDCACHE_CONFIG, machine.hd_cache);
+		stateValues.put(DISABLE_ACPI, machine.disableacpi);
+		stateValues.put(DISABLE_HPET, machine.disablehpet);
+        stateValues.put(DISABLE_TSC, machine.disabletsc);
+		stateValues.put(DISABLE_FD_BOOT_CHK, machine.disablefdbootchk);
+		stateValues.put(SOUNDCARD_CONFIG, machine.soundcard);
+		stateValues.put(KERNEL, machine.kernel);
+		stateValues.put(INITRD, machine.initrd);
+		stateValues.put(APPEND, machine.append);
+		stateValues.put(MACHINE_TYPE, machine.machine_type);
+		stateValues.put(ARCH, machine.arch);
+		stateValues.put(EXTRA_PARAMS, machine.extra_params);
+		stateValues.put(HOSTFWD, machine.hostfwd);
+		stateValues.put(GUESTFWD, machine.guestfwd);
+		stateValues.put(UI, machine.ui);
+        stateValues.put(MOUSE, machine.mouse);
+        stateValues.put(KEYBOARD, machine.keyboard);
+        stateValues.put(ENABLE_MTTCG, machine.enableMTTCG);
+        stateValues.put(ENABLE_KVM, machine.enableKVM);
 
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		Date date = new Date();
-		stateValues.put(this.LASTUPDATED, dateFormat.format(date));
-		stateValues.put(this.STATUS, Config.STATUS_CREATED);
+		stateValues.put(LASTUPDATED, dateFormat.format(date));
+		stateValues.put(STATUS, Config.STATUS_CREATED);
 
 		try {
 			seqnum = (int) db.insertOrThrow(MACHINE_TABLE_NAME, null, stateValues);
-		} catch (Exception e) {
+            Log.v(TAG, "Inserted Machine: " + machine.machinename + " : " + seqnum);
+        } catch (Exception e) {
 			// catch code
 			Log.e(TAG, "Error while Insert machine: " + e.getMessage());
-		}
-		Log.v(TAG, "Inserting Machine: " + myMachine.machinename + " : " + seqnum);
-		
+            if(Config.debug)
+                e.printStackTrace();
+        }
 		return seqnum;
 	}
 
 	public int deleteMachines() {
 		int rowsAffected = 0;
-		SQLiteDatabase db = this.getReadableDatabase();
+		SQLiteDatabase db = getReadableDatabase();
 		// Insert arrFiles in
 		try {
-			db.delete(this.MACHINE_TABLE_NAME, this.STATUS + "=\"" + Config.STATUS_CREATED + "\"" + "or " + this.STATUS
+			db.delete(MACHINE_TABLE_NAME, STATUS + "=\"" + Config.STATUS_CREATED + "\"" + "or " + STATUS
 					+ "=\"" + Config.STATUS_PAUSED + "\"", null);
 		} catch (Exception e) {
 			// catch code
-			Log.e(TAG, "Error while deleting Machines..............: " + e.getMessage());
+			Log.e(TAG, "Error while deleting Machines: " + e.getMessage());
+            if(Config.debug)
+                e.printStackTrace();
 		}
 		
 
 		return rowsAffected;
 	}
 
-	public synchronized int updateStatus(Machine myMachine, int status) {
-		int seqnum = -1;
-		SQLiteDatabase db = this.getReadableDatabase();
-		// Insert filename in db
-		// Log.v("DB seq: " + seqnum, "Updating status............... " +
-		// status);
-		ContentValues stateValues = new ContentValues();
-		stateValues.put(this.STATUS, status);
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		Date date = new Date();
-		stateValues.put(this.LASTUPDATED, dateFormat.format(date));
-		try {
-			seqnum = (int) db.update(this.MACHINE_TABLE_NAME, stateValues,
-					this.MACHINE_NAME + "=\"" + myMachine.machinename + "\"", null);
-		} catch (Exception e) {
-			// catch code
-			Log.e(TAG, "Error while updating Machine status...............: " + e.getMessage());
-		}
-		
-		return seqnum;
+	public void update(final Machine machine, final String colname, final String value) {
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+				updateDB(machine, colname, value);
+			}
+		});
+		t.start();
 	}
 
-	public int update(Machine myMachine, String colname, String value) {
-		if (myMachine == null)
+	public int updateDB(Machine machine, String colname, String value) {
+			if (machine == null)
 			return -1;
 		int rows = -1;
-		SQLiteDatabase db = this.getWritableDatabase();
 
-		// Log.v("DB", "Update Machine: " + myMachine.machinename + " column: "
-		// + colname + "=" + value);
+		// Log.v("DB", "Updating Machine: " + myMachine.machinename
+		// + " column: " + colname + " = " + value);
 		ContentValues stateValues = new ContentValues();
 		stateValues.put(colname, value);
 
 		try {
 			db.beginTransaction();
-			rows = (int) db.update(this.MACHINE_TABLE_NAME, stateValues,
-					this.MACHINE_NAME + "=\"" + myMachine.machinename + "\"" + " and " + this.SNAPSHOT_NAME + "=\"\"",
+			rows = (int) db.update(MACHINE_TABLE_NAME, stateValues,
+					MACHINE_NAME + "=\"" + machine.machinename + "\"" + " and " + SNAPSHOT_NAME + "=\"\"",
 					null);
 			db.setTransactionSuccessful();
-			// Log.v("DB", "ret = " + rows);
 		} catch (Exception e) {
-			// catch code
 			Log.e(TAG, "Error while Updating value: " + e.getMessage());
+			if(Config.debug)
+			    e.printStackTrace();
 		} finally {
 			db.endTransaction();
 		}
@@ -320,123 +317,86 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 
 	public Machine getMachine(String machine, String snapshot) {
 		String qry = "select "
-				// Columns
-				+ this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , " + this.FDA
-				+ " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , " + this.HDD + " , "
-				+ this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , " + this.SOUNDCARD_CONFIG + " , "
-				+ this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , " + this.DISABLE_HPET + " , "
-				+ this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , " + this.BOOT_CONFIG + " , " + this.KERNEL
-				+ " , " + this.INITRD + " , " + this.APPEND + " , " + this.CPUNUM + " , " + this.MACHINE_TYPE + " , "
-				+ this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , " + this.PAUSED + " , " + this.SD + " , "
-				+ this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , " + this.EXTRA_PARAMS + " , "
-				+ this.HOSTFWD + " , " + this.GUESTFWD + " , " + this.UI
-				// Table
-				+ " from " + this.MACHINE_TABLE_NAME
-				// Criteria
-				+ " where " + this.STATUS + " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " "
-				+ " ) " + " and " + this.MACHINE_NAME + "=\"" + machine + "\"" + " and " + this.SNAPSHOT_NAME + "=\""
+				+ MACHINE_NAME + " , " + CPU + " , " + MEMORY + " , " + CDROM + " , " + FDA
+				+ " , " + FDB + " , " + HDA + " , " + HDB + " , " + HDC + " , " + HDD + " , "
+				+ NET_CONFIG + " , " + NIC_CONFIG + " , " + VGA + " , " + SOUNDCARD_CONFIG + " , "
+				+ HDCACHE_CONFIG + " , " + DISABLE_ACPI + " , " + DISABLE_HPET + " , "
+				+ ENABLE_USBMOUSE + " , " + SNAPSHOT_NAME + " , " + BOOT_CONFIG + " , " + KERNEL
+				+ " , " + INITRD + " , " + APPEND + " , " + CPUNUM + " , " + MACHINE_TYPE + " , "
+				+ DISABLE_FD_BOOT_CHK + " , " + ARCH + " , " + PAUSED + " , " + SD + " , "
+				+ SHARED_FOLDER + " , " + SHARED_FOLDER_MODE + " , " + EXTRA_PARAMS + " , "
+				+ HOSTFWD + " , " + GUESTFWD + " , " + UI + ", " + DISABLE_TSC + ", "
+                + MOUSE + ", " + KEYBOARD + ", " + ENABLE_MTTCG + ", " + ENABLE_KVM
+				+ " from " + MACHINE_TABLE_NAME
+				+ " where " + STATUS + " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " "
+				+ " ) " + " and " + MACHINE_NAME + "=\"" + machine + "\"" + " and " + SNAPSHOT_NAME + "=\""
 				+ snapshot + "\"" + ";";
 
 		Machine myMachine = null;
-		SQLiteDatabase db = this.getReadableDatabase();
+
 		Cursor cur = db.rawQuery(qry, null);
 
 		cur.moveToFirst();
-		while (cur.isAfterLast() == false) {
-			String machinename = cur.getString(0);
-			String cpu = cur.getString(1);
-			int mem = (int) cur.getInt(2);
-			String cdrom = cur.getString(3);
-			String fda = cur.getString(4);
-			String fdb = cur.getString(5);
-			String hda = cur.getString(6);
-			String hdb = cur.getString(7);
-			String hdc = cur.getString(8);
-			String hdd = cur.getString(9);
-			String net = cur.getString(10);
-			String nic = cur.getString(11);
-			String vga = cur.getString(12);
-			String snd = cur.getString(13);
-			String hdcache = cur.getString(14);
-			int acpi = (int) cur.getInt(15);
-			int hpet = (int) cur.getInt(16);
-			int usbmouse = (int) cur.getInt(17);
-			String snapshotStr = cur.getString(18);
-			String bootdev = cur.getString(19);
-			String kernel = cur.getString(20);
-			String initrd = cur.getString(21);
-			String append = cur.getString(22);
-			int cpuNum = (int) cur.getInt(23);
-			String machineType = cur.getString(24);
-			int fdbootchk = (int) cur.getInt(25);
-			String arch = cur.getString(26);
-			int paused = cur.getInt(27);
-			String sd = cur.getString(28);
-			String sharedFolder = cur.getString(29);
-			int sharedFolderMode = 1; //hard drives are always Read/Write
-			String extraParams = cur.getString(31);
-			String hostfwd = cur.getString(32);
-			String guestfwd = cur.getString(33);
-			String ui = cur.getString(34);
+		while (!cur.isAfterLast()) {
 
-			// Log.v("DB", "Got Machine: " + machinename);
-			// Log.v("DB", "Got cpu: " + cpu);
-			myMachine = new Machine(machinename);
-			myMachine.cpu = cpu;
-			myMachine.memory = mem;
-			myMachine.cd_iso_path = cdrom;
-			if (cdrom != null)
-				myMachine.enableCDROM = true;
+		    String machinename = cur.getString(0);
+            myMachine = new Machine(machinename);
 
-			// HDD
-			myMachine.hda_img_path = hda;
-			myMachine.hdb_img_path = hdb;
-			myMachine.hdc_img_path = hdc;
-			myMachine.hdd_img_path = hdd;
+            myMachine.cpu  = cur.getString(1);
+            myMachine.memory = cur.getInt(2);
+            myMachine.cd_iso_path = cur.getString(3);
+            if (myMachine.cd_iso_path != null)
+                myMachine.enableCDROM = true;
 
-			// Shared Folder
-			myMachine.shared_folder = sharedFolder;
-			myMachine.shared_folder_mode = sharedFolderMode;
+            myMachine.fda_img_path = cur.getString(4);
+            if (myMachine.fda_img_path != null)
+                myMachine.enableFDA = true;
+            myMachine.fdb_img_path = cur.getString(5);
+            if (myMachine.fdb_img_path  != null)
+                myMachine.enableFDB = true;
 
-			// FDA
-			myMachine.fda_img_path = fda;
-			if (fda != null)
-				myMachine.enableFDA = true;
+            myMachine.hda_img_path = cur.getString(6);
+            myMachine.hdb_img_path = cur.getString(7);
+            myMachine.hdc_img_path = cur.getString(8);
+            myMachine.hdd_img_path = cur.getString(9);
 
-			myMachine.fdb_img_path = fdb;
-			if (fdb != null)
-				myMachine.enableFDB = true;
+			myMachine.net_cfg = cur.getString(10);
+			myMachine.nic_card = cur.getString(11);
+            myMachine.vga_type= cur.getString(12);
+            myMachine.soundcard = cur.getString(13);
+            myMachine.hd_cache = cur.getString(14);
+            myMachine.disableacpi = cur.getInt(15);
+            myMachine.disablehpet = cur.getInt(16);
+			int usbmouse = cur.getInt(17);
+            myMachine.snapshot_name = cur.getString(18);
+            myMachine.bootdevice = cur.getString(19);
+            myMachine.kernel = cur.getString(20);
+            myMachine.initrd = cur.getString(21);
+            myMachine.append = cur.getString(22);
+            myMachine.cpuNum = cur.getInt(23);
+            myMachine.machine_type = cur.getString(24);
+            myMachine.disablefdbootchk = cur.getInt(25);
+            myMachine.arch = cur.getString(26);
+            myMachine.paused = cur.getInt(27);
 
-			// SD
-			myMachine.sd_img_path = sd;
-			if (sd != null)
-				myMachine.enableSD = true;
+            myMachine.sd_img_path = cur.getString(28);
+            if (myMachine.sd_img_path != null)
+                myMachine.enableSD = true;
 
-			myMachine.vga_type = vga;
-			myMachine.soundcard = snd;
-			myMachine.net_cfg = net;
-			myMachine.hostfwd = hostfwd;
-			myMachine.guestfwd = guestfwd;
-			myMachine.nic_driver = nic;
-			myMachine.disableacpi = acpi;
-			myMachine.disablehpet = hpet;
-			myMachine.disablefdbootchk = fdbootchk;
-			myMachine.bluetoothmouse = usbmouse;
-			myMachine.hd_cache = hdcache;
-			myMachine.snapshot_name = snapshotStr;
-			myMachine.bootdevice = bootdev;
-			myMachine.kernel = kernel;
-			myMachine.initrd = initrd;
-			myMachine.append = append;
-			myMachine.cpuNum = cpuNum;
-			myMachine.machine_type = machineType;
-			myMachine.arch = arch;
+            myMachine.shared_folder= cur.getString(29);
+            myMachine.shared_folder_mode = 1; //hard drives are always Read/Write
+            myMachine.extra_params = cur.getString(31);
+            myMachine.hostfwd = cur.getString(32);
+            myMachine.guestfwd  = cur.getString(33);
+            myMachine.ui = cur.getString(34);
 
-			myMachine.paused = paused;
+            myMachine.disabletsc = cur.getInt(35);
 
-			myMachine.extra_params = extraParams;
+            myMachine.mouse = cur.getString(36);
+            myMachine.keyboard = cur.getString(37);
+            myMachine.enableMTTCG = cur.getInt(38);
+            myMachine.enableKVM = cur.getInt(39);
 
-			myMachine.ui = ui;
 
 			break;
 		}
@@ -446,58 +406,55 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	}
 
 	public ArrayList<String> getMachines() {
-		String qry = "select " + this.MACHINE_NAME + " " + " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS
+		String qry = "select " + MACHINE_NAME + " " + " from " + MACHINE_TABLE_NAME + " where " + STATUS
 				+ " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " " + " ) " + " and "
-				+ this.SNAPSHOT_NAME + " = " + "\"\" " + ";";
+				+ SNAPSHOT_NAME + " = " + "\"\" " + ";";
 
 		ArrayList<String> arrStr = new ArrayList<String>();
 		
 		Cursor cur = db.rawQuery(qry, null);
 
 		cur.moveToFirst();
-		while (cur.isAfterLast() == false) {
-			String urlPath = cur.getString(0);
-
+		while (!cur.isAfterLast()) {
+			String machinename = cur.getString(0);
 			cur.moveToNext();
-			arrStr.add(urlPath);
+			arrStr.add(machinename);
 		}
 		cur.close();
 		
 		return arrStr;
 	}
 
-	public int deleteMachine(Machine b) {
+
+
+	public int deleteMachineDB(Machine machine) {
 		int rowsAffected = 0;
-		// Insert arrFiles in
 		try {
-			db.delete(this.MACHINE_TABLE_NAME, this.MACHINE_NAME + "=\"" + b.machinename + "\"" + " and "
-					+ this.SNAPSHOT_NAME + "=\"" + b.snapshot_name + "\"", null);
+			db.delete(MACHINE_TABLE_NAME, MACHINE_NAME + "=\"" + machine.machinename + "\"" + " and "
+					+ SNAPSHOT_NAME + "=\"" + machine.snapshot_name + "\"", null);
 		} catch (Exception e) {
-			// catch code
 			Log.e(TAG, "Error while deleting VM: " + e.getMessage());
-
-		}
-		
-
+            if(Config.debug)
+                e.printStackTrace();
+        }
 		return rowsAffected;
 	}
 
-	public ArrayList<String> getSnapshots(Machine currMachine) {
-		String qry = "select " + this.SNAPSHOT_NAME + " " + " from " + this.MACHINE_TABLE_NAME + " where " + this.STATUS
-				+ " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " ) " + " and " + this.MACHINE_NAME
-				+ " = " + "\"" + currMachine.machinename + "\" " + " and " + this.SNAPSHOT_NAME + " != " + "\"\" "
+	public ArrayList<String> getSnapshots(Machine machine) {
+		String qry = "select " + SNAPSHOT_NAME + " " + " from " + MACHINE_TABLE_NAME + " where " + STATUS
+				+ " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " ) " + " and " + MACHINE_NAME
+				+ " = " + "\"" + machine.machinename + "\" " + " and " + SNAPSHOT_NAME + " != " + "\"\" "
 				+ ";";
 
 		ArrayList<String> arrStr = new ArrayList<String>();
-		SQLiteDatabase db = this.getReadableDatabase();
 		Cursor cur = db.rawQuery(qry, null);
 
 		cur.moveToFirst();
-		while (cur.isAfterLast() == false) {
-			String urlPath = cur.getString(0);
+		while (!cur.isAfterLast()) {
+			String snapshotname = cur.getString(0);
 
 			cur.moveToNext();
-			arrStr.add(urlPath);
+			arrStr.add(snapshotname);
 		}
 		cur.close();
 		
@@ -512,41 +469,41 @@ public class MachineOpenHelper extends SQLiteOpenHelper {
 	public String exportMachines() {
 		String qry = "select " 
 				//Columns
-				+ this.MACHINE_NAME + " , " + this.CPU + " , " + this.MEMORY + " , " + this.CDROM + " , " + this.FDA
-				+ " , " + this.FDB + " , " + this.HDA + " , " + this.HDB + " , " + this.HDC + " , " + this.HDD + " , "
-				+ this.NET_CONFIG + " , " + this.NIC_CONFIG + " , " + this.VGA + " , " + this.SOUNDCARD_CONFIG + " , "
-				+ this.HDCACHE_CONFIG + " , " + this.DISABLE_ACPI + " , " + this.DISABLE_HPET + " , "
-				+ this.ENABLE_USBMOUSE + " , " + this.SNAPSHOT_NAME + " , " + this.BOOT_CONFIG + " , " + this.KERNEL
-				+ " , " + this.INITRD + " , " + this.APPEND + " , " + this.CPUNUM + " , " + this.MACHINE_TYPE + " , "
-				+ this.DISABLE_FD_BOOT_CHK + " , " + this.ARCH + " , " + this.PAUSED + " , " + this.SD + " , "
-				+ this.SHARED_FOLDER + " , " + this.SHARED_FOLDER_MODE + " , " + this.EXTRA_PARAMS + " , "
-				+ this.HOSTFWD + " , " + this.GUESTFWD + " , " + this.UI
+				+ MACHINE_NAME + " , " + CPU + " , " + MEMORY + " , " + CDROM + " , " + FDA
+				+ " , " + FDB + " , " + HDA + " , " + HDB + " , " + HDC + " , " + HDD + " , "
+				+ NET_CONFIG + " , " + NIC_CONFIG + " , " + VGA + " , " + SOUNDCARD_CONFIG + " , "
+				+ HDCACHE_CONFIG + " , " + DISABLE_ACPI + " , " + DISABLE_HPET + " , "
+				+ ENABLE_USBMOUSE + " , " + SNAPSHOT_NAME + " , " + BOOT_CONFIG + " , " + KERNEL
+				+ " , " + INITRD + " , " + APPEND + " , " + CPUNUM + " , " + MACHINE_TYPE + " , "
+				+ DISABLE_FD_BOOT_CHK + " , " + ARCH + " , " + PAUSED + " , " + SD + " , "
+				+ SHARED_FOLDER + " , " + SHARED_FOLDER_MODE + " , " + EXTRA_PARAMS + " , "
+				+ HOSTFWD + " , " + GUESTFWD + " , " + UI + ", " + DISABLE_TSC + ", "
+                + MOUSE + ", " + KEYBOARD + ", " + ENABLE_MTTCG + ", " + ENABLE_KVM
 				// Table
-				+ " from " + this.MACHINE_TABLE_NAME + "; ";
+				+ " from " + MACHINE_TABLE_NAME + "; ";
 
 		String arrStr = "";
-		SQLiteDatabase db = this.getReadableDatabase();
 		Cursor cur = db.rawQuery(qry, null);
 
 		cur.moveToFirst();
-		String urlPath1 = "";
+		String headerline = "";
 		for (int i = 0; i < cur.getColumnCount(); i++) {
-			urlPath1 += ("\"" + cur.getColumnName(i) + "\"");
+			headerline += ("\"" + cur.getColumnName(i) + "\"");
 			if (i < cur.getColumnCount() - 1) {
-				urlPath1 += ",";
+				headerline += ",";
 			}
 		}
-		arrStr += (urlPath1 + "\n");
-		while (cur.isAfterLast() == false) {
-			String urlPath = "";
+		arrStr += (headerline + "\n");
+		while (!cur.isAfterLast()) {
+			String line = "";
 			for (int i = 0; i < cur.getColumnCount(); i++) {
-				urlPath += ("\"" + cur.getString(i) + "\"");
+				line += ("\"" + cur.getString(i) + "\"");
 				if (i < cur.getColumnCount() - 1) {
-					urlPath += ",";
+					line += ",";
 				}
 
 			}
-			arrStr += (urlPath + "\n");
+			arrStr += (line + "\n");
 			cur.moveToNext();
 		}
 		cur.close();

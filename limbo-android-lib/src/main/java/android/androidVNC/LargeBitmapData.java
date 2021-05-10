@@ -8,6 +8,7 @@ import java.io.IOException;
 import com.antlersoft.android.drawing.OverlappingCopy;
 import com.antlersoft.android.drawing.RectList;
 import com.antlersoft.util.ObjectPool;
+import com.max2idea.android.limbo.main.Config;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -94,7 +95,7 @@ class LargeBitmapData extends AbstractBitmapData {
 		if (bitmapheight < displayHeight)
 			bitmapheight = displayHeight;
 		android.util.Log.i("LBM", "bitmapsize = ("+bitmapwidth+","+bitmapheight+")");
-		mbitmap = Bitmap.createBitmap(bitmapwidth, bitmapheight, Bitmap.Config.RGB_565);
+        mbitmap = Bitmap.createBitmap(bitmapwidth, bitmapheight, Config.bitmapConfig);
 		memGraphics = new Canvas(mbitmap);
 		bitmapPixels = new int[bitmapwidth * bitmapheight];
 		invalidList = new RectList(rectPool);

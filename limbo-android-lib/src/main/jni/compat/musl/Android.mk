@@ -13,7 +13,7 @@ LOCAL_MODULE := compat-musl
 LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/../musl/include
 
-LOCAL_CFLAGS += $(ARCH_CFLAGS)
+#LOCAL_CFLAGS += $(ARCH_CFLAGS)
 LOCAL_CFLAGS += -include $(LOGUTILS)
 LOCAL_ARM_MODE := $(ARM_MODE)
 

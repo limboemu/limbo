@@ -84,15 +84,15 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         }
     }
 
-    public int getFavUrlSeq(String fav, String favType) {
+    public int getFavSeq(String favPath, String favType) {
         int ret = -1;
-        String SELECT_URLS = "select " + this.FAVSEQ
+        String SELECT_FAVS = "select " + this.FAVSEQ
                 + " from " + this.TABLE_NAME_FAV_FILES
                 + " Where " + this.FAVFILE + "= ? "
                 + " and " + this.FAVFILETYPE + "= ? "
                 +";";
 
-        Cursor cur = db.rawQuery(SELECT_URLS, new String[]{fav, favType});
+        Cursor cur = db.rawQuery(SELECT_FAVS, new String[]{favPath, favType});
         cur.moveToFirst();
         while (cur.isAfterLast() == false) {
             ret = cur.getInt(0);
@@ -102,24 +102,23 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         return ret;
     }
 
-    public int insertFavURL(String url, String urlname) {
+    public int insertFav(String favpath, String favtype) {
         int seqnum = -1;
-        // Insert urlname in db
-//        Log.v("DB", "insert file: " + urlname);
+//        Log.v("DB", "insert fav: " + favpath);
         ContentValues stateValues = new ContentValues();
-        stateValues.put(FAVFILE, url);
-        stateValues.put(this.FAVFILETYPE, urlname);
+        stateValues.put(FAVFILE, favpath);
+        stateValues.put(this.FAVFILETYPE, favtype);
         try {
             seqnum = (int) db.insertOrThrow(this.TABLE_NAME_FAV_FILES, null, stateValues);
         } catch (Exception e) {
             //catch code
-            Log.v(TAG, "Error while Insert url: " + e.getMessage());
+            Log.v(TAG, "Error while Insert Fav Path: " + e.getMessage());
         }
 
         return seqnum;
     }
 
-    public ArrayList<String> getFavURL(String favType) {
+    public ArrayList<String> getFav(String favType) {
         String qry = "select " + this.FAVFILE + " "
                 + " from " + this.TABLE_NAME_FAV_FILES
                 + " where " + this.FAVFILETYPE + " = ? "
@@ -136,11 +135,11 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         return arrStr;
     }
 
-    public int deleteFavURL(String favUrl) {
+    public int deleteFav(String favPath) {
         int rowsAffected = 0;
         // Insert arrFiles in
         try {
-            db.delete(this.TABLE_NAME_FAV_FILES, this.FAVFILE + "=?", new String[]{favUrl});
+            db.delete(this.TABLE_NAME_FAV_FILES, this.FAVFILE + "=?", new String[]{favPath});
         } catch (Exception e) {
             //catch code
         }
