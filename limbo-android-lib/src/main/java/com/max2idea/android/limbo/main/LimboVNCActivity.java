@@ -96,9 +96,9 @@ public class LimboVNCActivity extends VncCanvasActivity {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-			if (VERSION.SDK_INT >= 28) {        // Android 9
+			if (Build.VERSION.SDK_INT >= 28) {        // Android 9
 				getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;     // 1
-				if (VERSION.SDK_INT >= 30)  // Android 11
+				if (Build.VERSION.SDK_INT >= 30)  // Android 11
 					getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;  // 3
 			}
 
