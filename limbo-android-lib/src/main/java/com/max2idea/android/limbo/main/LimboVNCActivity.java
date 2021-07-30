@@ -92,9 +92,25 @@ public class LimboVNCActivity extends VncCanvasActivity {
 	@Override
 	public void onCreate(Bundle b) {
 
-		if (LimboSettingsManager.getFullscreen(this))
+		if (LimboSettingsManager.getFullscreen(this)) {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+			if (VERSION.SDK_INT >= 28) {        // Android 9
+				getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;     // 1
+				if (VERSION.SDK_INT >= 30)  // Android 11
+					getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;  // 3
+			}
+
+			getWindow().getDecorView().setSystemUiVisibility(
+			 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+			);
+		}
 
 		super.onCreate(b);
 
@@ -108,6 +124,19 @@ public class LimboVNCActivity extends VncCanvasActivity {
 
 
 	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+ 		if(hasFocus) // hide navigation only when using screen
+			getWindow().getDecorView().setSystemUiVisibility(
+			 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+			);
+ 	}
 
 	private void setDefaulViewMode() {
 		
