@@ -898,9 +898,25 @@ public class LimboSDLActivity extends SDLActivity {
 		// Log.v("SDL", "onCreate()");
         activity = this;
 
-		if (LimboSettingsManager.getFullscreen(this))
+		if (LimboSettingsManager.getFullscreen(this)) {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					WindowManager.LayoutParams.FLAG_FULLSCREEN); // 1024
+
+			if (Build.VERSION.SDK_INT >= 28)  // Android 9+ supports cutouts
+				if (Build.VERSION.SDK_INT >= 30)  // Android 11
+					getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;  // 3
+				else
+					getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;  // 1
+
+			getWindow().getDecorView().setSystemUiVisibility(
+			   View.SYSTEM_UI_FLAG_LAYOUT_STABLE          // always use full screen
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION // overlayed navigation
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN      // overlayed status bar
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION        // hide navigation buttons
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN             // hide status bar
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY       // keep navigation hidden
+			);
+		}
 
 		super.onCreate(savedInstanceState);
         setupVolume();
@@ -1772,6 +1788,16 @@ public class LimboSDLActivity extends SDLActivity {
 	//XXX: We want to suspend only when app is calling onPause()
 	@Override
 	public void onWindowFocusChanged(boolean hasFocus) {
+
+		if(hasFocus) // hide navigation only when using screen
+			getWindow().getDecorView().setSystemUiVisibility(
+			   View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+			 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+			 | View.SYSTEM_UI_FLAG_FULLSCREEN
+			 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+			);
 
 	}
 
