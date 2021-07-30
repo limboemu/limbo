@@ -415,11 +415,11 @@ public class VMExecutor {
 
         addNetworkOptions(paramsList);
 
-        addAdvancedOptions(paramsList);
-
         addGenericOptions(paramsList);
 
         addStateOptions(paramsList);
+
+        addAdvancedOptions(paramsList);
 
         params = (String[]) paramsList.toArray(new String[paramsList.size()]);
 
