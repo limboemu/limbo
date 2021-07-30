@@ -643,7 +643,8 @@ public class LimboVNCActivity extends VncCanvasActivity {
 		}
 
 		//Start calibration
-        calibration();
+		if (Config.mouseMode != Config.MouseMode.Trackpad)
+			calibration();
 
 		return true;
 	}
