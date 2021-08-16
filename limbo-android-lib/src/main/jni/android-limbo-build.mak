@@ -73,7 +73,6 @@ endif
 
 
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
-    $(warning "Compiler: clang")
     NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
     ##### CLANG binaries
     CC=$(TOOLCHAIN_CLANG_PREFIX)/clang
@@ -88,7 +87,6 @@ ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
 
 else
     #NDK Toolchain
-    $(warning "Compiler: gcc")
     CC=$(TOOLCHAIN_PREFIX)gcc
     #CXX=$(TOOLCHAIN_CLANG_PREFIX)/g++
     AR=$(TOOLCHAIN_PREFIX)ar

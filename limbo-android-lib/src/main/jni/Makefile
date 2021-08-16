@@ -290,7 +290,12 @@ ndk-gdb:
 
 distclean: clean-qemu clean-ffi clean-glib clean-pixman
 
-clean: clean-qemu clean-ffi clean-glib clean-pixman clean-ndk
+clean: 
+	make clean-qemu 
+	make clean-ffi 
+	make clean-glib 
+	make clean-pixman
+	make clean-ndk
 	-find . -name "*.d" -exec rm -rf {} \;
 	-find . -name "*.a" -exec rm -rf {} \;
 	-find . -name "*.o" -exec rm -rf {} \;
