@@ -19,18 +19,17 @@ USE_SECURITY ?= true
 USE_KVM ?= true
 
 # Build threads, if use multiple and fails, try building again
-BUILD_THREADS = 1
+BUILD_THREADS = 3
 
 
 ############## Build Environment (toolchain)
 # if you want to use GCC otherwise clang will be used
-USE_GCC ?= true
+USE_GCC ?= false
 
 # Uncomment below to chose an ndk version
 ## Last version with gcc support is 14b otherwise use clang
-NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
-#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r17c
-#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r18b
+#NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
+NDK_ROOT = /home/dev/tools/ndk/android-ndk-r23
 
 # Uncomment if you use Linux x86, Linux 64bit, or macosx PC to compile
 # Compiling on Windows is no longer supported

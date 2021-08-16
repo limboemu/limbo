@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.limbo.emu.main"
     android:installLocation="auto"
-    android:versionCode="50100"
-    android:versionName="5.1.0-x86" >
+    android:versionCode="50200"
+    android:versionName="5.2.0-x86" >
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

@@ -66,8 +66,10 @@ TOOLCHAIN_CLANG_PREFIX := $(TOOLCHAIN_CLANG_DIR)/bin
 
 #$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
 
-NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
-NDK_SYSROOT=$(NDK_ROOT)/sysroot
+ifneq ($(NDK_TOOLCHAIN_VERSION),clang)
+    NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
+    NDK_SYSROOT=$(NDK_ROOT)/sysroot
+endif
 
 
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
@@ -81,9 +83,12 @@ ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
     LNK=$(TOOLCHAIN_CLANG_PREFIX)/clang
     #LD=$(TOOLCHAIN_CLANG_PREFIX)/llvm-ld
     #NM=$(TOOLCHAIN_CLANG_PREFIX)/llvm-nm
+    OBJ_COPY=$(TOOLCHAIN_CLANG_PREFIX)/llvm-objcopy
+    STRIP=$(TOOLCHAIN_CLANG_PREFIX)/llvm-strip
 
 else
     #NDK Toolchain
+    $(warning "Compiler: gcc")
     CC=$(TOOLCHAIN_PREFIX)gcc
     #CXX=$(TOOLCHAIN_CLANG_PREFIX)/g++
     AR=$(TOOLCHAIN_PREFIX)ar
@@ -91,15 +96,23 @@ else
     LNK = $(TOOLCHAIN_PREFIX)g++
     LD=${TOOLCHAIN_PREFIX}ld
     NM=${TOOLCHAIN_PREFIX}nm
+    OBJ_COPY=$(TOOLCHAIN_PREFIX)objcopy
+    STRIP=$(TOOLCHAIN_PREFIX)strip
 endif
 
-STRIP = $(TOOLCHAIN_PREFIX)strip
-OBJ_COPY = $(TOOLCHAIN_PREFIX)objcopy
+
+
 
 
 AR_FLAGS = crs
-SYSROOT = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)
+ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
+    SYSROOT = $(TOOLCHAIN_CLANG_DIR)/sysroot
+else
+    SYSROOT = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)
+endif
+
 SYS_ROOT = --sysroot=$(SYSROOT)
+
 NDK_INCLUDE = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)/usr/include
 
 

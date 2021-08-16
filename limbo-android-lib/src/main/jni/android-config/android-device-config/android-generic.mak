@@ -16,13 +16,17 @@ else
     ARCH_LD_CLANG_FLAGS += -Wc,-shared
 endif
 
+ARCH_CFLAGS += -Wno-macro-redefined
+    
 #libs
 ARCH_LD_FLAGS += -lc -lm -llog
 
 # Suppress some warnings
 #ARCH_CFLAGS += -Wno-psabi
 ARCH_CFLAGS += -Wno-error=declaration-after-statement -Wno-unused-variable
-ARCH_CFLAGS += -Wno-unused-but-set-variable -Wno-unused-function
+ifneq ($(NDK_TOOLCHAIN_VERSION),clang)
+	ARCH_CFLAGS += -Wno-unused-but-set-variable -Wno-unused-function
+endif
 
 # Smaller code generation for shared libraries, usually faster
 # if doesn't work use -fPIC
@@ -50,8 +54,8 @@ ifeq ($(USE_OPTIMIZATION),true)
         #ARCH_CFLAGS += -ffast-math
         #ARCH_CFLAGS += -finline-limit=99999
      else
-        # clang we can increase
-        ARCH_CFLAGS += -Ofast
+        # clang
+        ARCH_CFLAGS += -O2
     endif
 
 else

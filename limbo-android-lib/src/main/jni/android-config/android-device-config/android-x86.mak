@@ -14,7 +14,7 @@ ARCH_LD_FLAGS += -latomic
 
 #CLANG ONLY
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
-    ARCH_CLANG_FLAGS += -gcc-toolchain $(TOOLCHAIN_DIR)
+    # ARCH_CLANG_FLAGS += -gcc-toolchain $(TOOLCHAIN_DIR)
     ARCH_CLANG_FLAGS += -target i686-none-linux-android
     ARCH_CFLAGS += $(ARCH_CLANG_FLAGS) -D__ANDROID_API__=$(NDK_PLATFORM_API)
     ARCH_CFLAGS += -fno-integrated-as
