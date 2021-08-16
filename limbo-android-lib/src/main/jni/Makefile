@@ -151,13 +151,13 @@ config-ffi: ndk
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 
-ffi:
+ffi: ndk
 	cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) -j $(BUILD_THREADS) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 	$(INSTALL_FFI_LIBS)
 
-config-glib: ndk ffi
+config-glib: ndk
 	cd $(LIMBO_JNI_ROOT)/glib && NOCONFIGURE=1 ./autogen.sh
 	cd $(LIMBO_JNI_ROOT)/glib && cp -rf $(LIMBO_JNI_ROOT)/patches/android.cache . \
 	&& chmod a-w android.cache && ./configure --host=$(GNU_HOST) --cache-file=android.cache \
@@ -175,7 +175,7 @@ config-glib: ndk ffi
 	LIBFFI_CFLAGS="-I${LIMBO_JNI_ROOT}/libffi/$(GNU_HOST)/include " \
 	LIBFFI_LIBS="${LIMBO_JNI_ROOT}/../obj/local/$(APP_ABI)/libffi.a"
 
-glib: ffi
+glib: ndk
 	cd $(LIMBO_JNI_ROOT)/glib/glib && $(MAKE) -j $(BUILD_THREADS) CFLAGS="$(ARCH_CFLAGS) \
 	$(NDK_SYSROOT_INC) \
 	$(NDK_SYSROOT_ARCH_INC) \
@@ -224,21 +224,21 @@ clean-pixman:
 	-cd $(LIMBO_JNI_ROOT)/pixman && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/pixman && $(MAKE) clean
 
-_qemu: ndk deps
+_qemu: ndk
 	cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) all -j $(BUILD_THREADS) BUILD_GUEST=$(BUILD_GUEST) CFLAGS="$(ARCH_CFLAGS)"
 
-config-qemu: ndk glib pixman
+config-qemu: ndk
 	$(MAKE) -f $(LIMBO_JNI_ROOT)/android-config/android-qemu-config.mak
 
 clean-qemu:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) clean
 
-config-deps: config-ffi config-glib config-pixman
+config-deps: ndk config-ffi config-glib config-pixman
 
-deps: config-deps ffi glib pixman
+deps: ndk ffi glib pixman 
 
-_build-qemu: _qemu
+_build-qemu: ndk _qemu
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
@@ -246,7 +246,7 @@ _build-qemu: _qemu
 	$(COPY_KEYMAPS)
 	$(COPY_RESOLV_CONF)
 
-qemu: _build-qemu
+qemu: ndk _build-qemu
 	make install
 
 install-common:
@@ -290,7 +290,7 @@ ndk-gdb:
 
 distclean: clean-qemu clean-ffi clean-glib clean-pixman
 
-clean: distclean clean-ndk
+clean: clean-qemu clean-ffi clean-glib clean-pixman clean-ndk
 	-find . -name "*.d" -exec rm -rf {} \;
 	-find . -name "*.a" -exec rm -rf {} \;
 	-find . -name "*.o" -exec rm -rf {} \;
