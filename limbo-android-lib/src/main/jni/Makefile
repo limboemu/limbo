@@ -236,7 +236,7 @@ clean-qemu:
 
 config-deps: config-ffi config-glib config-pixman
 
-deps: ffi glib pixman
+deps: config-deps ffi glib pixman
 
 _build-qemu: _qemu
 	$(INSTALL_LIBS)
