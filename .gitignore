@@ -68,3 +68,4 @@ limbotest
 /limbo-android-lib/src/main/jni/qemu-patches/qemu-2.11.0.patch
 
 sync.sh
+gitsync.sh
