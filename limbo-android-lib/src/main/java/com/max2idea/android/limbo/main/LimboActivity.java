@@ -3065,8 +3065,14 @@ public class LimboActivity extends AppCompatActivity {
         this.mHDB = (Spinner) findViewById(R.id.hdbimgval);
         this.mHDC = (Spinner) findViewById(R.id.hdcimgval);
         this.mHDD = (Spinner) findViewById(R.id.hddimgval);
+        
+        LinearLayout sharedFolderLayout = (LinearLayout) findViewById(R.id.sharedfolderl);
+        if(!Config.enableSharedFolder)
+        	sharedFolderLayout.setVisibility(View.GONE);
         this.mSharedFolderenable = (CheckBox) findViewById(R.id.sharedfoldercheck);
         this.mSharedFolder = (Spinner) findViewById(R.id.sharedfolderval);
+        
+        
         this.mHDCacheConfig = (Spinner) findViewById(R.id.hdcachecfgval);
         this.mHDCacheConfig.setEnabled(false); // Disabled for now
 
@@ -3343,7 +3349,8 @@ public class LimboActivity extends AppCompatActivity {
             text = appendDriveFilename(currMachine.hdc_img_path, text, "HDC", false);
             text = appendDriveFilename(currMachine.hdd_img_path, text, "HDD", false);
 
-            text = appendDriveFilename(currMachine.shared_folder, text, "Shared Folder", false);
+            if(Config.enableSharedFolder)
+                text = appendDriveFilename(currMachine.shared_folder, text, "Shared Folder", false);
 
             if (text == null || text.equals("'"))
                 text = "None";

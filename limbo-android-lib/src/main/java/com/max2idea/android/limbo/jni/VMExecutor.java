@@ -794,7 +794,7 @@ public class VMExecutor {
                 param += ",file=" + hdd_img_path;
             }
             paramsList.add(param);
-        } else if (shared_folder_path != null) {
+        } else if (Config.enableSharedFolder && shared_folder_path != null) {
             //XXX; We use hdd to mount any virtual fat drives
             paramsList.add("-drive"); //empty
             String driveParams = "index=3";

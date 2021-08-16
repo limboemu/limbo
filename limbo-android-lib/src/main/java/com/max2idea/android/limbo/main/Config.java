@@ -145,6 +145,9 @@ public class Config {
     public static String notificationChannelName = "limbo";
     public static boolean showToast = false;
     public static boolean closeFileDescriptors = true;
+    
+    //XXX: qemu vvfat is buggy so we disable
+    public static boolean enableSharedFolder = false;
 
 
     public static final String getCacheDir(){
