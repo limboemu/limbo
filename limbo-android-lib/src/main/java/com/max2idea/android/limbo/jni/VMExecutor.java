@@ -359,7 +359,7 @@ public class VMExecutor {
     public static void onVMResolutionChanged(int width, int height) {
 
         if (LimboSDLActivity.mIsSurfaceReady)
-            LimboSDLActivity.onVMResolutionChanged(width, height);
+            LimboSDLActivity.getSingleton().onVMResolutionChanged(width, height);
     }
 
     public void print(String[] params) {
@@ -1086,7 +1086,7 @@ public class VMExecutor {
 
         //XXX: Check boundaries, perhaps not necessary since SDL is also doing the same thing
         if (relative == 1
-                || (x >= 0 && x <= LimboSDLActivity.vm_width && y >= 0 && y <= LimboSDLActivity.vm_height)
+                || (x >= 0 && x <= LimboSDLActivity.getSingleton().vm_width && y >= 0 && y <= LimboSDLActivity.getSingleton().vm_height)
                 || (action == MotionEvent.ACTION_SCROLL)) {
 //			Log.d(TAG, "onLimboMouse: B: " + button + ", A: " + action + ", R: " + relative + ", X: " + x + ", Y: " + y);
             return onmouse(button, action, relative, x, y);
