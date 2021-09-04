@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="keyMapperLabels">
+        <item>@string/threeBySix</item>
+        <item>@string/fourByEight</item>
+        <item>@string/fiveByTen</item>
+    </string-array>
+    <string-array name="keyMapperValues">
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+
+    <string-array name="orientationLabels">
+        <item>@string/Auto</item>
+        <item>@string/Landscape</item>
+        <item>@string/LandscapeReverse</item>
+        <item>@string/Portrait</item>
+        <item>@string/PortraitReverse</item>
+    </string-array>
+    <string-array name="orientationValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+</resources>
