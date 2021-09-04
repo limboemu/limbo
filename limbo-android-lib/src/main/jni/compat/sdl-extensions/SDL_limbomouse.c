@@ -1,4 +1,21 @@
+/*
+Copyright (C) Max Kastanas 2012
 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
 #include "src/SDL_internal.h"
 #include "SDL_limbomouse.h"
 #include "SDL_events.h"
@@ -16,23 +33,6 @@
 #define BUTTON_BACK 8
 #define BUTTON_FORWARD 16
 
-int relativeMouseMode = 1;
-
-JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setrelativemousemode(
-        JNIEnv* env, jobject thiz,
-		int relative) {
-
-
-	if (!Android_Window) {
-            return -1;
-    }
-
-    printf("Set relative mouse mode: %d", relative);
-    relativeMouseMode = relative;
-
-    return 0;
-}
-
 JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
         JNIEnv* env, jobject thiz,
 		int button, int action, int relative, float x, float y) {
@@ -40,11 +40,15 @@ JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
     if (!Android_Window) {
         return -1;
     }
-
-    if(relativeMouseMode)
-        SDL_SetRelativeMouseMode(SDL_TRUE);
-    else
-        SDL_SetRelativeMouseMode(SDL_FALSE);
+    
+    //XXX: If the guest input device is not usb-tablet (ps2/usb) QEMU overrides to relative mode
+    // in order to provide a workaround we force the mode. The user will still need to disable 
+    // mouse acceleration within the guest and calibrate the mouse in limbo.
+    SDL_bool relativeMouseMode = relative?SDL_TRUE:SDL_FALSE; 
+    if(SDL_GetRelativeMouseMode() != relativeMouseMode ) {
+    	printf("force relative mouse mode: %d", relativeMouseMode);
+    	SDL_SetRelativeMouseMode(relativeMouseMode);
+    }
 
     switch(action) {
         case ACTION_DOWN:
