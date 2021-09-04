@@ -19,7 +19,7 @@ https://github.com/limboemu/limbo
     Android device with Android OS 5.0 (Lollipop) and above
     Linux Desktop pc (Ubuntu prefered)
     Make sure you have the following packages installed, if not run:
-    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison gettext
+    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison gettext texinfo
 
 ===============================================================================
 
@@ -61,14 +61,14 @@ https://github.com/limboemu/limbo
     mv glib-2.56.1 glib
 
     ##### GET libffi
-    wget https://sourceware.org/pub/libffi/libffi-3.2.1.tar.gz -P /tmp/
-    tar -xzf /tmp/libffi-3.2.1.tar.gz
-    mv libffi-3.2.1 libffi
+    wget https://sourceware.org/pub/libffi/libffi-3.3.tar.gz -P /tmp/
+    tar -xzf /tmp/libffi-3.3.tar.gz
+    mv libffi-3.3 libffi
 
     ##### GET pixman
-    wget https://www.cairographics.org/releases/pixman-0.34.0.tar.gz -P /tmp/
-    tar -xzf /tmp/pixman-0.34.0.tar.gz
-    mv pixman-0.34.0 pixman
+    wget https://www.cairographics.org/releases/pixman-0.40.0.tar.gz -P /tmp/
+    tar -xzf /tmp/pixman-0.40.0.tar.gz
+    mv pixman-0.40.0 pixman
 
     ##### GET SDL2
     wget https://www.libsdl.org/release/SDL2-2.0.8.tar.gz -P /tmp/
