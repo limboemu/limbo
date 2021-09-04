@@ -14,18 +14,17 @@
         android:layout_height="?attr/actionBarSize" />
 
     <RelativeLayout
+        android:id="@+id/top_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-
         android:orientation="vertical">
-
 
         <RelativeLayout
             android:id="@+id/sdl_layout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
             android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
             android:orientation="vertical">
 
             <ImageView
@@ -39,14 +38,16 @@
                 android:id="@+id/sdl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="4dp"
                 android:layout_centerHorizontal="true"
-
-                android:orientation="vertical"/>
-
+                android:layout_margin="4dp"
+                android:orientation="vertical" />
         </RelativeLayout>
+
+        <include
+            layout="@layout/key_mapper"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#00000000"
+            android:visibility="visible"></include>
     </RelativeLayout>
-
-
-
 </LinearLayout>
