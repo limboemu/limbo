@@ -116,6 +116,12 @@ ifneq ($(NDK_DEBUG),1)
 	STRIP_LIBS=$(STRIP) $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/*.so
 endif
 
+# we disable for now some options so armv7 host can compile with gcc
+PIXMAN_DISABLE_OPTIONS=--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2  \
+	--disable-openmp  --disable-loongson-mmi  --disable-mmx    --disable-sse2   --disable-ssse3 \
+	--disable-vmx --disable-arm-simd   --disable-arm-neon   --disable-arm-iwmmxt   \
+	--disable-arm-iwmmxt2  --disable-mips-dspr2  --disable-gcc-inline-asm
+
 DEBUG =
 ifeq ($(NDK_DEBUG), 1)
 	LIBFFI_DEBUG = --enable-debug
@@ -147,7 +153,7 @@ clean-ffi:
 	-cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) clean
 
 config-ffi: ndk
-	cd $(LIMBO_JNI_ROOT)/libffi && ./configure --host=$(GNU_HOST) $(LIBFFI_DEBUG) \
+	cd $(LIMBO_JNI_ROOT)/libffi && ./configure --host=$(GNU_HOST) $(LIBFFI_DEBUG) --enable-static --disable-shared \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 
@@ -195,9 +201,12 @@ clean-glib:
 	-cd $(LIMBO_JNI_ROOT)/glib && $(MAKE) clean
 	-rm -rf $(LIMBO_JNI_ROOT)/glib/android.cache
 
+
 config-pixman: ndk
 	cd $(LIMBO_JNI_ROOT)/pixman && ./configure --host=$(GNU_HOST) --with-sysroot=$(SYSROOT) \
-	--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2 $(LIBPIXMAN_DEBUG) \
+	--disable-libtool-lock \
+	$(PIXMAN_DISABLE_OPTIONS) \
+	$(LIBPIXMAN_DEBUG) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
 	$(NDK_SYSROOT_INC) \
 	$(NDK_SYSROOT_ARCH_INC) \
@@ -238,7 +247,8 @@ config-deps: ndk config-ffi config-glib config-pixman
 
 deps: ndk ffi glib pixman 
 
-_build-qemu: ndk _qemu
+_build-qemu: ndk 
+	make _qemu
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
@@ -246,7 +256,8 @@ _build-qemu: ndk _qemu
 	$(COPY_KEYMAPS)
 	$(COPY_RESOLV_CONF)
 
-qemu: ndk _build-qemu
+qemu: ndk
+	make _build-qemu
 	make install
 
 install-common:
