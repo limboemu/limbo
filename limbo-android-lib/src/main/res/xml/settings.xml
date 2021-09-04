@@ -1,13 +1,93 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <CheckBoxPreference
-        android:defaultValue="true"
-        android:key="updateVersionPrompt"
-        android:summary="Check for software updates on startup"
-        android:title="Check for Software Updates" />
-    <CheckBoxPreference
-        android:defaultValue="false"
-        android:key="EnableLegacyFileManager"
-        android:summary="Enable legacy file manager for older devices. SD Card might not be supported"
-        android:title="Enable Legacy File Manager" />
+
+    <PreferenceCategory android:title="Files">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="EnableLegacyFileManager"
+            android:summary="@string/EnableLegacyFileManagerSummary"
+            android:title="@string/EnableLegacyFileManager" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Screen">
+        <ListPreference
+            android:defaultValue="0"
+            android:entries="@array/orientationLabels"
+            android:entryValues="@array/orientationValues"
+            android:key="orientationPref"
+            android:summary="@string/orientation"
+            android:title="@string/orientation" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="AlwaysShowMenuToolbar"
+            android:summary="@string/AlwaysShowToolbar"
+            android:title="@string/AlwaysToolbar" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="ShowFullscreen"
+            android:summary="Show Fullscreen"
+            android:title="Fullscreen" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="DesktopMode"
+            android:summary="@string/EnableDesktopMode"
+            android:title="@string/desktopMode" />
+
+        <ListPreference
+            android:defaultValue="3"
+            android:entries="@array/keyMapperLabels"
+            android:entryValues="@array/keyMapperValues"
+            android:key="keyMapperSize"
+            android:summary="@string/KeyMapperButtonLayout"
+            android:title="@string/KeyMapperLayout" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Advanced">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="HighPrio"
+            android:summary="@string/RunVMThreadHighPriority"
+            android:title="@string/HighPriority" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="QMP">
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="enableQMP"
+            android:summary="@string/EnableQMPServerSummary"
+            android:title="@string/EnableQMPServer" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:dependency="enableQMP"
+            android:key="enableExternalQMP"
+            android:summary="@string/AllowExternalQMPConnectionsSummary"
+            android:title="@string/AllowExternalQMPConnections" />
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="VNC">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:dependency="enableQMP"
+            android:key="enableVNCPassword"
+            android:summary="@string/EnableVNCPassword"
+            android:title="@string/EnableVNCPassword" />
+
+        <Preference
+            android:dependency="enableVNCPassword"
+            android:key="vncPass"
+            android:summary="@string/SetVNCPassword"
+            android:title="@string/SetVNCPassword" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:dependency="enableQMP"
+            android:key="enableExternalVNC"
+            android:summary="@string/AllowExternalVNCSummary"
+            android:title="@string/AllowExternalVNCConnections" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>
