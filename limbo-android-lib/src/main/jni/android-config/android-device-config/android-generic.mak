@@ -56,6 +56,7 @@ ifeq ($(USE_OPTIMIZATION),true)
      else
         # clang
         ARCH_CFLAGS += -O2
+        # ARCH_CFLAGS += -Ofast
     endif
 
 else
