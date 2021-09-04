@@ -2,59 +2,50 @@ package com.limbo.emu.main;
 
 import android.os.Bundle;
 
+import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.main.Config;
 import com.max2idea.android.limbo.main.LimboActivity;
-import com.max2idea.android.limbo.utils.LinksManager;
-import com.max2idea.android.limbo.utils.Machine;
+import com.max2idea.android.limbo.links.LinksManager;
+import com.max2idea.android.limbo.main.LimboApplication;
 
 public class LimboEmuActivity extends LimboActivity {
 
     public void onCreate(Bundle bundle) {
-        Config.enable_X86 = true;
-        Config.enable_X86_64 = true;
-
-        Config.enable_KVM = true;
-
+        LimboApplication.arch = Config.Arch.x86_64;
+        Config.clientClass = this.getClass();
+        Config.enableKVM = true;
         //XXX; only for 64bit hosts, also make sure you have qemu 3.1.0 x86_64-softmmu and above compiled
-        if(Machine.isHost64Bit() && Config.enableMTTCG)
+        if(LimboApplication.isHost64Bit() && Config.enableMTTCG)
             Config.enableMTTCG = true;
         else
             Config.enableMTTCG = false;
-
-        Config.osImages.put("DSL Linux", new LinksManager.LinkInfo("DSL Linux",
-                "A Linux-based light weight OS with Desktop Manager, network, and package manager",
+        Config.osImages.put(getString(R.string.DSLLinux), new LinksManager.LinkInfo(getString(R.string.DSLLinux),
+                getString(R.string.DSLLinuxDescr),
                 "https://github.com/limboemu/limbo/wiki/DSL-linux",
                 LinksManager.LinkType.ISO));
-
-        Config.osImages.put("Debian Linux", new LinksManager.LinkInfo("Debian Linux",
-                "Another Linux-based light weight OS with Desktop Manager, network, and package manager",
+        Config.osImages.put(getString(R.string.DebianLinux), new LinksManager.LinkInfo(getString(R.string.DebianLinux),
+                getString(R.string.DebianLinuxDescr),
                 "https://github.com/limboemu/limbo/wiki/Debian-Linux",
                 LinksManager.LinkType.ISO));
-
-        Config.osImages.put("Trinux", new LinksManager.LinkInfo("Trinux",
-                "A Linux-based command line only OS, network",
+        Config.osImages.put("Trinux", new LinksManager.LinkInfo(getString(R.string.Trinux),
+                getString(R.string.TrinuxDescr),
                 "https://github.com/limboemu/limbo/wiki/Trinux",
                 LinksManager.LinkType.ISO));
-
-        Config.osImages.put("FreeDOS", new LinksManager.LinkInfo("FreeDOS",
-                "A DOS-based command line only OS",
+        Config.osImages.put(getString(R.string.Freedos), new LinksManager.LinkInfo(getString(R.string.Freedos),
+                getString(R.string.FreedosDescr),
                 "https://github.com/limboemu/limbo/wiki/FreeDOS",
                 LinksManager.LinkType.ISO));
-
-        Config.osImages.put("KolibriOS", new LinksManager.LinkInfo("KolibriOS",
-                "A ultra light weight OS written in assembly with a Desktop Manager",
+        Config.osImages.put(getString(R.string.KolibriOS), new LinksManager.LinkInfo(getString(R.string.KolibriOS),
+                getString(R.string.KolibriOSDescr),
                 "https://github.com/limboemu/limbo/wiki/KolibriOS",
                 LinksManager.LinkType.ISO));
-
         super.onCreate(bundle);
-
         //TODO: change location to something that the user will have access outside of limbo
         //  like internal storage
-        Config.logFilePath = Config.cacheDir + "/limbo/limbo-x86-log.txt";
+        Logger.setupLogFile("/limbo/limbo-x86-log.txt");
     }
 
     protected void loadQEMULib() {
-
         try {
             System.loadLibrary("qemu-system-i386");
         } catch (Error ex) {
