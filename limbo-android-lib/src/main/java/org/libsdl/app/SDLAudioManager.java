@@ -7,8 +7,8 @@ public class SDLAudioManager
 {
     protected static final String TAG = "SDLAudio";
 
-    protected static AudioTrack mAudioTrack;
-    protected static AudioRecord mAudioRecord;
+    public static AudioTrack mAudioTrack;
+    public static AudioRecord mAudioRecord;
 
     public static void initialize() {
         mAudioTrack = null;

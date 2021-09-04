@@ -54,6 +54,8 @@ public class SDLActivity extends AppCompatActivity {
     /** If shared libraries (e.g. SDL or the native application) could not be loaded. */
     public static boolean mBrokenLibraries;
 
+    public static boolean mSuspendOnly;
+
     // If we want to separate mouse and touch events.
     //  This is only toggled in native code when a hint is set!
     public static boolean mSeparateMouseAndTouch;
@@ -297,6 +299,18 @@ public class SDLActivity extends AppCompatActivity {
     protected void onDestroy() {
         Log.v(TAG, "onDestroy()");
 
+        //XXX: don't stop the sdl running
+        if(SDLActivity.mSuspendOnly) {
+            Thread currSDLThread = mSDLThread;
+            SDLActivity.initialize();
+            SDLActivity.mExitCalledFromJava = true;
+            if(currSDLThread!=null)
+                currSDLThread.interrupt();
+            SDLActivity.mSuspendOnly = false;
+            super.onDestroy();
+            return;
+        }
+
         if (SDLActivity.mBrokenLibraries) {
            super.onDestroy();
            // Reset everything in case the user re opens the app
@@ -322,7 +336,6 @@ public class SDLActivity extends AppCompatActivity {
 
             //Log.v(TAG, "Finished waiting for SDL thread");
         }
-
         super.onDestroy();
 
         // Reset everything in case the user re opens the app
@@ -1081,17 +1094,14 @@ public class SDLActivity extends AppCompatActivity {
         mClipboardHandler.clipboardSetText(string);
     }
 
-    //Limbo:
-    protected void runSDLMain(){
-
-    }
-
-    public class ExSDLSurface extends SDLSurface {
-
+    //Limbo
+    protected void runSDLMain(){ }
+    public static class ExSDLSurface extends SDLSurface {
         public ExSDLSurface(Context context) {
             super(context);
         }
     }
+    //Limbo
 }
 
 /**
