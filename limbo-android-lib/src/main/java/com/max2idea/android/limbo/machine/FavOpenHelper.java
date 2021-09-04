@@ -16,7 +16,7 @@ Copyright (C) Max Kastanas 2012
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-package com.max2idea.android.limbo.utils;
+package com.max2idea.android.limbo.machine;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -24,11 +24,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+
 import java.util.ArrayList;
 
 /**
- *
- * @author Dev
+ * Storage Implementation for our recent file paths.
  */
 public class FavOpenHelper extends SQLiteOpenHelper {
 
@@ -41,39 +41,43 @@ public class FavOpenHelper extends SQLiteOpenHelper {
     private static final String TABLE_NAME_FAV_FILES = "favorites";
     private static final String TABLE_NAME_FAV_FILES_CREATE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_FAV_FILES + " ("
-            + FAVSEQ + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + FAVFILETYPE + " TEXT, "
-            + FAVFILE + " TEXT);";
+                    + FAVSEQ + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + FAVFILETYPE + " TEXT, "
+                    + FAVFILE + " TEXT);";
 
 
     private static FavOpenHelper sInstance;
-	public SQLiteDatabase db;
+    private SQLiteDatabase db;
 
-	
-    public FavOpenHelper(Context context) {
+    private FavOpenHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
         getDB();
     }
 
+    static FavOpenHelper getInstance() {
+        return sInstance;
+    }
+
+    public static synchronized void initialize(Context context) {
+        if (sInstance == null) {
+            sInstance = new FavOpenHelper(context.getApplicationContext());
+            sInstance.setWriteAheadLoggingEnabled(true);
+        }
+    }
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(TABLE_NAME_FAV_FILES_CREATE);
     }
 
-	private synchronized void getDB() {
-		
-		if (db == null)
-			db = this.getWritableDatabase();
-	}
+    private synchronized void getDB() {
+        if (db == null)
+            db = getWritableDatabase();
+    }
 
-
-
-    public static synchronized FavOpenHelper getInstance(Context context) {
-
-        if (sInstance == null) {
-            sInstance = new FavOpenHelper(context.getApplicationContext());
-        }
-        return sInstance;
+    @Override
+    public void close() {
+        if (db != null)
+            db.close();
     }
 
     @Override
@@ -84,17 +88,17 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         }
     }
 
-    public int getFavSeq(String favPath, String favType) {
+    int getFavSeq(String favType, String favPath) {
         int ret = -1;
-        String SELECT_FAVS = "select " + this.FAVSEQ
-                + " from " + this.TABLE_NAME_FAV_FILES
-                + " Where " + this.FAVFILE + "= ? "
-                + " and " + this.FAVFILETYPE + "= ? "
-                +";";
+        String SELECT_FAVS = "select " + FAVSEQ
+                + " from " + TABLE_NAME_FAV_FILES
+                + " Where " + FAVFILE + "= ? "
+                + " and " + FAVFILETYPE + "= ? "
+                + ";";
 
         Cursor cur = db.rawQuery(SELECT_FAVS, new String[]{favPath, favType});
         cur.moveToFirst();
-        while (cur.isAfterLast() == false) {
+        while (!cur.isAfterLast()) {
             ret = cur.getInt(0);
             cur.moveToNext();
         }
@@ -102,62 +106,34 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         return ret;
     }
 
-    public int insertFav(String favpath, String favtype) {
-        int seqnum = -1;
-//        Log.v("DB", "insert fav: " + favpath);
+    boolean insertFav(String favtype, String favpath) {
+        long row = 0;
         ContentValues stateValues = new ContentValues();
         stateValues.put(FAVFILE, favpath);
-        stateValues.put(this.FAVFILETYPE, favtype);
+        stateValues.put(FAVFILETYPE, favtype);
         try {
-            seqnum = (int) db.insertOrThrow(this.TABLE_NAME_FAV_FILES, null, stateValues);
+            row = db.insertOrThrow(TABLE_NAME_FAV_FILES, null, stateValues);
         } catch (Exception e) {
             //catch code
             Log.v(TAG, "Error while Insert Fav Path: " + e.getMessage());
         }
-
-        return seqnum;
+        return row>0;
     }
 
-    public ArrayList<String> getFav(String favType) {
-        String qry = "select " + this.FAVFILE + " "
-                + " from " + this.TABLE_NAME_FAV_FILES
-                + " where " + this.FAVFILETYPE + " = ? "
+    ArrayList<String> getFav(String favType) {
+        String qry = "select " + FAVFILE + " "
+                + " from " + TABLE_NAME_FAV_FILES
+                + " where " + FAVFILETYPE + " = ? "
                 + ";";
 
-        ArrayList<String> arrStr = new ArrayList<String>();
+        ArrayList<String> arrStr = new ArrayList<>();
         Cursor cur = db.rawQuery(qry, new String[]{favType});
         cur.moveToFirst();
-        while (cur.isAfterLast() == false) {
+        while (!cur.isAfterLast()) {
             arrStr.add(cur.getString(0));
             cur.moveToNext();
         }
         cur.close();
         return arrStr;
-    }
-
-    public int deleteFav(String favPath) {
-        int rowsAffected = 0;
-        // Insert arrFiles in
-        try {
-            db.delete(this.TABLE_NAME_FAV_FILES, this.FAVFILE + "=?", new String[]{favPath});
-        } catch (Exception e) {
-            //catch code
-        }
-        
-
-        return rowsAffected;
-    }
-
-    public int deleteFiles() {
-        int rowsAffected = 0;
-        // Insert arrFiles in
-        try {
-            db.delete(this.FAVFILETYPE, null, null);
-        } catch (Exception e) {
-            //catch code
-        }
-        
-
-        return rowsAffected;
     }
 }
