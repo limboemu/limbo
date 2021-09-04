@@ -16,8 +16,9 @@ Copyright (C) Max Kastanas 2012
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-package com.max2idea.android.limbo.utils;
+package com.max2idea.android.limbo.links;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -31,22 +32,20 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 /**
- * @author thedoc
+ * Links for usefull applications and OS images
  */
 public class LinksManager extends AppCompatActivity {
-
-    private static String TAG = "LinksManager";
+    private final static String TAG = "LinksManager";
     private ListView listIsoView;
 
     private ArrayList<LinkInfo> itemsISOs = null;
@@ -79,24 +78,16 @@ public class LinksManager extends AppCompatActivity {
     }
 
     private void fill() {
-        itemsISOs = new ArrayList<LinkInfo>();
-
+        itemsISOs = new ArrayList<>();
         if (Config.osImages != null) {
             Set<Map.Entry<String, LinkInfo>> linkSet = Config.osImages.entrySet();
-            Iterator<Map.Entry<String, LinkInfo>> iter = linkSet.iterator();
-            while (iter.hasNext()) {
-                Map.Entry<String, LinkInfo> item = iter.next();
+            for (Map.Entry<String, LinkInfo> item : linkSet) {
                 LinkInfo linkInfo = item.getValue();
                 itemsISOs.add(linkInfo);
-
-
             }
         }
         FileAdapter fileList = new FileAdapter(this, R.layout.link_row, itemsISOs);
         listIsoView.setAdapter(fileList);
-
-
-
     }
 
 
@@ -118,7 +109,7 @@ public class LinksManager extends AppCompatActivity {
         }
     }
 
-    public class FileAdapter extends ArrayAdapter<LinkInfo> {
+    public static class FileAdapter extends ArrayAdapter<LinkInfo> {
         private final Context context;
         private final ArrayList<LinkInfo> files;
 
@@ -133,6 +124,7 @@ public class LinksManager extends AppCompatActivity {
             LayoutInflater inflater = (LayoutInflater) context
                     .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
+            @SuppressLint("ViewHolder")
             View rowView = inflater.inflate(R.layout.link_row, parent, false);
             TextView textView = (TextView) rowView.findViewById(R.id.LINK_NAME);
             TextView descrView = (TextView) rowView.findViewById(R.id.LINK_DESCR);
@@ -141,9 +133,9 @@ public class LinksManager extends AppCompatActivity {
             textView.setText(linkInfo.title);
             descrView.setText(linkInfo.descr);
 
-            if(linkInfo.type == LinkType.ISO)
+            if (linkInfo.type == LinkType.ISO)
                 imageView.setImageResource(R.drawable.cd);
-            else if(linkInfo.type == LinkType.TOOL)
+            else if (linkInfo.type == LinkType.TOOL)
                 imageView.setImageResource(R.drawable.advanced);
 
             return rowView;
