@@ -1,0 +1,8 @@
+e1000
+pcnet
+rtl8139
+ne2k_pci
+i82551
+i82557b
+i82559er
+virtio
