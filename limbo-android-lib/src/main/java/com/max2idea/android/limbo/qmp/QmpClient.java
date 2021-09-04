@@ -1,26 +1,51 @@
-package com.max2idea.android.limbo.utils;
+/*
+Copyright (C) Max Kastanas 2012
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+package com.max2idea.android.limbo.qmp;
 
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.util.Log;
 
 import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboApplication;
+import com.max2idea.android.limbo.toast.ToastUtils;
 
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+/** A simple QMP CLient that is needed for communicating with QEMU. You can use it for
+ * changing VNC password, checking the status when saving the vm, and change removable drives.
+  */
 public class QmpClient {
 
 	private static final String TAG = "QmpClient";
-	private static String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
-	public static boolean allow_external = false;
+	private static final String requestCommandMode = "{ \"execute\": \"qmp_capabilities\" }";
+	private static boolean external = false;
 
+	public static void setExternal(boolean value) {
+		external = value;
+	}
 	public synchronized static String sendCommand(String command) {
 		String response = null;
 		int trial=0;
@@ -30,47 +55,26 @@ public class QmpClient {
 		BufferedReader in = null;
 
 		try {
-		    if(allow_external) {
+		    if(external) {
                 pingSocket = new Socket(Config.QMPServer, Config.QMPPort);
                 pingSocket.setSoTimeout(5000);
                 out = new PrintWriter(pingSocket.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(pingSocket.getInputStream()));
 		    } else {
 		        localSocket = new LocalSocket();
-		        String localQMPSocketPath = Config.getLocalQMPSocketPath();
+		        String localQMPSocketPath = LimboApplication.getLocalQMPSocketPath();
                 LocalSocketAddress localSocketAddr = new LocalSocketAddress(localQMPSocketPath, LocalSocketAddress.Namespace.FILESYSTEM);
                 localSocket.connect(localSocketAddr);
                 localSocket.setSoTimeout(5000);
                 out = new PrintWriter(localSocket.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(localSocket.getInputStream()));
             }
-
-
 			sendRequest(out, QmpClient.requestCommandMode);
-			while(true){
-                response = getResponse(in);
-                if(response == null || response.equals("") || trial <10)
-				    break;
-
-                Thread.sleep(1000);
-				trial++;
-			}
-
+			response = tryGetResponse(in);
 			sendRequest(out, command);
-			trial=0;
-			while((response = getResponse(in)).equals("") && trial < 10){
-				Thread.sleep(1000);
-				trial++;
-			}
-		} catch (java.net.ConnectException e) {
-			Log.w(TAG, "Could not connect to QMP: " + e);
-			if(Config.debugQmp)
-			    e.printStackTrace();
-		} catch(Exception e) {
-			// TODO Auto-generated catch block
-            Log.e(TAG, "Error while connecting to QMP: " + e);
-            if(Config.debugQmp)
-				e.printStackTrace();
+			response = tryGetResponse(in);
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			if (out != null)
 				out.close();
@@ -80,12 +84,21 @@ public class QmpClient {
 				if (pingSocket != null)
 					pingSocket.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-
 		}
+		if(Config.debugQmp)
+			Log.d(TAG, "Response: " + response);
+		return response;
+	}
 
+	private static String tryGetResponse(BufferedReader in) throws Exception {
+		String response = null;
+		int trial = 0;
+		while((response = getResponse(in)).equals("") && trial < 10){
+			Thread.sleep(1000);
+			trial++;
+		}
 		return response;
 	}
 
@@ -97,10 +110,8 @@ public class QmpClient {
 	}
 
     private static String getResponse(BufferedReader in) throws Exception {
-
         String line;
         StringBuilder stringBuilder = new StringBuilder("");
-
         try {
             do {
                 line = in.readLine();
@@ -132,15 +143,11 @@ public class QmpClient {
                         if(Config.debugQmp)
 						    ex.printStackTrace();
                     }
-
                     stringBuilder.append(line);
                     stringBuilder.append("\n");
-
                     if (errStr != null) {
                         break;
                     }
-
-
                 } else
                     break;
             } while (true);
@@ -182,15 +189,12 @@ public class QmpClient {
 					} catch (Exception ex) {
 
 					}
-
 					stringBuilder.append(line);
 					stringBuilder.append("\n");
 
 					if (errStr != null) {
 						break;
 					}
-
-
 				} else
 					break;
 			} while (true);
@@ -200,7 +204,7 @@ public class QmpClient {
 		return stringBuilder.toString();
 	}
 
-	public static String migrate(boolean block, boolean inc, String uri) {
+	public static String getMigrateCommand(boolean block, boolean inc, String uri) {
 		
 		// XXX: Detach should not be used via QMP according to docs
 		// return "{\"execute\":\"migrate\",\"arguments\":{\"detach\":" + detach
@@ -212,66 +216,41 @@ public class QmpClient {
 		// see qmp-commands.hx for more info
 		return "{\"execute\":\"migrate\",\"arguments\":{\"blk\":" + block + ",\"inc\":" + inc + ",\"uri\":\"" + uri
 				+ "\"},\"id\":\"limbo\"}";
-
 	}
 
-    public static String changevncpasswd(String passwd) {
-
+    public static String getChangeVncPasswdCommand(String passwd) {
 		return "{\"execute\": \"change\", \"arguments\": { \"device\": \"vnc\", \"target\": \"password\", \"arg\": \"" + passwd +"\" } }";
-
     }
 
-    public static String ejectdev(String dev) {
-
+    public static String getEjectDeviceCommand(String dev) {
         return "{ \"execute\": \"eject\", \"arguments\": { \"device\": \""+ dev +"\" } }";
-
     }
 
-    public static String changedev(String dev, String value) {
-
+    public static String getChangeDeviceCommand(String dev, String value) {
         return "{ \"execute\": \"change\", \"arguments\": { \"device\": \""+dev+"\", \"target\": \"" + value + "\" } }";
-
     }
 
-
-
-    public static String query_migrate() {
+    public static String getQueryMigrationCommand() {
 		return "{ \"execute\": \"query-migrate\" }";
-
 	}
 
-	public static String save_snapshot(String snapshot_name) {
-		return "{\"execute\": \"snapshot-create\", \"arguments\": {\"name\": \""+ snapshot_name+"\"} }";
-
-	}
-
-	public static String query_snapshot() {
-		return "{ \"execute\": \"query-snapshot-status\" }";
-
-	}
-
-	public static String stop() {
+	public static String getStopVMCommand() {
 		return "{ \"execute\": \"stop\" }";
-
 	}
 
-	public static String cont() {
+	public static String getContinueVMCommand() {
 		return "{ \"execute\": \"cont\" }";
-
 	}
 
-	public static String powerDown() {
+	public static String getPowerDownCommand() {
 		return "{ \"execute\": \"system_powerdown\" }";
-
 	}
 
-	public static String reset() {
+	public static String getResetCommand() {
 		return "{ \"execute\": \"system_reset\" }";
-
 	}
 
-	public static String getState() {
+	public static String getStateCommand() {
 		return "{ \"execute\": \"query-status\" }";
-
 	}
 }
