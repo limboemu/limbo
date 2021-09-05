@@ -23,7 +23,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.files.FileUtils;
@@ -669,6 +668,7 @@ class VMExecutor extends MachineExecutor {
             if (MachineController.getInstance().isVNCEnabled() && LimboSettingsManager.getVNCEnablePassword(LimboApplication.getInstance())) {
                 changeVncPass(LimboApplication.getInstance(), 2000);
             }
+            QmpClient.setExternal(LimboSettingsManager.getEnableExternalQMP(LimboApplication.getInstance()));
 
             res = start(Config.storagedir, LimboApplication.getBasefileDir(), getQemuLibrary(LimboApplication.getInstance()),
                     Config.SDLHintScale, params, getMachine().getPaused(), getSaveStateName());
@@ -774,7 +774,7 @@ class VMExecutor extends MachineExecutor {
     /**
      * Function sends a command via qmp to change or eject the removable device
      *
-     * @param drive      The device to be changed
+     * @param drive     The device to be changed
      * @param imagePath If its null it ejects the drive otherwise it uses the disk file at that path
      */
     public boolean changeRemovableDevice(final MachineProperty drive, final String imagePath) {
@@ -861,8 +861,14 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public void continueVM() {
-        String command = QmpClient.getContinueVMCommand();
-        QmpClient.sendCommand(command);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String command = QmpClient.getContinueVMCommand();
+                QmpClient.sendCommand(command);
+            }
+        }).start();
+
     }
 
     @Override
@@ -892,6 +898,7 @@ class VMExecutor extends MachineExecutor {
         } else if (pauseState.toUpperCase().equals("FAILED")) {
             return MachineController.MachineStatus.SaveFailed;
         }
+        //TODO: proper error handling with user messages
         return MachineController.MachineStatus.Unknown;
     }
 
@@ -925,14 +932,7 @@ class VMExecutor extends MachineExecutor {
             return -1;
         }
 
-        //XXX: Check boundaries, perhaps not necessary since SDL is also doing the same thing
-        if (relative == 1
-                || (x >= 0 && x <= LimboSDLActivity.getSingleton().vm_width && y >= 0 && y <= LimboSDLActivity.getSingleton().vm_height)
-                || (action == MotionEvent.ACTION_SCROLL)) {
-//            Log.v(TAG, "onmouse button: " + button + ", action: " + action + ", relative: " + relative + ", x = " + x + ", y = " + y);
-            return onmouse(button, action, relative, x, y);
-        }
-        return -1;
+        return onmouse(button, action, relative, x, y);
     }
 
     public boolean getQMPAllowExternal() {
