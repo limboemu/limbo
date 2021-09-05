@@ -29,12 +29,6 @@
             android:summary="Show Fullscreen"
             android:title="Fullscreen" />
 
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="DesktopMode"
-            android:summary="@string/EnableDesktopMode"
-            android:title="@string/desktopMode" />
-
         <ListPreference
             android:defaultValue="3"
             android:entries="@array/keyMapperLabels"

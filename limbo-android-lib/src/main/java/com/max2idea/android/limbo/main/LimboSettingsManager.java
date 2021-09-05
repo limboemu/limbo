@@ -79,18 +79,6 @@ public class LimboSettingsManager extends PreferenceActivity {
         return prefs.getBoolean("ShowFullscreen", true);
     }
 
-    public static boolean getDesktopMode(Context activity) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-        return prefs.getBoolean("DesktopMode", false);
-    }
-
-    public static void setDesktopMode(Context context, boolean value) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        SharedPreferences.Editor edit = prefs.edit();
-        edit.putBoolean("DesktopMode", value);
-        edit.apply();
-    }
-
     // updates
     public static boolean getPromptUpdateVersion(Context context) {
         if(!Config.enableSoftwareUpdates)
@@ -251,6 +239,11 @@ public class LimboSettingsManager extends PreferenceActivity {
         return prefs.getBoolean("enableExternalQMP", false);
     }
 
+    public static boolean getImmersiveMode(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getBoolean("immersiveMode", false);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -278,11 +271,11 @@ public class LimboSettingsManager extends PreferenceActivity {
     }
 
     public void addPrefs() {
-
         addPreferencesFromResource(R.xml.settings);
         if(Config.enableSoftwareUpdates)
             addPreferencesFromResource(R.xml.software_updates);
-
+        if(Config.enableImmersiveMode)
+            addPreferencesFromResource(R.xml.immersive);
     }
 
     public void promptVNCPass(final Activity activity) {
