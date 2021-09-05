@@ -321,7 +321,7 @@
     <string name="CouldNotPauseVMViewLogFileDetails">Could not pause VM. View log for details</string>
     <string name="Ok">OK</string>
     <string name="TrackpadDescr">Trackpad (Phone/Tablet)</string>
-    <string name="ExternalMouseDescr">External Mouse (Desktop)</string>
+    <string name="ExternalMouseDescr">External Mouse (Desktop Mode)</string>
     <string name="Mouse">Mouse</string>
     <string name="SelectADirectory">Select a Directory</string>
     <string name="SelectAFile">Select a File</string>
@@ -345,5 +345,6 @@
     <string name="SetVNCPassword">Set VNC Password</string>
     <string name="EnableVNCPassword">Enable VNC Password (recommended)</string>
     <string name="DisplayResolutionHighWarning">Display resolution is too high, mouse position is incorrect!</string>
+    <string name="TouchScreen">Touch Screen (Desktop Mode)</string>
 
 </resources>

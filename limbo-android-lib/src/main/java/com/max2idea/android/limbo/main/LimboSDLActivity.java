@@ -313,10 +313,10 @@ public class LimboSDLActivity extends SDLActivity
             public void onClick(DialogInterface dialog, int i) {
                 switch (i) {
                     case 0:
-                        setUIModeMobile(true);
+                        setTrackpadMode(true);
                         break;
                     case 1:
-                        promptSetUIModeDesktop();
+                        promptSetDesktopMode();
                         break;
                     default:
                         break;
@@ -346,7 +346,7 @@ public class LimboSDLActivity extends SDLActivity
         //XXX: Legacy: No need to calibrate for SDL trackpad.
     }
 
-    protected void setUIModeMobile(boolean fitToScreen) {
+    protected void setTrackpadMode(boolean fitToScreen) {
         try {
             ScreenUtils.setOrientation(this);
             mouseMode = MouseMode.Trackpad;
@@ -366,7 +366,7 @@ public class LimboSDLActivity extends SDLActivity
 
     }
 
-    private void promptSetUIModeDesktop() {
+    private void promptSetDesktopMode() {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(this).create();
@@ -795,7 +795,8 @@ public class LimboSDLActivity extends SDLActivity
 
     @Override
     public void onSendMouseEvent(int button, boolean down) {
-        sendMouseEvent(button, down ? 0 : 1, 1, -1, -1);
+        // events from key mapper should be finger tool type with a delay
+        sendMouseEvent(button, down ? 0 : 1, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
     }
 
     @Override
@@ -855,7 +856,7 @@ public class LimboSDLActivity extends SDLActivity
                             if (mouseMode == MouseMode.External)
                                 setUIModeDesktop();
                             else
-                                setUIModeMobile(screenMode == SDLScreenMode.FitToScreen);
+                                setTrackpadMode(screenMode == SDLScreenMode.FitToScreen);
                         }
                     }, 1000);
                 }
@@ -1146,21 +1147,31 @@ public class LimboSDLActivity extends SDLActivity
     public void sendRightClick() {
         Thread t = new Thread(new Runnable() {
             public void run() {
-                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, 1, -1, -1);
-                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, 1, -1, -1);
+                // we use a finger tool type to add the delay
+                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
             }
         });
         t.start();
     }
 
+    private int getRelativeMode() {
+        return mouseMode == MouseMode.Trackpad?1:0;
+    }
+
     public void sendMiddleClick() {
         Thread t = new Thread(new Runnable() {
             public void run() {
-                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, 1, -1, -1);
-                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, 1, -1, -1);
+                // we use a finger tool type to add the delay
+                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
             }
         });
         t.start();
+    }
+
+    private int getToolType() {
+        return mouseMode == MouseMode.Trackpad?MotionEvent.TOOL_TYPE_FINGER:MotionEvent.TOOL_TYPE_MOUSE;
     }
 
     public View getMainLayout() {
@@ -1247,13 +1258,14 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    protected void sendMouseEvent(int button, int action, int relative, float x, float y) {
+    protected void sendMouseEvent(int button, int action, int relative, int toolType, float x, float y) {
         //HACK: we generate an artificial delay since the qemu main event loop
         // is probably not able to process them if the timestamps are too close together?
-        sendMouseEvent(button, action, relative, x, y, action == MotionEvent.ACTION_UP ? mouseButtonDelay : 0);
+        sendMouseEvent(button, action, relative, toolType, x, y, action == MotionEvent.ACTION_UP ? mouseButtonDelay : 0);
     }
 
-    private void sendMouseEvent(final int button, final int action, final int relative, final float x, final float y, final long delayMs) {
+    private void sendMouseEvent(final int button, final int action, final int relative,
+                                final int toolType, final float x, final float y, final long delayMs) {
         mouseEventsExecutor.submit(new Runnable() {
             @Override
             public void run() {
@@ -1261,13 +1273,21 @@ public class LimboSDLActivity extends SDLActivity
                 if (mKeyMapManager.processMouseMap(button, action)) {
                     return;
                 }
-                if (delayMs > 0)
+                if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
                 Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action + ", relative: " + relative + ", x = " + x + ", y = " + y + ", delay = " + delayMs);
                 //XXX: for mouse events we use our jni compatibility extensions instead of the sdl native functions
                 // SDLActivity.onSDLNativeMouse(button, action, x, y);
-                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative, x, y});
-                if (delayMs > 0)
+                float nx = x;
+                float ny = y;
+                LimboSDLSurface.MouseState mouseState = ((LimboSDLSurface) mSurface).mouseState;
+                if(mouseState.isDoubleTap()){
+                    nx = mouseState.taps.get(0).x;
+                    ny = mouseState.taps.get(0).y;
+                    Log.v(TAG, "Double tap mouse event detected: " + nx + ", " + ny);
+                }
+                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative, nx, ny});
+                if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
             }
         });
