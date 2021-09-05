@@ -34,16 +34,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -51,7 +48,6 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
@@ -96,10 +92,10 @@ public class LimboSDLActivity extends SDLActivity
     public static boolean pendingStop;
     public static int vm_width;
     public static int vm_height;
+    public static MouseMode mouseMode = MouseMode.Trackpad;
     private final ExecutorService mouseEventsExecutor = Executors.newFixedThreadPool(1);
     private final ExecutorService keyEventsExecutor = Executors.newFixedThreadPool(1);
     public DrivesDialogBox drives = null;
-    public SDLScreenMode screenMode = SDLScreenMode.FitToScreen;
     public AudioManager am;
     protected int maxVolume;
     // store state
@@ -108,22 +104,25 @@ public class LimboSDLActivity extends SDLActivity
     private boolean monitorMode = false;
     private KeyMapManager mKeyMapManager;
     private ViewListener viewListener;
-    public static MouseMode mouseMode = MouseMode.Trackpad;
+    private boolean quit = false;
+    private View mGap;
 
     public static LimboSDLActivity getSingleton() {
         return (LimboSDLActivity) mSingleton;
     }
 
-    public static void showHints(Activity activity) {
-        ToastUtils.toastShortTop(activity, activity.getString(R.string.PressVolumeDownForRightClick));
+    static final int COMMAND_CHANGE_WINDOW_STYLE = 2;
+
+    public void showHints() {
+        ToastUtils.toastShortTop(this, getString(R.string.PressVolumeDownForRightClick));
     }
 
-    public static void setupToolBar(AppCompatActivity activity) {
-        Toolbar tb = activity.findViewById(R.id.toolbar);
-        activity.setSupportActionBar(tb);
+    public void setupToolBar() {
+        Toolbar tb = findViewById(R.id.toolbar);
+        setSupportActionBar(tb);
 
         // Get the ActionBar here to configure the way it behaves.
-        ActionBar ab = activity.getSupportActionBar();
+        ActionBar ab = getSupportActionBar();
         if (ab != null) {
             ab.setHomeAsUpIndicator(R.drawable.limbo); // set a custom icon
             ab.setDisplayShowHomeEnabled(true); // show or hide the default home
@@ -131,7 +130,7 @@ public class LimboSDLActivity extends SDLActivity
             ab.setDisplayShowCustomEnabled(true); // enable overriding the
             ab.setDisplayShowTitleEnabled(true); // disable the default title
             ab.setTitle(R.string.app_name);
-            if (!LimboSettingsManager.getAlwaysShowMenuToolbar(activity)) {
+            if (!LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
                 ab.hide();
             }
         }
@@ -185,7 +184,7 @@ public class LimboSDLActivity extends SDLActivity
         SDLActivity.handleNativeState();
         SDLActivity.mSuspendOnly = true;
         removeListeners();
-
+        quit = true;
         super.onDestroy();
     }
 
@@ -235,16 +234,8 @@ public class LimboSDLActivity extends SDLActivity
             onSelectMenuVol();
         } else if (item.getItemId() == R.id.itemSaveState) {
             LimboActivityCommon.promptPause(this, viewListener);
-        } else if (item.getItemId() == R.id.itemFitToScreen) {
-            onFitToScreen();
-        } else if (item.getItemId() == R.id.itemStretchToScreen) {
-            onStretchToScreen();
         } else if (item.getItemId() == R.id.itemCtrlAltDel) {
             onCtrlAltDel();
-        } else if (item.getItemId() == R.id.itemCtrlC) {
-            onCtrlC();
-        } else if (item.getItemId() == R.id.itemOneToOne) {
-            onNormalScreen();
         } else if (item.getItemId() == R.id.itemHelp) {
             Help.onHelp(this);
         } else if (item.getItemId() == R.id.itemHideToolbar) {
@@ -303,20 +294,23 @@ public class LimboSDLActivity extends SDLActivity
 
     private void onMouseMode() {
 
-        String[] items = {getString(R.string.TrackpadDescr),
-                getString(R.string.ExternalMouseDescr), //Physical mouse for Chromebook, Android x86 PC, or Bluetooth Mouse
+        String[] items = {
+                getString(R.string.TrackpadDescr),
+                getString(R.string.TouchScreen),
+                getString(R.string.ExternalMouseDescr)
         };
         final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
         mBuilder.setTitle(R.string.Mouse);
-        mBuilder.setSingleChoiceItems(items, mouseMode.ordinal(), new DialogInterface.OnClickListener() {
+        mBuilder.setSingleChoiceItems(items, -1, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int i) {
                 switch (i) {
                     case 0:
-                        setTrackpadMode(true);
+                        setTrackpadMode();
                         break;
                     case 1:
-                        promptSetDesktopMode();
+                    case 2:
+                        promptAbsoluteDevice(i == 2);
                         break;
                     default:
                         break;
@@ -342,22 +336,10 @@ public class LimboSDLActivity extends SDLActivity
         return vm_width < width && vm_height < height;
     }
 
-    public void calibration() {
-        //XXX: Legacy: No need to calibrate for SDL trackpad.
-    }
-
-    protected void setTrackpadMode(boolean fitToScreen) {
+    protected void setTrackpadMode() {
         try {
-            ScreenUtils.setOrientation(this);
+            ScreenUtils.updateOrientation(this);
             mouseMode = MouseMode.Trackpad;
-            LimboSettingsManager.setDesktopMode(this, false);
-            if (Config.showToast)
-                ToastUtils.toastShort(getApplicationContext(), getString(R.string.TrackpadEnabled));
-            if (fitToScreen)
-                onFitToScreen();
-            else
-                onNormalScreen();
-            calibration();
             invalidateOptionsMenu();
         } catch (Exception ex) {
             if (Config.debug)
@@ -366,8 +348,7 @@ public class LimboSDLActivity extends SDLActivity
 
     }
 
-    private void promptSetDesktopMode() {
-
+    private void promptAbsoluteDevice(final boolean externalMouse) {
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(this).create();
         alertDialog.setTitle(getString(R.string.desktopMode));
@@ -378,23 +359,17 @@ public class LimboSDLActivity extends SDLActivity
 
         TextView textView = new TextView(this);
         textView.setVisibility(View.VISIBLE);
-        String desktopInstructions = getString(R.string.desktopInstructions);
-        if (!checkVMResolutionFits()) {
-            String resolutionWarning = getString(R.string.Warning) + ": " + getString(R.string.MachineResolution) + ": "
-                    + vm_width + "x" + vm_height +
-                    " " + getString(R.string.MachineResoultionWarning);
-            desktopInstructions = resolutionWarning + desktopInstructions;
-        }
-        textView.setText(desktopInstructions);
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.addView(textView);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        mLayout.addView(scrollView, params);
+        String instructions = getString(R.string.absolutePointerInstructions);
+        if(externalMouse)
+                instructions += "\n" + getString(R.string.externalMouseInstructions);
+        textView.setText(instructions);
+        mLayout.addView(textView);
         alertDialog.setView(mLayout);
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, getString(R.string.Ok), new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
-                setUIModeDesktop();
+                // we handle external mouse at all times
+                if (!externalMouse)
+                    setTouchScreenMode();
                 alertDialog.dismiss();
             }
         });
@@ -407,14 +382,9 @@ public class LimboSDLActivity extends SDLActivity
 
     }
 
-    protected void setUIModeDesktop() {
+    protected void setTouchScreenMode() {
         try {
-            mouseMode = MouseMode.External;
-            LimboSettingsManager.setDesktopMode(this, true);
-            if (Config.showToast)
-                ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.ExternalMouseEnabled));
-            onNormalScreen();
-            calibration();
+            mouseMode = MouseMode.TOUCHSCREEN;
             invalidateOptionsMenu();
         } catch (Exception ex) {
             if (Config.debug)
@@ -423,7 +393,6 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     private void onCtrlAltDel() {
-
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_ALT_RIGHT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, true);
@@ -433,90 +402,10 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     private void onCtrlC() {
-
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_C, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_C, false);
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, false);
-    }
-
-    //FIXME: not working also scaling up has performance impact on libSDL
-    private void onStretchToScreen() {
-        Log.d(TAG, "onStretchToScreen");
-        screenMode = SDLScreenMode.Fullscreen;
-        sendCtrlAltKey(KeyEvent.KEYCODE_F); // not working
-        if (Config.showToast)
-            ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.ResizingPleaseWait));
-        resize(null, 2000);
-    }
-
-    private void onFitToScreen() {
-        try {
-            ScreenUtils.setOrientation(this);
-            ActionBar bar = getSupportActionBar();
-            if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
-                bar.hide();
-            }
-            Log.d(TAG, "onFitToScreen");
-            screenMode = SDLScreenMode.FitToScreen;
-            if (Config.showToast)
-                ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.ResizingPleaseWait));
-            resize(null, 2000);
-        } catch (Exception ex) {
-            if (Config.debug)
-                ex.printStackTrace();
-        }
-
-    }
-
-    private void onNormalScreen() {
-        try {
-            ActionBar bar = getSupportActionBar();
-            if (bar != null && !LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
-                bar.hide();
-            }
-            //XXX: force Landscape on normal screen
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-            Log.d(TAG, "onNormalScreen");
-            screenMode = SDLScreenMode.Normal;
-            if (Config.showToast)
-                ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.ResizingPleaseWait));
-            resize(null, 2000);
-        } catch (Exception ex) {
-            if (Config.debug)
-                ex.printStackTrace();
-        }
-
-    }
-
-    /**
-     * We need to resize the surfaceview in order to align it to the top of the screen.
-     * Resizing creates some problems with the display and the mouse if it's done
-     * in the beginning of the native initialization when the Activity starts that's why we need
-     * to add an artificial delay.
-     *
-     * @param newConfig Configuration changes if available
-     * @param delay     Delay in ms until resing happens
-     */
-    public void resize(final Configuration newConfig, final long delay) {
-        //XXX: ignore further mouse events until we are done resizing
-        //FIXME: This is a workaround so Nougat+ devices will update their layout
-        // where we have to wait till sdl settles. Though this needs proper fixing
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                if (mSurface != null && ((LimboSDLSurface) mSurface).getHolder() != null) {
-                    ((LimboSDLSurface) mSurface).getHolder().setFixedSize(1, 1);
-                    setLayout(newConfig);
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            ((LimboSDLSurface) mSurface).resize(false);
-                        }
-                    }, delay);
-                }
-            }
-        });
     }
 
     @Override
@@ -615,43 +504,30 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     protected void onCreate(Bundle savedInstanceState) {
-        Log.v(TAG, "Started Activity");
+        Log.v(TAG, "onCreate");
+        setupScreen();
+        saveAudioState();
+        super.onCreate(savedInstanceState);
+        mSingleton = this;
+        restoreAudioState();
+        setupVolume();
+        setupWidgets();
+        setupListeners();
+        setupToolBar();
+        showHints();
+        ScreenUtils.updateOrientation(this);
+        checkPendingActions();
+    }
+
+    private void setupScreen() {
         if (LimboSettingsManager.getFullscreen(this)) {
             getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                     WindowManager.LayoutParams.FLAG_FULLSCREEN);
         }
+    }
 
-        saveAudioState();
-        super.onCreate(savedInstanceState);
-        updateMouseMode();
-        restoreAudioState();
-        setupVolume();
-        mSingleton = this;
+    private void setupListeners() {
         MachineController.getInstance().addOnStatusChangeListener(this);
-        if (MachineController.getInstance().getMachine() == null) {
-            ToastUtils.toastShort(this, getString(R.string.NoVMSelectedRestart));
-        }
-
-        // So we can call stuff from static callbacks
-        mSingleton = this;
-
-        createUI(0, 0);
-        setupController();
-        setupToolBar(this);
-        showHints(this);
-        ScreenUtils.setOrientation(this);
-        checkPendingActions();
-    }
-
-    private void updateMouseMode() {
-        boolean enableDesktopMode = LimboSettingsManager.getDesktopMode(this);
-        if (enableDesktopMode) {
-            mouseMode = LimboSDLActivity.MouseMode.External;
-        } else
-            mouseMode = LimboSDLActivity.MouseMode.Trackpad;
-    }
-
-    private void setupController() {
         setViewListener((ViewListener) Presenter.getInstance());
     }
 
@@ -669,25 +545,18 @@ public class LimboSDLActivity extends SDLActivity
         SDLAudioManager.mAudioRecord = mAudioRecord;
     }
 
-    private void createUI(int width, int height) {
+    private void setupWidgets() {
         mSurface = new LimboSDLSurface(this, this);
 
-        int newWidth = width;
-        int newHeight = height;
-        if (newWidth == 0) {
-            newWidth = RelativeLayout.LayoutParams.WRAP_CONTENT;
-        }
-        if (newHeight == 0) {
-            newHeight = RelativeLayout.LayoutParams.WRAP_CONTENT;
-        }
         setContentView(R.layout.limbo_sdl);
         mLayout = (RelativeLayout) findViewById(R.id.sdl_layout);
 
         setupKeyMapManager();
         RelativeLayout mLayout = (RelativeLayout) findViewById(R.id.sdl);
-        RelativeLayout.LayoutParams surfaceParams = new RelativeLayout.LayoutParams(newWidth, newHeight);
-        surfaceParams.addRule(RelativeLayout.CENTER_IN_PARENT);
-        mLayout.addView(mSurface, surfaceParams);
+        mLayout.addView(mSurface);
+
+        mGap = (View) findViewById(R.id.gap);
+        updateLayout(getResources().getConfiguration().orientation);
 
     }
 
@@ -714,7 +583,7 @@ public class LimboSDLActivity extends SDLActivity
             toggleKeyboardFlag = KeyboardUtils.onKeyboard(LimboSDLActivity.this, false, mSurface);
         } else {
             // restore
-            ScreenUtils.setOrientation(this);
+            ScreenUtils.updateOrientation(this);
         }
     }
 
@@ -796,7 +665,7 @@ public class LimboSDLActivity extends SDLActivity
     @Override
     public void onSendMouseEvent(int button, boolean down) {
         // events from key mapper should be finger tool type with a delay
-        sendMouseEvent(button, down ? 0 : 1, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+        sendMouseEvent(button, down ? 0 : 1, MotionEvent.TOOL_TYPE_FINGER, 0, 0);
     }
 
     @Override
@@ -818,7 +687,7 @@ public class LimboSDLActivity extends SDLActivity
      * @param event MotionEvent to be processed
      */
     public void processTrackPadEvents(MotionEvent event) {
-        if (mouseMode == MouseMode.External)
+        if (mouseMode == MouseMode.TOUCHSCREEN)
             return;
         ((LimboSDLSurface) mSurface).onTouchProcess(mSurface, event);
     }
@@ -853,10 +722,10 @@ public class LimboSDLActivity extends SDLActivity
                     new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                         @Override
                         public void run() {
-                            if (mouseMode == MouseMode.External)
-                                setUIModeDesktop();
+                            if (mouseMode == MouseMode.TOUCHSCREEN)
+                                setTouchScreenMode();
                             else
-                                setTrackpadMode(screenMode == SDLScreenMode.FitToScreen);
+                                setTrackpadMode();
                         }
                     }, 1000);
                 }
@@ -874,7 +743,6 @@ public class LimboSDLActivity extends SDLActivity
                     bar.hide();
                 else {
                     bar.show();
-                    checkScreenSize();
                 }
             }
         } else {
@@ -883,23 +751,18 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    private void checkScreenSize() {
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if(vm_height > ((LimboSDLSurface) mSurface).getHeight()
-                        || vm_width > ((LimboSDLSurface) mSurface).getWidth()
-                ) {
-                    ToastUtils.toast(LimboSDLActivity.this, getString(R.string.DisplayResolutionHighWarning), Gravity.BOTTOM, Toast.LENGTH_LONG);
-                }
-            }
-        }, 2000);
-    }
-
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         invalidateOptionsMenu();
+        updateLayout(newConfig.orientation);
+    }
+
+    public void updateLayout(int orientation) {
+        if (orientation == Configuration.ORIENTATION_PORTRAIT)
+            mGap.setVisibility(View.VISIBLE);
+        else
+            mGap.setVisibility(View.GONE);
     }
 
     public void onSelectMenuSDLDisplay() {
@@ -934,20 +797,6 @@ public class LimboSDLActivity extends SDLActivity
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         int currRate = getCurrentSDLRefreshRate();
-
-        LinearLayout buttonsLayout = new LinearLayout(this);
-        buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
-        buttonsLayout.setGravity(Gravity.CENTER_HORIZONTAL);
-        Button displayMode = new Button(this);
-
-        displayMode.setText(R.string.DisplayMode);
-        displayMode.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View view) {
-                onDisplayMode();
-            }
-        });
-        buttonsLayout.addView(displayMode);
-        layout.addView(buttonsLayout);
 
         final TextView value = new TextView(this);
         String msg = getString(R.string.IdleRefreshRate) + ": " + currRate + " Hz";
@@ -984,64 +833,17 @@ public class LimboSDLActivity extends SDLActivity
         return 1000 / MachineController.getInstance().getSdlRefreshRate();
     }
 
-    private void onDisplayMode() {
-        String[] items = {
-                "Normal (One-To-One)",
-                "Fit To Screen"
-//                ,"Stretch To Screen" //TODO: Stretched
-        };
-        int currentScaleType = 0;
-        if (screenMode == SDLScreenMode.FitToScreen) {
-            currentScaleType = 1;
-        } else if (screenMode == SDLScreenMode.Fullscreen)
-            currentScaleType = 2;
-
-        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
-        mBuilder.setTitle(R.string.DisplayMode);
-        mBuilder.setSingleChoiceItems(items, currentScaleType, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int i) {
-                switch (i) {
-                    case 0:
-                        onNormalScreen();
-                        break;
-                    case 1:
-                        if (mouseMode == MouseMode.External) {
-                            ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.FitToScreenDisableDesktopMode));
-                            dialog.dismiss();
-                            return;
-                        }
-                        onFitToScreen();
-                        break;
-                    case 2:
-                        if (mouseMode == MouseMode.External) {
-                            ToastUtils.toastShort(LimboSDLActivity.this, getString(R.string.StretchScreenDisabledDesktopMode));
-                            dialog.dismiss();
-                            return;
-                        }
-                        onStretchToScreen();
-                        break;
-                    default:
-                        break;
-                }
-                dialog.dismiss();
-            }
-        });
-        final AlertDialog alertDialog = mBuilder.create();
-        alertDialog.show();
-
-    }
-
     //    private static Thread limboSDLThread = null;
     @Override
     protected synchronized void runSDLMain() {
         notifyAction(MachineAction.START_VM, null);
-
         //XXX: we hold the thread because SDLActivity will exit
-        try {
-            wait();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        while(!quit) {
+            try {
+                wait();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         Log.v(TAG, "SDLThread exited");
     }
@@ -1057,66 +859,10 @@ public class LimboSDLActivity extends SDLActivity
         if (mSurface == null || LimboSDLActivity.isResizing) {
             return;
         }
-
-        boolean refreshDisplay = false;
-
-        if (w != vm_width || h != vm_height)
-            refreshDisplay = true;
         vm_width = w;
         vm_height = h;
-
         Log.v(TAG, "VM resolution changed to " + vm_width + "x" + vm_height);
-        if (refreshDisplay) {
-            resize(null, 500);
-        }
-    }
-
-    private void setLayout(Configuration newConfig) {
-
-        boolean isLanscape = (newConfig != null
-                && newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE)
-                || ScreenUtils.isLandscapeOrientation(this);
-
-        View sdl_layout = findViewById(R.id.sdl_layout);
-        RelativeLayout.LayoutParams layoutParams;
-        //normal 1-1
-        if (screenMode == SDLScreenMode.Normal) {
-            if (isLanscape) {
-                layoutParams = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-                layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
-
-            } else {
-                layoutParams = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-                layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
-            }
-        } else {
-            //fittoscreen
-            if (isLanscape) {
-                layoutParams = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                );
-                layoutParams.addRule(RelativeLayout.CENTER_IN_PARENT);
-            } else {
-
-                layoutParams = new RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-                layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
-            }
-        }
-        sdl_layout.setLayoutParams(layoutParams);
-        invalidateOptionsMenu();
+        ((LimboSDLSurface) mSurface).refreshSurfaceView();
     }
 
     protected void setupVolume() {
@@ -1148,34 +894,23 @@ public class LimboSDLActivity extends SDLActivity
         Thread t = new Thread(new Runnable() {
             public void run() {
                 // we use a finger tool type to add the delay
-                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
-                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_DOWN, MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_RIGHT, MotionEvent.ACTION_UP, MotionEvent.TOOL_TYPE_FINGER, 0, 0);
             }
         });
         t.start();
     }
 
-    private int getRelativeMode() {
-        return mouseMode == MouseMode.Trackpad?1:0;
-    }
 
     public void sendMiddleClick() {
         Thread t = new Thread(new Runnable() {
             public void run() {
                 // we use a finger tool type to add the delay
-                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
-                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, getRelativeMode(), MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_DOWN, MotionEvent.TOOL_TYPE_FINGER, 0, 0);
+                sendMouseEvent(Config.SDL_MOUSE_MIDDLE, MotionEvent.ACTION_UP, MotionEvent.TOOL_TYPE_FINGER, 0, 0);
             }
         });
         t.start();
-    }
-
-    private int getToolType() {
-        return mouseMode == MouseMode.Trackpad?MotionEvent.TOOL_TYPE_FINGER:MotionEvent.TOOL_TYPE_MOUSE;
-    }
-
-    public View getMainLayout() {
-        return findViewById(R.id.top_layout);
     }
 
     public boolean onKeyLongPress(int keyCode, KeyEvent event) {
@@ -1258,39 +993,68 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    protected void sendMouseEvent(int button, int action, int relative, int toolType, float x, float y) {
-        //HACK: we generate an artificial delay since the qemu main event loop
-        // is probably not able to process them if the timestamps are too close together?
-        sendMouseEvent(button, action, relative, toolType, x, y, action == MotionEvent.ACTION_UP ? mouseButtonDelay : 0);
+    /** We treat as relative mode only events with TOOL_TYPE_FINGER as long as the user has not
+     * selected to emulate a touch screen.
+     * @param toolType Event Tool type
+     * @return True if the device will be expected as relative mode by the emulator
+     */
+    public boolean getRelativeMode(int toolType) {
+        return toolType == MotionEvent.TOOL_TYPE_FINGER
+                && LimboSDLActivity.mouseMode != LimboSDLActivity.MouseMode.TOUCHSCREEN;
     }
 
-    private void sendMouseEvent(final int button, final int action, final int relative,
-                                final int toolType, final float x, final float y, final long delayMs) {
+
+    protected void sendMouseEvent(int button, int action, int toolType, float x, float y) {
+        //HACK: we generate an artificial delay since the qemu main event loop
+        // is probably not able to process them if the timestamps are too close together?
+        sendMouseEvent(button, action, toolType, x, y, action == MotionEvent.ACTION_UP ? mouseButtonDelay : 0);
+    }
+
+    private void sendMouseEvent(final int button, final int action, final int toolType,
+                                final float x, final float y, final long delayMs) {
         mouseEventsExecutor.submit(new Runnable() {
             @Override
             public void run() {
-
+                boolean relative = getRelativeMode(toolType);
                 if (mKeyMapManager.processMouseMap(button, action)) {
                     return;
                 }
                 if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
-                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action + ", relative: " + relative + ", x = " + x + ", y = " + y + ", delay = " + delayMs);
+                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action
+                        + ", relative: " + relative + ", x = " + x + ", y = " + y
+                        + ", delay = " + delayMs);
                 //XXX: for mouse events we use our jni compatibility extensions instead of the sdl native functions
                 // SDLActivity.onSDLNativeMouse(button, action, x, y);
                 float nx = x;
                 float ny = y;
                 LimboSDLSurface.MouseState mouseState = ((LimboSDLSurface) mSurface).mouseState;
-                if(mouseState.isDoubleTap()){
+                if (mouseState.isDoubleTap()) {
                     nx = mouseState.taps.get(0).x;
                     ny = mouseState.taps.get(0).y;
                     Log.v(TAG, "Double tap mouse event detected: " + nx + ", " + ny);
                 }
-                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative, nx, ny});
+                // finally we transform for sdl if mode is desktop (absolute)
+//                if(mouseMode == MouseMode.External) {
+//                    nx = getScaleFactorX() * nx;
+//                    ny = getScaleFactorY() * ny;
+//                }
+                Log.v(TAG, "sendMouseEvent button converted: " + button + ", action: " + action
+                        + ", relative: " + relative + ", nx = " + nx + ", ny = " + ny
+                        + ", delay = " + delayMs);
+                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative?1:0, nx, ny});
                 if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
             }
         });
+    }
+
+    private float getScaleFactorX() {
+        return vm_width / (float) ((View) mSurface).getWidth();
+    }
+
+    private float getScaleFactorY() {
+        return vm_height / (float) ((View) mSurface).getHeight();
     }
 
     protected void sendKeyEvent(KeyEvent event, int keycode, boolean down) {
@@ -1347,6 +1111,7 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     public enum MouseMode {
-        Trackpad, External
+        Trackpad, TOUCHSCREEN
     }
+
 }

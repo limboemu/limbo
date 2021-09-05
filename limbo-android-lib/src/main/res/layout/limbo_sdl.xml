@@ -27,20 +27,29 @@
             android:layout_centerHorizontal="true"
             android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:gravity="center"
-                android:src="@drawable/limbo" />
-
-            <RelativeLayout
-                android:id="@+id/sdl"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:layout_centerHorizontal="true"
-                android:layout_margin="4dp"
-                android:orientation="vertical" />
+                android:orientation="vertical">
+
+                <RelativeLayout
+                    android:id="@+id/sdl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="4dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical" />
+
+                <View
+                    android:id="@+id/gap"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone"
+                    android:layout_weight="1">
+
+                </View>
+            </LinearLayout>
         </RelativeLayout>
 
         <include
@@ -48,6 +57,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="#00000000"
-            android:visibility="visible"></include>
+            android:visibility="visible" />
     </RelativeLayout>
 </LinearLayout>

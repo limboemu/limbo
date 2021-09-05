@@ -102,7 +102,9 @@
     <string name="display_refresh_rate">Display Refresh Rate</string>
     <string name="ui_mode">UI Mode</string>
     <string name="display">Display</string>
-    <string name="desktopInstructions">If your virtual machine supports touch screen you can choose Mouse \"usb-tablet\" before you boot the machine and then plug in your USB/Bluetooth mouse.\n\n *For older guest OSes you will need to disable mouse acceleration (Enhance pointer Precision) or type \"xset m 1\" without the quotes in a linux terminal within the guest os. To calibrate the mouse you will have to move your mouse pointer to all 4 desktop corners.</string>
+    <string name="absolutePointerInstructions">Make sure the guest os supports touch screen devices!\n\n \
+        Choose Mouse = \"usb-tablet\" from Limbo before you boot the machine.</string>
+    <string name="externalMouseInstructions">Plug in your USB/Bluetooth Mouse in your Android device.</string>
     <string name="reconnect">Reconnect</string>
     <string name="calibrate_mouse">Calibrate (Fix) Mouse</string>
     <string name="isos_and_tools_descr">Do you want to view a list of Compatible OSes and Download Links?</string>
@@ -320,8 +322,9 @@
     <string name="CannotListDirectory">Cannot list directory</string>
     <string name="CouldNotPauseVMViewLogFileDetails">Could not pause VM. View log for details</string>
     <string name="Ok">OK</string>
-    <string name="TrackpadDescr">Trackpad (Phone/Tablet)</string>
-    <string name="ExternalMouseDescr">External Mouse (Desktop Mode)</string>
+    <string name="TrackpadDescr">Trackpad (Phone)</string>
+    <string name="TouchScreen">Touchscreen (Tablet)</string>
+    <string name="ExternalMouseDescr">External Mouse (Desktop)</string>
     <string name="Mouse">Mouse</string>
     <string name="SelectADirectory">Select a Directory</string>
     <string name="SelectAFile">Select a File</string>
@@ -345,6 +348,9 @@
     <string name="SetVNCPassword">Set VNC Password</string>
     <string name="EnableVNCPassword">Enable VNC Password (recommended)</string>
     <string name="DisplayResolutionHighWarning">Display resolution is too high, mouse position is incorrect!</string>
-    <string name="TouchScreen">Touch Screen (Desktop Mode)</string>
+    <string name="TouchScreenTitle">Touchscreen</string>
+    <string name="ImmersiveMode">Immersive Mode</string>
+    <string name="EnableImmersiveMode">Enable Immersive Mode</string>
+
 
 </resources>
