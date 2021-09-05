@@ -33,6 +33,8 @@ Copyright (C) Max Kastanas 2012
 #define BUTTON_BACK 8
 #define BUTTON_FORWARD 16
 
+extern SDL_Window *Android_Window;
+
 JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
         JNIEnv* env, jobject thiz,
 		int button, int action, int relative, float x, float y) {
@@ -40,7 +42,7 @@ JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
     if (!Android_Window) {
         return -1;
     }
-    
+        
     //XXX: If the guest input device is not usb-tablet (ps2/usb) QEMU overrides to relative mode
     // in order to provide a workaround we force the mode. The user will still need to disable 
     // mouse acceleration within the guest and calibrate the mouse in limbo.
