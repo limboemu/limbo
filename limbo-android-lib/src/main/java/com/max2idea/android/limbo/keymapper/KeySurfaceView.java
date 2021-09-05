@@ -289,7 +289,8 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
             nEvent.setSource(SOURCE_KEYMAP_MULTIPOINT);
         else
             nEvent.setSource(SOURCE_KEYMAP_SINGLEPOINT);
-        keyMapManager.unhundledTouchEventListener.OnUnhandledTouchEvent(nEvent);
+        if(keyMapManager.unhundledTouchEventListener!=null)
+            keyMapManager.unhundledTouchEventListener.OnUnhandledTouchEvent(nEvent);
     }
 
     /**
