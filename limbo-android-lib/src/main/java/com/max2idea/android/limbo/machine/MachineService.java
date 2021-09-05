@@ -136,18 +136,21 @@ public class MachineService extends Service {
 
         // If the vm exits with a use requested shutdown
         // TODO: create int return codes instead of strings
-        if (res != null && !res.equals("VM shutdown")) {
-            ToastUtils.toastLong(service, res);
-            Log.e(TAG, res);
+        if (res != null) {
+            if (!res.equals("VM shutdown")) {
+                ToastUtils.toastLong(service, res);
+                Log.e(TAG, res);
+            } else {
+                Log.v(TAG, res);
+                //set the exit code
+                LimboSettingsManager.setExitCode(service, Config.EXIT_SUCCESS);
+            }
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        } else {
-            Log.v(TAG, res);
-            //set the exit code
-            LimboSettingsManager.setExitCode(service, Config.EXIT_SUCCESS);
+            ToastUtils.toastLong(service, res);
         }
 
         MachineController.getInstance().cleanUp();
