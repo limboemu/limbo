@@ -47,28 +47,44 @@ public class Presenter implements ViewListener {
         switch (diskFileType) {
             case HDA:
                 getMachine().setHdaImagePath(drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.HDA, drivePath);
                 break;
             case HDB:
                 getMachine().setHdbImagePath(drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.HDB, drivePath);
                 break;
             case HDC:
                 getMachine().setHdcImagePath(drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.HDC, drivePath);
                 break;
             case HDD:
                 getMachine().setHddImagePath(drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.HDD, drivePath);
                 break;
             case SHARED_FOLDER:
                 getMachine().setSharedFolderPath(drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.SHARED_DIR, drivePath);
                 break;
         }
         switch (diskFileType) {
             case CDROM:
+                MachineController.getInstance().changeRemovableDevice(diskFileType, drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.CDROM, drivePath);
+                break;
             case FDA:
-            case FDB:
-            case SD:
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.FDA, drivePath);
                 MachineController.getInstance().changeRemovableDevice(diskFileType, drivePath);
                 break;
+            case FDB:
+                MachineController.getInstance().changeRemovableDevice(diskFileType, drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.FDB, drivePath);
+                break;
+            case SD:
+                MachineController.getInstance().changeRemovableDevice(diskFileType, drivePath);
+                MachineFilePaths.insertRecentFilePath(Machine.FileType.SD, drivePath);
+                break;
         }
+
     }
 
 
@@ -111,13 +127,13 @@ public class Presenter implements ViewListener {
         dispatcher.submit(new Runnable() {
             @Override
             public void run() {
-                requestFieldChange(property,value);
+                requestFieldChange(property, value);
             }
         });
     }
 
     private void requestFieldChange(MachineProperty property, Object value) {
-        if(getMachine() == null)
+        if (getMachine() == null)
             return;
 
         switch (property) {
@@ -194,7 +210,7 @@ public class Presenter implements ViewListener {
                 getMachine().setMachineType(convertString(property, value));
                 break;
             case PAUSED:
-                getMachine().setPaused(convertInt(property,value));
+                getMachine().setPaused(convertInt(property, value));
                 break;
             default:
                 throw new RuntimeException("Umapped UI field: " + property);
