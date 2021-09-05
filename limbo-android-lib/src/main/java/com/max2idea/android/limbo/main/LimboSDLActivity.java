@@ -670,7 +670,10 @@ public class LimboSDLActivity extends SDLActivity
 
     @Override
     public void OnUnhandledTouchEvent(MotionEvent event) {
-        onTouchEvent(event);
+        if(getRelativeMode(event.getToolType(0)))
+            processTrackPadEvents(event);
+        else
+            ((LimboSDLSurface) mSurface).onTouchProcess(mSurface, event);
     }
 
     @Override
