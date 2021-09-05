@@ -43,79 +43,109 @@ import java.util.ArrayList;
 public class LimboActivityCommon {
     private static final String TAG = "LimboActivityCommon";
 
-    public static void promptStopVM(final Context context, final ViewListener viewListener) {
-
-        new AlertDialog.Builder(context).setTitle(R.string.ShutdownVM)
-                .setMessage(R.string.ShutdownVMWarning)
-                .setPositiveButton(context.getString(android.R.string.ok), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        viewListener.onAction(MachineAction.STOP_VM, null);
-                    }
-                }).setNegativeButton(context.getString(android.R.string.cancel), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-            }
-        }).show();
-    }
-
-    public static void promptPausedErrorVM(final Context context, String msg, final ViewListener viewListener) {
-        msg = msg != null ? msg : context.getString(R.string.CouldNotPauseVMViewLogFileDetails);
-        new AlertDialog.Builder(context).setTitle(R.string.Error).setMessage(msg)
-                .setPositiveButton(context.getString(android.R.string.ok), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        Thread t = new Thread(new Runnable() {
-                            public void run() {
-                                viewListener.onAction(MachineAction.CONTINUE_VM, null);
+    public static void promptStopVM(final Activity activity, final ViewListener viewListener) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                new AlertDialog.Builder(activity).setTitle(R.string.ShutdownVM)
+                        .setMessage(R.string.ShutdownVMWarning)
+                        .setPositiveButton(activity.getString(android.R.string.ok), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                viewListener.onAction(MachineAction.STOP_VM, null);
                             }
-                        });
-                        t.start();
+                        }).setNegativeButton(activity.getString(android.R.string.cancel), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
                     }
                 }).show();
+            }
+        });
     }
 
-    public static void promptPause(final Context context, final ViewListener viewListener) {
-        if (!LimboSettingsManager.getEnableQmp(context)) {
-            ToastUtils.toastShort(context, context.getString(R.string.EnableQMPForSavingVMState));
+    public static void promptPausedErrorVM(final Activity activity, final String msg, final ViewListener viewListener) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                String message = msg != null ? msg : activity.getString(R.string.CouldNotPauseVMViewLogFileDetails);
+                new AlertDialog.Builder(activity).setTitle(R.string.Error).setMessage(message)
+                        .setPositiveButton(activity.getString(android.R.string.ok), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                Thread t = new Thread(new Runnable() {
+                                    public void run() {
+                                        viewListener.onAction(MachineAction.CONTINUE_VM, null);
+                                    }
+                                });
+                                t.start();
+                            }
+                        }).show();
+
+            }
+        });
+    }
+
+    public static void promptPause(final Activity activity, final ViewListener viewListener) {
+        if (!LimboSettingsManager.getEnableQmp(activity)) {
+            ToastUtils.toastShort(activity, activity.getString(R.string.EnableQMPForSavingVMState));
             return;
         }
 
-        final AlertDialog alertDialog;
-        alertDialog = new AlertDialog.Builder(context).create();
-        alertDialog.setTitle(context.getString(R.string.PauseVM));
-        TextView stateView = new TextView(context);
-        stateView.setText(R.string.pauseVMWarning);
-        stateView.setPadding(20, 20, 20, 20);
-        alertDialog.setView(stateView);
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
 
-        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, context.getString(R.string.Pause), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                viewListener.onAction(MachineAction.PAUSE_VM, null);
+                final AlertDialog alertDialog;
+                alertDialog = new AlertDialog.Builder(activity).create();
+                alertDialog.setTitle(activity.getString(R.string.PauseVM));
+                TextView stateView = new TextView(activity);
+                stateView.setText(R.string.pauseVMWarning);
+                stateView.setPadding(20, 20, 20, 20);
+                alertDialog.setView(stateView);
+
+                alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, activity.getString(R.string.Pause), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        viewListener.onAction(MachineAction.PAUSE_VM, null);
+                    }
+                });
+                alertDialog.show();
             }
         });
-        alertDialog.show();
     }
 
-    public static void promptResetVM(final Context context, final ViewListener viewListener) {
+    public static void promptResetVM(final Activity activity, final ViewListener viewListener) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
 
-        new AlertDialog.Builder(context).setTitle(R.string.ResetVM)
-                .setMessage(R.string.ResetVMWarning)
-                .setPositiveButton(context.getString(android.R.string.yes), new DialogInterface.OnClickListener() {
+                new AlertDialog.Builder(activity).setTitle(R.string.ResetVM)
+                        .setMessage(R.string.ResetVMWarning)
+                        .setPositiveButton(activity.getString(android.R.string.yes), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                viewListener.onAction(MachineAction.RESET_VM, null);
+                            }
+                        }).setNegativeButton(activity.getString(android.R.string.no), new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
-                        viewListener.onAction(MachineAction.RESET_VM, null);
-                    }
-                }).setNegativeButton(context.getString(android.R.string.no), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-            }
-        }).show();
-    }
-
-    public static void promptPausedVM(final Context context, final ViewListener viewListener) {
-        new AlertDialog.Builder(context).setCancelable(false).setTitle(R.string.Paused)
-                .setMessage(R.string.VMPausedPressOkToExit)
-                .setPositiveButton(R.string.Ok, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        viewListener.onAction(MachineAction.STOP_VM, null);
                     }
                 }).show();
+
+            }
+        });
+    }
+
+    public static void promptPausedVM(final Activity activity, final ViewListener viewListener) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                new AlertDialog.Builder(activity).setCancelable(false).setTitle(R.string.Paused)
+                        .setMessage(R.string.VMPausedPressOkToExit)
+                        .setPositiveButton(R.string.Ok, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                viewListener.onAction(MachineAction.STOP_VM, null);
+                            }
+                        }).show();
+
+            }
+        });
     }
 
     public static void promptVNCServer(final Context context, final String msg, final ViewListener viewListener) {
@@ -169,70 +199,88 @@ public class LimboActivityCommon {
         });
     }
 
-    public static void promptLicense(final Activity activity, String title, String body) {
-        AlertDialog alertDialog;
-        alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle(title);
+    public static void promptLicense(final Activity activity, final String title, final String body) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog alertDialog;
+                alertDialog = new AlertDialog.Builder(activity).create();
+                alertDialog.setTitle(title);
 
-        TextView textView = new TextView(activity);
-        textView.setText(body);
-        textView.setTextSize(10);
-        textView.setPadding(20, 20, 20, 20);
+                TextView textView = new TextView(activity);
+                textView.setText(body);
+                textView.setTextSize(10);
+                textView.setPadding(20, 20, 20, 20);
 
-        ScrollView scrollView = new ScrollView(activity);
-        scrollView.addView(textView);
+                ScrollView scrollView = new ScrollView(activity);
+                scrollView.addView(textView);
 
-        alertDialog.setView(scrollView);
-        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,
-                activity.getString(R.string.IAcknowledge), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
+                alertDialog.setView(scrollView);
+                alertDialog.setButton(DialogInterface.BUTTON_POSITIVE,
+                        activity.getString(R.string.IAcknowledge), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                if (LimboSettingsManager.isFirstLaunch(activity)) {
+                                    Installer.installFiles(activity, true);
+                                    Help.onHelp(activity);
+                                    com.max2idea.android.limbo.log.Logger.onChangeLog(activity);
+                                }
+                                LimboSettingsManager.setFirstLaunch(activity);
+                            }
+                        });
+                alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
                         if (LimboSettingsManager.isFirstLaunch(activity)) {
-                            Installer.installFiles(activity, true);
-                            Help.onHelp(activity);
-                            com.max2idea.android.limbo.log.Logger.onChangeLog(activity);
+                            if (activity.getParent() != null) {
+                                activity.getParent().finish();
+                            } else {
+                                activity.finish();
+                            }
                         }
-                        LimboSettingsManager.setFirstLaunch(activity);
                     }
                 });
-        alertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-            @Override
-            public void onCancel(DialogInterface dialog) {
-                if (LimboSettingsManager.isFirstLaunch(activity)) {
-                    if (activity.getParent() != null) {
-                        activity.getParent().finish();
-                    } else {
-                        activity.finish();
-                    }
-                }
+                alertDialog.show();
             }
         });
-        alertDialog.show();
     }
 
-    public static void tapNotSupported(Activity activity, String userid) {
-        DialogUtils.UIAlert(activity, activity.getString(R.string.tapUserId) + ": " + userid,
-                activity.getString(R.string.tapNotSupportInstructions));
+    public static void tapNotSupported(final Activity activity, final String userid) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                DialogUtils.UIAlert(activity, activity.getString(R.string.tapUserId) + ": " + userid,
+                        activity.getString(R.string.tapNotSupportInstructions));
+
+            }
+        });
     }
 
-    public static void promptTap(final Activity activity, String userid) {
-        DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+    public static void promptTap(final Activity activity, final String userid) {
+
+        final DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
 
             }
         };
 
-        DialogInterface.OnClickListener helpListener =
+        final DialogInterface.OnClickListener helpListener =
                 new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         goToURL(activity, Config.faqLink);
                     }
                 };
 
-        DialogUtils.UIAlert(activity,
-                activity.getString(R.string.TapDeviceFound),
-                activity.getString(R.string.tunDeviceWarning) + ": " + userid + "\n",
-                16, false, activity.getString(android.R.string.ok), okListener,
-                null, null, activity.getString(R.string.TAPHelp), helpListener);
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                DialogUtils.UIAlert(activity,
+                        activity.getString(R.string.TapDeviceFound),
+                        activity.getString(R.string.tunDeviceWarning) + ": " + userid + "\n",
+                        16, false, activity.getString(android.R.string.ok), okListener,
+                        null, null, activity.getString(R.string.TAPHelp), helpListener);
+            }
+        });
     }
 
     public static void goToURL(Context context, String url) {
@@ -242,23 +290,28 @@ public class LimboActivityCommon {
     }
 
     public static void onNetworkUser(final Activity activity) {
-        DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
+        final DialogInterface.OnClickListener okListener = new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
 
             }
         };
 
-        DialogInterface.OnClickListener helpListener =
+        final DialogInterface.OnClickListener helpListener =
                 new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         LimboActivityCommon.goToURL(activity, Config.faqLink);
                     }
                 };
 
-        DialogUtils.UIAlert(activity,
-                activity.getString(R.string.network),
-                activity.getString(R.string.externalNetworkWarning),
-                16, false, activity.getString(android.R.string.ok), okListener,
-                null, null, activity.getString(R.string.faq), helpListener);
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                DialogUtils.UIAlert(activity,
+                        activity.getString(R.string.network),
+                        activity.getString(R.string.externalNetworkWarning),
+                        16, false, activity.getString(android.R.string.ok), okListener,
+                        null, null, activity.getString(R.string.faq), helpListener);
+            }
+        });
     }
 }
