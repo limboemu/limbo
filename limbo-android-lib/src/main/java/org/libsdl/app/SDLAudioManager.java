@@ -7,8 +7,10 @@ public class SDLAudioManager
 {
     protected static final String TAG = "SDLAudio";
 
+    //LIMBO:
     public static AudioTrack mAudioTrack;
     public static AudioRecord mAudioRecord;
+    //LIMBO
 
     public static void initialize() {
         mAudioTrack = null;

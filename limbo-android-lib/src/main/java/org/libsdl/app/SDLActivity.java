@@ -29,14 +29,17 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ApplicationInfo;
 
-import com.max2idea.android.limbo.main.LimboActivity;
-
 import androidx.appcompat.app.AppCompatActivity;
 
 /**
-    SDL Activity
-*/
-public class SDLActivity extends AppCompatActivity {
+ SDL Activity
+ */
+public class SDLActivity
+        //LIMBO:
+        extends AppCompatActivity
+        //LIMBO
+{
+
     private static final String TAG = "SDL";
 
     public static boolean mIsResumedCalled, mIsSurfaceReady, mHasFocus;
@@ -53,8 +56,9 @@ public class SDLActivity extends AppCompatActivity {
 
     /** If shared libraries (e.g. SDL or the native application) could not be loaded. */
     public static boolean mBrokenLibraries;
-
+    //LIMBO:
     public static boolean mSuspendOnly;
+    //LIMBO
 
     // If we want to separate mouse and touch events.
     //  This is only toggled in native code when a hint is set!
@@ -211,16 +215,15 @@ public class SDLActivity extends AppCompatActivity {
             mClipboardHandler = new SDLClipboardHandler_Old();
         }
 
-        //Limbo: override
         // Set up the surface
-        //mSurface = new SDLSurface(getApplication());
-
-        //Limbo: override
-        //mLayout = new RelativeLayout(this);
-        //mLayout.addView(mSurface);
-
-        //setContentView(mLayout);
-
+        // LIMBO:
+//        mSurface = new SDLSurface(getApplication());
+//
+//        mLayout = new RelativeLayout(this);
+//        mLayout.addView(mSurface);
+//
+//        setContentView(mLayout);
+        //LIMBO
         setWindowStyle(false);
 
         // Get filename from "Open with" of another application
@@ -299,6 +302,7 @@ public class SDLActivity extends AppCompatActivity {
     protected void onDestroy() {
         Log.v(TAG, "onDestroy()");
 
+        //LIMBO:
         //XXX: don't stop the sdl running
         if(SDLActivity.mSuspendOnly) {
             Thread currSDLThread = mSDLThread;
@@ -310,6 +314,7 @@ public class SDLActivity extends AppCompatActivity {
             super.onDestroy();
             return;
         }
+        //LIMBO
 
         if (SDLActivity.mBrokenLibraries) {
            super.onDestroy();
@@ -553,15 +558,6 @@ public class SDLActivity extends AppCompatActivity {
     public static native String nativeGetHint(String name);
     public static native void nativeSetenv(String name, String value);
 
-    public static void onSDLNativeMouse(int button, int action, float x, float y){
-        Log.d(TAG, "onSDLNativeMouse: B: " + button + ", A: " + action + ", X: " + x + ", Y: " + y);
-        onNativeMouse(button, action, x, y);
-    }
-    public static void onSDLNativeTouch(int touchDevId, int pointerFingerId, int action, float x, float y, float p){
-        Log.d(TAG, "onSDLNativeTouch: F: " + pointerFingerId + ", A: " + action + ", X: " + x + ", Y: " + y);
-        onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
-
-    }
     /**
      * This method is called by SDL using JNI.
      */
@@ -1094,14 +1090,14 @@ public class SDLActivity extends AppCompatActivity {
         mClipboardHandler.clipboardSetText(string);
     }
 
-    //Limbo
+    //LIMBO:
     protected void runSDLMain(){ }
     public static class ExSDLSurface extends SDLSurface {
         public ExSDLSurface(Context context) {
             super(context);
         }
     }
-    //Limbo
+    //LIMBO
 }
 
 /**
@@ -1116,11 +1112,10 @@ class SDLMain implements Runnable {
         String[] arguments = SDLActivity.mSingleton.getArguments();
 
         Log.v("SDL", "Running main function " + function + " from library " + library);
-
-        //Limbo: we override
+        //LIMBO:
         //SDLActivity.nativeRunMain(library, function, arguments);
-        SDLActivity.mSingleton.runSDLMain();
-
+		SDLActivity.mSingleton.runSDLMain();
+        //LIMBO
 
         Log.v("SDL", "Finished main function");
 
@@ -1392,7 +1387,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     mouseButton = 1;    // oh well.
                 }
             }
-            SDLActivity.onSDLNativeMouse(mouseButton, action, event.getX(0), event.getY(0));
+            SDLActivity.onNativeMouse(mouseButton, action, event.getX(0), event.getY(0));
         } else {
             switch(action) {
                 case MotionEvent.ACTION_MOVE:
@@ -1406,7 +1401,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                             // see the documentation of getPressure(i)
                             p = 1.0f;
                         }
-                        SDLActivity.onSDLNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
+                        SDLActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
                     }
                     break;
 
@@ -1430,7 +1425,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                         // see the documentation of getPressure(i)
                         p = 1.0f;
                     }
-                    SDLActivity.onSDLNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
+                    SDLActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
                     break;
 
                 case MotionEvent.ACTION_CANCEL:
@@ -1444,7 +1439,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                             // see the documentation of getPressure(i)
                             p = 1.0f;
                         }
-                        SDLActivity.onSDLNativeTouch(touchDevId, pointerFingerId, MotionEvent.ACTION_UP, x, y, p);
+                        SDLActivity.onNativeTouch(touchDevId, pointerFingerId, MotionEvent.ACTION_UP, x, y, p);
                     }
                     break;
 
