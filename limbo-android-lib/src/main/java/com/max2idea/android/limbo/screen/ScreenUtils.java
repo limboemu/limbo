@@ -29,7 +29,7 @@ import com.max2idea.android.limbo.main.LimboSettingsManager;
  */
 public class ScreenUtils {
     private static final String TAG = "ScreenUtils";
-    public static void setOrientation(Activity activity) {
+    public static void updateOrientation(Activity activity) {
         int orientation = LimboSettingsManager.getOrientationSetting(activity);
         switch (orientation) {
             case 0:
