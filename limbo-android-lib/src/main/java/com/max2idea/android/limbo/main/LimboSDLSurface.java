@@ -73,6 +73,9 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         Log.v(TAG, "surfaceCreated");
         super.surfaceCreated(holder);
         setWillNotDraw(false);
+        refreshSurfaceView();
+        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
     }
 
     public void refreshSurfaceView() {

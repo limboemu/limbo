@@ -62,7 +62,6 @@ import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineProperty;
 import com.max2idea.android.limbo.machine.Presenter;
-import com.max2idea.android.limbo.qmp.QmpClient;
 import com.max2idea.android.limbo.screen.ScreenUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 
@@ -79,8 +78,7 @@ import java.util.concurrent.Executors;
 public class LimboSDLActivity extends SDLActivity
         implements KeyMapManager.OnSendKeyEventListener, KeyMapManager.OnSendMouseEventListener,
         KeyMapManager.OnUnhandledTouchEventListener, MachineController.OnMachineStatusChangeListener,
-    MachineController.OnEventListener
-{
+        MachineController.OnEventListener {
     public static final int KEYBOARD = 10000;
     private static final String TAG = "LimboSDLActivity";
     private final static int keyDelay = 100;
@@ -104,12 +102,6 @@ public class LimboSDLActivity extends SDLActivity
     private ViewListener viewListener;
     private boolean quit = false;
     private View mGap;
-
-    public static LimboSDLActivity getSingleton() {
-        return (LimboSDLActivity) mSingleton;
-    }
-
-    static final int COMMAND_CHANGE_WINDOW_STYLE = 2;
 
     public void showHints() {
         ToastUtils.toastShortTop(this, getString(R.string.PressVolumeDownForRightClick));
@@ -345,8 +337,8 @@ public class LimboSDLActivity extends SDLActivity
         TextView textView = new TextView(this);
         textView.setVisibility(View.VISIBLE);
         String instructions = getString(R.string.absolutePointerInstructions);
-        if(externalMouse)
-                instructions += "\n" + getString(R.string.externalMouseInstructions);
+        if (externalMouse)
+            instructions += "\n" + getString(R.string.externalMouseInstructions);
         textView.setText(instructions);
         mLayout.addView(textView);
         alertDialog.setView(mLayout);
@@ -655,7 +647,7 @@ public class LimboSDLActivity extends SDLActivity
 
     @Override
     public void OnUnhandledTouchEvent(MotionEvent event) {
-        if(isRelativeMode(event.getToolType(0)))
+        if (isRelativeMode(event.getToolType(0)))
             processTrackPadEvents(event);
         else
             ((LimboSDLSurface) mSurface).onTouchProcess(mSurface, event);
@@ -681,44 +673,24 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     private void checkPendingActions() {
-        new Thread(new Runnable() {
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
             public void run() {
                 if (pendingStop) {
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            pendingStop = false;
-                            LimboActivityCommon.promptStopVM(LimboSDLActivity.this, viewListener);
-                        }
-                    }, 1000);
+                    pendingStop = false;
+                    LimboActivityCommon.promptStopVM(LimboSDLActivity.this, viewListener);
                 } else if (pendingPause) {
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            pendingPause = false;
-                            LimboActivityCommon.promptPause(LimboSDLActivity.this, viewListener);
-                        }
-                    }, 1000);
+                    pendingPause = false;
+                    LimboActivityCommon.promptPause(LimboSDLActivity.this, viewListener);
                 } else if (MachineController.getInstance().isPaused()) {
-                    try {
-                        Thread.sleep(4000);
-                    } catch (InterruptedException ex) {
-                        ex.printStackTrace();
-                    }
-                    String command = QmpClient.getContinueVMCommand();
-                    QmpClient.sendCommand(command);
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (mouseMode == MouseMode.TOUCHSCREEN)
-                                setTouchScreenMode();
-                            else
-                                setTrackpadMode();
-                        }
-                    }, 1000);
+                    Presenter.getInstance().onAction(MachineAction.CONTINUE_VM, null);
                 }
+                ((LimboSDLSurface) mSurface).refreshSurfaceView();
+                Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                        new Object[]{((LimboSDLSurface) mSurface).getWidth(),
+                                ((LimboSDLSurface) mSurface).getHeight(), getResources().getConfiguration().orientation});
             }
-        }).start();
+        }, 2000);
     }
 
     public void onBackPressed() {
@@ -826,7 +798,7 @@ public class LimboSDLActivity extends SDLActivity
     protected synchronized void runSDLMain() {
         notifyAction(MachineAction.START_VM, null);
         //XXX: we hold the thread because SDLActivity will exit
-        while(!quit) {
+        while (!quit) {
             try {
                 wait();
             } catch (Exception e) {
@@ -840,8 +812,8 @@ public class LimboSDLActivity extends SDLActivity
      * Notifies when the machine resolution changes. This is called from SDL compat extensions
      * see folder jni/compat/sdl-extensions
      *
-     * @param w Width
-     * @param h Height
+     * @param width Width
+     * @param height Height
      */
     public void onVMResolutionChanged(int width, int height) {
         if (mSurface == null || LimboSDLActivity.isResizing) {
@@ -981,8 +953,10 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    /** We treat as relative mode only events with TOOL_TYPE_FINGER as long as the user has not
+    /**
+     * We treat as relative mode only events with TOOL_TYPE_FINGER as long as the user has not
      * selected to emulate a touch screen.
+     *
      * @param toolType Event Tool type
      * @return True if the device will be expected as relative mode by the emulator
      */
@@ -1021,7 +995,7 @@ public class LimboSDLActivity extends SDLActivity
 //                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action
 //                        + ", relative: " + relative + ", nx = " + nx + ", ny = " + ny
 //                        + ", delay = " + delayMs);
-                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative?1:0, nx, ny});
+                notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative ? 1 : 0, nx, ny});
                 if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
             }
@@ -1077,9 +1051,9 @@ public class LimboSDLActivity extends SDLActivity
 
     @Override
     public void onEvent(Machine machine, MachineController.Event event, Object o) {
-        switch(event) {
+        switch (event) {
             case MachineResolutionChanged:
-                Object [] params = (Object[]) o;
+                Object[] params = (Object[]) o;
                 onVMResolutionChanged((int) params[0], (int) params[1]);
         }
     }
