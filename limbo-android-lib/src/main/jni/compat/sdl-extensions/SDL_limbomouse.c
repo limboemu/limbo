@@ -33,14 +33,18 @@ Copyright (C) Max Kastanas 2012
 #define BUTTON_BACK 8
 #define BUTTON_FORWARD 16
 
-extern SDL_Window *Android_Window;
+#define ORIENTATION_PORTRAIT 1
 
-JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
+extern SDL_Window *Android_Window;
+int x_min = 0, x_max = 0, y_min = 0, y_max = 0;
+bool checkBounds = false;
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseEvent(
         JNIEnv* env, jobject thiz,
-		int button, int action, int relative, float x, float y) {
+		int button, int action, int relative, int x, int y) {
 
     if (!Android_Window) {
-        return -1;
+        return;
     }
         
     //XXX: If the guest input device is not usb-tablet (ps2/usb) QEMU overrides to relative mode
@@ -48,10 +52,31 @@ JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
     // mouse acceleration within the guest and calibrate the mouse in limbo.
     SDL_bool relativeMouseMode = relative?SDL_TRUE:SDL_FALSE; 
     if(SDL_GetRelativeMouseMode() != relativeMouseMode ) {
-    	printf("force relative mouse mode: %d", relativeMouseMode);
     	SDL_SetRelativeMouseMode(relativeMouseMode);
     }
 
+	SDL_Mouse *mouse = SDL_GetMouse();
+	// Adjust x, y if go out of bounds
+	if(checkBounds) {
+		if(relative && mouse->x + x < x_min)
+			x = x_min -mouse->x;
+		if(relative && mouse->x + x > x_max)
+			x = x_max - mouse->x;
+		if(relative && mouse->y + y < y_min)
+			y = y_min -mouse->y;
+		if(relative && mouse->y + y > y_max)
+			y = y_max - mouse->y;
+		if(!relative && x < x_min)
+			x = x_min;
+		if(!relative && x > x_max)
+			x = x_max;
+		if(!relative && y < y_min)
+			y = y_min;
+		if(!relative && y > y_max)
+			y = y_max;			
+		
+	}
+	
     switch(action) {
         case ACTION_DOWN:
             if(!relative){
@@ -79,7 +104,15 @@ JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
         default:
             break;
     }
-    return 0;
 }
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
+        JNIEnv* env, jobject thiz, int xmin, int xmax, int ymin, int ymax) {
+    LOGV("set mouse bounds: %d %d %d %d\n", xmin, xmax, ymin, ymax);
+    checkBounds = true;
+    x_min = xmin;
+	x_max = xmax;
+	y_min = ymin;
+	y_max = ymax;     
+}
 
