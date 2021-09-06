@@ -351,6 +351,7 @@
     <string name="TouchScreenTitle">Touchscreen</string>
     <string name="ImmersiveMode">Immersive Mode</string>
     <string name="EnableImmersiveMode">Enable Immersive Mode</string>
+    <string name="UsingKeyMapper">Using Key Mapper</string>
 
 
 </resources>

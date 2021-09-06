@@ -69,7 +69,7 @@
                     android:layout_width="50dp"
                     android:layout_height="50dp"
                     android:contentDescription="@string/use_keymapper"
-                    android:src="@drawable/ui"
+                    android:src="@android:drawable/checkbox_on_background"
                     android:textSize="12dp" />
 
 
@@ -93,7 +93,7 @@
                     android:layout_width="50dp"
                     android:layout_height="50dp"
                     android:contentDescription="@string/clear_key"
-                    android:src="@drawable/close"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
                     android:textSize="12dp" />
             </LinearLayout>
         </LinearLayout>

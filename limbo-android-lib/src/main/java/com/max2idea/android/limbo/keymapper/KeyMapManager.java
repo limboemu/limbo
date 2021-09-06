@@ -124,6 +124,7 @@ public class KeyMapManager {
         if (isEditMode() || isActive()) {
             mapperEditLayout.setVisibility(View.GONE);
             mapperButtons.setVisibility(View.GONE);
+            clearKeyMapper();
             shown = false;
         } else {
             mapperEditLayout.setVisibility(View.VISIBLE);
@@ -307,6 +308,8 @@ public class KeyMapManager {
     }
 
     public void promptDeleteKeyMapper() {
+        if(keyMapper == null)
+            return;
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
         alertDialog.setTitle(activity.getString(R.string.KeyMapper));
@@ -340,13 +343,17 @@ public class KeyMapManager {
                 keyMappers.remove(keyMapMap);
                 saveKeyMappers();
                 loadKeyMappers();
-                mKeyMapperName.setText("");
-                keyMapper = null;
-                keySurfaceView.updateDimensions();
-                keySurfaceView.paint(true);
+                clearKeyMapper();
             }
         }
 
+    }
+
+    private void clearKeyMapper() {
+        keyMapper = null;
+        mKeyMapperName.setText("");
+        keySurfaceView.updateDimensions();
+        keySurfaceView.paint(true);
     }
 
     private void advancedKey() {
@@ -475,12 +482,12 @@ public class KeyMapManager {
         mapperEditLayout.setVisibility(View.GONE);
         mapperButtons.setVisibility(View.VISIBLE);
         ScreenUtils.updateOrientation(activity);
-        ToastUtils.toastShort(activity, activity.getString(R.string.KeyMapperEnabled));
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
                 keySurfaceView.paint(true);
                 keySurfaceView.updateDimensions();
+                ToastUtils.toastShort(activity, activity.getString(R.string.UsingKeyMapper) + ": " + keyMapper.name);
             }
         }, 500);
     }

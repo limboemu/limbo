@@ -708,7 +708,7 @@ public class LimboSDLActivity extends SDLActivity
 
     public void onBackPressed() {
         if (mKeyMapManager != null && mKeyMapManager.isEditMode()) {
-            mKeyMapManager.useKeyMapper();
+            toggleKeyMapper();
         } else if (!LimboSettingsManager.getAlwaysShowMenuToolbar(this)) {
             ActionBar bar = getSupportActionBar();
             if (bar != null) {
