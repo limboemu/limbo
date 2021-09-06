@@ -318,6 +318,10 @@ public class LimboSDLActivity extends SDLActivity
             ScreenUtils.updateOrientation(this);
             mouseMode = MouseMode.Trackpad;
             invalidateOptionsMenu();
+            ((LimboSDLSurface) mSurface).refreshSurfaceView();
+            Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                    new Object[]{((LimboSDLSurface) mSurface).getWidth(),
+                            ((LimboSDLSurface) mSurface).getHeight(), getResources().getConfiguration().orientation});
         } catch (Exception ex) {
             if (Config.debug)
                 ex.printStackTrace();
@@ -363,6 +367,10 @@ public class LimboSDLActivity extends SDLActivity
         try {
             mouseMode = MouseMode.TOUCHSCREEN;
             invalidateOptionsMenu();
+            ((LimboSDLSurface) mSurface).refreshSurfaceView();
+            Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                    new Object[]{((LimboSDLSurface) mSurface).getWidth(),
+                            ((LimboSDLSurface) mSurface).getHeight(), getResources().getConfiguration().orientation});
         } catch (Exception ex) {
             if (Config.debug)
                 ex.printStackTrace();
@@ -375,13 +383,6 @@ public class LimboSDLActivity extends SDLActivity
         sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, false);
         sendKeyEvent(null, KeyEvent.KEYCODE_ALT_RIGHT, false);
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, false);
-    }
-
-    private void onCtrlC() {
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_C, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_C, false);
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, false);
     }
 
@@ -682,15 +683,27 @@ public class LimboSDLActivity extends SDLActivity
                 } else if (pendingPause) {
                     pendingPause = false;
                     LimboActivityCommon.promptPause(LimboSDLActivity.this, viewListener);
-                } else if (MachineController.getInstance().isPaused()) {
+                }
+            }
+        }, 1000);
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (MachineController.getInstance().isPaused()) {
                     Presenter.getInstance().onAction(MachineAction.CONTINUE_VM, null);
                 }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
-                Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
-                        new Object[]{((LimboSDLSurface) mSurface).getWidth(),
-                                ((LimboSDLSurface) mSurface).getHeight(), getResources().getConfiguration().orientation});
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                                new Object[]{((LimboSDLSurface) mSurface).getWidth(),
+                                        ((LimboSDLSurface) mSurface).getHeight(), getResources().getConfiguration().orientation});
+                    }
+                }, 2000);
             }
-        }, 2000);
+        }, 4000);
     }
 
     public void onBackPressed() {
