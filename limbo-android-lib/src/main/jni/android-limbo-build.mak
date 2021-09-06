@@ -1,5 +1,9 @@
 # Do not modify this file, all configuration is under directory android-config
 
+# prepend the NDK_ROOT in the path so the ndk-build is the correct one
+PATH  := $(NDK_ROOT):$(PATH)
+SHELL := env PATH=$(PATH) /bin/bash
+
 LIMBO_JNI_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 include $(LIMBO_JNI_ROOT)/android-config/android-limbo-config.mak
 
