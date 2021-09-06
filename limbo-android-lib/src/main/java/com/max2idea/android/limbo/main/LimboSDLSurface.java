@@ -20,6 +20,8 @@ package com.max2idea.android.limbo.main;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -64,8 +66,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         Log.v(TAG, "surfaceChanged");
         super.surfaceChanged(holder, format, width, height);
         refreshSurfaceView();
-        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
-                new Object[]{width, height, getResources().getConfiguration().orientation});
+        notifyDisplayUpdated();
     }
 
     @Override
@@ -74,8 +75,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         super.surfaceCreated(holder);
         setWillNotDraw(false);
         refreshSurfaceView();
-        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
-                new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
+        notifyDisplayUpdated();
     }
 
     public void refreshSurfaceView() {
@@ -244,6 +244,17 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         if (event.getSource() != InputDevice.SOURCE_KEYBOARD)
             return super.onKey(v, keyCode, event);
         return false;
+    }
+
+    public void notifyDisplayUpdated() {
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                        new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
+            }
+        }, 1000);
+
     }
 
     class MouseState {

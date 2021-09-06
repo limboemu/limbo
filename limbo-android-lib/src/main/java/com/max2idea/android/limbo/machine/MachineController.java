@@ -65,7 +65,11 @@ public class MachineController {
 
 
     public MachineStatus getCurrStatus() {
-        if (MachineService.getService() == null)
+        if(getMachine() ==null)
+            return MachineStatus.Stopped;
+        else if (getMachine().getPaused() == 1)
+            return MachineStatus.Paused;
+        else if (MachineService.getService() == null)
             return MachineController.MachineStatus.Ready;
         else if (MachineService.getService().limboThread != null)
             return MachineController.MachineStatus.Running;

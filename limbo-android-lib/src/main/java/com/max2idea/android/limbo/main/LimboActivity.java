@@ -1966,12 +1966,11 @@ public class LimboActivity extends AppCompatActivity
         mCDenable.setChecked(getMachine().getCdImagePath() != null);
         mSDenable.setChecked(getMachine().getSdImagePath() != null);
 
+        changeStatus(MachineController.getInstance().getCurrStatus());
         if (getMachine().getPaused() == 1) {
-            changeStatus(MachineStatus.Paused);
             enableNonRemovableDeviceOptions(false);
             enableRemovableDeviceOptions(false);
         } else {
-            changeStatus(MachineStatus.Ready);
             enableNonRemovableDeviceOptions(true);
             enableRemovableDeviceOptions(true);
         }
