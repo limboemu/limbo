@@ -310,8 +310,15 @@ public class Presenter implements ViewListener {
                 MachineService.getService().updateServiceNotification(
                         MachineController.getInstance().getMachine().getName() + ": "
                                 + (String) value);
+            case DISPLAY_CHANGED:
+                displayChanged(value);
                 break;
         }
+    }
+
+    private void displayChanged(Object value) {
+        Object[] params = (Object[]) value;
+        MachineController.getInstance().updateDisplay((int) params[0], (int) params[1], (int) params[2]);
     }
 
     private void addDriveToList(Object value) {

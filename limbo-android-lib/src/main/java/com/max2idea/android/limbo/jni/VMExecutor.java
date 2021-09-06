@@ -20,6 +20,7 @@ package com.max2idea.android.limbo.jni;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -55,6 +56,8 @@ class VMExecutor extends MachineExecutor {
     private static final String fdaDeviceName = "floppy0";
     private static final String fdbDeviceName = "floppy1";
     private static final String sdDeviceName = "sd0";
+    private static int vm_width;
+    private static int vm_height;
 
     VMExecutor(MachineController machineController) {
         super(machineController);
@@ -68,7 +71,9 @@ class VMExecutor extends MachineExecutor {
      * @param height Height
      */
     public static void onVMResolutionChanged(int width, int height) {
-        LimboSDLActivity.getSingleton().onVMResolutionChanged(width, height);
+        vm_width = width;
+        vm_height = height;
+        MachineController.getInstance().onVMResolutionChanged(vm_width, vm_height);
     }
 
     //JNI Methods
@@ -80,7 +85,9 @@ class VMExecutor extends MachineExecutor {
 
     public native int getsdlrefreshrate();
 
-    public native int onmouse(int button, int action, int relative, float x, float y);
+    public native void nativeMouseEvent(int button, int action, int relative, int x, int y);
+
+    public native void nativeMouseBounds(int xmin, int xmax, int ymin, int ymax);
 
     /**
      * Prints parameters in qemu format
@@ -753,6 +760,30 @@ class VMExecutor extends MachineExecutor {
         return null;
     }
 
+    @Override
+    public void updateDisplay(int width, int height, int orientation) {
+        String mouse = getMachine().getMouse();
+        // If we use absolute pointer devices in the guest os (usb-tablet) we need to prevent
+        // the mouse from going out of bounds. This case happens when we use trackpad and when the
+        // guest display doesn't fit inside the Android Surface which is pretty much all the time.
+        // we could use SurfaceHolder.setFixedSize() to bound the surfaceview but it creates
+        // problems with refreshing the surfaceview plus we would still need this fix for trackpad
+        if(mouse !=null && mouse.equals("usb-tablet")) {
+            int xmin = 0;
+            int xmax = width;
+            int ymin = 0;
+            int ymax = height;
+            if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+                ymin = (int) (height - width * vm_height / (float) vm_width) / 2;
+                ymax = (int) (height + width * vm_height / (float) vm_width) / 2;
+            } else {
+                xmin = (int) (width - height * vm_width / (float) vm_height) / 2;
+                xmax = (int) (width + height * vm_width / (float) vm_height) / 2;
+            }
+            nativeMouseBounds(xmin, xmax, ymin, ymax);
+        }
+    }
+
 
     //TODO: re-enable getting status from the vm
     public String getVmState() {
@@ -926,13 +957,13 @@ class VMExecutor extends MachineExecutor {
         return null;
     }
 
-    public int sendMouseEvent(int button, int action, int relative, float x, float y) {
+    public void sendMouseEvent(int button, int action, int relative, float x, float y) {
         //XXX: Make sure that mouse motion is not triggering crashes in SDL while resizing
         if (LimboSDLActivity.isResizing) {
-            return -1;
+            return;
         }
 
-        return onmouse(button, action, relative, x, y);
+        nativeMouseEvent(button, action, relative, (int) x, (int) y);
     }
 
     public boolean getQMPAllowExternal() {

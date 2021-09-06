@@ -45,7 +45,7 @@ public abstract class MachineExecutor {
 
     public abstract void setSdlRefreshRate(int refreshMs);
 
-    public abstract int sendMouseEvent(int button, int action, int relative, float x, float y);
+    public abstract void sendMouseEvent(int button, int action, int relative, float x, float y);
 
     public abstract String saveVM();
 
@@ -57,4 +57,5 @@ public abstract class MachineExecutor {
 
     public abstract String getDeviceName(MachineProperty driveProperty);
 
+    public abstract void updateDisplay(int width, int height, int orientation);
 }

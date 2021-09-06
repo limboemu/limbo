@@ -20,8 +20,6 @@ package com.max2idea.android.limbo.main;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -29,7 +27,8 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.View;
 
-import com.max2idea.android.limbo.keyboard.KeyboardUtils;
+import com.max2idea.android.limbo.machine.MachineAction;
+import com.max2idea.android.limbo.machine.Presenter;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLControllerManager;
@@ -65,6 +64,8 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         Log.v(TAG, "surfaceChanged");
         super.surfaceChanged(holder, format, width, height);
         refreshSurfaceView();
+        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                new Object[]{width, height, getResources().getConfiguration().orientation});
     }
 
     @Override
@@ -106,7 +107,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
 
             float nx = x;
             float ny = y;
-            if (sdlActivity.getRelativeMode(toolType)) {
+            if (sdlActivity.isRelativeMode(toolType)) {
                 nx = (x - mouseState.old_x);
                 ny = (y - mouseState.old_y);
             }
@@ -127,7 +128,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
             //  we should release all mouse buttons to be safe since we don't know which one fired the event
             if (sdlMouseButton == Config.SDL_MOUSE_MIDDLE || sdlMouseButton == Config.SDL_MOUSE_RIGHT
                     || sdlMouseButton != 0) {
-                if (sdlActivity.getRelativeMode(event.getToolType(0)))
+                if (sdlActivity.isRelativeMode(event.getToolType(0)))
                     sdlActivity.sendMouseEvent(sdlMouseButton, MotionEvent.ACTION_UP, event.getToolType(0), 0, 0);
                 else
                     sdlActivity.sendMouseEvent(sdlMouseButton, MotionEvent.ACTION_UP, event.getToolType(0), x, y);
@@ -144,7 +145,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
             if (sdlMouseButton == 0 && MotionEvent.TOOL_TYPE_FINGER == event.getToolType(0)) {
                 sdlMouseButton = Config.SDL_MOUSE_LEFT;
             }
-            if (sdlActivity.getRelativeMode(event.getToolType(0))) {
+            if (sdlActivity.isRelativeMode(event.getToolType(0))) {
                 if (!firstTouch) {
                     sdlActivity.sendMouseEvent(sdlMouseButton, MotionEvent.ACTION_DOWN, event.getToolType(0), 0, 0);
                     firstTouch = true;
@@ -162,7 +163,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
     private void processPendingMouseButtonDown(int action, int toolType, float x, float y) {
         long delta = System.currentTimeMillis() - mouseState.down_event_time;
         // Log.v(TAG, "Processing mouse button: action = " + action + ", x = " + x + ", y = " + y + ", delta: " + delta);
-        if (mouseState.down_pending && sdlActivity.getRelativeMode(toolType)
+        if (mouseState.down_pending && sdlActivity.isRelativeMode(toolType)
                 && (Math.abs(x - mouseState.down_x) < 20 && Math.abs(y - mouseState.down_y) < 20)
                 && ((action == MotionEvent.ACTION_MOVE && delta > 400)
                 || action == MotionEvent.ACTION_UP)) {
@@ -187,10 +188,14 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
     private void guessMouseButtonUp(int toolType, float x, float y) {
         //Or only the last one pressed
         if (mouseState.lastMouseButtonDown > 0) {
-            sdlActivity.sendMouseEvent(mouseState.lastMouseButtonDown, MotionEvent.ACTION_UP, toolType, x, y);
+            if (sdlActivity.isRelativeMode(toolType)) {
+                sdlActivity.sendMouseEvent(mouseState.lastMouseButtonDown, MotionEvent.ACTION_UP, toolType, 0, 0);
+            } else {
+                sdlActivity.sendMouseEvent(mouseState.lastMouseButtonDown, MotionEvent.ACTION_UP, toolType, x, y);
+            }
         } else {
             //ALl buttons
-            if (sdlActivity.getRelativeMode(toolType)) {
+            if (sdlActivity.isRelativeMode(toolType)) {
                 sdlActivity.sendMouseEvent(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, toolType, 0, 0);
             } else {
                 sdlActivity.sendMouseEvent(Config.SDL_MOUSE_LEFT, MotionEvent.ACTION_UP, toolType, x, y);
@@ -264,7 +269,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         }
 
         public boolean isDoubleTap() {
-            Log.v(TAG, "checking mouse taps: " + mouseState.taps.size());
             if (LimboSDLActivity.mouseMode == LimboSDLActivity.MouseMode.TOUCHSCREEN
                     && taps.size() >= 3
                     && taps.get(0).toolType == MotionEvent.TOOL_TYPE_FINGER

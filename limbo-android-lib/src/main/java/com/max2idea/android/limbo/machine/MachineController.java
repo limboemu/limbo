@@ -376,12 +376,20 @@ public class MachineController {
         notifyMachineStatusChangeListeners(machine, getCurrStatus(), null);
     }
 
+    public void updateDisplay(int width, int height, int orientation) {
+        machineExecutor.updateDisplay(width, height, orientation);
+    }
+
+    public void onVMResolutionChanged(int vm_width, int vm_height) {
+        notifyEventListeners(Event.MachineResolutionChanged, new Object[]{vm_width, vm_height});
+    }
+
     public enum MachineStatus {
         Ready, Stopped, Saving, Paused, SaveCompleted, SaveFailed, Unknown, Running
     }
 
     public enum Event {
-        MachineCreated, MachineCreateFailed, MachineLoaded, MachinesImported
+        MachineCreated, MachineCreateFailed, MachineLoaded, MachineResolutionChanged, MachinesImported
     }
 
     public interface OnMachineStatusChangeListener {
@@ -389,7 +397,7 @@ public class MachineController {
     }
 
     public interface OnEventListener {
-        void onEvent(Machine machine, Event status, Object o);
+        void onEvent(Machine machine, Event event, Object o);
     }
 
 }

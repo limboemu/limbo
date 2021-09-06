@@ -18,7 +18,6 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.main;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -50,7 +49,6 @@ import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 
 import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.limbo.emu.lib.R;
@@ -80,7 +78,9 @@ import java.util.concurrent.Executors;
  */
 public class LimboSDLActivity extends SDLActivity
         implements KeyMapManager.OnSendKeyEventListener, KeyMapManager.OnSendMouseEventListener,
-        KeyMapManager.OnUnhandledTouchEventListener, MachineController.OnMachineStatusChangeListener {
+        KeyMapManager.OnUnhandledTouchEventListener, MachineController.OnMachineStatusChangeListener,
+    MachineController.OnEventListener
+{
     public static final int KEYBOARD = 10000;
     private static final String TAG = "LimboSDLActivity";
     private final static int keyDelay = 100;
@@ -90,8 +90,6 @@ public class LimboSDLActivity extends SDLActivity
     public static boolean isResizing = false;
     public static boolean pendingPause;
     public static boolean pendingStop;
-    public static int vm_width;
-    public static int vm_height;
     public static MouseMode mouseMode = MouseMode.Trackpad;
     private final ExecutorService mouseEventsExecutor = Executors.newFixedThreadPool(1);
     private final ExecutorService keyEventsExecutor = Executors.newFixedThreadPool(1);
@@ -321,19 +319,6 @@ public class LimboSDLActivity extends SDLActivity
         final AlertDialog alertDialog = mBuilder.create();
         alertDialog.show();
 
-    }
-
-    public boolean checkVMResolutionFits() {
-        int width = mLayout.getWidth();
-        int height = mLayout.getHeight();
-        ActionBar bar = getSupportActionBar();
-
-        if (!LimboSettingsManager.getAlwaysShowMenuToolbar(LimboSDLActivity.this)
-                && bar != null && bar.isShowing()) {
-            height += bar.getHeight();
-        }
-
-        return vm_width < width && vm_height < height;
     }
 
     protected void setTrackpadMode() {
@@ -670,7 +655,7 @@ public class LimboSDLActivity extends SDLActivity
 
     @Override
     public void OnUnhandledTouchEvent(MotionEvent event) {
-        if(getRelativeMode(event.getToolType(0)))
+        if(isRelativeMode(event.getToolType(0)))
             processTrackPadEvents(event);
         else
             ((LimboSDLSurface) mSurface).onTouchProcess(mSurface, event);
@@ -858,14 +843,14 @@ public class LimboSDLActivity extends SDLActivity
      * @param w Width
      * @param h Height
      */
-    public void onVMResolutionChanged(int w, int h) {
+    public void onVMResolutionChanged(int width, int height) {
         if (mSurface == null || LimboSDLActivity.isResizing) {
             return;
         }
-        vm_width = w;
-        vm_height = h;
-        Log.v(TAG, "VM resolution changed to " + vm_width + "x" + vm_height);
+        Log.v(TAG, "VM resolution changed to " + width + "x" + height);
         ((LimboSDLSurface) mSurface).refreshSurfaceView();
+        Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                new Object[]{width, height, getResources().getConfiguration().orientation});
     }
 
     protected void setupVolume() {
@@ -1001,7 +986,7 @@ public class LimboSDLActivity extends SDLActivity
      * @param toolType Event Tool type
      * @return True if the device will be expected as relative mode by the emulator
      */
-    public boolean getRelativeMode(int toolType) {
+    public boolean isRelativeMode(int toolType) {
         return toolType == MotionEvent.TOOL_TYPE_FINGER
                 && LimboSDLActivity.mouseMode != LimboSDLActivity.MouseMode.TOUCHSCREEN;
     }
@@ -1018,15 +1003,12 @@ public class LimboSDLActivity extends SDLActivity
         mouseEventsExecutor.submit(new Runnable() {
             @Override
             public void run() {
-                boolean relative = getRelativeMode(toolType);
+                boolean relative = isRelativeMode(toolType);
                 if (mKeyMapManager.processMouseMap(button, action)) {
                     return;
                 }
                 if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
-                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action
-                        + ", relative: " + relative + ", x = " + x + ", y = " + y
-                        + ", delay = " + delayMs);
                 //XXX: for mouse events we use our jni compatibility extensions instead of the sdl native functions
                 // SDLActivity.onSDLNativeMouse(button, action, x, y);
                 float nx = x;
@@ -1035,29 +1017,15 @@ public class LimboSDLActivity extends SDLActivity
                 if (mouseState.isDoubleTap()) {
                     nx = mouseState.taps.get(0).x;
                     ny = mouseState.taps.get(0).y;
-                    Log.v(TAG, "Double tap mouse event detected: " + nx + ", " + ny);
                 }
-                // finally we transform for sdl if mode is desktop (absolute)
-//                if(mouseMode == MouseMode.External) {
-//                    nx = getScaleFactorX() * nx;
-//                    ny = getScaleFactorY() * ny;
-//                }
-                Log.v(TAG, "sendMouseEvent button converted: " + button + ", action: " + action
-                        + ", relative: " + relative + ", nx = " + nx + ", ny = " + ny
-                        + ", delay = " + delayMs);
+//                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action
+//                        + ", relative: " + relative + ", nx = " + nx + ", ny = " + ny
+//                        + ", delay = " + delayMs);
                 notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative?1:0, nx, ny});
                 if (delayMs > 0 && toolType != MotionEvent.TOOL_TYPE_MOUSE)
                     delay(delayMs);
             }
         });
-    }
-
-    private float getScaleFactorX() {
-        return vm_width / (float) ((View) mSurface).getWidth();
-    }
-
-    private float getScaleFactorY() {
-        return vm_height / (float) ((View) mSurface).getHeight();
     }
 
     protected void sendKeyEvent(KeyEvent event, int keycode, boolean down) {
@@ -1107,10 +1075,13 @@ public class LimboSDLActivity extends SDLActivity
             viewListener.onAction(action, value);
     }
 
-    public enum SDLScreenMode {
-        Normal,
-        FitToScreen,
-        Fullscreen //fullscreen not implemented yet
+    @Override
+    public void onEvent(Machine machine, MachineController.Event event, Object o) {
+        switch(event) {
+            case MachineResolutionChanged:
+                Object [] params = (Object[]) o;
+                onVMResolutionChanged((int) params[0], (int) params[1]);
+        }
     }
 
     public enum MouseMode {
