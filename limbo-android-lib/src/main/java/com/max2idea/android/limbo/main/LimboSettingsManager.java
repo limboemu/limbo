@@ -359,4 +359,10 @@ public class LimboSettingsManager extends PreferenceActivity {
         }
     }
 
+
+    public static boolean getPreventMouseOutOfBounds(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getBoolean("preventMouseOutOfBounds", false);
+    }
+
 }

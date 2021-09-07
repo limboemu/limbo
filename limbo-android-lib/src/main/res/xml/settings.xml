@@ -36,6 +36,13 @@
             android:key="keyMapperSize"
             android:summary="@string/KeyMapperButtonLayout"
             android:title="@string/KeyMapperLayout" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="preventMouseOutOfBounds"
+            android:summary="@string/PreventMouseDescr"
+            android:title="@string/PreventMouseOutOfBounds" />
+
     </PreferenceCategory>
     <PreferenceCategory android:title="Advanced">
         <CheckBoxPreference

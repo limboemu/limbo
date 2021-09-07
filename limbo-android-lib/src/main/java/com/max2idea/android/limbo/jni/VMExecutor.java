@@ -765,6 +765,9 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public synchronized void updateDisplay(int width, int height, int orientation) {
+        if(!LimboSettingsManager.getPreventMouseOutOfBounds(LimboApplication.getInstance())){
+            return;
+        }
         String mouse = getMachine().getMouse();
         // If we use absolute pointer devices in the guest os (usb-tablet) we need to prevent
         // the mouse from going out of bounds. This case happens when we use trackpad and when the
