@@ -24,12 +24,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Class is responsible for routing the user actions to the backend machine controller separating the
- * UI from the Machine Model. This presenter borrows concepts from partially MVP and MVC with the
- * exceptions: the UI has read access to the Machine Model and the Machine can notify the UI.
+ * Dispatcher is responsible for routing user actions and field changes to the backend machine
+ * controller preventing direct write access to the model. The Activities can be notified directly by
+ * the model and update their views directly.
  */
 class Dispatcher implements ViewListener {
-    private static final String TAG = "Presenter";
+    private static final String TAG = "Dispatcher";
     private static Dispatcher sInstance;
     private final ExecutorService dispatcher = Executors.newFixedThreadPool(1);
 
