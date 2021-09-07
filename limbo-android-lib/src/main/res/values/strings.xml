@@ -353,7 +353,7 @@
     <string name="EnableImmersiveMode">Enable Immersive Mode</string>
     <string name="UsingKeyMapper">Using Key Mapper</string>
     <string name="PreventMouseOutOfBounds">Prevent Mouse out of Bounds</string>
-    <string name="PreventMouseDescr">Prevents some OSes from crashing when using "usb-tablet" mouse and the pointer is outside of screen bounds. Warning: This might create an invisible wall with \"ps2\" and \"usb\" mouse modes.</string>
+    <string name="PreventMouseDescr">Prevents some OSes from crashing when using "usb-tablet" mouse and the pointer is outside of screen bounds. Warning: This might create an invisible wall with \"ps2\" and \"usb\" mouse modes or the guest OS doesn't support \"usb-tablet\".</string>
 
 
 </resources>
