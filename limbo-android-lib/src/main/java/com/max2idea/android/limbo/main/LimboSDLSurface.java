@@ -66,7 +66,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         Log.v(TAG, "surfaceChanged");
         super.surfaceChanged(holder, format, width, height);
         refreshSurfaceView();
-        notifyDisplayUpdated();
     }
 
     @Override
@@ -75,13 +74,20 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         super.surfaceCreated(holder);
         setWillNotDraw(false);
         refreshSurfaceView();
-        notifyDisplayUpdated();
     }
 
     public void refreshSurfaceView() {
-        // We use QEMU keyboard shortcut for fullscreen
-        // to trigger the redraw
-        sdlActivity.sendCtrlAltKey(KeyEvent.KEYCODE_F);
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // We use QEMU keyboard shortcut for fullscreen
+                // to trigger the redraw
+                sdlActivity.sendCtrlAltKey(KeyEvent.KEYCODE_F);
+                // notify the controller that our display has changed
+                Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                        new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
+            }
+        }, 1000);
     }
 
     @Override
@@ -244,17 +250,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         if (event.getSource() != InputDevice.SOURCE_KEYBOARD)
             return super.onKey(v, keyCode, event);
         return false;
-    }
-
-    public void notifyDisplayUpdated() {
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                Presenter.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
-                        new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
-            }
-        }, 1000);
-
     }
 
     class MouseState {

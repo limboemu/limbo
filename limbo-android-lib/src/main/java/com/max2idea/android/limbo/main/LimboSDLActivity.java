@@ -319,7 +319,6 @@ public class LimboSDLActivity extends SDLActivity
             mouseMode = MouseMode.Trackpad;
             invalidateOptionsMenu();
             ((LimboSDLSurface) mSurface).refreshSurfaceView();
-            ((LimboSDLSurface) mSurface).notifyDisplayUpdated();
         } catch (Exception ex) {
             if (Config.debug)
                 ex.printStackTrace();
@@ -366,7 +365,6 @@ public class LimboSDLActivity extends SDLActivity
             mouseMode = MouseMode.TOUCHSCREEN;
             invalidateOptionsMenu();
             ((LimboSDLSurface) mSurface).refreshSurfaceView();
-            ((LimboSDLSurface) mSurface).notifyDisplayUpdated();
         } catch (Exception ex) {
             if (Config.debug)
                 ex.printStackTrace();
@@ -502,6 +500,7 @@ public class LimboSDLActivity extends SDLActivity
 
     private void setupListeners() {
         MachineController.getInstance().addOnStatusChangeListener(this);
+        MachineController.getInstance().addOnEventListener(this);
         setViewListener((ViewListener) Presenter.getInstance());
     }
 
@@ -690,9 +689,8 @@ public class LimboSDLActivity extends SDLActivity
                     Presenter.getInstance().onAction(MachineAction.CONTINUE_VM, null);
                 }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
-                ((LimboSDLSurface) mSurface).notifyDisplayUpdated();
             }
-        }, 4000);
+        }, 5000);
     }
 
     public void onBackPressed() {
@@ -823,7 +821,6 @@ public class LimboSDLActivity extends SDLActivity
         }
         Log.v(TAG, "VM resolution changed to " + width + "x" + height);
         ((LimboSDLSurface) mSurface).refreshSurfaceView();
-        ((LimboSDLSurface) mSurface).notifyDisplayUpdated();
     }
 
     protected void setupVolume() {
