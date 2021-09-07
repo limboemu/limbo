@@ -27,21 +27,25 @@ import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
+import com.max2idea.android.limbo.machine.DispatcherFactory;
 import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.MachineOpenHelper;
-import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 
 import java.io.File;
 
-/** We use the application context for the initiliazation of some of the Storage and
- *  Controller implementations.
- *
+/**
+ * We use the application context for the initiliazation of some of the Storage and
+ * Controller implementations.
  */
 public class LimboApplication extends Application {
     private static final String TAG = "LimboApplication";
     //Do not update these directly, see inherited project java files
     public static Config.Arch arch;
     private static Context sInstance;
+
+    public static Context getInstance() {
+        return sInstance;
+    }
 
     public static PackageInfo getPackageInfo(Context context) {
         PackageInfo packageInfo = null;
@@ -66,14 +70,9 @@ public class LimboApplication extends Application {
         return userid;
     }
 
-    public static Context getInstance() {
-        return sInstance;
-    }
-
     public static boolean isHost64Bit() {
         return Build.SUPPORTED_64_BIT_ABIS != null && Build.SUPPORTED_64_BIT_ABIS.length > 0;
     }
-
 
     // Legacy
     public static boolean isHostX86_64() {
@@ -113,30 +112,8 @@ public class LimboApplication extends Application {
         return false;
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        sInstance = this;
-        try {
-            Class.forName("android.os.AsyncTask");
-        } catch (Throwable ignore) {
-            // ignored
-        }
-        MachineOpenHelper.initialize(this);
-        FavOpenHelper.initialize(this);
-        MachineViewDispatcher.initialize();
-        setupFolders();
-    }
-
-    private void setupFolders() {
-        Config.storagedir = Environment.getExternalStorageDirectory().toString();
-        File folder = new File(LimboApplication.getTmpFolder());
-        if (!folder.exists()) {
-            boolean res = folder.mkdirs();
-            if (!res) {
-                Log.e(TAG, "Could not create temp folder: " + folder.getPath());
-            }
-        }
+    public static ViewListener getViewListener() {
+        return DispatcherFactory.create(DispatcherFactory.DispatcherType.QEMU);
     }
 
     public static String getBasefileDir() {
@@ -153,5 +130,31 @@ public class LimboApplication extends Application {
 
     public static String getLocalQMPSocketPath() {
         return getInstance().getCacheDir() + "/qmpsocket";
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        sInstance = this;
+        try {
+            Class.forName("android.os.AsyncTask");
+        } catch (Throwable ignore) {
+            // ignored
+        }
+        MachineOpenHelper.initialize(this);
+        FavOpenHelper.initialize(this);
+        DispatcherFactory.initialize();
+        setupFolders();
+    }
+
+    private void setupFolders() {
+        Config.storagedir = Environment.getExternalStorageDirectory().toString();
+        File folder = new File(LimboApplication.getTmpFolder());
+        if (!folder.exists()) {
+            boolean res = folder.mkdirs();
+            if (!res) {
+                Log.e(TAG, "Could not create temp folder: " + folder.getPath());
+            }
+        }
     }
 }

@@ -28,18 +28,18 @@ import java.util.concurrent.Executors;
  * UI from the Machine Model. This presenter borrows concepts from partially MVP and MVC with the
  * exceptions: the UI has read access to the Machine Model and the Machine can notify the UI.
  */
-public class MachineViewDispatcher implements ViewListener {
+class Dispatcher implements ViewListener {
     private static final String TAG = "Presenter";
-    private static MachineViewDispatcher sInstance;
+    private static Dispatcher sInstance;
     private final ExecutorService dispatcher = Executors.newFixedThreadPool(1);
 
-    public static synchronized MachineViewDispatcher getInstance() {
+    static synchronized Dispatcher getInstance() {
         return sInstance;
     }
 
     public static synchronized void initialize() {
         if (sInstance == null) {
-            sInstance = new MachineViewDispatcher();
+            sInstance = new Dispatcher();
         }
     }
 
@@ -87,8 +87,7 @@ public class MachineViewDispatcher implements ViewListener {
 
     }
 
-
-    public void changeMouse(String mouseCfg) {
+    private void changeMouse(String mouseCfg) {
         String mouseDB = mouseCfg.split(" ")[0];
         getMachine().setMouse(mouseDB);
     }

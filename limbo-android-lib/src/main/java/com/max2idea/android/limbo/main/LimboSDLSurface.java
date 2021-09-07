@@ -30,7 +30,6 @@ import android.view.SurfaceHolder;
 import android.view.View;
 
 import com.max2idea.android.limbo.machine.MachineAction;
-import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLControllerManager;
@@ -84,7 +83,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
                 // to trigger the redraw
                 sdlActivity.sendCtrlAltKey(KeyEvent.KEYCODE_F);
                 // notify the controller that our display has changed
-                MachineViewDispatcher.getInstance().onAction(MachineAction.DISPLAY_CHANGED,
+                sdlActivity.notifyAction(MachineAction.DISPLAY_CHANGED,
                         new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
             }
         }, 1000);

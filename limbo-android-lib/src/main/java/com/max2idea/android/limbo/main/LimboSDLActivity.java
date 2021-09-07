@@ -61,7 +61,6 @@ import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineProperty;
-import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 import com.max2idea.android.limbo.screen.ScreenUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 
@@ -233,7 +232,7 @@ public class LimboSDLActivity extends SDLActivity
         } else if (item.getItemId() == R.id.itemDisplay) {
             onSelectMenuSDLDisplay();
         } else if (item.getItemId() == R.id.itemViewLog) {
-            onViewLog();
+            Logger.viewLimboLog(this);
         } else if (item.getItemId() == R.id.itemKeyboardMapper) {
             toggleKeyMapper();
         } else if (item.getItemId() == R.id.itemSendText) {
@@ -269,10 +268,6 @@ public class LimboSDLActivity extends SDLActivity
             }
         });
         alertDialog.show();
-    }
-
-    public void onViewLog() {
-        Logger.viewLimboLog(this);
     }
 
     public void onHideToolbar() {
@@ -501,7 +496,7 @@ public class LimboSDLActivity extends SDLActivity
     private void setupListeners() {
         MachineController.getInstance().addOnStatusChangeListener(this);
         MachineController.getInstance().addOnEventListener(this);
-        setViewListener((ViewListener) MachineViewDispatcher.getInstance());
+        setViewListener(LimboApplication.getViewListener());
     }
 
     public void setViewListener(ViewListener viewListener) {
@@ -686,7 +681,7 @@ public class LimboSDLActivity extends SDLActivity
             @Override
             public void run() {
                 if (MachineController.getInstance().isPaused()) {
-                    MachineViewDispatcher.getInstance().onAction(MachineAction.CONTINUE_VM, null);
+                    notifyAction(MachineAction.CONTINUE_VM, null);
                 }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
             }

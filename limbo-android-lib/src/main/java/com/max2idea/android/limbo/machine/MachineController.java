@@ -50,7 +50,7 @@ public class MachineController {
     private boolean promptedPausedVM;
     private Machine machine;
 
-    protected MachineController() {
+    private MachineController() {
         machineExecutor = MachineExecutorFactory.createMachineExecutor(this, MachineExecutorFactory.MachineExecutorType.QEMU);
         machineDatabase = MachineOpenHelper.getInstance();
         serviceClass = MachineService.class;
@@ -340,7 +340,7 @@ public class MachineController {
         return true;
     }
 
-    public void importMachines(String importFilePath) {
+    protected void importMachines(String importFilePath) {
         setMachine(null);
         ArrayList<Machine> machines = MachineImporter.importMachines(importFilePath);
         for (Machine machine : machines) {
@@ -363,7 +363,7 @@ public class MachineController {
         return machineDatabase.getMachineNames();
     }
 
-    public boolean deleteMachine(Machine machine) {
+    protected boolean deleteMachine(Machine machine) {
         return machineDatabase.deleteMachine(machine);
     }
 
@@ -371,21 +371,17 @@ public class MachineController {
         return serviceClass;
     }
 
-    public void cleanUp() {
-        //XXX flush and close all file descriptors if we haven't already
-        FileUtils.close_fds();
-    }
-
-    public void onServiceStarted() {
+    protected void onServiceStarted() {
         notifyMachineStatusChangeListeners(machine, getCurrStatus(), null);
     }
 
-    public void updateDisplay(int width, int height, int orientation) {
+    protected void updateDisplay(int width, int height, int orientation) {
         machineExecutor.updateDisplay(width, height, orientation);
     }
 
-    public void onVMResolutionChanged(int vm_width, int vm_height) {
-        notifyEventListeners(Event.MachineResolutionChanged, new Object[]{vm_width, vm_height});
+    protected void onVMResolutionChanged(MachineExecutor machineExecutor, int vm_width, int vm_height) {
+        if(machineExecutor == this.machineExecutor)
+            notifyEventListeners(Event.MachineResolutionChanged, new Object[]{vm_width, vm_height});
     }
 
     public enum MachineStatus {

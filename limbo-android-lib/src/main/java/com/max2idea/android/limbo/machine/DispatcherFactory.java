@@ -18,8 +18,22 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.machine;
 
-public enum MachineAction {
-    STOP_VM, IMPORT_VMS, LOAD_VM, CONTINUE_VM, RESET_VM, START_VM, SET_SDL_REFRESH_RATE,
-    SEND_MOUSE_EVENT, PAUSE_VM, DELETE_VM, INSERT_FAV, UPDATE_NOTIFICATION, DISPLAY_CHANGED,
-    CREATE_VM
+import com.max2idea.android.limbo.main.ViewListener;
+
+public class DispatcherFactory {
+    public static void initialize() {
+        Dispatcher.initialize();
+    }
+
+    public static ViewListener create(DispatcherType type) {
+        switch (type) {
+            case QEMU:
+                return Dispatcher.getInstance();
+        }
+        return null;
+    }
+
+    public enum DispatcherType {
+        QEMU
+    }
 }

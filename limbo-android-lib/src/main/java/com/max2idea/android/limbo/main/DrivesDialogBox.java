@@ -39,7 +39,6 @@ import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineFilePaths;
 import com.max2idea.android.limbo.machine.MachineProperty;
-import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 import com.max2idea.android.limbo.ui.SpinnerAdapter;
 
 import java.util.ArrayList;
@@ -87,7 +86,7 @@ public class DrivesDialogBox extends Dialog implements Observer {
     }
 
     private void setupController() {
-        setViewListener((ViewListener) MachineViewDispatcher.getInstance());
+        setViewListener(LimboApplication.getViewListener());
     }
 
     public void setViewListener(ViewListener viewListener) {

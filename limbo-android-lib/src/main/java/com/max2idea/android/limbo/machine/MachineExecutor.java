@@ -34,6 +34,10 @@ public abstract class MachineExecutor {
         return machineController.getMachine();
     }
 
+    protected void onResolutionChanged(int vm_width, int vm_height) {
+        machineController.onVMResolutionChanged(this, vm_width, vm_height);
+    }
+
     abstract public void startService();
 
     // TODO: create int success code instead of string
@@ -58,4 +62,5 @@ public abstract class MachineExecutor {
     public abstract String getDeviceName(MachineProperty driveProperty);
 
     public abstract void updateDisplay(int width, int height, int orientation);
+
 }

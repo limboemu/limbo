@@ -42,7 +42,7 @@ import java.util.Hashtable;
 public class MachineImporter {
     private static final String TAG = "MachineImporter";
 
-    public static ArrayList<Machine> getVMsFromFile(String importFilePath) {
+    private static ArrayList<Machine> getVMsFromFile(String importFilePath) {
         ArrayList<Machine> machines = new ArrayList<>();
         BufferedReader buffreader = null;
         InputStream instream = null;

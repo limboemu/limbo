@@ -153,12 +153,18 @@ public class MachineService extends Service {
             ToastUtils.toastLong(service, res);
         }
 
-        MachineController.getInstance().cleanUp();
+        cleanUp();
         stopService();
 
         Log.v(TAG, "Exit Limbo");
         //XXX: We exit here to force unload the native libs
         System.exit(0);
+    }
+
+
+    public void cleanUp() {
+        //XXX flush and close all file descriptors if we haven't already
+        FileUtils.close_fds();
     }
 
     private void setUpAsForeground(String text) {

@@ -58,9 +58,12 @@ class VMExecutor extends MachineExecutor {
     private static final String sdDeviceName = "sd0";
     private static int vm_width;
     private static int vm_height;
+    //TODO: make this a proper singleton but the views should not be able to access it
+    private static VMExecutor mInstance;
 
     VMExecutor(MachineController machineController) {
         super(machineController);
+        mInstance = this;
     }
 
     /**
@@ -73,7 +76,7 @@ class VMExecutor extends MachineExecutor {
     public static void onVMResolutionChanged(int width, int height) {
         vm_width = width;
         vm_height = height;
-        MachineController.getInstance().onVMResolutionChanged(vm_width, vm_height);
+        mInstance.onResolutionChanged(vm_width, vm_height);
     }
 
     //JNI Methods

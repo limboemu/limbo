@@ -65,20 +65,24 @@ import com.max2idea.android.limbo.files.FileInstaller;
 import com.max2idea.android.limbo.files.FileUtils;
 import com.max2idea.android.limbo.help.Help;
 import com.max2idea.android.limbo.install.Installer;
+import com.max2idea.android.limbo.jni.MachineExecutorFactory;
 import com.max2idea.android.limbo.keyboard.KeyboardUtils;
 import com.max2idea.android.limbo.links.LinksManager;
 import com.max2idea.android.limbo.links.OSDialogBox;
+import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.machine.ArchDefinitions;
+import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.Machine.FileType;
 import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineController.MachineStatus;
+import com.max2idea.android.limbo.machine.MachineExecutor;
 import com.max2idea.android.limbo.machine.MachineExporter;
 import com.max2idea.android.limbo.machine.MachineFilePaths;
 import com.max2idea.android.limbo.machine.MachineImporter;
+import com.max2idea.android.limbo.machine.MachineOpenHelper;
 import com.max2idea.android.limbo.machine.MachineProperty;
-import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 import com.max2idea.android.limbo.network.NetworkUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 import com.max2idea.android.limbo.ui.SpinnerAdapter;
@@ -253,7 +257,6 @@ public class LimboActivity extends AppCompatActivity
     }
 
     public void setUserPressed(boolean pressed) {
-
         if (pressed) {
             setupMiscOptions();
             setupNonRemovableDiskListeners();
@@ -887,7 +890,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupController() {
-        setViewListener((ViewListener) MachineViewDispatcher.getInstance());
+        setViewListener(LimboApplication.getViewListener());
     }
 
     public void setViewListener(ViewListener viewListener) {
@@ -2687,9 +2690,9 @@ public class LimboActivity extends AppCompatActivity
         } else if (item.getItemId() == HELP) {
             Help.onHelp(this);
         } else if (item.getItemId() == VIEWLOG) {
-            onViewLog();
+            Logger.viewLimboLog(LimboActivity.this);
         } else if (item.getItemId() == CHANGELOG) {
-            com.max2idea.android.limbo.log.Logger.onChangeLog(LimboActivity.this);
+            Logger.onChangeLog(LimboActivity.this);
         } else if (item.getItemId() == LICENSE) {
             onLicense();
         } else if (item.getItemId() == QUIT) {
@@ -2701,16 +2704,6 @@ public class LimboActivity extends AppCompatActivity
     private void goToSettings() {
         Intent i = new Intent(this, LimboSettingsManager.class);
         startActivity(i);
-    }
-
-    public void onViewLog() {
-
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                com.max2idea.android.limbo.log.Logger.viewLimboLog(LimboActivity.this);
-            }
-        });
-        t.start();
     }
 
     public void promptDeleteMachine() {
