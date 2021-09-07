@@ -61,7 +61,7 @@ import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineProperty;
-import com.max2idea.android.limbo.machine.Presenter;
+import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 import com.max2idea.android.limbo.screen.ScreenUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 
@@ -501,7 +501,7 @@ public class LimboSDLActivity extends SDLActivity
     private void setupListeners() {
         MachineController.getInstance().addOnStatusChangeListener(this);
         MachineController.getInstance().addOnEventListener(this);
-        setViewListener((ViewListener) Presenter.getInstance());
+        setViewListener((ViewListener) MachineViewDispatcher.getInstance());
     }
 
     public void setViewListener(ViewListener viewListener) {
@@ -686,7 +686,7 @@ public class LimboSDLActivity extends SDLActivity
             @Override
             public void run() {
                 if (MachineController.getInstance().isPaused()) {
-                    Presenter.getInstance().onAction(MachineAction.CONTINUE_VM, null);
+                    MachineViewDispatcher.getInstance().onAction(MachineAction.CONTINUE_VM, null);
                 }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
             }

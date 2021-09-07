@@ -78,7 +78,7 @@ import com.max2idea.android.limbo.machine.MachineExporter;
 import com.max2idea.android.limbo.machine.MachineFilePaths;
 import com.max2idea.android.limbo.machine.MachineImporter;
 import com.max2idea.android.limbo.machine.MachineProperty;
-import com.max2idea.android.limbo.machine.Presenter;
+import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 import com.max2idea.android.limbo.network.NetworkUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 import com.max2idea.android.limbo.ui.SpinnerAdapter;
@@ -887,7 +887,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupController() {
-        setViewListener((ViewListener) Presenter.getInstance());
+        setViewListener((ViewListener) MachineViewDispatcher.getInstance());
     }
 
     public void setViewListener(ViewListener viewListener) {

@@ -29,7 +29,7 @@ import android.util.Log;
 
 import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.MachineOpenHelper;
-import com.max2idea.android.limbo.machine.Presenter;
+import com.max2idea.android.limbo.machine.MachineViewDispatcher;
 
 import java.io.File;
 
@@ -124,7 +124,7 @@ public class LimboApplication extends Application {
         }
         MachineOpenHelper.initialize(this);
         FavOpenHelper.initialize(this);
-        Presenter.initialize();
+        MachineViewDispatcher.initialize();
         setupFolders();
     }
 
