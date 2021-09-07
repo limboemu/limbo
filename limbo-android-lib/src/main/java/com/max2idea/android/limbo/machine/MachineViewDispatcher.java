@@ -24,7 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Presenter is responsible for routing the user actions to the backend machine controller separating the
+ * Class is responsible for routing the user actions to the backend machine controller separating the
  * UI from the Machine Model. This presenter borrows concepts from partially MVP and MVC with the
  * exceptions: the UI has read access to the Machine Model and the Machine can notify the UI.
  */
