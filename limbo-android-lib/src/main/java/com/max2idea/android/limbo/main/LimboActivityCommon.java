@@ -31,6 +31,7 @@ import android.widget.TextView;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.dialog.DialogUtils;
+import com.max2idea.android.limbo.files.FileUtils;
 import com.max2idea.android.limbo.help.Help;
 import com.max2idea.android.limbo.install.Installer;
 import com.max2idea.android.limbo.machine.Machine;
@@ -38,6 +39,7 @@ import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.network.NetworkUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class LimboActivityCommon {
@@ -221,8 +223,8 @@ public class LimboActivityCommon {
                             public void onClick(DialogInterface dialog, int which) {
                                 if (LimboSettingsManager.isFirstLaunch(activity)) {
                                     Installer.installFiles(activity, true);
-                                    Help.onHelp(activity);
-                                    com.max2idea.android.limbo.log.Logger.onChangeLog(activity);
+                                    Help.showHelp(activity);
+                                    showChangelog(activity);
                                 }
                                 LimboSettingsManager.setFirstLaunch(activity);
                             }
@@ -313,5 +315,16 @@ public class LimboActivityCommon {
                         null, null, activity.getString(R.string.faq), helpListener);
             }
         });
+    }
+
+
+    public static void showChangelog(Activity activity) {
+        try {
+            DialogUtils.UIAlert(activity, activity.getString(R.string.CHANGELOG), FileUtils.LoadFile(activity, "CHANGELOG", false),
+                    0, false, activity.getString(android.R.string.ok), null, null, null, null, null);
+        } catch (IOException e) {
+
+            e.printStackTrace();
+        }
     }
 }

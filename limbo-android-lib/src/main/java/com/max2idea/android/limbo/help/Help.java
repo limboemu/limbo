@@ -39,7 +39,7 @@ import com.max2idea.android.limbo.network.NetworkUtils;
 public class Help {
     private static final String TAG = "Help";
 
-    public static void onHelp(final Activity activity) {
+    public static void showHelp(final Activity activity) {
         PackageInfo pInfo = LimboApplication.getPackageInfo(activity);
 
         final AlertDialog alertDialog;

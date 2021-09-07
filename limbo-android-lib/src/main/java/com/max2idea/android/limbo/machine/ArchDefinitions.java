@@ -28,8 +28,8 @@ import com.max2idea.android.limbo.main.LimboApplication;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-/** A simple utility class to retrieved often long architecture attribute lists
- *
+/**
+ * A simple utility class to retrieved often long architecture attribute lists
  */
 public class ArchDefinitions {
     private static String TAG = "ArchDefinitions";
@@ -128,5 +128,62 @@ public class ArchDefinitions {
         machinesList.add("None");
         machinesList.add("New");
         return machinesList;
+    }
+
+    public static ArrayList<String> getCpuValues(Context context) {
+        ArrayList<String> arrList = new ArrayList<>();
+        switch (LimboApplication.arch) {
+            case x86:
+            case x86_64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.x86_cpu)));
+                break;
+            case arm:
+            case arm64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.arm_cpu)));
+                break;
+            case ppc:
+            case ppc64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.ppc_cpu)));
+                break;
+            case sparc:
+            case sparc64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.arm_cpu)));
+                break;
+        }
+
+        if (LimboApplication.arch == Config.Arch.x86 || LimboApplication.arch == Config.Arch.x86_64
+                || LimboApplication.arch == Config.Arch.arm || LimboApplication.arch == Config.Arch.arm64)
+            arrList.add("host");
+        return arrList;
+    }
+
+    public static ArrayList<String> getMachineTypeValues(Context context) {
+        ArrayList<String> arrList = new ArrayList<>();
+        switch (LimboApplication.arch) {
+            case x86:
+            case x86_64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.x86_machine_types)));
+                break;
+            case arm:
+            case arm64:
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.arm_machine_types)));
+                break;
+            case ppc:
+            case ppc64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.ppc_machine_types)));
+                break;
+            case sparc:
+            case sparc64:
+                arrList.add("Default");
+                arrList.addAll(Arrays.asList(Installer.getAttrs(context, R.raw.sparc_machine_types)));
+                break;
+        }
+        return arrList;
     }
 }

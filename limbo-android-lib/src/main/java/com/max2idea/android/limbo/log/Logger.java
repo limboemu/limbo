@@ -97,16 +97,6 @@ public class Logger {
         return formattedString;
     }
 
-    public static void onChangeLog(Activity activity) {
-        try {
-            DialogUtils.UIAlert(activity, activity.getString(R.string.CHANGELOG), FileUtils.LoadFile(activity, "CHANGELOG", false),
-                    0, false, activity.getString(android.R.string.ok), null, null, null, null, null);
-        } catch (IOException e) {
-
-            e.printStackTrace();
-        }
-    }
-
     public static void promptShowLog(final Activity activity) {
 
         final AlertDialog alertDialog;

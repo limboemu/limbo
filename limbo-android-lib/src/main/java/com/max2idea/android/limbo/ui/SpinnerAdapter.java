@@ -52,8 +52,8 @@ public class SpinnerAdapter extends ArrayAdapter<String> {
         return -1;
     }
 
-    public static void addItem(Spinner spinner, String file) {
-        ((ArrayAdapter<String>) spinner.getAdapter()).add(file);
+    public static void addItem(Spinner spinner, String value) {
+        ((ArrayAdapter<String>) spinner.getAdapter()).add(value);
     }
 
     @Override
@@ -77,4 +77,26 @@ public class SpinnerAdapter extends ArrayAdapter<String> {
         }
         return view;
     }
+
+    public static int getPositionFromSpinner(Spinner spinner, String value) {
+        for (int i = 0; i < spinner.getCount(); i++) {
+            if (spinner.getItemAtPosition(i).equals(value))
+                return i;
+        }
+        return -1;
+    }
+
+    public static void setDiskAdapterValue(final Spinner spinner, final String value) {
+        spinner.post(new Runnable() {
+            public void run() {
+                if (value != null) {
+                    int pos = SpinnerAdapter.getPositionFromSpinner(spinner, value);
+                    spinner.setSelection(Math.max(pos, 0));
+                } else {
+                    spinner.setSelection(0);
+                }
+            }
+        });
+    }
+
 }

@@ -204,33 +204,33 @@ public class LimboSDLActivity extends SDLActivity
         } else if (item.getItemId() == R.id.itemDisconnet) {
             finish();
         } else if (item.getItemId() == R.id.itemMouse) {
-            onMouseMode();
+            promptMouseMode();
         } else if (item.getItemId() == KEYBOARD || item.getItemId() == R.id.itemKeyboard) {
             //XXX: need to delay to work properly
             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    toggleKeyboardFlag = KeyboardUtils.onKeyboard(LimboSDLActivity.this, toggleKeyboardFlag, mSurface);
+                    toggleKeyboardFlag = KeyboardUtils.showKeyboard(LimboSDLActivity.this, toggleKeyboardFlag, mSurface);
                 }
-            }, 200);
+            }, 500);
         } else if (item.getItemId() == R.id.itemMonitor) {
             if (monitorMode) {
-                onVMConsole();
+                showVMDisplay();
             } else {
-                onMonitor();
+                showMonitor();
             }
         } else if (item.getItemId() == R.id.itemVolume) {
-            onSelectMenuVol();
+            promptVolume();
         } else if (item.getItemId() == R.id.itemSaveState) {
             LimboActivityCommon.promptPause(this, viewListener);
         } else if (item.getItemId() == R.id.itemCtrlAltDel) {
-            onCtrlAltDel();
+            sendCtrlAltDel();
         } else if (item.getItemId() == R.id.itemHelp) {
-            Help.onHelp(this);
+            Help.showHelp(this);
         } else if (item.getItemId() == R.id.itemHideToolbar) {
-            onHideToolbar();
+            hideToolbar();
         } else if (item.getItemId() == R.id.itemDisplay) {
-            onSelectMenuSDLDisplay();
+            promptSDLDisplay();
         } else if (item.getItemId() == R.id.itemViewLog) {
             Logger.viewLimboLog(this);
         } else if (item.getItemId() == R.id.itemKeyboardMapper) {
@@ -270,14 +270,14 @@ public class LimboSDLActivity extends SDLActivity
         alertDialog.show();
     }
 
-    public void onHideToolbar() {
+    public void hideToolbar() {
         ActionBar bar = getSupportActionBar();
         if (bar != null) {
             bar.hide();
         }
     }
 
-    private void onMouseMode() {
+    private void promptMouseMode() {
 
         String[] items = {
                 getString(R.string.TrackpadDescr),
@@ -305,7 +305,6 @@ public class LimboSDLActivity extends SDLActivity
         });
         final AlertDialog alertDialog = mBuilder.create();
         alertDialog.show();
-
     }
 
     protected void setTrackpadMode() {
@@ -366,7 +365,7 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    private void onCtrlAltDel() {
+    private void sendCtrlAltDel() {
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_ALT_RIGHT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, true);
@@ -411,7 +410,7 @@ public class LimboSDLActivity extends SDLActivity
         return true;
     }
 
-    private void onMonitor() {
+    private void showMonitor() {
         new Thread(new Runnable() {
             public void run() {
                 monitorMode = true;
@@ -423,7 +422,7 @@ public class LimboSDLActivity extends SDLActivity
 
     }
 
-    private void onVMConsole() {
+    private void showVMDisplay() {
         monitorMode = false;
         sendCtrlAltKey(KeyEvent.KEYCODE_1);
     }
@@ -548,7 +547,7 @@ public class LimboSDLActivity extends SDLActivity
         if (shown) {
             //XXX: force portrait when key mapper is on edit mode
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-            toggleKeyboardFlag = KeyboardUtils.onKeyboard(LimboSDLActivity.this, false, mSurface);
+            toggleKeyboardFlag = KeyboardUtils.showKeyboard(LimboSDLActivity.this, false, mSurface);
         } else {
             // restore
             ScreenUtils.updateOrientation(this);
@@ -562,7 +561,7 @@ public class LimboSDLActivity extends SDLActivity
         super.onPause();
     }
 
-    public void onSelectMenuVol() {
+    public void promptVolume() {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(this).create();
@@ -720,7 +719,7 @@ public class LimboSDLActivity extends SDLActivity
             mGap.setVisibility(View.GONE);
     }
 
-    public void onSelectMenuSDLDisplay() {
+    public void promptSDLDisplay() {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(this).create();
@@ -810,7 +809,7 @@ public class LimboSDLActivity extends SDLActivity
      * @param width Width
      * @param height Height
      */
-    public void onVMResolutionChanged(int width, int height) {
+    public void resolutionChanged(int width, int height) {
         if (mSurface == null || LimboSDLActivity.isResizing) {
             return;
         }
@@ -1047,7 +1046,7 @@ public class LimboSDLActivity extends SDLActivity
         switch (event) {
             case MachineResolutionChanged:
                 Object[] params = (Object[]) o;
-                onVMResolutionChanged((int) params[0], (int) params[1]);
+                resolutionChanged((int) params[0], (int) params[1]);
         }
     }
 

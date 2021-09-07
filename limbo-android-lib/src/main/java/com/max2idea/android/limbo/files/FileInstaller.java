@@ -19,6 +19,7 @@ Copyright (C) Max Kastanas 2012
 package com.max2idea.android.limbo.files;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import androidx.documentfile.provider.DocumentFile;
@@ -155,7 +156,7 @@ public class FileInstaller {
         }
     }
 
-    public static Uri installImageTemplateToSDCard(Activity activity, String srcFile,
+    public static Uri installImageTemplateToSDCard(Context context, String srcFile,
                                                    Uri destDir, String assetsDir, String destFile) {
 
         DocumentFile destFileF = null;
@@ -165,8 +166,8 @@ public class FileInstaller {
 
         try {
 
-            DocumentFile dir = DocumentFile.fromTreeUri(activity, destDir);
-            AssetManager am = activity.getResources().getAssets(); // get the local asset manager
+            DocumentFile dir = DocumentFile.fromTreeUri(context, destDir);
+            AssetManager am = context.getResources().getAssets(); // get the local asset manager
             is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
 
             if(destFile==null)
@@ -178,12 +179,12 @@ public class FileInstaller {
                 destFileF = dir.createFile("application/octet-stream", destFile);
             }
             else {
-                    ToastUtils.toastShort(activity, activity.getString(R.string.FileExistsChooseAnotherFilename));
+                    ToastUtils.toastShort(context, context.getString(R.string.FileExistsChooseAnotherFilename));
                     return null;
             }
 
             //Write to the dest
-            os = activity.getContentResolver().openOutputStream(destFileF.getUri());
+            os = context.getContentResolver().openOutputStream(destFileF.getUri());
             //OutputStream os = new FileOutputStream(destDir + "/" + destFile);
             byte[] buf = new byte[8092];
             int n;
@@ -217,8 +218,8 @@ public class FileInstaller {
     }
 
 
-    public static String installImageTemplateToExternalStorage(Activity activity, String srcFile,
-                                                   String destDir, String assetsDir, String destFile) {
+    public static String installImageTemplateToExternalStorage(Context context, String srcFile,
+                                                               String destDir, String assetsDir, String destFile) {
 
         File file = new File(destDir, destFile);
         String filePath = null;
@@ -226,7 +227,7 @@ public class FileInstaller {
         InputStream is = null;
         try {
 
-            AssetManager am = activity.getResources().getAssets(); // get the local asset manager
+            AssetManager am = context.getResources().getAssets(); // get the local asset manager
             is = am.open(assetsDir + "/" + srcFile); // open the input stream for reading
 
             if(destFile==null)
@@ -237,7 +238,7 @@ public class FileInstaller {
                 file.createNewFile();
             }
             else {
-                ToastUtils.toastShort(activity, activity.getString(R.string.FileExistsChooseAnotherFilename));
+                ToastUtils.toastShort(context, context.getString(R.string.FileExistsChooseAnotherFilename));
                 return null;
             }
 

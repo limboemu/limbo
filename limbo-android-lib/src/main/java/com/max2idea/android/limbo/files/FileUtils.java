@@ -33,7 +33,9 @@ import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.dialog.DialogUtils;
 import com.max2idea.android.limbo.machine.Machine.FileType;
 import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboActivity;
 import com.max2idea.android.limbo.main.LimboApplication;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
 import com.max2idea.android.limbo.toast.ToastUtils;
 
 import java.io.BufferedReader;
@@ -622,5 +624,29 @@ public class FileUtils {
             this.path = path;
             this.pfd = pfd;
         }
+    }
+
+    public static String createImgFromTemplate(Context context, String templateImage, String destImage, FileType imgType) {
+
+        String imagesDir = LimboSettingsManager.getImagesDir(context);
+        String displayName = null;
+        String filePath = null;
+        if (imagesDir.startsWith("content://")) {
+            Uri imagesDirUri = Uri.parse(imagesDir);
+            Uri fileCreatedUri = FileInstaller.installImageTemplateToSDCard(context, templateImage,
+                    imagesDirUri, "hdtemplates", destImage);
+            if (fileCreatedUri != null) {
+                displayName = FileUtils.getFullPathFromDocumentFilePath(fileCreatedUri.toString());
+                filePath = fileCreatedUri.toString();
+            }
+        } else {
+            filePath = FileInstaller.installImageTemplateToExternalStorage(context, templateImage, imagesDir, "hdtemplates", destImage);
+            displayName = filePath;
+        }
+        if (displayName != null) {
+            ToastUtils.toastShort(context, context.getString(R.string.ImageCreated) + ": " + displayName);
+            return filePath;
+        }
+        return null;
     }
 }

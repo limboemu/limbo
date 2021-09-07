@@ -30,7 +30,7 @@ import com.max2idea.android.limbo.main.LimboActivity;
 public class KeyboardUtils {
     private static final String TAG = "KeyboardUtils";
 
-    public static boolean onKeyboard(Activity activity, boolean toggle, View view) {
+    public static boolean showKeyboard(Activity activity, boolean toggle, View view) {
         // Prevent crashes from activating mouse when machine is paused
         if ( MachineController.getInstance().isPaused())
             return !toggle;

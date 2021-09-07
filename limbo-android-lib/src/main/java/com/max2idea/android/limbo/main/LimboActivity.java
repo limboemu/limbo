@@ -27,7 +27,6 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -65,23 +64,19 @@ import com.max2idea.android.limbo.files.FileInstaller;
 import com.max2idea.android.limbo.files.FileUtils;
 import com.max2idea.android.limbo.help.Help;
 import com.max2idea.android.limbo.install.Installer;
-import com.max2idea.android.limbo.jni.MachineExecutorFactory;
 import com.max2idea.android.limbo.keyboard.KeyboardUtils;
 import com.max2idea.android.limbo.links.LinksManager;
 import com.max2idea.android.limbo.links.OSDialogBox;
 import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.machine.ArchDefinitions;
-import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.Machine.FileType;
 import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineController.MachineStatus;
-import com.max2idea.android.limbo.machine.MachineExecutor;
 import com.max2idea.android.limbo.machine.MachineExporter;
 import com.max2idea.android.limbo.machine.MachineFilePaths;
 import com.max2idea.android.limbo.machine.MachineImporter;
-import com.max2idea.android.limbo.machine.MachineOpenHelper;
 import com.max2idea.android.limbo.machine.MachineProperty;
 import com.max2idea.android.limbo.network.NetworkUtils;
 import com.max2idea.android.limbo.toast.ToastUtils;
@@ -92,7 +87,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Observable;
 import java.util.Observer;
@@ -1201,7 +1195,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     public void onFirstLaunch() {
-        onLicense();
+        promptLicense();
     }
 
     private void createMachine(String machineName) {
@@ -1266,7 +1260,7 @@ public class LimboActivity extends AppCompatActivity
         notifyAction(MachineAction.IMPORT_VMS, importFilePath);
     }
 
-    private void onLicense() {
+    private void promptLicense() {
         final PackageInfo finalPInfo = LimboApplication.getPackageInfo(this);
         runOnUiThread(new Runnable() {
             @Override
@@ -1986,8 +1980,8 @@ public class LimboActivity extends AppCompatActivity
         populateMachineType(getMachine().getMachineType());
         populateCPUs(getMachine().getCpu());
         populateNetDevices(getMachine().getNetworkCard());
-        setDiskAdapterValue(mCPUNum, getMachine().getCpuNum() + "");
-        setDiskAdapterValue(mRamSize, getMachine().getMemory() + "");
+        SpinnerAdapter.setDiskAdapterValue(mCPUNum, getMachine().getCpuNum() + "");
+        SpinnerAdapter.setDiskAdapterValue(mRamSize, getMachine().getMemory() + "");
         seMachineDriveValue(FileType.KERNEL, getMachine().getKernel());
         seMachineDriveValue(FileType.INITRD, getMachine().getInitRd());
         if (getMachine().getAppend() != null)
@@ -2025,13 +2019,13 @@ public class LimboActivity extends AppCompatActivity
         seMachineDriveValue(FileType.SHARED_DIR, getMachine().getSharedFolderPath());
 
         // Advance
-        setDiskAdapterValue(mBootDevices, getMachine().getBootDevice());
-        setDiskAdapterValue(mNetConfig, getMachine().getNetwork());
-        setDiskAdapterValue(mVGAConfig, getMachine().getVga());
-        setDiskAdapterValue(mSoundCard, getMachine().getSoundCard());
-        setDiskAdapterValue(mUI, getMachine().getEnableVNC() == 1 ? "VNC" : "SDL");
-        setDiskAdapterValue(mMouse, fixMouseValue(getMachine().getMouse()));
-        setDiskAdapterValue(mKeyboard, getMachine().getKeyboard());
+        SpinnerAdapter.setDiskAdapterValue(mBootDevices, getMachine().getBootDevice());
+        SpinnerAdapter.setDiskAdapterValue(mNetConfig, getMachine().getNetwork());
+        SpinnerAdapter.setDiskAdapterValue(mVGAConfig, getMachine().getVga());
+        SpinnerAdapter.setDiskAdapterValue(mSoundCard, getMachine().getSoundCard());
+        SpinnerAdapter.setDiskAdapterValue(mUI, getMachine().getEnableVNC() == 1 ? "VNC" : "SDL");
+        SpinnerAdapter.setDiskAdapterValue(mMouse, fixMouseValue(getMachine().getMouse()));
+        SpinnerAdapter.setDiskAdapterValue(mKeyboard, getMachine().getKeyboard());
 
         // motherboard settings
         mDisableACPI.setChecked(getMachine().getDisableAcpi() == 1);
@@ -2179,8 +2173,9 @@ public class LimboActivity extends AppCompatActivity
                     if (!image.endsWith(".qcow2")) {
                         image += ".qcow2";
                     }
-                    boolean res = createImgFromTemplate(templateImage, image, fileType);
-                    if (res) {
+                    String filePath = FileUtils.createImgFromTemplate(LimboActivity.this, templateImage, image, fileType);
+                    if (filePath!=null) {
+                        updateDrive(fileType, filePath);
                         alertDialog.dismiss();
                     }
 
@@ -2202,31 +2197,6 @@ public class LimboActivity extends AppCompatActivity
     public void changeImagesDir() {
         ToastUtils.toastLong(LimboActivity.this, getString(R.string.chooseDirToCreateImage));
         LimboFileManager.browse(LimboActivity.this, FileType.IMAGE_DIR, Config.OPEN_IMAGE_DIR_REQUEST_CODE);
-    }
-
-    protected boolean createImgFromTemplate(String templateImage, String destImage, FileType imgType) {
-
-        String imagesDir = LimboSettingsManager.getImagesDir(this);
-        String displayName = null;
-        String filePath = null;
-        if (imagesDir.startsWith("content://")) {
-            Uri imagesDirUri = Uri.parse(imagesDir);
-            Uri fileCreatedUri = FileInstaller.installImageTemplateToSDCard(LimboActivity.this, templateImage,
-                    imagesDirUri, "hdtemplates", destImage);
-            if (fileCreatedUri != null) {
-                displayName = FileUtils.getFullPathFromDocumentFilePath(fileCreatedUri.toString());
-                filePath = fileCreatedUri.toString();
-            }
-        } else {
-            filePath = FileInstaller.installImageTemplateToExternalStorage(LimboActivity.this, templateImage, imagesDir, "hdtemplates", destImage);
-            displayName = filePath;
-        }
-        if (displayName != null) {
-            ToastUtils.toastShort(LimboActivity.this, getString(R.string.ImageCreated) + ": " + displayName);
-            updateDrive(imgType, filePath);
-            return true;
-        }
-        return false;
     }
 
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -2322,10 +2292,10 @@ public class LimboActivity extends AppCompatActivity
         }
         Spinner spinner = getSpinner(fileType);
         if (!diskValue.trim().isEmpty()) {
-            if (getPositionFromSpinner(spinner, diskValue) < 0) {
+            if (SpinnerAdapter.getPositionFromSpinner(spinner, diskValue) < 0) {
                 android.widget.SpinnerAdapter adapter = spinner.getAdapter();
                 if (adapter instanceof ArrayAdapter) {
-                    ((ArrayAdapter) spinner.getAdapter()).add(diskValue);
+                    SpinnerAdapter.addItem(spinner, diskValue);
                 }
             }
             notifyAction(MachineAction.INSERT_FAV, new Object[]{diskValue, fileType});
@@ -2477,7 +2447,7 @@ public class LimboActivity extends AppCompatActivity
                         mMachine.setAdapter(machineAdapter);
                         mMachine.invalidate();
                         if (machineValue != null)
-                            setDiskAdapterValue(mMachine, machineValue);
+                            SpinnerAdapter.setDiskAdapterValue(mMachine, machineValue);
                     }
                 });
             }
@@ -2489,99 +2459,23 @@ public class LimboActivity extends AppCompatActivity
     private void seMachineDriveValue(FileType fileType, final String diskValue) {
         Spinner spinner = getSpinner(fileType);
         if (spinner != null)
-            setDiskAdapterValue(spinner, diskValue);
-    }
-
-    private void setDiskAdapterValue(final Spinner spinner, final String value) {
-        spinner.post(new Runnable() {
-            public void run() {
-                if (value != null) {
-                    int pos = getPositionFromSpinner(spinner, value);
-                    spinner.setSelection(Math.max(pos, 0));
-                } else {
-                    spinner.setSelection(0);
-                }
-            }
-        });
-    }
-
-    private int getPositionFromSpinner(Spinner spinner, String value) {
-        for (int i = 0; i < spinner.getCount(); i++) {
-            if (spinner.getItemAtPosition(i).equals(value))
-                return i;
-        }
-        return -1;
+            SpinnerAdapter.setDiskAdapterValue(spinner, diskValue);
     }
 
     private void populateCPUs(String cpu) {
-        ArrayList<String> arrList = new ArrayList<>();
-        if (getMachine() != null) {
-            switch (LimboApplication.arch) {
-                case x86:
-                case x86_64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.x86_cpu)));
-                    break;
-                case arm:
-                case arm64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.arm_cpu)));
-                    break;
-                case ppc:
-                case ppc64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.ppc_cpu)));
-                    break;
-                case sparc:
-                case sparc64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.arm_cpu)));
-                    break;
-            }
-        }
-
-        if (LimboApplication.arch == Config.Arch.x86 || LimboApplication.arch == Config.Arch.x86_64
-                || LimboApplication.arch == Config.Arch.arm || LimboApplication.arch == Config.Arch.arm64)
-            arrList.add("host");
-
+        ArrayList<String> arrList = ArchDefinitions.getCpuValues(this);
         ArrayAdapter<String> cpuAdapter = new ArrayAdapter<>(this, R.layout.custom_spinner_item, arrList);
         cpuAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
         mCPU.setAdapter(cpuAdapter);
-
         mCPU.invalidate();
-
         int pos = cpuAdapter.getPosition(cpu);
         if (pos >= 0) {
             mCPU.setSelection(pos);
         }
-
     }
 
     private void populateMachineType(String machineType) {
-        ArrayList<String> arrList = new ArrayList<>();
-        if (getMachine() != null) {
-            switch (LimboApplication.arch) {
-                case x86:
-                case x86_64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.x86_machine_types)));
-                    break;
-                case arm:
-                case arm64:
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.arm_machine_types)));
-                    break;
-                case ppc:
-                case ppc64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.ppc_machine_types)));
-                    break;
-                case sparc:
-                case sparc64:
-                    arrList.add("Default");
-                    arrList.addAll(Arrays.asList(Installer.getAttrs(this, R.raw.sparc_machine_types)));
-                    break;
-            }
-        }
+        ArrayList<String> arrList = ArchDefinitions.getMachineTypeValues(this);
 
         ArrayAdapter<String> machineTypeAdapter = new ArrayAdapter<>(this, R.layout.custom_spinner_item, arrList);
         machineTypeAdapter.setDropDownViewResource(R.layout.custom_spinner_dropdown_item);
@@ -2682,26 +2576,26 @@ public class LimboActivity extends AppCompatActivity
         } else if (item.getItemId() == CREATE) {
             promptMachineName(this);
         } else if (item.getItemId() == SETTINGS) {
-            goToSettings();
+            showSettings();
         } else if (item.getItemId() == EXPORT) {
             MachineExporter.promptExport(this);
         } else if (item.getItemId() == IMPORT) {
             MachineImporter.promptImportMachines(this);
         } else if (item.getItemId() == HELP) {
-            Help.onHelp(this);
+            Help.showHelp(this);
         } else if (item.getItemId() == VIEWLOG) {
             Logger.viewLimboLog(LimboActivity.this);
         } else if (item.getItemId() == CHANGELOG) {
-            Logger.onChangeLog(LimboActivity.this);
+            LimboActivityCommon.showChangelog(LimboActivity.this);
         } else if (item.getItemId() == LICENSE) {
-            onLicense();
+            promptLicense();
         } else if (item.getItemId() == QUIT) {
             exit();
         }
         return true;
     }
 
-    private void goToSettings() {
+    private void showSettings() {
         Intent i = new Intent(this, LimboSettingsManager.class);
         startActivity(i);
     }
