@@ -95,7 +95,7 @@ public class QmpClient {
 	private static String tryGetResponse(BufferedReader in) throws Exception {
 		String response = null;
 		int trial = 0;
-		while((response = getResponse(in)).equals("") && trial < 10){
+		while((response = getResponse(in)).equals("") && trial < 3){
 			Thread.sleep(1000);
 			trial++;
 		}
