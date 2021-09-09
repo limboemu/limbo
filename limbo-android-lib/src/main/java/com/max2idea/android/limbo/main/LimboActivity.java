@@ -2535,14 +2535,16 @@ public class LimboActivity extends AppCompatActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         menu.clear();
         menu.add(0, HELP, 0, R.string.help).setIcon(R.drawable.help);
-        menu.add(0, INSTALL, 0, R.string.InstallRoms).setIcon(R.drawable.install);
-        menu.add(0, CREATE, 0, R.string.CreateMachine).setIcon(R.drawable.machinetype);
-        menu.add(0, DELETE, 0, R.string.DeleteMachine).setIcon(R.drawable.delete);
+        if(!MachineController.getInstance().isRunning()) {
+            menu.add(0, INSTALL, 0, R.string.InstallRoms).setIcon(R.drawable.install);
+            if (getMachine() != null && getMachine().getPaused() == 1)
+                menu.add(0, DISCARD_VM_STATE, 0, R.string.DiscardSavedState).setIcon(R.drawable.close);
+            menu.add(0, CREATE, 0, R.string.CreateMachine).setIcon(R.drawable.machinetype);
+            menu.add(0, DELETE, 0, R.string.DeleteMachine).setIcon(R.drawable.delete);
+            menu.add(0, EXPORT, 0, R.string.ExportMachines).setIcon(R.drawable.exportvms);
+            menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
+        }
         menu.add(0, SETTINGS, 0, R.string.Settings).setIcon(R.drawable.settings);
-        if (getMachine() != null && getMachine().getPaused() == 1)
-            menu.add(0, DISCARD_VM_STATE, 0, R.string.DiscardSavedState).setIcon(R.drawable.close);
-        menu.add(0, EXPORT, 0, R.string.ExportMachines).setIcon(R.drawable.exportvms);
-        menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
         menu.add(0, VIEWLOG, 0, R.string.ViewLog).setIcon(android.R.drawable.ic_menu_view);
         menu.add(0, HELP, 0, R.string.help).setIcon(R.drawable.help);
         menu.add(0, CHANGELOG, 0, R.string.Changelog).setIcon(android.R.drawable.ic_menu_help);
