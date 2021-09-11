@@ -518,20 +518,40 @@ class VMExecutor extends MachineExecutor {
 
     public void addHardDisk(ArrayList<String> paramsList, String imagePath, int index) {
         if (imagePath != null && !imagePath.trim().equals("")) {
-            paramsList.add("-drive"); //empty
-            String param = "index=" + index;
-            if (Config.enableIDEInterface) {
-                param += ",if=";
-                param += Config.ideInterfaceType;
-            } else if (Config.enableVirtioInterface && index > 0) {
-                param += ",if=";
-                param += Config.virtioInterfaceType;
+            if(Config.legacyDrives) {
+                switch(index) {
+                    case 0:
+                        paramsList.add("-hda");
+                        break;
+                    case 1:
+                        paramsList.add("-hdb");
+                        break;
+                    case 2:
+                        paramsList.add("-hdc");
+                        break;
+                    case 3:
+                        paramsList.add("-hdd");
+                        break;
+                }
+                paramsList.add(imagePath);
+            } else {
+                paramsList.add("-drive");
+                String param = "index=" + index;
+                if (Config.enableIDEInterface) {
+                    param += ",if=";
+                    param += Config.ideInterfaceType;
+                } else if (Config.enableVirtioInterface && index > 0) {
+                    param += ",if=";
+                    param += Config.virtioInterfaceType;
+                }
+                param += ",media=disk";
+                if (!imagePath.equals("")) {
+                    param += ",file=" + imagePath;
+                }
+                paramsList.add(param);
             }
-            param += ",media=disk";
-            if (!imagePath.equals("")) {
-                param += ",file=" + imagePath;
-            }
-            paramsList.add(param);
+
+
         }
     }
 
