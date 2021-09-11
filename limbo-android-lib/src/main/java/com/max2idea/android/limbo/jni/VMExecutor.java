@@ -274,8 +274,8 @@ class VMExecutor extends MachineExecutor {
             paramsList.add(Config.tbSize); //Don't increase it crashes
         }
 
-        paramsList.add("-realtime");
-        paramsList.add("mlock=off");
+        paramsList.add("-overcommit");
+        paramsList.add("mem-lock=off");
 
         paramsList.add("-rtc");
         paramsList.add("base=localtime");
@@ -289,12 +289,10 @@ class VMExecutor extends MachineExecutor {
         //so we enable multi core only under KVM
         // anyway regular emulation is not gaining any benefit unless mttcg is enabled but that
         // doesn't work for x86 guests yet
-        if (getMachine().getCpuNum() > 1 &&
-                (getMachine().getEnableKVM() == 1 || getMachine().getEnableMTTCG() == 1 || !Config.enableSMPOnlyOnKVM)) {
+        if (getMachine().getCpuNum() > 1) {
             paramsList.add("-smp");
             paramsList.add(getMachine().getCpuNum() + "");
         }
-
         if (getMachineType() != null && !getMachineType().equals("Default")) {
             paramsList.add("-M");
             paramsList.add(getMachineType());
@@ -335,15 +333,16 @@ class VMExecutor extends MachineExecutor {
 
         if (getMachine().getEnableKVM() != 0) {
             paramsList.add("-enable-kvm");
-        } else if (getMachine().getEnableMTTCG() != 0 && LimboApplication.isHost64Bit()) {
-            //FIXME: should we do this only do for 64bit hosts?
+        } else {
             paramsList.add("-accel");
             String tcgParams = "tcg";
-            if (getMachine().getCpuNum() > 1)
+            if (getMachine().getEnableMTTCG() != 0) {
                 tcgParams += ",thread=multi";
+            } else {
+                tcgParams += ",thread=single";
+            }
             paramsList.add(tcgParams);
         }
-
     }
 
     private String getMachineType() {
