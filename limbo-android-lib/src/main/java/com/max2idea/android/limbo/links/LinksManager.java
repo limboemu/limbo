@@ -32,7 +32,9 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
@@ -44,35 +46,49 @@ import java.util.Set;
 /**
  * Links for usefull applications and OS images
  */
-public class LinksManager extends AppCompatActivity {
+public class LinksManager extends AlertDialog {
     private final static String TAG = "LinksManager";
     private ListView listIsoView;
 
     private ArrayList<LinkInfo> itemsISOs = null;
 
+    public LinksManager(@NonNull Context context) {
+        super(context);
+    }
+
+    protected LinksManager(@NonNull Context context, int themeResId) {
+        super(context, themeResId);
+    }
+
+    protected LinksManager(@NonNull Context context, boolean cancelable, @Nullable OnCancelListener cancelListener) {
+        super(context, cancelable, cancelListener);
+    }
+
     public void goToURL(String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setData(Uri.parse(url));
-        startActivity(intent);
+        getContext().startActivity(intent);
     }
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-        setContentView(R.layout.links_list);
+        setContentView(R.layout.os_links);
         setupListeners();
         fill();
     }
 
     private void setupListeners() {
-        listIsoView = (ListView) findViewById(R.id.listISOs);
+        listIsoView = (ListView) findViewById(R.id.os_list);
         listIsoView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
             @Override
             public void onItemClick(AdapterView parent, View v, int position, long id) {
                 int selectionRowID = (int) id;
                 String path = itemsISOs.get(selectionRowID).url;
-                goToURL(path);
+                if(path!=null)
+                    goToURL(path);
+                dismiss();
             }
         });
     }
@@ -86,13 +102,13 @@ public class LinksManager extends AppCompatActivity {
                 itemsISOs.add(linkInfo);
             }
         }
-        FileAdapter fileList = new FileAdapter(this, R.layout.link_row, itemsISOs);
+        FileAdapter fileList = new FileAdapter(getContext(), R.layout.link_row, itemsISOs);
         listIsoView.setAdapter(fileList);
     }
 
 
     public enum LinkType {
-        ISO, TOOL
+        ISO, TOOL, OTHER
     }
 
     public static class LinkInfo {
@@ -133,7 +149,7 @@ public class LinksManager extends AppCompatActivity {
             textView.setText(linkInfo.title);
             descrView.setText(linkInfo.descr);
 
-            if (linkInfo.type == LinkType.ISO)
+            if (linkInfo.type == LinkType.ISO || linkInfo.type == LinkType.OTHER)
                 imageView.setImageResource(R.drawable.cd);
             else if (linkInfo.type == LinkType.TOOL)
                 imageView.setImageResource(R.drawable.advanced);

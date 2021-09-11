@@ -354,6 +354,9 @@
     <string name="UsingKeyMapper">Using Key Mapper</string>
     <string name="PreventMouseOutOfBounds">Prevent Mouse out of Bounds</string>
     <string name="PreventMouseDescr">Prevents some OSes from crashing when using \"usb-tablet\" mouse and the pointer is outside of screen bounds.\nWarning: This might create an invisible wall if the guest OS does not support \"usb-tablet\".</string>
+    <string name="other">Other</string>
+    <string name="otherOperatingSystem">Other Operating System</string>
+    <string name="DownloadISOAndVirtualHDDImages">Download ISO and Virtual HDD Images</string>
 
 
 </resources>

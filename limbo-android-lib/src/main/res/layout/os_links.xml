@@ -14,11 +14,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#708090"
-            android:text="ISOs and Virtual Images"
+            android:text="@string/DownloadISOAndVirtualHDDImages"
             android:textColor="#FFFFFF" />
 
         <ListView
-            android:id="@+id/listISOs"
+            android:id="@+id/os_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fadeScrollbars="false" />

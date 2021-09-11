@@ -3,15 +3,19 @@
 
     <string name="app_name">Limbo x86 PC Emulator</string>
     <string name="app_short_name">Limbo x86</string>
-    <string name="DSLLinux">DSL Linux</string>
-    <string name="DSLLinuxDescr">A Linux-based light weight OS with Desktop Manager, network, and package manager</string>
     <string name="DebianLinux">Debian Linux</string>
-    <string name="DebianLinuxDescr">Another Linux-based light weight OS with Desktop Manager, network, and package manager</string>
+    <string name="DebianLinuxDescr">An active open source Linux-based OS with desktop gui, audio, network</string>
+    <string name="DSLLinux">DSL Linux</string>
+    <string name="DSLLinuxDescr">An old open source light-weight OS with desktop gui, audio, network</string>
     <string name="Trinux">Trinux</string>
-    <string name="TrinuxDescr">A Linux-based command line only OS, network</string>
+    <string name="TrinuxDescr">An old open source command line OS with command line, audio, network</string>
     <string name="Freedos">FreeDOS</string>
-    <string name="FreedosDescr">A DOS-based command line only OS</string>
+    <string name="FreedosDescr">An active DOS compatible open source OS with command line, audio, network</string>
     <string name="KolibriOS">KolibriOS</string>
-    <string name="KolibriOSDescr">A ultra light weight OS written in assembly with a Desktop Manager</string>
+    <string name="KolibriOSDescr">A ultra light weight open source OS with desktop gui, audio, network</string>
+    <string name="SlaxLinux">Slax Linux</string>
+    <string name="SlaxLinuxDescr">An active open source OS with desktop gui, audio, network</string>
+    <string name="SlitazLinux">Slitaz Linux</string>
+    <string name="SlitazLinuxDescr">An active open source OS with desktop gui, audio, network</string>
 
 </resources>

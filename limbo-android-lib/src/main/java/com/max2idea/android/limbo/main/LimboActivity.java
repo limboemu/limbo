@@ -66,7 +66,6 @@ import com.max2idea.android.limbo.help.Help;
 import com.max2idea.android.limbo.install.Installer;
 import com.max2idea.android.limbo.keyboard.KeyboardUtils;
 import com.max2idea.android.limbo.links.LinksManager;
-import com.max2idea.android.limbo.links.OSDialogBox;
 import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.machine.ArchDefinitions;
 import com.max2idea.android.limbo.machine.Machine;
@@ -109,6 +108,7 @@ public class LimboActivity extends AppCompatActivity
     private static final int CREATE = 9;
     private static final int DISCARD_VM_STATE = 11;
     private static final int SETTINGS = 13;
+    private static final int TOOLS = 14;
 
     // disk mapping
     private static final Hashtable<FileType, DiskInfo> diskMapping = new Hashtable<>();
@@ -878,9 +878,9 @@ public class LimboActivity extends AppCompatActivity
         checkUpdate();
         checkLog();
         checkAndLoadLibs();
-        setupLinks();
         restore();
         setupListeners();
+        addGenericOperatingSystems();
     }
 
     private void setupController() {
@@ -910,13 +910,6 @@ public class LimboActivity extends AppCompatActivity
                 }
             }
         }, 1000);
-    }
-
-    private void setupLinks() {
-        Config.osImages.put(getString(R.string.advancedTools), new LinksManager.LinkInfo("Advanced Tools",
-                getString(R.string.linksInstructions),
-                Config.toolsLink,
-                LinksManager.LinkType.TOOL));
     }
 
     private void checkAndLoadLibs() {
@@ -1206,7 +1199,7 @@ public class LimboActivity extends AppCompatActivity
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                showDownloadLinks();
+                showOperatingSystems();
                 populateMachines(getMachine().getName());
                 enableNonRemovableDeviceOptions(true);
                 enableRemovableDeviceOptions(true);
@@ -1215,12 +1208,10 @@ public class LimboActivity extends AppCompatActivity
         });
     }
 
-    protected void showDownloadLinks() {
+    protected void showOperatingSystems() {
         if (!Config.osImages.isEmpty()) {
-            OSDialogBox oses = new OSDialogBox(LimboActivity.this);
-            oses.setCanceledOnTouchOutside(false);
-            oses.setCancelable(false);
-            oses.show();
+            LinksManager manager = new LinksManager(this);
+            manager.show();
         }
     }
 
@@ -2545,6 +2536,7 @@ public class LimboActivity extends AppCompatActivity
             menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
         }
         menu.add(0, SETTINGS, 0, R.string.Settings).setIcon(R.drawable.settings);
+        menu.add(0, TOOLS, 0, R.string.advancedTools).setIcon(R.drawable.advanced);
         menu.add(0, VIEWLOG, 0, R.string.ViewLog).setIcon(android.R.drawable.ic_menu_view);
         menu.add(0, HELP, 0, R.string.help).setIcon(R.drawable.help);
         menu.add(0, CHANGELOG, 0, R.string.Changelog).setIcon(android.R.drawable.ic_menu_help);
@@ -2579,6 +2571,8 @@ public class LimboActivity extends AppCompatActivity
             promptMachineName(this);
         } else if (item.getItemId() == SETTINGS) {
             showSettings();
+        } else if (item.getItemId() == TOOLS) {
+            LimboActivityCommon.goToURL(this, Config.toolsLink);
         } else if (item.getItemId() == EXPORT) {
             MachineExporter.promptExport(this);
         } else if (item.getItemId() == IMPORT) {
@@ -2752,6 +2746,13 @@ public class LimboActivity extends AppCompatActivity
         mSD.getAdapter().getCount();
         mKernel.getAdapter().getCount();
         mInitrd.getAdapter().getCount();
+    }
+
+    private void addGenericOperatingSystems() {
+        Config.osImages.put(getString(R.string.other), new LinksManager.LinkInfo("Other",
+                getString(R.string.otherOperatingSystem),
+                null,
+                LinksManager.LinkType.OTHER));
     }
 
     @Override
