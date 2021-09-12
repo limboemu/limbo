@@ -27,6 +27,8 @@ import java.util.LinkedHashMap;
  */
 public class Config {
 
+    public static final String EMU_NAME_VERSION = "QEMU 9.2.1";
+
     // Constants
     public static final int SDL_MOUSE_LEFT = 1;
     public static final int SDL_MOUSE_MIDDLE = 2;
@@ -87,23 +89,25 @@ public class Config {
     public static final int EXIT_SUCCESS = 1;
     public static final int EXIT_UNKNOWN = 2;
 
+
     public static boolean enableSDLSound = true;
 
     // stack size to remove an issue with SDL Audio
-    public static long stackSize = 10*1024*1024;
+    public static long stackSize = 10 * 1024 * 1024;
 
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
     public static boolean enableImmersiveMode = true;
 
     //TODO: add in settings
-    public static boolean legacyDrives = true;
-    public static boolean enableDefaultDevices = true;
-    public static boolean syncFilesOnClose;
+    public static boolean legacyDrives = false;
+    public static boolean enableDefaultDevices = false;
+    public static boolean syncFilesOnClose = true;
 
     public enum Arch {
         x86, x86_64, arm, arm64, ppc, ppc64, sparc, sparc64
     }
+
     //Enable if you build with KVM support, needes android-21 platform
     public static boolean enableKVM = false;
     public static String storagedir = null;
