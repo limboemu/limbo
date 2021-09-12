@@ -152,14 +152,14 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     public synchronized void sendCtrlAltKey(int code) {
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true);
+        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true, 10);
+        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true, 10);
         if (code >= 0) {
-            sendKeyEvent(null, code, true);
-            sendKeyEvent(null, code, false);
+            sendKeyEvent(null, code, true, 10);
+            sendKeyEvent(null, code, false, 10);
         }
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, false);
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, false);
+        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, false, 10);
+        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, false, 10);
     }
 
     public void onDestroy() {
@@ -693,7 +693,6 @@ public class LimboSDLActivity extends SDLActivity
             public void run() {
                 if (MachineController.getInstance().isPaused())
                     notifyAction(MachineAction.CONTINUE_VM, null);
-                ((LimboSDLSurface) mSurface).refreshSurfaceView();
             }
         }, 5000);
     }
@@ -1064,7 +1063,8 @@ public class LimboSDLActivity extends SDLActivity
                 new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        resetLayout();
+                        invalidateOptionsMenu();
+                        ((LimboSDLSurface) mSurface).refreshSurfaceView();
                         }
                 }, 1000);
                 break;
@@ -1072,8 +1072,11 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     public void resetLayout() {
-        if(!machineRunning)
+        if(!machineRunning) {
+            Log.d(TAG, "Machine not running not reset layout");
             return;
+        }
+        Log.d(TAG, "reset layout");
         // We use QEMU keyboard shortcut for fullscreen
         // to trigger the redraw
         sendCtrlAltKey(KeyEvent.KEYCODE_F);

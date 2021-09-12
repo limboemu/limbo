@@ -76,17 +76,15 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
     }
 
     public void refreshSurfaceView() {
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+        new Thread(new Runnable() {
             @Override
             public void run() {
-                if(!SDLActivity.mIsSurfaceReady)
-                    return;
                 sdlActivity.resetLayout();
                 // notify the controller that our display has changed
                 sdlActivity.notifyAction(MachineAction.DISPLAY_CHANGED,
                         new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
             }
-        }, 100);
+        }).start();
     }
 
     @Override
