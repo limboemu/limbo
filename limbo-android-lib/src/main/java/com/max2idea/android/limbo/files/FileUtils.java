@@ -293,12 +293,14 @@ public class FileUtils {
                     }
                     if (pfd == null)
                         pfd = ParcelFileDescriptor.fromFd(fd);
-                    try {
-                        pfd.getFileDescriptor().sync();
-                    } catch (IOException e) {
-                        if (Config.debug) {
-                            Log.e(TAG, "Error Syncing File: " + path + ": " + fd + " : " + e);
-                            e.printStackTrace();
+                    if(Config.syncFilesOnClose) {
+                        try {
+                            pfd.getFileDescriptor().sync();
+                        } catch (IOException e) {
+                            if (Config.debug) {
+                                Log.e(TAG, "Error Syncing File: " + path + ": " + fd + " : " + e);
+                                e.printStackTrace();
+                            }
                         }
                     }
                     pfd.close();
