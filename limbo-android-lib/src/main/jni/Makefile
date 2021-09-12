@@ -246,8 +246,8 @@ clean-qemu:
 	-rm -rf ../assets/roms/* 
 	-rm -rf $(LIMBO_APP_X86)/assets/roms/*
 	-rm -rf $(LIMBO_APP_ARM)/assets/roms/*
-        -rm -rf $(LIMBO_APP_PPC)/assets/roms/*
-        -rm -rf $(LIMBO_APP_SPARC)/assets/roms/*
+	-rm -rf $(LIMBO_APP_PPC)/assets/roms/*
+	-rm -rf $(LIMBO_APP_SPARC)/assets/roms/*
 
 config-deps: ndk config-ffi config-glib config-pixman
 
