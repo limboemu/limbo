@@ -26,8 +26,10 @@ import java.util.LinkedHashMap;
  * Configuration
  */
 public class Config {
-
-    public static final String EMU_NAME_VERSION = "QEMU 9.2.1";
+    public enum EMU_VERSION {
+        QEMUv2_9_1, QEMUv5_1_0
+    }
+    public static final EMU_VERSION emuVersion = EMU_VERSION.QEMUv2_9_1;
 
     // Constants
     public static final int SDL_MOUSE_LEFT = 1;

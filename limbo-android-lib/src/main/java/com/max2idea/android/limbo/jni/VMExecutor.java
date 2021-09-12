@@ -274,8 +274,13 @@ class VMExecutor extends MachineExecutor {
             paramsList.add(Config.tbSize); //Don't increase it crashes
         }
 
-        paramsList.add("-overcommit");
-        paramsList.add("mem-lock=off");
+        if(Config.emuVersion.ordinal() <= Config.EMU_VERSION.QEMUv2_9_1.ordinal()) {
+            paramsList.add("-realtime");
+            paramsList.add("mlock=off");
+        } else {
+            paramsList.add("-overcommit");
+            paramsList.add("mem-lock=off");
+        }
 
         paramsList.add("-rtc");
         paramsList.add("base=localtime");

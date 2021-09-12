@@ -1258,7 +1258,7 @@ public class LimboActivity extends AppCompatActivity
             public void run() {
                 try {
                     LimboActivityCommon.promptLicense(LimboActivity.this, Config.APP_NAME + " v" + finalPInfo.versionName
-                            + " (" + Config.EMU_NAME_VERSION + ")",
+                            + " (" + Config.emuVersion.name().replace("_", ".") + ")",
                             FileUtils.LoadFile(LimboActivity.this, "LICENSE", false));
                 } catch (IOException e) {
 
