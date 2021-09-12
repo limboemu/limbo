@@ -358,5 +358,9 @@
     <string name="otherOperatingSystem">Other Operating System</string>
     <string name="DownloadISOAndVirtualHDDImages">Download ISO and Virtual HDD Images</string>
 
+    <string name="keyPressDelay">Key Pressed Delay</string>
+    <string name="keyPressDelaySummary">Delay between keyboard keys pressed. Lower values have better performance but key events might be not be understood by the emulator so use higher values.</string>
+    <string name="mouseButtonDelay">Mouse Button Click Delay</string>
+    <string name="mouseButtonDelaySummary">Delay between mouse button clicks. Lower values have better performance but mouse events might be not be understood by the emulator so use higher values.</string>
 
 </resources>

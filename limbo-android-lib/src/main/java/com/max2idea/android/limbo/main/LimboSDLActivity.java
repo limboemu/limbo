@@ -80,13 +80,13 @@ public class LimboSDLActivity extends SDLActivity
         MachineController.OnEventListener {
     public static final int KEYBOARD = 10000;
     private static final String TAG = "LimboSDLActivity";
-    private final static int keyDelay = 100;
-    private final static int mouseButtonDelay = 100;
 
     public static boolean toggleKeyboardFlag = true;
     public static boolean isResizing = false;
     public static boolean pendingPause;
     public static boolean pendingStop;
+    private static boolean machineRunning;
+
     public static MouseMode mouseMode = MouseMode.Trackpad;
     private final ExecutorService mouseEventsExecutor = Executors.newFixedThreadPool(1);
     private final ExecutorService keyEventsExecutor = Executors.newFixedThreadPool(1);
@@ -483,6 +483,14 @@ public class LimboSDLActivity extends SDLActivity
         showHints();
         ScreenUtils.updateOrientation(this);
         checkPendingActions();
+        setupUserInterface();
+    }
+
+    private void setupUserInterface() {
+        Config.keyDelay = LimboSettingsManager.getKeyPressDelay(this);
+        Log.v(TAG, "key delay: " + Config.keyDelay);
+        Config.mouseButtonDelay = LimboSettingsManager.getMouseButtonDelay(this);
+        Log.v(TAG, "mouse delay: " + Config.mouseButtonDelay);
     }
 
     private void setupScreen() {
@@ -681,6 +689,8 @@ public class LimboSDLActivity extends SDLActivity
             public void run() {
                 if (MachineController.getInstance().isPaused()) {
                     notifyAction(MachineAction.CONTINUE_VM, null);
+                } else {
+                    machineRunning = true;
                 }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
             }
@@ -961,7 +971,7 @@ public class LimboSDLActivity extends SDLActivity
     protected void sendMouseEvent(int button, int action, int toolType, float x, float y) {
         //HACK: we generate an artificial delay since the qemu main event loop
         // is probably not able to process them if the timestamps are too close together?
-        sendMouseEvent(button, action, toolType, x, y, action == MotionEvent.ACTION_UP ? mouseButtonDelay : 0);
+        sendMouseEvent(button, action, toolType, x, y, action == MotionEvent.ACTION_UP ? Config.mouseButtonDelay : 0);
     }
 
     private void sendMouseEvent(final int button, final int action, final int toolType,
@@ -997,7 +1007,7 @@ public class LimboSDLActivity extends SDLActivity
     protected void sendKeyEvent(KeyEvent event, int keycode, boolean down) {
         //HACK: we generate an artificial delay since the qemu main event loop
         // is probably not able to process them if the timestamps are too close together?
-        sendKeyEvent(event, keycode, down, !down ? keyDelay : 0);
+        sendKeyEvent(event, keycode, down, !down ? Config.keyDelay : 0);
     }
 
     private void sendKeyEvent(final KeyEvent event, final int keycode, final boolean down, final long delayMs) {
@@ -1047,10 +1057,22 @@ public class LimboSDLActivity extends SDLActivity
             case MachineResolutionChanged:
                 Object[] params = (Object[]) o;
                 resolutionChanged((int) params[0], (int) params[1]);
+                break;
+            case MachineContinued:
+                machineRunning = true;
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        resetLayout();
+                        }
+                }, 1000);
+                break;
         }
     }
 
     public void resetLayout() {
+        if(!machineRunning)
+            return;
         // We use QEMU keyboard shortcut for fullscreen
         // to trigger the redraw
         sendCtrlAltKey(KeyEvent.KEYCODE_F);

@@ -943,14 +943,8 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public void continueVM() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String command = QmpClient.getContinueVMCommand();
-                QmpClient.sendCommand(command);
-            }
-        }).start();
-
+        String command = QmpClient.getContinueVMCommand();
+        QmpClient.sendCommand(command);
     }
 
     @Override

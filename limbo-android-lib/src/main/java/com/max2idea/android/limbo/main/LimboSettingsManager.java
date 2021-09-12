@@ -244,6 +244,18 @@ public class LimboSettingsManager extends PreferenceActivity {
         return prefs.getBoolean("immersiveMode", false);
     }
 
+    public static int getKeyPressDelay(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String sizeStr = prefs.getString("keyPressDelay", "100");
+        return Integer.parseInt(sizeStr);
+    }
+
+    public static int getMouseButtonDelay(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String sizeStr = prefs.getString("mouseButtonDelay", "100");
+        return Integer.parseInt(sizeStr);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

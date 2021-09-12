@@ -78,7 +78,14 @@ public class MachineController {
     }
 
     void continueVM() {
-        machineExecutor.continueVM();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                machineExecutor.continueVM();
+                notifyEventListeners(Event.MachineContinued, null);
+            }
+        }).start();
+
     }
 
     public void addOnStatusChangeListener(OnMachineStatusChangeListener listener) {
@@ -389,7 +396,7 @@ public class MachineController {
     }
 
     public enum Event {
-        MachineCreated, MachineCreateFailed, MachineLoaded, MachineResolutionChanged, MachinesImported
+        MachineCreated, MachineCreateFailed, MachineLoaded, MachineResolutionChanged, MachineContinued, MachinesImported
     }
 
     public interface OnMachineStatusChangeListener {

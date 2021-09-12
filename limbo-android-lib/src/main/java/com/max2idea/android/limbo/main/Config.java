@@ -68,6 +68,10 @@ public class Config {
     public static final boolean enable_SDL = true;
     public static final int MAX_CPU_NUM = 8;
 
+    // delay
+    static int keyDelay = 100;
+    static int mouseButtonDelay = 100;
+
     // App config
     public static final String APP_NAME = "Limbo Emulator";
 

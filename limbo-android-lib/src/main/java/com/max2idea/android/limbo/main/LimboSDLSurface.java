@@ -79,6 +79,8 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
+                if(!SDLActivity.mIsSurfaceReady)
+                    return;
                 sdlActivity.resetLayout();
                 // notify the controller that our display has changed
                 sdlActivity.notifyAction(MachineAction.DISPLAY_CHANGED,
