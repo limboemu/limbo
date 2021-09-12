@@ -212,6 +212,7 @@ public class FileUtils {
                     ParcelFileDescriptor pfd = LimboApplication.getInstance().getContentResolver().openFileDescriptor(uri, mode);
                     fd = pfd.getFd();
                     fds.put(fd, new FileInfo(path, npath, pfd));
+                    Log.d(TAG, "Opening Content Uri: " + npath + ", FD: " + fd);
                 } catch (Exception e) {
                     String msg = LimboApplication.getInstance().getString(R.string.CouldNotOpenDocFile) + " "
                             + FileUtils.getFullPathFromDocumentFilePath(npath)
@@ -265,12 +266,14 @@ public class FileUtils {
                 FileInfo info = FileUtils.fds.get(fd);
                 try {
                     ParcelFileDescriptor pfd = info.pfd;
-                    try {
-                        pfd.getFileDescriptor().sync();
-                    } catch (IOException e) {
-                        if (Config.debug) {
-                            Log.w(TAG, "Syncing DocumentFile: " + info.path + ": " + fd + " : " + e);
-                            e.printStackTrace();
+                    if(Config.syncFilesOnClose) {
+                        try {
+                            pfd.getFileDescriptor().sync();
+                        } catch (IOException e) {
+                            if (Config.debug) {
+                                Log.w(TAG, "Syncing DocumentFile: " + info.path + ": " + fd + " : " + e);
+                                e.printStackTrace();
+                            }
                         }
                     }
                     pfd.close();
