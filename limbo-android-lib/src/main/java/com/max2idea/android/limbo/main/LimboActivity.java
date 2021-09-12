@@ -2760,8 +2760,9 @@ public class LimboActivity extends AppCompatActivity
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (o instanceof MachineProperty) {
-                    MachineProperty property = (MachineProperty) o;
+                Object [] params = (Object[] ) o;
+                if (params[0] instanceof MachineProperty) {
+                    MachineProperty property = (MachineProperty) params[0];
                     if (property == MachineProperty.UI) {
                         if (getMachine().getEnableVNC() != 1)
                             mSoundCard.setEnabled(true);
