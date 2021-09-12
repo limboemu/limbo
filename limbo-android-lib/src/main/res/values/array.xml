@@ -12,10 +12,6 @@
     </string-array>
 
     <string-array name="keyPressDelayLabels">
-        <item>None</item>
-        <item>10 ms</item>
-        <item>20 ms</item>
-        <item>30 ms</item>
         <item>40 ms</item>
         <item>50 ms</item>
         <item>60 ms</item>
@@ -25,10 +21,6 @@
         <item>100 ms</item>
     </string-array>
     <string-array name="keyPressDelayValues">
-        <item>0</item>
-        <item>10</item>
-        <item>20</item>
-        <item>30</item>
         <item>40</item>
         <item>50</item>
         <item>60</item>
@@ -39,10 +31,6 @@
     </string-array>
 
     <string-array name="mouseButtonDelayLabels">
-        <item>None</item>
-        <item>10 ms</item>
-        <item>20 ms</item>
-        <item>30 ms</item>
         <item>40 ms</item>
         <item>50 ms</item>
         <item>60 ms</item>
@@ -52,10 +40,6 @@
         <item>100 ms</item>
     </string-array>
     <string-array name="mouseButtonDelayValues">
-        <item>0</item>
-        <item>10</item>
-        <item>20</item>
-        <item>30</item>
         <item>40</item>
         <item>50</item>
         <item>60</item>

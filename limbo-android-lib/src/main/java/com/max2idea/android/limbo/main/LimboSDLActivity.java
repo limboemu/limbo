@@ -152,14 +152,14 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     public synchronized void sendCtrlAltKey(int code) {
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true, 10);
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true, 10);
+        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true, 100);
+        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true, 100);
         if (code >= 0) {
-            sendKeyEvent(null, code, true, 10);
-            sendKeyEvent(null, code, false, 10);
+            sendKeyEvent(null, code, true, 100);
+            sendKeyEvent(null, code, false, 100);
         }
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, false, 10);
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, false, 10);
+        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, false, 100);
+        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, false, 100);
     }
 
     public void onDestroy() {
