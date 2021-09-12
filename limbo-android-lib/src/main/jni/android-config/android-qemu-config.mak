@@ -6,9 +6,9 @@ QEMU_TARGET_LIST = $(BUILD_GUEST)
 
 QEMU_CONFIG_DIR=$(LIMBO_JNI_ROOT)/android-config
 
-#include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
+include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
 #include $(QEMU_CONFIG_DIR)/android-qemu-config-4.0.0.mak
-include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
+#include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
 
 ##### QEMU advance options
 

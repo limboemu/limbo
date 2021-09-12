@@ -242,6 +242,7 @@ config-qemu: ndk
 clean-qemu:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) clean
+	-rm $(NDK_PROJECT_PATH)/obj/local/arm64-v8a/libqemu-system-x86_64.a
 
 config-deps: ndk config-ffi config-glib config-pixman
 
