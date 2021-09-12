@@ -95,7 +95,11 @@ public class Config {
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
     public static boolean enableImmersiveMode = true;
-    public static boolean legacyDrives;
+
+    //TODO: add in settings
+    public static boolean legacyDrives = true;
+    public static boolean enableDefaultDevices = true;
+    public static boolean syncFilesOnClose;
 
     public enum Arch {
         x86, x86_64, arm, arm64, ppc, ppc64, sparc, sparc64

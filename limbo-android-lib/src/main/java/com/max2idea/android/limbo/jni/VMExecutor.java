@@ -280,7 +280,8 @@ class VMExecutor extends MachineExecutor {
         paramsList.add("-rtc");
         paramsList.add("base=localtime");
 
-        paramsList.add("-nodefaults");
+        if (!Config.enableDefaultDevices)
+            paramsList.add("-nodefaults");
     }
 
     private void addCpuBoardOptions(ArrayList<String> paramsList) {
@@ -577,49 +578,69 @@ class VMExecutor extends MachineExecutor {
     public void addRemovableDrives(ArrayList<String> paramsList) {
         String cdImagePath = getDriveFilePath(getMachine().getCdImagePath());
         if (cdImagePath != null) {
-            paramsList.add("-drive"); //empty
-            String param = "index=2";
-            if (Config.enableIDEInterface) {
-                param += ",if=";
-                param += Config.ideInterfaceType;
+            if (Config.legacyDrives) {
+                paramsList.add("-cdrom");
+                paramsList.add(cdImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=2";
+                if (Config.enableIDEInterface) {
+                    param += ",if=";
+                    param += Config.ideInterfaceType;
+                }
+                param += ",media=cdrom";
+                if (!cdImagePath.equals("")) {
+                    param += ",file=" + cdImagePath;
+                }
+                paramsList.add(param);
             }
-            param += ",media=cdrom";
-            if (!cdImagePath.equals("")) {
-                param += ",file=" + cdImagePath;
-            }
-            paramsList.add(param);
         }
 
         String fdaImagePath = getDriveFilePath(getMachine().getFdaImagePath());
         if (Config.enableEmulatedFloppy && fdaImagePath != null) {
-            paramsList.add("-drive"); //empty
-            String param = "index=0,if=floppy";
-            if (!fdaImagePath.equals("")) {
-                param += ",file=" + fdaImagePath;
+            if (Config.legacyDrives) {
+                paramsList.add("-fda");
+                paramsList.add(fdaImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=0,if=floppy";
+                if (!fdaImagePath.equals("")) {
+                    param += ",file=" + fdaImagePath;
+                }
+                paramsList.add(param);
             }
-            paramsList.add(param);
         }
 
         String fdbImagePath = getDriveFilePath(getMachine().getFdbImagePath());
         if (Config.enableEmulatedFloppy && fdbImagePath != null) {
-            paramsList.add("-drive"); //empty
-            String param = "index=1,if=floppy";
-            if (!fdbImagePath.equals("")) {
-                param += ",file=" + fdbImagePath;
+            if (Config.legacyDrives) {
+                paramsList.add("-fdb");
+                paramsList.add(fdbImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=1,if=floppy";
+                if (!fdbImagePath.equals("")) {
+                    param += ",file=" + fdbImagePath;
+                }
+                paramsList.add(param);
             }
-            paramsList.add(param);
         }
 
         String sdImagePath = getDriveFilePath(getMachine().getSdImagePath());
         if (Config.enableEmulatedSDCard && sdImagePath != null) {
-            paramsList.add("-device");
-            paramsList.add("sd-card,drive=sd0,bus=sd-bus");
-            paramsList.add("-drive");
-            String param = "if=none,id=sd0";
-            if (!sdImagePath.equals("")) {
-                param += ",file=" + sdImagePath;
+            if (Config.legacyDrives) {
+                paramsList.add("-sd");
+                paramsList.add(sdImagePath);
+            } else {
+                paramsList.add("-device");
+                paramsList.add("sd-card,drive=sd0,bus=sd-bus");
+                paramsList.add("-drive");
+                String param = "if=none,id=sd0";
+                if (!sdImagePath.equals("")) {
+                    param += ",file=" + sdImagePath;
+                }
+                paramsList.add(param);
             }
-            paramsList.add(param);
         }
 
     }
@@ -784,7 +805,7 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public synchronized void updateDisplay(int width, int height, int orientation) {
-        if(!LimboSettingsManager.getPreventMouseOutOfBounds(LimboApplication.getInstance())){
+        if (!LimboSettingsManager.getPreventMouseOutOfBounds(LimboApplication.getInstance())) {
             return;
         }
         String mouse = getMachine().getMouse();
@@ -793,7 +814,7 @@ class VMExecutor extends MachineExecutor {
         // guest display doesn't fit inside the Android Surface which is pretty much all the time.
         // we could use SurfaceHolder.setFixedSize() to bound the surfaceview but it creates
         // problems with refreshing the surfaceview plus we would still need this fix for trackpad
-        if(mouse !=null && mouse.equals("usb-tablet")) {
+        if (mouse != null && mouse.equals("usb-tablet")) {
             int xmin = 0;
             int xmax = width;
             int ymin = 0;
