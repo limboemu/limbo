@@ -151,7 +151,7 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    public void sendCtrlAltKey(int code) {
+    public synchronized void sendCtrlAltKey(int code) {
         sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true);
         sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true);
         if (code >= 0) {
@@ -806,7 +806,7 @@ public class LimboSDLActivity extends SDLActivity
      * Notifies when the machine resolution changes. This is called from SDL compat extensions
      * see folder jni/compat/sdl-extensions
      *
-     * @param width Width
+     * @param width  Width
      * @param height Height
      */
     public void resolutionChanged(int width, int height) {
@@ -1048,6 +1048,15 @@ public class LimboSDLActivity extends SDLActivity
                 Object[] params = (Object[]) o;
                 resolutionChanged((int) params[0], (int) params[1]);
         }
+    }
+
+    public void resetLayout() {
+        // We use QEMU keyboard shortcut for fullscreen
+        // to trigger the redraw
+        sendCtrlAltKey(KeyEvent.KEYCODE_F);
+        // HACK: since the above shortcut locks the alt in qemu 2.9.1
+        // we send another one to unlock
+        sendCtrlAltKey(KeyEvent.KEYCODE_G);
     }
 
     public enum MouseMode {

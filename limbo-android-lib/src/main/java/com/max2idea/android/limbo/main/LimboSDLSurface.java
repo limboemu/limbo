@@ -79,14 +79,12 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                // We use QEMU keyboard shortcut for fullscreen
-                // to trigger the redraw
-                sdlActivity.sendCtrlAltKey(KeyEvent.KEYCODE_F);
+                sdlActivity.resetLayout();
                 // notify the controller that our display has changed
                 sdlActivity.notifyAction(MachineAction.DISPLAY_CHANGED,
                         new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
             }
-        }, 1000);
+        }, 100);
     }
 
     @Override
