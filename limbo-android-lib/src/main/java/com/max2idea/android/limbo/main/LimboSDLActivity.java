@@ -684,14 +684,15 @@ public class LimboSDLActivity extends SDLActivity
             }
         }, 1000);
 
+        if (!MachineController.getInstance().isPaused()) {
+            machineRunning = true;
+        }
+
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (MachineController.getInstance().isPaused()) {
+                if (MachineController.getInstance().isPaused())
                     notifyAction(MachineAction.CONTINUE_VM, null);
-                } else {
-                    machineRunning = true;
-                }
                 ((LimboSDLSurface) mSurface).refreshSurfaceView();
             }
         }, 5000);
