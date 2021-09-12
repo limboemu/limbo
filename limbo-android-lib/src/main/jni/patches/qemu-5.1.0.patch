@@ -328,7 +328,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
  #endif
 +#else
 +    if(limbo_sdl_scale_hint == 1) {
-+        SDL_bool res = SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
++        SDL_bool res = SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 +        LOGI("Setting SDL_HINT_RENDER_SCALE_QUALITY to %d, code = %d", limbo_sdl_scale_hint, res);
 +    }
 +#endif
