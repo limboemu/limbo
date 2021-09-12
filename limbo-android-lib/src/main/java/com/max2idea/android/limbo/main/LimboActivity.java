@@ -1899,8 +1899,7 @@ public class LimboActivity extends AppCompatActivity
             String text = "";
             if (getMachine().getExtraParams() != null
                     && !getMachine().getExtraParams().equals(""))
-                text = appendOption(getString(R.string.ExtraParams) + ": " +
-                        getMachine().getExtraParams(), text);
+                text = getString(R.string.ExtraParams) + ": " + getMachine().getExtraParams();
             mAdvancedSectionSummary.setText(text);
         }
     }

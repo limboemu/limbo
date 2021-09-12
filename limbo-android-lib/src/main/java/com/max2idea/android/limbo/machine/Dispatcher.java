@@ -211,6 +211,8 @@ class Dispatcher implements ViewListener {
             case PAUSED:
                 getMachine().setPaused(convertInt(property, value));
                 break;
+            case EXTRA_PARAMS:
+                getMachine().setExtraParams(convertString(property,value));
             default:
                 throw new RuntimeException("Umapped UI field: " + property);
         }
