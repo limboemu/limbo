@@ -243,6 +243,11 @@ clean-qemu:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) clean
 	-rm $(NDK_PROJECT_PATH)/obj/local/arm64-v8a/libqemu-system-x86_64.a
+	-rm -rf ../assets/roms/* 
+	-rm -rf $(LIMBO_APP_X86)/assets/roms/*
+	-rm -rf $(LIMBO_APP_ARM)/assets/roms/*
+        -rm -rf $(LIMBO_APP_PPC)/assets/roms/*
+        -rm -rf $(LIMBO_APP_SPARC)/assets/roms/*
 
 config-deps: ndk config-ffi config-glib config-pixman
 
