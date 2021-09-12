@@ -103,7 +103,9 @@ public class Config {
 
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
-    public static boolean enableImmersiveMode = true;
+
+    //TODO: enable immersive mode at some point in time
+    public static boolean enableImmersiveMode = false;
 
     //TODO: add in settings
     public static boolean legacyDrives = false;

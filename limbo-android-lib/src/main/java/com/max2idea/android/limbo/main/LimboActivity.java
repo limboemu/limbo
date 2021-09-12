@@ -2527,12 +2527,12 @@ public class LimboActivity extends AppCompatActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         menu.clear();
         menu.add(0, HELP, 0, R.string.help).setIcon(R.drawable.help);
+        menu.add(0, INSTALL, 0, R.string.InstallRoms).setIcon(R.drawable.install);
         if(!MachineController.getInstance().isRunning()) {
-            menu.add(0, INSTALL, 0, R.string.InstallRoms).setIcon(R.drawable.install);
-            if (getMachine() != null && getMachine().getPaused() == 1)
-                menu.add(0, DISCARD_VM_STATE, 0, R.string.DiscardSavedState).setIcon(R.drawable.close);
             menu.add(0, CREATE, 0, R.string.CreateMachine).setIcon(R.drawable.machinetype);
             menu.add(0, DELETE, 0, R.string.DeleteMachine).setIcon(R.drawable.delete);
+            if (getMachine() != null && getMachine().getPaused() == 1)
+                menu.add(0, DISCARD_VM_STATE, 0, R.string.DiscardSavedState).setIcon(R.drawable.close);
             menu.add(0, EXPORT, 0, R.string.ExportMachines).setIcon(R.drawable.exportvms);
             menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
         }
@@ -2544,16 +2544,8 @@ public class LimboActivity extends AppCompatActivity
         menu.add(0, LICENSE, 0, R.string.License).setIcon(android.R.drawable.ic_menu_help);
         menu.add(0, QUIT, 0, R.string.Exit).setIcon(android.R.drawable.ic_lock_power_off);
 
-
-        int maxMenuItemsShown = 3;
-        int actionShow = MenuItem.SHOW_AS_ACTION_IF_ROOM;
-        if (isLandscapeOrientation(this)) {
-            maxMenuItemsShown = 4;
-            actionShow = MenuItem.SHOW_AS_ACTION_ALWAYS;
-        }
-
-        for (int i = 0; i < menu.size() && i < maxMenuItemsShown; i++) {
-            menu.getItem(i).setShowAsAction(actionShow);
+        for (int i = 0; i < 2; i++) {
+            menu.getItem(i).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         }
         return true;
     }

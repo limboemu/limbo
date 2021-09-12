@@ -80,6 +80,7 @@ public class Installer extends AsyncTask<Void, Void, Void> {
 
     @Override
     protected void onPostExecute(Void test) {
+        ToastUtils.toastShort(activity, "BIOS and Keymap files installed");
         if (progDialog.isShowing())
             progDialog.dismiss();
     }
