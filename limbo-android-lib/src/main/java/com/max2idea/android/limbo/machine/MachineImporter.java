@@ -47,7 +47,7 @@ public class MachineImporter {
         BufferedReader buffreader = null;
         InputStream instream = null;
         try {
-            Log.v(TAG, "Import file: " + importFilePath);
+            Log.d(TAG, "Import file: " + importFilePath);
             instream = FileUtils.getStreamFromFilePath(importFilePath);
             if (instream != null) {
                 InputStreamReader inputreader = new InputStreamReader(instream);
@@ -64,9 +64,6 @@ public class MachineImporter {
                     line = buffreader.readLine();
                     if (line == null)
                         break;
-                    // do something with the line
-                    // Log.v("CSV Parser", "Line: " + line);
-
                     // Parse
                     String [] machineAttr = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
                     Machine mach = new Machine(machineAttr[0], false);
@@ -206,7 +203,7 @@ public class MachineImporter {
                         }
 
                     }
-                    Log.v("CSV Parser", "Adding Machine: " + mach.getName());
+                    Log.d(TAG, "Adding Machine: " + mach.getName());
                     machines.add(mach);
                 }
 

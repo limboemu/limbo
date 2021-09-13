@@ -440,7 +440,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     public synchronized void paint(boolean clear) {
         Canvas canvas = null;
         if (!surfaceCreated || surfaceHolder == null) {
-            Log.d(TAG, "Surface not ready");
+            Log.w(TAG, "Cannot paint surface not ready");
             return;
         }
 

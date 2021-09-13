@@ -105,7 +105,7 @@ public class QmpClient {
 	private static void sendRequest(PrintWriter out, String request) {
 
 	    if(Config.debugQmp)
-		    Log.i(TAG, "QMP request" + request);
+		    Log.d(TAG, "QMP request" + request);
 		out.println(request);
 	}
 
@@ -117,7 +117,7 @@ public class QmpClient {
                 line = in.readLine();
                 if (line != null) {
                     if(Config.debugQmp)
-                        Log.i(TAG, "QMP response: " + line);
+                        Log.d(TAG, "QMP response: " + line);
                     JSONObject object = new JSONObject(line);
                     String returnStr = null;
                     String errStr = null;
@@ -169,7 +169,7 @@ public class QmpClient {
 				line = in.readLine();
 				if (line != null) {
 				    if(Config.debugQmp)
-					    Log.i(TAG, "QMP query-migrate response: " + line);
+					    Log.d(TAG, "QMP query-migrate response: " + line);
 					JSONObject object = new JSONObject(line);
 					String returnStr = null;
 					String errStr = null;

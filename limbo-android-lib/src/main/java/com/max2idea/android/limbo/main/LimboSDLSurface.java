@@ -62,14 +62,14 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
     }
 
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.v(TAG, "surfaceChanged");
+        Log.d(TAG, "surfaceChanged: " + width + "x" + height);
         super.surfaceChanged(holder, format, width, height);
         refreshSurfaceView();
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.v(TAG, "surfaceCreated");
+        Log.d(TAG, "surfaceCreated");
         super.surfaceCreated(holder);
         setWillNotDraw(false);
         refreshSurfaceView();
@@ -85,12 +85,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
                         new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});
             }
         }).start();
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        Log.v(TAG, "onConfigurationChanged");
-        super.onConfigurationChanged(newConfig);
     }
 
     public boolean onTouchProcess(View v, MotionEvent event) {
@@ -168,7 +162,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
 
     private void processPendingMouseButtonDown(int action, int toolType, float x, float y) {
         long delta = System.currentTimeMillis() - mouseState.down_event_time;
-        // Log.v(TAG, "Processing mouse button: action = " + action + ", x = " + x + ", y = " + y + ", delta: " + delta);
         if (mouseState.down_pending && sdlActivity.isRelativeMode(toolType)
                 && (Math.abs(x - mouseState.down_x) < 20 && Math.abs(y - mouseState.down_y) < 20)
                 && ((action == MotionEvent.ACTION_MOVE && delta > 400)
@@ -212,7 +205,6 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
     }
 
     private void setPendingMouseDown(float x, float y, int sdlMouseButton) {
-        // Log.v(TAG, "Pending mouse down: x = " + x + ", y = " + y);
         mouseState.down_pending = true;
         mouseState.down_x = x;
         mouseState.down_y = y;

@@ -155,7 +155,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
         int seqnum = -1;
         SQLiteDatabase db = getWritableDatabase();
 
-        Log.v("DB", "insert machine: " + machine.getName());
+        Log.d(TAG, "inserting machine: " + machine.getName());
         ContentValues stateValues = new ContentValues();
         stateValues.put(MachineProperty.MACHINE_NAME.name(), machine.getName()); //Legacy
         stateValues.put(MachineProperty.CPU.name(), machine.getCpu());
@@ -202,10 +202,8 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
 
         try {
             seqnum = (int) db.insertOrThrow(MACHINE_TABLE_NAME, null, stateValues);
-            Log.v(TAG, "Inserted Machine: " + machine.getName() + " : " + seqnum);
         } catch (Exception e) {
-            // catch code
-            Log.e(TAG, "Error while Insert machine: " + e.getMessage());
+            Log.w(TAG, "Error while Insert machine: " + e.getMessage());
             e.printStackTrace();
         }
         return seqnum;
@@ -233,7 +231,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
                     null);
             db.setTransactionSuccessful();
         } catch (Exception e) {
-            Log.e(TAG, "Error while Updating value: " + e.getMessage());
+            Log.w(TAG, "Error while Updating value: " + e.getMessage());
             if (Config.debug)
                 e.printStackTrace();
         } finally {
@@ -344,7 +342,7 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
         try {
             rowsAffected = db.delete(MACHINE_TABLE_NAME, MachineProperty.MACHINE_NAME + "=\"" + machine.getName() + "\"", null);
         } catch (Exception e) {
-            Log.e(TAG, "Error while deleting VM: " + e.getMessage());
+            Log.w(TAG, "Error while deleting VM: " + e.getMessage());
             if (Config.debug)
                 e.printStackTrace();
         }
@@ -396,7 +394,6 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
 
     @Override
     public void update(Observable observable, Object o) {
-        Log.v(TAG, "Observable updated param: " + o);
         Object[] params = (Object[]) o;
         MachineProperty property = (MachineProperty) params[0];
         Object value = params[1];

@@ -166,7 +166,7 @@ class VMExecutor extends MachineExecutor {
             if (fd_tmp < 0) {
                 Log.e(TAG, "Error while getting fd for: " + getSaveStateName());
             } else {
-                //Log.i(TAG, "Got new fd "+fd_tmp + " for: " +save_state_name);
+                Log.d(TAG, "Retrieved fd: " + fd_tmp + " for: " + getSaveStateName());
                 paramsList.add("-incoming");
                 paramsList.add("fd:" + fd_tmp);
             }
@@ -175,9 +175,7 @@ class VMExecutor extends MachineExecutor {
 
     private void addUIOptions(Context context, ArrayList<String> paramsList) {
         if (MachineController.getInstance().isVNCEnabled()) {
-            Log.v(TAG, "Enable VNC server");
             paramsList.add("-vnc");
-
             String vncParam = "";
             if (LimboSettingsManager.getVNCEnablePassword(context)) {
                 //TODO: Allow connections from External
@@ -199,9 +197,6 @@ class VMExecutor extends MachineExecutor {
             paramsList.add("vc");
 
         } else {
-            //SDL needs explicit keyboard layout
-            Log.v(TAG, "Disabling VNC server, using SDL instead");
-
             //XXX: monitor, serial, and parallel display crashes cause SDL doesn't support more than 1 window
             paramsList.add("-monitor");
             paramsList.add("none");
@@ -274,7 +269,7 @@ class VMExecutor extends MachineExecutor {
             paramsList.add(Config.tbSize); //Don't increase it crashes
         }
 
-        if(Config.emuVersion.ordinal() <= Config.EMU_VERSION.QEMUv2_9_1.ordinal()) {
+        if (Config.emuVersion.ordinal() <= Config.EMU_VERSION.QEMUv2_9_1.ordinal()) {
             paramsList.add("-realtime");
             paramsList.add("mlock=off");
         } else {
@@ -523,8 +518,8 @@ class VMExecutor extends MachineExecutor {
 
     public void addHardDisk(ArrayList<String> paramsList, String imagePath, int index) {
         if (imagePath != null && !imagePath.trim().equals("")) {
-            if(Config.legacyDrives) {
-                switch(index) {
+            if (Config.legacyDrives) {
+                switch (index) {
                     case 0:
                         paramsList.add("-hda");
                         break;
@@ -700,7 +695,7 @@ class VMExecutor extends MachineExecutor {
                 MachineController.getInstance().getServiceClass());
         Bundle b = new Bundle();
         i.putExtras(b);
-        Log.v(TAG, "Starting VM service");
+        Log.d(TAG, "Starting VM service");
         LimboApplication.getInstance().startService(i);
     }
 

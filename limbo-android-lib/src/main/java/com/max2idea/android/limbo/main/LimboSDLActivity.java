@@ -470,7 +470,6 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     protected void onCreate(Bundle savedInstanceState) {
-        Log.v(TAG, "onCreate");
         setupScreen();
         saveAudioState();
         super.onCreate(savedInstanceState);
@@ -488,9 +487,7 @@ public class LimboSDLActivity extends SDLActivity
 
     private void setupUserInterface() {
         Config.keyDelay = LimboSettingsManager.getKeyPressDelay(this);
-        Log.v(TAG, "key delay: " + Config.keyDelay);
         Config.mouseButtonDelay = LimboSettingsManager.getMouseButtonDelay(this);
-        Log.v(TAG, "mouse delay: " + Config.mouseButtonDelay);
     }
 
     private void setupScreen() {
@@ -809,7 +806,7 @@ public class LimboSDLActivity extends SDLActivity
                 e.printStackTrace();
             }
         }
-        Log.v(TAG, "SDLThread exited");
+        Log.d(TAG, "SDLThread exited");
     }
 
     /**
@@ -823,7 +820,7 @@ public class LimboSDLActivity extends SDLActivity
         if (mSurface == null || LimboSDLActivity.isResizing) {
             return;
         }
-        Log.v(TAG, "VM resolution changed to " + width + "x" + height);
+        Log.d(TAG, "VM resolution changed to " + width + "x" + height);
         ((LimboSDLSurface) mSurface).refreshSurfaceView();
     }
 
@@ -876,7 +873,6 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     public boolean onKeyLongPress(int keyCode, KeyEvent event) {
-        Log.d(TAG, "onKeyLongPress: " + keyCode);
         return false;
     }
 
@@ -994,7 +990,7 @@ public class LimboSDLActivity extends SDLActivity
                     nx = mouseState.taps.get(0).x;
                     ny = mouseState.taps.get(0).y;
                 }
-//                Log.v(TAG, "sendMouseEvent button: " + button + ", action: " + action
+//                Log.d(TAG, "sendMouseEvent button: " + button + ", action: " + action
 //                        + ", relative: " + relative + ", nx = " + nx + ", ny = " + ny
 //                        + ", delay = " + delayMs);
                 notifyAction(MachineAction.SEND_MOUSE_EVENT, new Object[]{button, action, relative ? 1 : 0, nx, ny});
@@ -1019,7 +1015,8 @@ public class LimboSDLActivity extends SDLActivity
                 }
                 if (delayMs > 0)
                     delay(delayMs);
-//                Log.v(TAG, "sendKeyEvent: " + ", keycode = " + keycode + ", down = " + down + ", delay = " + delayMs);
+//                Log.d(TAG, "sendKeyEvent: " + ", keycode = " + keycode + ", down = " + down
+//                + ", delay = " + delayMs);
                 if (down)
                     SDLActivity.onNativeKeyDown(keycode);
                 else {
@@ -1073,10 +1070,10 @@ public class LimboSDLActivity extends SDLActivity
 
     public void resetLayout() {
         if(!machineRunning) {
-            Log.d(TAG, "Machine not running not reset layout");
+            Log.w(TAG, "Machine not running not reset layout");
             return;
         }
-        Log.d(TAG, "reset layout");
+        Log.d(TAG, "Resetting layout");
         // We use QEMU keyboard shortcut for fullscreen
         // to trigger the redraw
         sendCtrlAltKey(KeyEvent.KEYCODE_F);

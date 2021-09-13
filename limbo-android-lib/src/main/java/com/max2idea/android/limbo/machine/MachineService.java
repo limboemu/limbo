@@ -123,7 +123,7 @@ public class MachineService extends Service {
             e.printStackTrace();
         }
 
-        Log.v(TAG, "Starting VM: " + MachineController.getInstance().getMachine().getName());
+        Log.d(TAG, "Starting VM: " + MachineController.getInstance().getMachine().getName());
         setupLocks();
 
         // notify we started
@@ -141,7 +141,7 @@ public class MachineService extends Service {
                 ToastUtils.toastLong(service, res);
                 Log.e(TAG, res);
             } else {
-                Log.v(TAG, res);
+                Log.d(TAG, res);
                 //set the exit code
                 LimboSettingsManager.setExitCode(service, Config.EXIT_SUCCESS);
             }
@@ -156,7 +156,7 @@ public class MachineService extends Service {
         cleanUp();
         stopService();
 
-        Log.v(TAG, "Exit Limbo");
+        Log.d(TAG, "Exiting Limbo");
         //XXX: We exit here to force unload the native libs
         System.exit(0);
     }
@@ -169,7 +169,7 @@ public class MachineService extends Service {
 
     private void setUpAsForeground(String text) {
         if (MachineController.getInstance().getMachine() == null) {
-            Log.e(TAG, "No Machine selected");
+            Log.w(TAG, "No Machine selected");
             return;
         }
         Intent intent = new Intent(service.getApplicationContext(), Config.clientClass);
@@ -211,7 +211,7 @@ public class MachineService extends Service {
     }
 
     public void onDestroy() {
-        Log.v(TAG, "Service destroyed");
+        Log.d(TAG, "Service destroyed");
         super.onDestroy();
     }
 

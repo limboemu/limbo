@@ -134,7 +134,7 @@ public class MachineController {
         new Thread(new Runnable() {
             public void run() {
                 if (machineExecutor != null) {
-                    Log.v(TAG, "Restarting the VM...");
+                    Log.d(TAG, "Restarting the VM...");
                     machineExecutor.stopvm(1);
                 }
             }
@@ -166,12 +166,12 @@ public class MachineController {
     private void checkSaveStatus() {
         while (!saveVmStatusTimerQuit) {
             MachineStatus status = checkSaveVMStatus();
-            Log.v(TAG, "State Status: " + status);
+            Log.d(TAG, "State Status: " + status);
             if (status == MachineStatus.Unknown
                     || status == MachineStatus.SaveCompleted
                     || status == MachineStatus.SaveFailed
             ) {
-                Log.v(TAG, "Saving state is done: " + status);
+                Log.d(TAG, "Saving state is done: " + status);
                 stopSaveVmStatusTimer();
                 return;
             }
@@ -181,7 +181,7 @@ public class MachineController {
                 ex.printStackTrace();
             }
         }
-        Log.v(TAG, "Save state complete");
+        Log.d(TAG, "Save state complete");
     }
 
     private void stopSaveVmStatusTimer() {

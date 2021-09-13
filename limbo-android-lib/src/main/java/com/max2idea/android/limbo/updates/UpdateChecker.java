@@ -62,7 +62,7 @@ public class UpdateChecker {
                 });
             }
         } catch (Exception ex) {
-            Log.e(TAG, "Could not get new version: " + ex.getMessage());
+            Log.w(TAG, "Could not get new version: " + ex.getMessage());
             if (Config.debug)
                 ex.printStackTrace();
         }

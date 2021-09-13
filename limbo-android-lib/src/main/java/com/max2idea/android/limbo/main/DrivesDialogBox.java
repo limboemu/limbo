@@ -272,7 +272,6 @@ public class DrivesDialogBox extends Dialog implements Observer {
 
     @Override
     public void update(Observable observable, Object o) {
-        Log.v(TAG, "Observable updated param: " + o);
         Object[] params = (Object[]) o;
         MachineProperty property = (MachineProperty) params[0];
         Object value = params[1];

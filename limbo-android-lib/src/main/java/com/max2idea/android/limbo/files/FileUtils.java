@@ -301,7 +301,7 @@ public class FileUtils {
                             pfd.getFileDescriptor().sync();
                         } catch (IOException e) {
                             if (Config.debug) {
-                                Log.e(TAG, "Error Syncing File: " + path + ": " + fd + " : " + e);
+                                Log.w(TAG, "Error Syncing File: " + path + ": " + fd + " : " + e);
                                 e.printStackTrace();
                             }
                         }
@@ -321,7 +321,7 @@ public class FileUtils {
 
     public static void startLogging() {
         if (Config.logFilePath == null) {
-            Log.e(TAG, "Log file is not setup");
+            Log.w(TAG, "Log file is not ready");
             return;
         }
         Thread t = new Thread(new Runnable() {
@@ -332,7 +332,7 @@ public class FileUtils {
                     logFile = new File(Config.logFilePath);
                     if (logFile.exists()) {
                         if (!logFile.delete()) {
-                            Log.e(TAG, "Could not delete previous log file!");
+                            Log.w(TAG, "Could not delete previous log file!");
                         }
                     }
                     logFile.createNewFile();

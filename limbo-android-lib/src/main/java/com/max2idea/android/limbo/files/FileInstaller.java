@@ -46,8 +46,7 @@ public class FileInstaller {
     private static final String TAG = "FileInstaller";
 
     public static void installFiles(Activity activity, boolean force) {
-
-        Log.v("Installer", "Installing files...");
+        Log.d(TAG, "Installing files");
         File tmpDir = new File(LimboApplication.getBasefileDir());
         if (!tmpDir.exists()) {
             if(tmpDir.mkdirs()) {
@@ -68,7 +67,7 @@ public class FileInstaller {
         if (dir.exists() && dir.isDirectory()) {
             //don't create again
         } else if (dir.exists() && !dir.isDirectory()) {
-            Log.v("Installer", "Could not create Dir, file found: " + LimboApplication.getBasefileDir());
+            Log.e(TAG, "Could not create Dir, file found: " + LimboApplication.getBasefileDir());
             return;
         } else if (!dir.exists()) {
             dir.mkdir();
@@ -83,12 +82,11 @@ public class FileInstaller {
             files = am.list("roms");
         } catch (IOException ex) {
             Logger.getLogger(FileInstaller.class.getName()).log(Level.SEVERE, null, ex);
-            Log.v("Installer", "Could not install files: " + ex.getMessage());
+            Log.e(TAG, "Could not install files: " + ex.getMessage());
             return;
         }
 
         for (int i = 0; i < files.length; i++) {
-            //Log.v("Installer", "File: " + files[i]);
             String[] subfiles = null;
             try {
                 subfiles = am.list("roms/" + files[i]);
@@ -101,7 +99,7 @@ public class FileInstaller {
                 if (dir1.exists() && dir1.isDirectory()) {
                     //don't create again
                 } else if (dir1.exists() && !dir1.isDirectory()) {
-                    Log.v("Installer", "Could not create Dir, file found: " + LimboApplication.getBasefileDir() + files[i]);
+                    Log.e(TAG, "Could not create Dir, file found: " + LimboApplication.getBasefileDir() + files[i]);
                     return;
                 } else if (!dir1.exists()) {
                     dir1.mkdir();
@@ -110,20 +108,18 @@ public class FileInstaller {
 
                     File file = new File(destDir, files[i] + "/" + subfiles[k]);
                     if(!file.exists() || force) {
-                        Log.v("Installer", "Installing file: " + file.getPath());
+                        Log.d(TAG, "Installing file: " + file.getPath());
                         installAssetFile(activity, files[i] + "/" + subfiles[k], destDir, "roms", null);
                     }
                 }
             } else {
                 File file = new File(destDir, files[i]);
                 if(!file.exists() || force) {
-                    Log.v("Installer", "Installing file: " + file.getPath());
+                    Log.d(TAG, "Installing file: " + file.getPath());
                     installAssetFile(activity, files[i], LimboApplication.getBasefileDir(), "roms", null);
                 }
             }
         }
-//        InputStream is = am.open(srcFile);
-
     }
 
     public static boolean installAssetFile(Activity activity, String srcFile,
@@ -151,7 +147,7 @@ public class FileInstaller {
             is.close();
             return true;
         } catch (Exception ex) {
-            Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
+            Log.e(TAG, "failed to install file: " + destFile + ", Error:" + ex.getMessage());
             return false;
         }
     }
@@ -196,7 +192,7 @@ public class FileInstaller {
             uri = destFileF.getUri();
 
         } catch (Exception ex) {
-            Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
+            Log.e(TAG, "failed to install file: " + destFile + ", Error:" + ex.getMessage());
         } finally {
             if(os!=null) {
                 try {
@@ -256,7 +252,7 @@ public class FileInstaller {
             filePath = file.getAbsolutePath();
 
         } catch (Exception ex) {
-            Log.e("Installer", "failed to install file: " + destFile + ", Error:" + ex.getMessage());
+            Log.e(TAG, "failed to install file: " + destFile + ", Error:" + ex.getMessage());
         } finally {
             if(os!=null) {
                 try {

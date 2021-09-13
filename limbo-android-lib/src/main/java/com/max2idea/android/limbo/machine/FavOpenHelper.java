@@ -114,8 +114,7 @@ public class FavOpenHelper extends SQLiteOpenHelper {
         try {
             row = db.insertOrThrow(TABLE_NAME_FAV_FILES, null, stateValues);
         } catch (Exception e) {
-            //catch code
-            Log.v(TAG, "Error while Insert Fav Path: " + e.getMessage());
+            Log.w(TAG, "Error while Insert Fav Path: " + e.getMessage());
         }
         return row>0;
     }

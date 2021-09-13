@@ -82,7 +82,7 @@ public class Logger {
             }
 
         } catch (Exception ex) {
-            Log.e(TAG, "Could not format limbo log: " + ex.getMessage());
+            Log.w(TAG, "Could not format limbo log: " + ex.getMessage());
         } finally {
             if (scanner != null) {
                 try {

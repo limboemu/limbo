@@ -169,10 +169,8 @@ public class LimboFileManager extends ListActivity {
             b.putSerializable("filterExt", filterExt);
             i.putExtras(b);
             activity.startActivityForResult(i, requestCode);
-
         } catch (Exception e) {
-            Log.e(TAG, "Error while starting Filemanager: " +
-                    e.getMessage());
+            Log.e(TAG, "Error while starting Filemanager: " + e.getMessage());
         }
     }
 
