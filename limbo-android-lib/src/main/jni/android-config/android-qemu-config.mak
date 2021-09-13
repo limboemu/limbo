@@ -117,6 +117,7 @@ MISC += --disable-blobs
 MISC += --disable-werror
 MISC += --disable-gnutls
 MISC += --disable-nettle
+MISC += --disable-user
 MISC += $(SSH2)
 
 #Stack protector, this doesn't make any difference since we override in android-generic.mak
