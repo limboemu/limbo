@@ -109,7 +109,6 @@ JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMous
 
 JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
         JNIEnv* env, jobject thiz, int xmin, int xmax, int ymin, int ymax) {
-    LOGV("set mouse bounds: %d %d %d %d\n", xmin, xmax, ymin, ymax);
     checkBounds = true;
     x_min = xmin;
 	x_max = xmax;
