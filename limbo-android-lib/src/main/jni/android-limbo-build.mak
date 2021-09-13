@@ -1,11 +1,13 @@
 # Do not modify this file, all configuration is under directory android-config
 
+LIMBO_JNI_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+include $(LIMBO_JNI_ROOT)/android-config/android-limbo-config.mak
+
 # prepend the NDK_ROOT in the path so the ndk-build is the correct one
 PATH  := $(NDK_ROOT):$(PATH)
 SHELL := env PATH=$(PATH) /bin/bash
-
-LIMBO_JNI_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-include $(LIMBO_JNI_ROOT)/android-config/android-limbo-config.mak
+$(warning ndk root = $(NDK_ROOT))
+$(warning path = $(PATH))
 
 # DO NOT MODIFY THIS FILE
 NDK_PLATFORM = platforms/$(APP_PLATFORM)
@@ -68,13 +70,11 @@ TOOLCHAIN_PREFIX := $(TOOLCHAIN_DIR)/bin/$(HOST_PREFIX)-
 NDK_PROJECT_PATH := $(LIMBO_JNI_ROOT)/../
 TOOLCHAIN_CLANG_PREFIX := $(TOOLCHAIN_CLANG_DIR)/bin
 
-#$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
-
 ifneq ($(NDK_TOOLCHAIN_VERSION),clang)
     NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
     NDK_SYSROOT=$(NDK_ROOT)/sysroot
 endif
-
+$(warning toolchain: $(NDK_TOOLCHAIN_VERSION))
 
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
     NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
