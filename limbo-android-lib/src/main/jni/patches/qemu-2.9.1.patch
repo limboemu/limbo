@@ -1,6 +1,6 @@
 diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
 --- /tmp/qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
-+++ ./configure	2018-08-13 19:10:52.000000000 +0300
++++ ./configure	2021-09-12 11:46:06.150323416 +0300
 @@ -1831,7 +1831,8 @@
  # pkg-config probe
  
@@ -80,7 +80,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
  ##########################################
 diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/console.h
 --- /tmp/qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
-+++ ./include/ui/console.h	2018-12-31 12:07:46.178798809 +0200
++++ ./include/ui/console.h	2021-09-12 11:46:06.154323378 +0300
 @@ -27,7 +27,13 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
@@ -97,7 +97,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/cons
  /* Color number is match to standard vga palette */
 diff -ru --no-dereference /tmp/qemu-2.9.1/kvm-all.c ./kvm-all.c
 --- /tmp/qemu-2.9.1/kvm-all.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./kvm-all.c	2019-01-02 18:40:36.935578571 +0200
++++ ./kvm-all.c	2021-09-12 11:46:06.158323341 +0300
 @@ -1601,7 +1601,12 @@
      s->vmfd = -1;
      s->fd = qemu_open("/dev/kvm", O_RDWR);
@@ -113,7 +113,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/kvm-all.c ./kvm-all.c
      }
 diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile ./Makefile
 --- /tmp/qemu-2.9.1/Makefile	2017-09-07 19:28:14.000000000 +0300
-+++ ./Makefile	2018-08-13 19:10:52.000000000 +0300
++++ ./Makefile	2021-09-12 11:46:06.158323341 +0300
 @@ -203,7 +203,7 @@
  
  LIBS+=-lz $(LIBS_TOOLS)
@@ -143,7 +143,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile ./Makefile
  fsdev/virtfs-proxy-helper$(EXESUF): LIBS += -lcap
 diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile.target ./Makefile.target
 --- /tmp/qemu-2.9.1/Makefile.target	2017-09-07 19:28:14.000000000 +0300
-+++ ./Makefile.target	2018-12-22 03:32:40.382066234 +0200
++++ ./Makefile.target	2021-09-12 11:46:06.162323303 +0300
 @@ -204,8 +204,10 @@
  COMMON_LDADDS = $(trace-obj-y) ../libqemuutil.a ../libqemustub.a
  
@@ -159,7 +159,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/Makefile.target ./Makefile.target
  	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
 diff -ru --no-dereference /tmp/qemu-2.9.1/monitor.c ./monitor.c
 --- /tmp/qemu-2.9.1/monitor.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./monitor.c	2018-08-13 19:10:52.000000000 +0300
++++ ./monitor.c	2021-09-12 11:46:06.174323190 +0300
 @@ -1869,6 +1869,14 @@
  {
      mon_fd_t *monfd;
@@ -177,7 +177,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/monitor.c ./monitor.c
  
 diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
 --- /tmp/qemu-2.9.1/slirp/misc.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./slirp/misc.c	2018-08-13 19:10:52.000000000 +0300
++++ ./slirp/misc.c	2021-09-12 11:46:06.178323152 +0300
 @@ -60,7 +60,7 @@
  }
  
@@ -189,7 +189,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
  fork_exec(struct socket *so, const char *ex, int do_pty)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
 --- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/console.c	2018-12-31 12:07:31.066701402 +0200
++++ ./ui/console.c	2021-09-12 11:46:06.182323114 +0300
 @@ -34,6 +34,10 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
@@ -203,7 +203,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
      uint8_t bgcol:4;
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
 --- /tmp/qemu-2.9.1/ui/sdl2-2d.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2-2d.c	2018-08-13 19:10:52.000000000 +0300
++++ ./ui/sdl2-2d.c	2021-09-12 11:46:06.182323114 +0300
 @@ -66,7 +66,15 @@
  
      SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
@@ -236,7 +236,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
 --- /tmp/qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2.c	2018-12-31 11:48:54.163372858 +0200
++++ ./ui/sdl2.c	2021-09-13 14:48:37.672684435 +0300
 @@ -90,7 +90,15 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -253,7 +253,40 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
      if (scon->opengl) {
          scon->winctx = SDL_GL_GetCurrentContext();
      }
-@@ -756,6 +764,10 @@
+@@ -284,6 +292,12 @@
+             struct sdl2_console *thiscon = &sdl2_console[i];
+             if (thiscon->real_window && thiscon->surface) {
+                 SDL_GetWindowSize(thiscon->real_window, &scr_w, &scr_h);
++#ifdef __LIMBO__
++// New versions of limbo we don't use the whole screen so 
++// we cap one the actual surface 
++		max_w = surface_width(scon->surface);
++		max_h = surface_height(scon->surface);
++#else
+                 cur_off_x = thiscon->x;
+                 cur_off_y = thiscon->y;
+                 if (scr_w + cur_off_x > max_w) {
+@@ -296,9 +310,10 @@
+                     off_x = cur_off_x;
+                     off_y = cur_off_y;
+                 }
++#endif //LIMBO
+             }
+         }
+-        qemu_input_queue_abs(scon->dcl.con, INPUT_AXIS_X, off_x + x, max_w);
++	qemu_input_queue_abs(scon->dcl.con, INPUT_AXIS_X, off_x + x, max_w);
+         qemu_input_queue_abs(scon->dcl.con, INPUT_AXIS_Y, off_y + y, max_h);
+     } else {
+         if (guest_cursor) {
+@@ -309,6 +324,7 @@
+             dx = x;
+             dy = y;
+         }
++
+         qemu_input_queue_rel(scon->dcl.con, INPUT_AXIS_X, dx);
+         qemu_input_queue_rel(scon->dcl.con, INPUT_AXIS_Y, dy);
+     }
+@@ -756,6 +772,10 @@
      }
  }
  
@@ -264,7 +297,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
  void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
  {
      int flags;
-@@ -768,6 +780,7 @@
+@@ -768,6 +788,7 @@
          gui_noframe = 1;
      }
  
@@ -272,7 +305,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -780,6 +793,12 @@
+@@ -780,6 +801,12 @@
       */
      setenv("SDL_VIDEODRIVER", "x11", 0);
  #endif
@@ -287,7 +320,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
      if (SDL_Init(flags)) {
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/vnc.c ./ui/vnc.c
 --- /tmp/qemu-2.9.1/ui/vnc.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/vnc.c	2018-08-13 19:10:52.000000000 +0300
++++ ./ui/vnc.c	2021-09-12 14:31:14.102083548 +0300
 @@ -47,8 +47,19 @@
  #include "qemu/cutils.h"
  #include "io/dns-resolver.h"
@@ -308,9 +341,61 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/vnc.c ./ui/vnc.c
  #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
  static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
  static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
+@@ -1843,6 +1854,40 @@
+     return QKeyCode_lookup[qemu_input_key_number_to_qcode(keycode)];
+ }
+ 
++// LIMBO: some keys from android keyboards need SHIFT
++#ifdef __ANDROID__
++static bool keyNeedsShift(VncState *vs, int down,
++                          uint32_t sym, uint16_t keycode) {
++	int meta_sym = 0;	
++	int meta_keycode = 0;
++	
++	if ((sym >= 123 && sym <= 126)
++	|| (sym >= 33 && sym <= 38)
++	|| (sym >= 40 && sym <= 44)
++	|| (sym >= 62 && sym <= 64)
++	|| (sym >= 94 && sym <= 95)
++	|| sym == 58 || sym == 60) {
++		meta_sym = 65505;
++		meta_keycode = 42;
++		if(sym == 60) {
++			sym = 44;
++			keycode = 51;
++		}
++	} else {
++		return false;
++	}
++	
++	if(down)
++		do_key_event(vs, down, meta_keycode, meta_sym);		
++	do_key_event(vs, down, keycode, sym);
++	if(!down)
++		do_key_event(vs, down, meta_keycode, meta_sym);
++			
++	return true;
++}
++#endif
++//LIMBO
++
+ static void key_event(VncState *vs, int down, uint32_t sym)
+ {
+     int keycode;
+@@ -1854,6 +1899,10 @@
+ 
+     keycode = keysym2scancode(vs->vd->kbd_layout, lsym & 0xFFFF) & SCANCODE_KEYMASK;
+     trace_vnc_key_event_map(down, sym, keycode, code2name(keycode));
++#ifdef __ANDROID__
++    if(keyNeedsShift(vs, down, sym, keycode))
++        return;
++#endif
+     do_key_event(vs, down, keycode, sym);
+ }
+ 
 diff -ru --no-dereference /tmp/qemu-2.9.1/util/qemu-openpty.c ./util/qemu-openpty.c
 --- /tmp/qemu-2.9.1/util/qemu-openpty.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./util/qemu-openpty.c	2018-08-13 19:10:52.000000000 +0300
++++ ./util/qemu-openpty.c	2021-09-12 11:46:06.194323001 +0300
 @@ -107,7 +107,9 @@
          termios_p->c_cc[VTIME] = 0;
  }
