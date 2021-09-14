@@ -23,9 +23,12 @@ BUILD_THREADS = 3
 
 
 ############## Build Environment (toolchain)
-# Last version with gcc support is 14b otherwise use clang (USE_GCC ?= false)
-USE_GCC ?= false 
+# Last version with gcc support is 14b 
+#USE_GCC?=true
 #NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
+
+# Or use r23 with clang 
+USE_GCC?=false
 NDK_ROOT = /home/dev/tools/ndk/android-ndk-r23
 
 # Uncomment if you use Linux x86, Linux 64bit, or macosx PC to compile
