@@ -236,7 +236,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
 --- /tmp/qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2.c	2021-09-13 14:48:37.672684435 +0300
++++ ./ui/sdl2.c	2021-09-14 15:49:04.017029758 +0300
 @@ -90,7 +90,15 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -286,7 +286,18 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
          qemu_input_queue_rel(scon->dcl.con, INPUT_AXIS_X, dx);
          qemu_input_queue_rel(scon->dcl.con, INPUT_AXIS_Y, dy);
      }
-@@ -756,6 +772,10 @@
+@@ -595,6 +611,10 @@
+     }
+ 
+     while (SDL_PollEvent(ev)) {
++#ifdef __LIMBO__
++        if(!ev)
++            continue;
++#endif
+         switch (ev->type) {
+         case SDL_KEYDOWN:
+             idle = 0;
+@@ -756,6 +776,10 @@
      }
  }
  
@@ -297,7 +308,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
  void sdl_display_init(DisplayState *ds, int full_screen, int no_frame)
  {
      int flags;
-@@ -768,6 +788,7 @@
+@@ -768,6 +792,7 @@
          gui_noframe = 1;
      }
  
@@ -305,7 +316,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -780,6 +801,12 @@
+@@ -780,6 +805,12 @@
       */
      setenv("SDL_VIDEODRIVER", "x11", 0);
  #endif
