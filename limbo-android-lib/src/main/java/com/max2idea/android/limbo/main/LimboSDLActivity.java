@@ -67,6 +67,7 @@ import com.max2idea.android.limbo.toast.ToastUtils;
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLAudioManager;
 
+import java.security.Key;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -151,15 +152,20 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    public synchronized void sendCtrlAltKey(int code) {
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, true, 100);
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, true, 100);
-        if (code >= 0) {
-            sendKeyEvent(null, code, true, 100);
-            sendKeyEvent(null, code, false, 100);
-        }
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_LEFT, false, 100);
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_LEFT, false, 100);
+    public synchronized void sendKeys(int [] codes) {
+        sendKeys(codes, Config.keyDelay);
+    }
+
+    public synchronized void sendKeys(int [] codes, int delay) {
+        for(int code : codes)
+            sendKeyEvent(null, code, true, delay);
+        for(int code : codes)
+            sendKeyEvent(null, code, false, delay);
+    }
+
+    public synchronized void sendCtrlAlt(int code) {
+        sendKeys(new int[]{KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_ALT_LEFT,
+            KeyEvent.KEYCODE_SHIFT_LEFT, code}, 100);
     }
 
     public void onDestroy() {
@@ -366,12 +372,7 @@ public class LimboSDLActivity extends SDLActivity
     }
 
     private void sendCtrlAltDel() {
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_RIGHT, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, true);
-        sendKeyEvent(null, KeyEvent.KEYCODE_FORWARD_DEL, false);
-        sendKeyEvent(null, KeyEvent.KEYCODE_ALT_RIGHT, false);
-        sendKeyEvent(null, KeyEvent.KEYCODE_CTRL_RIGHT, false);
+        sendCtrlAlt(KeyEvent.KEYCODE_FORWARD_DEL);
     }
 
     @Override
@@ -416,7 +417,7 @@ public class LimboSDLActivity extends SDLActivity
                 monitorMode = true;
                 //TODO: enable qemu monitor if and when libSDL for Android allows
                 // multiple windows
-                sendCtrlAltKey(KeyEvent.KEYCODE_2);
+                sendCtrlAlt(KeyEvent.KEYCODE_2);
             }
         }).start();
 
@@ -424,7 +425,7 @@ public class LimboSDLActivity extends SDLActivity
 
     private void showVMDisplay() {
         monitorMode = false;
-        sendCtrlAltKey(KeyEvent.KEYCODE_1);
+        sendCtrlAlt(KeyEvent.KEYCODE_1);
     }
 
     // FIXME: We need this to able to catch complex characters strings like
@@ -1076,10 +1077,10 @@ public class LimboSDLActivity extends SDLActivity
         Log.d(TAG, "Resetting layout");
         // We use QEMU keyboard shortcut for fullscreen
         // to trigger the redraw
-        sendCtrlAltKey(KeyEvent.KEYCODE_F);
+        sendCtrlAlt(KeyEvent.KEYCODE_F);
         // HACK: since the above shortcut locks the alt in qemu 2.9.1
         // we send another one to unlock
-        sendCtrlAltKey(KeyEvent.KEYCODE_G);
+        sendCtrlAlt(KeyEvent.KEYCODE_G);
     }
 
     public enum MouseMode {
