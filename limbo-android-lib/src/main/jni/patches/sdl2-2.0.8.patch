@@ -20,7 +20,7 @@ diff -ru --no-dereference /tmp/SDL2-2.0.8/Android.mk ./Android.mk
  LOCAL_MODULE := SDL2_main
 diff -ru --no-dereference /tmp/SDL2-2.0.8/src/events/SDL_mouse.c ./src/events/SDL_mouse.c
 --- /tmp/SDL2-2.0.8/src/events/SDL_mouse.c	2018-03-01 18:34:42.000000000 +0200
-+++ ./src/events/SDL_mouse.c	2021-09-14 12:53:34.467540503 +0300
++++ ./src/events/SDL_mouse.c	2021-09-14 13:04:17.955954017 +0300
 @@ -655,6 +655,10 @@
  void
  SDL_WarpMouseInWindow(SDL_Window * window, int x, int y)
@@ -32,3 +32,15 @@ diff -ru --no-dereference /tmp/SDL2-2.0.8/src/events/SDL_mouse.c ./src/events/SD
      SDL_Mouse *mouse = SDL_GetMouse();
  
      if (window == NULL) {
+@@ -675,6 +679,11 @@
+ int
+ SDL_WarpMouseGlobal(int x, int y)
+ {
++#ifdef __LIMBO__
++    // LIMBO: we don't warp in limbo
++    printf("mouse global\n");
++    return 0;
++#endif
+     SDL_Mouse *mouse = SDL_GetMouse();
+ 
+     if (mouse->WarpMouseGlobal) {
