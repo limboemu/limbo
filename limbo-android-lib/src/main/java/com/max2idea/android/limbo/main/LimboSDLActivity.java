@@ -102,6 +102,7 @@ public class LimboSDLActivity extends SDLActivity
     private ViewListener viewListener;
     private boolean quit = false;
     private View mGap;
+    private boolean resettingLayout;
 
     public void showHints() {
         ToastUtils.toastShortTop(this, getString(R.string.PressVolumeDownForRightClick));
@@ -165,7 +166,12 @@ public class LimboSDLActivity extends SDLActivity
 
     public synchronized void sendCtrlAlt(int code) {
         sendKeys(new int[]{KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_ALT_LEFT,
-            KeyEvent.KEYCODE_SHIFT_LEFT, code}, 100);
+            code}, 100);
+    }
+
+    public synchronized void sendCtrlAltShift(int code) {
+        sendKeys(new int[]{KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_ALT_LEFT,
+                KeyEvent.KEYCODE_SHIFT_LEFT, code}, 100);
     }
 
     public void onDestroy() {
@@ -973,6 +979,8 @@ public class LimboSDLActivity extends SDLActivity
 
     private void sendMouseEvent(final int button, final int action, final int toolType,
                                 final float x, final float y, final long delayMs) {
+        if(resettingLayout)
+            return;
         mouseEventsExecutor.submit(new Runnable() {
             @Override
             public void run() {
@@ -1069,18 +1077,26 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    public void resetLayout() {
+    public synchronized void resetLayout() {
         if(!machineRunning) {
             Log.w(TAG, "Machine not running not reset layout");
             return;
         }
-        Log.d(TAG, "Resetting layout");
-        // We use QEMU keyboard shortcut for fullscreen
-        // to trigger the redraw
-        sendCtrlAlt(KeyEvent.KEYCODE_F);
-        // HACK: since the above shortcut locks the alt in qemu 2.9.1
-        // we send another one to unlock
-        sendCtrlAlt(KeyEvent.KEYCODE_G);
+        resettingLayout = true;
+        try {
+            Log.d(TAG, "Resetting layout");
+            sendCtrlAltShift(KeyEvent.KEYCODE_G);
+            // We use QEMU keyboard shortcut for fullscreen
+            // to trigger the redraw
+            sendCtrlAlt(KeyEvent.KEYCODE_F);
+            // HACK: since the above shortcut locks the alt in qemu 2.9.1
+            // we send another one to unlock
+            delay(500);
+            sendCtrlAlt(KeyEvent.KEYCODE_G);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        resettingLayout = false;
     }
 
     public enum MouseMode {
