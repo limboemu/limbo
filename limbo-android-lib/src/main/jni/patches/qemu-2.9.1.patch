@@ -1,18 +1,3 @@
-diff -ru --no-dereference /tmp/qemu-2.9.1/audio/sdlaudio.c ./audio/sdlaudio.c
---- /tmp/qemu-2.9.1/audio/sdlaudio.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./audio/sdlaudio.c	2021-09-14 18:58:59.877946193 +0300
-@@ -52,7 +52,11 @@
- static struct {
-     int nb_samples;
- } conf = {
-+#ifdef __LIMBO__
-+    .nb_samples = 2*1024
-+#else
-     .nb_samples = 1024
-+#endif
- };
- 
- static struct SDLAudioState {
 diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
 --- /tmp/qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
 +++ ./configure	2021-09-12 11:46:06.150323416 +0300
