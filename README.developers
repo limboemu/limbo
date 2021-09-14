@@ -107,6 +107,10 @@ https://github.com/limboemu/limbo
     cd ./limbo-android-lib/src/main/jni/glib/
     patch -p1 < ../patches/glib-2.56.1.patch
 
+    ### Apply SDL2 patch for Limbo:
+    cd ./limbo-android-lib/src/main/jni/SDL2/
+    patch -p1 < ../patches/sdl2-2.0.8.patch
+
     ### Other QEMU versions:
     # If you want to distribute Limbo build with other QEMU versions, create your own patch like this:
     cd /limbo-android-lib/src/main/jni/qemu/
