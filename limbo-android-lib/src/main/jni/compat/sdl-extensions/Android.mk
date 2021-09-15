@@ -3,7 +3,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-	SDL_limbomouse.c
+	SDL_limbomouse.c \
+	SDL_limboscreen.c
 
 LOCAL_MODULE := compat-SDL2-ext
 

@@ -283,6 +283,15 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	LOGV("%s", res_msg);
     return env->NewStringUTF(res_msg);
 }
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeRefreshScreen(
+                JNIEnv* env, jobject thiz, jint jvalue) {
+    if(handle == NULL) {
+    	return;
+    }
+    set_qemu_var(env, thiz, "limbo_vga_full_update", jvalue);
+}
+
 }
 
 void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir) {
@@ -299,4 +308,3 @@ void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir)
 	jclass c = env->GetObjectClass(thiz);
 	set_jni(env, thiz, c, storage_dir_str, base_dir_str);
 }
-

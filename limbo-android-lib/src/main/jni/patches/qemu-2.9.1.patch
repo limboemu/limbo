@@ -78,6 +78,44 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
  fi
  
  ##########################################
+diff -ru --no-dereference /tmp/qemu-2.9.1/hw/display/vga.c ./hw/display/vga.c
+--- /tmp/qemu-2.9.1/hw/display/vga.c	2017-09-07 19:28:14.000000000 +0300
++++ ./hw/display/vga.c	2021-09-15 19:04:07.231208893 +0300
+@@ -1449,6 +1449,12 @@
+     memory_region_set_log(&s->vram, false, DIRTY_MEMORY_VGA);
+ }
+ 
++#ifdef __LIMBO__
++// LIMBO: we need to do a full screen refresh to align we can't do this via the SDL
++// layer so we pick the lesser evil and do it within the vga
++int limbo_vga_full_update;
++#endif
++
+ /*
+  * graphic modes
+  */
+@@ -1633,7 +1639,11 @@
+         if (!(s->cr[VGA_CRTC_MODE] & 2)) {
+             addr = (addr & ~0x8000) | ((y1 & 2) << 14);
+         }
++#ifdef __LIMBO__
++        update = full_update || limbo_vga_full_update;
++#else
+         update = full_update;
++#endif        
+         page0 = addr;
+         page1 = addr + bwidth - 1;
+         update |= memory_region_get_dirty(&s->vram, page0, page1 - page0,
+@@ -1678,6 +1688,9 @@
+         /* flush to display */
+         dpy_gfx_update(s->con, 0, y_start,
+                        disp_width, y - y_start);
++#ifdef __LIMBO__
++        limbo_vga_full_update = 0;
++#endif        
+     }
+     /* reset modified pages */
+     if (page_max >= page_min) {
 diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/console.h
 --- /tmp/qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
 +++ ./include/ui/console.h	2021-09-12 11:46:06.154323378 +0300
@@ -189,7 +227,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
  fork_exec(struct socket *so, const char *ex, int do_pty)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
 --- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/console.c	2021-09-12 11:46:06.182323114 +0300
++++ ./ui/console.c	2021-09-15 19:45:41.706655045 +0300
 @@ -34,6 +34,10 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
@@ -203,7 +241,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
      uint8_t bgcol:4;
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
 --- /tmp/qemu-2.9.1/ui/sdl2-2d.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2-2d.c	2021-09-12 11:46:06.182323114 +0300
++++ ./ui/sdl2-2d.c	2021-09-15 19:47:25.910989528 +0300
 @@ -66,7 +66,15 @@
  
      SDL_UpdateTexture(scon->texture, NULL, surface_data(surf),
@@ -236,7 +274,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2-2d.c ./ui/sdl2-2d.c
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/sdl2.c ./ui/sdl2.c
 --- /tmp/qemu-2.9.1/ui/sdl2.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/sdl2.c	2021-09-14 17:38:26.492290173 +0300
++++ ./ui/sdl2.c	2021-09-15 18:55:37.466911654 +0300
 @@ -90,7 +90,15 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
