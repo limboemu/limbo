@@ -314,6 +314,9 @@ class Dispatcher implements ViewListener {
             case DISPLAY_CHANGED:
                 displayChanged(value);
                 break;
+            case FULLSCREEN:
+                MachineController.getInstance().setFullscreen();
+                break;
         }
     }
 

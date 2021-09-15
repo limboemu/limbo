@@ -39,6 +39,7 @@ import com.max2idea.android.limbo.toast.ToastUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.libsdl.app.SDLActivity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -91,6 +92,10 @@ class VMExecutor extends MachineExecutor {
     public native void nativeMouseEvent(int button, int action, int relative, int x, int y);
 
     public native void nativeMouseBounds(int xmin, int xmax, int ymin, int ymax);
+
+    public native void nativeFullscreen();
+
+    public native void nativeRefreshScreen(int value);
 
     /**
      * Prints parameters in qemu format
@@ -828,6 +833,12 @@ class VMExecutor extends MachineExecutor {
             }
             nativeMouseBounds(xmin, xmax, ymin, ymax);
         }
+    }
+
+    @Override
+    public void setFullscreen() {
+        nativeFullscreen();
+        nativeRefreshScreen(1);
     }
 
 

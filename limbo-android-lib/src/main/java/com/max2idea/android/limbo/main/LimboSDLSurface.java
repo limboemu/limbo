@@ -19,9 +19,6 @@ Copyright (C) Max Kastanas 2012
 package com.max2idea.android.limbo.main;
 
 import android.content.Context;
-import android.content.res.Configuration;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -79,7 +76,7 @@ public class LimboSDLSurface extends SDLActivity.ExSDLSurface
         new Thread(new Runnable() {
             @Override
             public void run() {
-                sdlActivity.resetLayout();
+                sdlActivity.setFullscreen();
                 // notify the controller that our display has changed
                 sdlActivity.notifyAction(MachineAction.DISPLAY_CHANGED,
                         new Object[]{getWidth(), getHeight(), getResources().getConfiguration().orientation});

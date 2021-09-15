@@ -33,6 +33,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -1077,22 +1078,15 @@ public class LimboSDLActivity extends SDLActivity
         }
     }
 
-    public synchronized void resetLayout() {
+    public synchronized void setFullscreen() {
         if(!machineRunning) {
             Log.w(TAG, "Machine not running not reset layout");
             return;
         }
         resettingLayout = true;
         try {
-            Log.d(TAG, "Resetting layout");
-            sendCtrlAltShift(KeyEvent.KEYCODE_G);
-            // We use QEMU keyboard shortcut for fullscreen
-            // to trigger the redraw
-            sendCtrlAlt(KeyEvent.KEYCODE_F);
-            // HACK: since the above shortcut locks the alt in qemu 2.9.1
-            // we send another one to unlock
-            delay(500);
-            sendCtrlAlt(KeyEvent.KEYCODE_G);
+            Log.d(TAG, "Requesting fullscreen");
+            viewListener.onAction(MachineAction.FULLSCREEN, null);
         } catch (Exception ex) {
             ex.printStackTrace();
         }

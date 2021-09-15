@@ -391,12 +391,17 @@ public class MachineController {
             notifyEventListeners(Event.MachineResolutionChanged, new Object[]{vm_width, vm_height});
     }
 
+    public void setFullscreen() {
+        machineExecutor.setFullscreen();
+        notifyEventListeners(Event.MachineFullscreen, null);
+    }
+
     public enum MachineStatus {
         Ready, Stopped, Saving, Paused, SaveCompleted, SaveFailed, Unknown, Running
     }
 
     public enum Event {
-        MachineCreated, MachineCreateFailed, MachineLoaded, MachineResolutionChanged, MachineContinued, MachinesImported
+        MachineCreated, MachineCreateFailed, MachineLoaded, MachineResolutionChanged, MachineContinued, MachineFullscreen, MachinesImported
     }
 
     public interface OnMachineStatusChangeListener {
