@@ -270,12 +270,12 @@ public class MachineController {
         return machineExecutor.getMachine().getPaused() == 1;
     }
 
-    public int getSdlRefreshRate() {
-        return machineExecutor.getSdlRefreshRate();
+    public int getSdlRefreshRate(boolean idle) {
+        return machineExecutor.getSdlRefreshRate(idle);
     }
 
-    void setSdlRefreshRate(int refreshMs) {
-        machineExecutor.setSdlRefreshRate(refreshMs);
+    void setSdlRefreshRate(int refreshMs, boolean idle) {
+        machineExecutor.setSdlRefreshRate(refreshMs, idle);
     }
 
     public String getMachineName() {

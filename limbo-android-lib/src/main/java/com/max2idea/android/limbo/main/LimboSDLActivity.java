@@ -765,24 +765,21 @@ public class LimboSDLActivity extends SDLActivity
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        int currRate = getCurrentSDLRefreshRate();
 
-        final TextView value = new TextView(this);
-        String msg = getString(R.string.IdleRefreshRate) + ": " + currRate + " Hz";
-        value.setText(msg);
-        layout.addView(value);
-        value.setLayoutParams(params);
-
-        SeekBar rate = new SeekBar(this);
-        rate.setMax(Config.MAX_DISPLAY_REFRESH_RATE);
-
-        rate.setProgress(currRate);
-        rate.setLayoutParams(params);
-
-        rate.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+        int currRateDefault = getCurrentSDLRefreshRate(false);
+        final TextView valueDefault = new TextView(this);
+        String msg = getString(R.string.DefaultRefreshRate) + ": " + currRateDefault + " Hz";
+        valueDefault.setText(msg);
+        valueDefault.setPadding(10, 10, 10, 10);
+        valueDefault.setLayoutParams(params);
+        SeekBar rateDefault = new SeekBar(this);
+        rateDefault.setMax(Config.MAX_DISPLAY_REFRESH_RATE);
+        rateDefault.setProgress(currRateDefault);
+        rateDefault.setLayoutParams(params);
+        rateDefault.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar s, int progress, boolean touch) {
-                String message = getString(R.string.IdleRefreshRate) + ": " + (progress + 1) + " " + "Hz";
-                value.setText(message);
+                String message = getString(R.string.DefaultRefreshRate) + ": " + (progress + 1) + " " + "Hz";
+                valueDefault.setText(message);
             }
 
             public void onStartTrackingTouch(SeekBar arg0) {
@@ -791,15 +788,46 @@ public class LimboSDLActivity extends SDLActivity
             public void onStopTrackingTouch(SeekBar arg0) {
                 int progress = arg0.getProgress() + 1;
                 int refreshMs = 1000 / progress;
-                notifyAction(MachineAction.SET_SDL_REFRESH_RATE, refreshMs);
+                notifyAction(MachineAction.SET_SDL_REFRESH_RATE, new Object[] {refreshMs, false});
             }
         });
-        layout.addView(rate);
+
+        int currRateIdle = getCurrentSDLRefreshRate(true);
+        final TextView valueIdle = new TextView(this);
+        String msgIdle = getString(R.string.IdleRefreshRate) + ": " + currRateIdle + " Hz";
+        valueIdle.setText(msgIdle);
+        valueIdle.setLayoutParams(params);
+        valueIdle.setPadding(10, 10, 10, 10);
+        SeekBar rateIdle = new SeekBar(this);
+        rateIdle.setMax(Config.MAX_DISPLAY_REFRESH_RATE);
+        rateIdle.setProgress(currRateIdle);
+        rateIdle.setLayoutParams(params);
+        rateIdle.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar s, int progress, boolean touch) {
+                String message = getString(R.string.IdleRefreshRate) + ": " + (progress + 1) + " " + "Hz";
+                valueIdle.setText(message);
+            }
+
+            public void onStartTrackingTouch(SeekBar arg0) {
+            }
+
+            public void onStopTrackingTouch(SeekBar arg0) {
+                int progress = arg0.getProgress() + 1;
+                int refreshMs = 1000 / progress;
+                notifyAction(MachineAction.SET_SDL_REFRESH_RATE, new Object[] {refreshMs, true});
+            }
+        });
+
+        layout.addView(valueDefault);
+        layout.addView(rateDefault);
+        layout.addView(valueIdle);
+        layout.addView(rateIdle);
+
         return layout;
     }
 
-    public int getCurrentSDLRefreshRate() {
-        return 1000 / MachineController.getInstance().getSdlRefreshRate();
+    public int getCurrentSDLRefreshRate(boolean idle) {
+        return 1000 / MachineController.getInstance().getSdlRefreshRate(idle);
     }
 
     //    private static Thread limboSDLThread = null;

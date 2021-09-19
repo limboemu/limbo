@@ -45,9 +45,9 @@ public abstract class MachineExecutor {
 
     abstract protected void stopvm(final int restart);
 
-    public abstract int getSdlRefreshRate();
+    public abstract int getSdlRefreshRate(boolean idle);
 
-    public abstract void setSdlRefreshRate(int refreshMs);
+    public abstract void setSdlRefreshRate(int refreshMs, boolean idle);
 
     public abstract void sendMouseEvent(int button, int action, int relative, float x, float y);
 

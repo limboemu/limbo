@@ -299,7 +299,7 @@ class Dispatcher implements ViewListener {
                 MachineController.getInstance().importMachines(convertString(action, value));
                 break;
             case SET_SDL_REFRESH_RATE:
-                MachineController.getInstance().setSdlRefreshRate(convertInt(action, value));
+                changeSDLRefreshRate(value);
                 break;
             case SEND_MOUSE_EVENT:
                 sendMouseEvent(value);
@@ -318,6 +318,13 @@ class Dispatcher implements ViewListener {
                 MachineController.getInstance().setFullscreen();
                 break;
         }
+    }
+
+    private void changeSDLRefreshRate(Object value) {
+        Object[] params = (Object[]) value;
+        int ms = (int) params[0];
+        boolean idle = (boolean) params[1];
+        MachineController.getInstance().setSdlRefreshRate(ms, idle);
     }
 
     private void displayChanged(Object value) {

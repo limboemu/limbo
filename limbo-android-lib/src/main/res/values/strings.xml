@@ -183,6 +183,7 @@
     <string name="Pause">Pause</string>
     <string name="CouldNotDeleteVMStateFile">Could not delete vm state file</string>
     <string name="PleaseWaitSavingVM">Please wait while saving VM State</string>
+    <string name="DefaultRefreshRate">Default Refresh Rate</string>
     <string name="IdleRefreshRate">Idle Refresh Rate</string>
     <string name="importMachines">Import Machines</string>
     <string name="PleaseWait">Please Wait</string>

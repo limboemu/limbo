@@ -39,7 +39,6 @@ import com.max2idea.android.limbo.toast.ToastUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.libsdl.app.SDLActivity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -85,9 +84,13 @@ class VMExecutor extends MachineExecutor {
 
     private native String stop(int restart);
 
-    public native void setsdlrefreshrate(int value);
+    public native void setSDLRefreshRateDefault(int value);
 
-    public native int getsdlrefreshrate();
+    public native void setSDLRefreshRateIdle(int value);
+
+    public native int getSDLRefreshRateDefault();
+
+    public native int getSDLRefreshRateIdle();
 
     public native void nativeMouseEvent(int button, int action, int relative, int x, int y);
 
@@ -784,13 +787,19 @@ class VMExecutor extends MachineExecutor {
     }
 
     @Override
-    public int getSdlRefreshRate() {
-        return getsdlrefreshrate();
+    public int getSdlRefreshRate(boolean idle) {
+        if(idle)
+            return getSDLRefreshRateIdle();
+        else
+            return getSDLRefreshRateDefault();
     }
 
     @Override
-    public void setSdlRefreshRate(int value) {
-        setsdlrefreshrate(value);
+    public void setSdlRefreshRate(int value, boolean idle) {
+        if(idle)
+            setSDLRefreshRateIdle(value);
+        else
+            setSDLRefreshRateDefault(value);
     }
 
     @Override
