@@ -161,7 +161,6 @@ public class FileUtils {
     }
 
     public static String getFileContents(String filePath) {
-
         File file = new File(filePath);
         if (!file.exists())
             return "";
@@ -171,6 +170,7 @@ public class FileUtils {
             byte[] buff = new byte[32768];
             int bytesRead = 0;
             while ((bytesRead = stream.read(buff, 0, buff.length)) > 0) {
+                //FIXME: log file can be too large appending might fail with out of memory
                 builder.append(new String(buff, 0, bytesRead));
             }
         } catch (Exception e) {
