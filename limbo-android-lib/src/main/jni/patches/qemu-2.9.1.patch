@@ -1,3 +1,30 @@
+diff -ru --no-dereference /tmp/qemu-2.9.1/audio/audio.c ./audio/audio.c
+--- /tmp/qemu-2.9.1/audio/audio.c	2017-09-07 19:28:14.000000000 +0300
++++ ./audio/audio.c	2021-09-19 22:13:54.255212688 +0300
+@@ -76,7 +76,11 @@
+         .nb_voices = 1,
+         .greedy = 1,
+         .settings = {
++#ifdef __LIMBO__
++            .freq = 22050,
++#else
+             .freq = 44100,
++#endif
+             .nchannels = 2,
+             .fmt = AUD_FMT_S16,
+             .endianness =  AUDIO_HOST_ENDIANNESS,
+@@ -88,7 +92,11 @@
+         .nb_voices = 1,
+         .greedy = 1,
+         .settings = {
++#ifdef __LIMBO__
++            .freq = 22050,
++#else
+             .freq = 44100,
++#endif
+             .nchannels = 2,
+             .fmt = AUD_FMT_S16,
+             .endianness = AUDIO_HOST_ENDIANNESS,
 diff -ru --no-dereference /tmp/qemu-2.9.1/configure ./configure
 --- /tmp/qemu-2.9.1/configure	2017-09-07 19:28:14.000000000 +0300
 +++ ./configure	2021-09-12 11:46:06.150323416 +0300
@@ -230,7 +257,7 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
  fork_exec(struct socket *so, const char *ex, int do_pty)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
 --- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/console.c	2021-09-19 16:48:19.886009309 +0300
++++ ./ui/console.c	2021-09-19 22:12:34.299175702 +0300
 @@ -34,6 +34,11 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500

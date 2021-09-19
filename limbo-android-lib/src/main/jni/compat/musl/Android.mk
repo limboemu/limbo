@@ -13,20 +13,7 @@ LOCAL_MODULE := compat-musl
 LOCAL_C_INCLUDES :=			\
 	$(LOCAL_PATH)/../musl/include
 
-#LOCAL_CFLAGS += $(ARCH_CFLAGS)
-LOCAL_CFLAGS += -include $(LOGUTILS)
 LOCAL_ARM_MODE := $(ARM_MODE)
-
-LOCAL_LDFLAGS += $(ARCH_LD_FLAGS)
 LOCAL_LDFLAGS += -u iconv_open
-
-LOCAL_CFLAGS +=
-
-LOCAL_SHARED_LIBRARIES :=
-
-
-LOCAL_LDLIBS :=				\
-	-ldl -llog
-
 include $(BUILD_SHARED_LIBRARY)
 

@@ -19,7 +19,10 @@ https://github.com/limboemu/limbo
     Android device with Android OS 5.0 (Lollipop) and above
     Linux Desktop pc (Ubuntu prefered)
     Make sure you have the following packages installed, if not run:
-    sudo apt-get install make autoconf automake git python binutils libtool-bin pkg-config flex bison gettext texinfo ninja-build
+    sudo apt-get install make autoconf automake git python binutils 
+    sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
+    For developement you can use your own editors Geany is highly 
+	recommended for the native code
 
 ===============================================================================
 
@@ -52,6 +55,7 @@ https://github.com/limboemu/limbo
 
     ##### Get QEMU
     # download link:  http://download.qemu-project.org/qemu-x.x.x.tar.xz 
+    # Current versions supported by limbo: 5.1.0 and 2.9.1
     # example for version 5.1.0:
     wget http://download.qemu-project.org/qemu-5.1.0.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-5.1.0.tar.xz

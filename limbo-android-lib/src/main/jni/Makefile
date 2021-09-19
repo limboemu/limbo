@@ -1,10 +1,4 @@
-.PHONY: limbo clean distclean clean-ndk createdirs clean-ffi clean-glib clean-qemu clean-pixman
-
 include android-limbo-build.mak
-
-# Important: Do not remove, this makes sure that other libraries (especially qemu) will append our
-#  optimization flags thus override any other settings
-#CFLAGS=$(ARCH_CFLAGS)
 
 ifeq ($(NDK_ENV), windows)
 	NDK_BUILD = ndk-build.cmd
@@ -135,6 +129,9 @@ endif
 
 export
 
+.PHONY: limbo clean distclean clean-ndk createdirs clean-ffi clean-glib clean-qemu clean-pixman
+
+default: limbo
 	
 createdirs:
 	$(CREATE_OBJDIR)
@@ -295,8 +292,8 @@ EXPORT_GUEST_ALL=export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu,ppc64-softmmu
 
 #most common combinations
 all:
-	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=armeabi-v7a && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=arm64-v8a && make limbo
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=armeabi-v7a && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86 && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86_64 && make limbo
 
