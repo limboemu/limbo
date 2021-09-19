@@ -57,6 +57,8 @@ public abstract class MachineExecutor {
 
     public abstract MachineController.MachineStatus getSaveVMStatus();
 
+    public abstract void enableAaudio(int value);
+
     public abstract boolean changeRemovableDevice(MachineProperty drive, String diskValue);
 
     public abstract String getDeviceName(MachineProperty driveProperty);

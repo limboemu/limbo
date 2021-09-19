@@ -33,7 +33,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -68,7 +67,6 @@ import com.max2idea.android.limbo.toast.ToastUtils;
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLAudioManager;
 
-import java.security.Key;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -483,7 +481,6 @@ public class LimboSDLActivity extends SDLActivity
         super.onCreate(savedInstanceState);
         mSingleton = this;
         restoreAudioState();
-        setupVolume();
         setupWidgets();
         setupListeners();
         setupToolBar();
@@ -491,6 +488,7 @@ public class LimboSDLActivity extends SDLActivity
         ScreenUtils.updateOrientation(this);
         checkPendingActions();
         setupUserInterface();
+        setupAudio();
     }
 
     private void setupUserInterface() {
@@ -860,7 +858,8 @@ public class LimboSDLActivity extends SDLActivity
         ((LimboSDLSurface) mSurface).refreshSurfaceView();
     }
 
-    protected void setupVolume() {
+    protected void setupAudio() {
+        notifyAction(MachineAction.ENABLE_AAUDIO, LimboSettingsManager.getEnableAaudio(this)?1:0);
         if (am == null) {
             am = (AudioManager) mSingleton.getSystemService(Context.AUDIO_SERVICE);
             maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);

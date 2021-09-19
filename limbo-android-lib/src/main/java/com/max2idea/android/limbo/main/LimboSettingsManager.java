@@ -256,6 +256,11 @@ public class LimboSettingsManager extends PreferenceActivity {
         return Integer.parseInt(sizeStr);
     }
 
+    public static boolean getEnableAaudio(Context activity) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        return prefs.getBoolean("enableAaudio", false);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -288,6 +293,8 @@ public class LimboSettingsManager extends PreferenceActivity {
             addPreferencesFromResource(R.xml.software_updates);
         if(Config.enableImmersiveMode)
             addPreferencesFromResource(R.xml.immersive);
+        if(Config.enableAaudio)
+            addPreferencesFromResource(R.xml.aaudio);
     }
 
     public void promptVNCPass(final Activity activity) {

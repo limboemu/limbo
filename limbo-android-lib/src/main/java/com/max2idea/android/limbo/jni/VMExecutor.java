@@ -100,6 +100,8 @@ class VMExecutor extends MachineExecutor {
 
     public native void nativeRefreshScreen(int value);
 
+    public native void nativeEnableAaudio(int value);
+
     /**
      * Prints parameters in qemu format
      *
@@ -850,6 +852,10 @@ class VMExecutor extends MachineExecutor {
         nativeRefreshScreen(1);
     }
 
+    @Override
+    public void enableAaudio(int value) {
+        nativeEnableAaudio(value);
+    }
 
     //TODO: re-enable getting status from the vm
     public String getVmState() {

@@ -396,6 +396,10 @@ public class MachineController {
         notifyEventListeners(Event.MachineFullscreen, null);
     }
 
+    public void enableAaudio(int value) {
+        machineExecutor.enableAaudio(value);
+    }
+
     public enum MachineStatus {
         Ready, Stopped, Saving, Paused, SaveCompleted, SaveFailed, Unknown, Running
     }
