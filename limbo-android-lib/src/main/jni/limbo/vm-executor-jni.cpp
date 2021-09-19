@@ -47,41 +47,20 @@ void * loadLib(const char * lib_path_str) {
 
 }
 
-extern "C" void run_tests();
+void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir) {
 
-extern "C" {
+    const char *base_dir_str = NULL;
+    const char *storage_dir_str = NULL;
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
-	printf("* JNI_OnLoad called\n");
+    if (base_dir != NULL)
+		base_dir_str = env->GetStringUTFChars(base_dir, 0);
 
-    //run_tests();
-	return JNI_VERSION_1_2;
+    if (storage_dir != NULL)
+		storage_dir_str = env->GetStringUTFChars(storage_dir, 0);
+
+	jclass c = env->GetObjectClass(thiz);
+	set_jni(env, thiz, c, storage_dir_str, base_dir_str);
 }
-
-
-void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue){
-
-	dlerror();
-
-	int value_int = (jint) jvalue;
-	//LOGI("change var: %s = %d\n", var, value_int);
-    void * obj = dlsym (handle, var);
-    int * var_ptr = (int *) obj;
-    *var_ptr = value_int;
-}
-
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setvncrefreshrate(
-		JNIEnv* env, jobject thiz, jint jvalue) {
-    set_qemu_var(env, thiz, "vnc_refresh_interval_inc", jvalue);
-    set_qemu_var(env, thiz, "vnc_refresh_interval_base", jvalue);
-}
-
-
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setsdlrefreshrate(
-		JNIEnv* env, jobject thiz, jint jvalue) {
-    set_qemu_var(env, thiz, "gui_refresh_interval_default", jvalue);
-}
-
 
 int get_qemu_var(JNIEnv* env, jobject thiz, const char * var) {
     char res_msg[MSG_BUFSIZE + 1] = { 0 };
@@ -101,12 +80,64 @@ int get_qemu_var(JNIEnv* env, jobject thiz, const char * var) {
     return *var_ptr;
 }
 
-JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getsdlrefreshrate(
-		JNIEnv* env, jobject thiz) {
+void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue){
 
+	dlerror();
+
+	int value_int = (jint) jvalue;
+	//LOGI("change var: %s = %d\n", var, value_int);
+    void * obj = dlsym (handle, var);
+    int * var_ptr = (int *) obj;
+    *var_ptr = value_int;
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
+	printf("* JNI_OnLoad called\n");
+	return JNI_VERSION_1_2;
+}
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeRefreshScreen(
+                JNIEnv* env, jobject thiz, jint jvalue) {
+    if(handle == NULL) {
+    	return;
+    }
+    set_qemu_var(env, thiz, "limbo_vga_full_update", jvalue);
+}
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setvncrefreshrate(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+    set_qemu_var(env, thiz, "vnc_refresh_interval_inc", jvalue);
+    set_qemu_var(env, thiz, "vnc_refresh_interval_base", jvalue);
+}
+
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setSDLRefreshRateDefault(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+    set_qemu_var(env, thiz, "gui_refresh_interval_default", jvalue);
+}
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setSDLRefreshRateIdle(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+            printf("setting sdl refresh rate idle: %d\n", jvalue);
+    set_qemu_var(env, thiz, "gui_refresh_interval_idle", jvalue);
+}
+
+
+JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getSDLRefreshRateDefault(
+		JNIEnv* env, jobject thiz) {
+    
     int res = get_qemu_var(env, thiz, "gui_refresh_interval_default");
     return res;
 }
+
+JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getSDLRefreshRateIdle(
+		JNIEnv* env, jobject thiz) {
+
+    int res = get_qemu_var(env, thiz, "gui_refresh_interval_idle");
+    printf("getting sdl refresh rate idle: %d\n", res);
+    return res;
+}
+
 
 
 JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefreshrate(
@@ -115,46 +146,6 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefr
     int res = get_qemu_var(env, thiz, "vnc_refresh_interval_inc");
     return res;
 }
-
-
-
-JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
-		JNIEnv* env, jobject thiz, jint jint_restart) {
-	char res_msg[MSG_BUFSIZE + 1] = { 0 };
-
-	int restart_int = jint_restart;
-
-    if(restart_int) {
-        typedef void (*reset_vm_t)(int);
-        dlerror();
-        reset_vm_t qemu_system_reset_request = (reset_vm_t) dlsym(handle, "qemu_system_reset_request");
-        const char *dlsym_error = dlerror();
-        if (dlsym_error) {
-            LOGE("Cannot load symbol 'qemu_system_reset_request': %s\n", dlsym_error);
-            return env->NewStringUTF(res_msg);
-        }
-        qemu_system_reset_request(6); //SHUTDOWN_CAUSE_GUEST_RESET
-        sprintf(res_msg, "VM Restart Request");
-    } else {
-        typedef void (*stop_vm_t)(int);
-        dlerror();
-        stop_vm_t qemu_system_shutdown_request = (stop_vm_t) dlsym(handle, "qemu_system_shutdown_request");
-        const char *dlsym_error = dlerror();
-        if (dlsym_error) {
-            LOGE("Cannot load symbol 'qemu_system_shutdown_request': %s\n", dlsym_error);
-            return env->NewStringUTF(res_msg);
-        }
-        qemu_system_shutdown_request(3); //SHUTDOWN_CAUSE_HOST_SIGNAL
-        sprintf(res_msg, "VM Stop Request");
-	}
-
-	LOGV("%s", res_msg);
-
-	started = restart_int;
-
-	return env->NewStringUTF(res_msg);
-}
-
 
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
@@ -199,12 +190,10 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 		//LOGV("param[%d]=%s", k, argv[k]);
 	}
 
-	started = 1;
-
 	printf("Starting VM...");
+    started = 1;
 
-
-//LOAD LIB
+    //LOAD LIB
 	const char *lib_path_str = NULL;
 	if (lib_path != NULL)
 		lib_path_str = env->GetStringUTFChars(lib_path, 0);
@@ -284,27 +273,43 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
     return env->NewStringUTF(res_msg);
 }
 
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeRefreshScreen(
-                JNIEnv* env, jobject thiz, jint jvalue) {
-    if(handle == NULL) {
-    	return;
-    }
-    set_qemu_var(env, thiz, "limbo_vga_full_update", jvalue);
+
+JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
+		JNIEnv* env, jobject thiz, jint jint_restart) {
+	char res_msg[MSG_BUFSIZE + 1] = { 0 };
+
+	int restart_int = jint_restart;
+
+    if(restart_int) {
+        typedef void (*reset_vm_t)(int);
+        dlerror();
+        reset_vm_t qemu_system_reset_request = (reset_vm_t) dlsym(handle, "qemu_system_reset_request");
+        const char *dlsym_error = dlerror();
+        if (dlsym_error) {
+            LOGE("Cannot load symbol 'qemu_system_reset_request': %s\n", dlsym_error);
+            return env->NewStringUTF(res_msg);
+        }
+        qemu_system_reset_request(6); //SHUTDOWN_CAUSE_GUEST_RESET
+        sprintf(res_msg, "VM Restart Request");
+    } else {
+        typedef void (*stop_vm_t)(int);
+        dlerror();
+        stop_vm_t qemu_system_shutdown_request = (stop_vm_t) dlsym(handle, "qemu_system_shutdown_request");
+        const char *dlsym_error = dlerror();
+        if (dlsym_error) {
+            LOGE("Cannot load symbol 'qemu_system_shutdown_request': %s\n", dlsym_error);
+            return env->NewStringUTF(res_msg);
+        }
+        qemu_system_shutdown_request(3); //SHUTDOWN_CAUSE_HOST_SIGNAL
+        sprintf(res_msg, "VM Stop Request");
+	}
+
+	LOGV("%s", res_msg);
+
+	started = restart_int;
+
+	return env->NewStringUTF(res_msg);
 }
 
-}
+// JNI End
 
-void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir) {
-
-    const char *base_dir_str = NULL;
-    const char *storage_dir_str = NULL;
-
-    if (base_dir != NULL)
-		base_dir_str = env->GetStringUTFChars(base_dir, 0);
-
-    if (storage_dir != NULL)
-		storage_dir_str = env->GetStringUTFChars(storage_dir, 0);
-
-	jclass c = env->GetObjectClass(thiz);
-	set_jni(env, thiz, c, storage_dir_str, base_dir_str);
-}

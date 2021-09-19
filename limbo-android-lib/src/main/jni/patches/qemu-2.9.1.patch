@@ -118,21 +118,24 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/hw/display/vga.c ./hw/display/vga.c
      if (page_max >= page_min) {
 diff -ru --no-dereference /tmp/qemu-2.9.1/include/ui/console.h ./include/ui/console.h
 --- /tmp/qemu-2.9.1/include/ui/console.h	2017-09-07 19:28:14.000000000 +0300
-+++ ./include/ui/console.h	2021-09-12 11:46:06.154323378 +0300
-@@ -27,7 +27,13 @@
++++ ./include/ui/console.h	2021-09-19 15:39:26.512726435 +0300
+@@ -27,8 +27,16 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
  /* in ms */
 +#ifdef __LIMBO__
 +extern int limbo_sdl_scale_hint;
 +extern int gui_refresh_interval_default;
++extern int gui_refresh_interval_idle;
 +#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
++#define GUI_REFRESH_INTERVAL_IDLE gui_refresh_interval_idle
 +#else
  #define GUI_REFRESH_INTERVAL_DEFAULT    30
-+#endif //__LIMBO__
  #define GUI_REFRESH_INTERVAL_IDLE     3000
++#endif //__LIMBO__
  
  /* Color number is match to standard vga palette */
+ enum qemu_color_names {
 diff -ru --no-dereference /tmp/qemu-2.9.1/kvm-all.c ./kvm-all.c
 --- /tmp/qemu-2.9.1/kvm-all.c	2017-09-07 19:28:14.000000000 +0300
 +++ ./kvm-all.c	2021-09-12 11:46:06.158323341 +0300
@@ -227,13 +230,14 @@ diff -ru --no-dereference /tmp/qemu-2.9.1/slirp/misc.c ./slirp/misc.c
  fork_exec(struct socket *so, const char *ex, int do_pty)
 diff -ru --no-dereference /tmp/qemu-2.9.1/ui/console.c ./ui/console.c
 --- /tmp/qemu-2.9.1/ui/console.c	2017-09-07 19:28:14.000000000 +0300
-+++ ./ui/console.c	2021-09-15 19:45:41.706655045 +0300
-@@ -34,6 +34,10 @@
++++ ./ui/console.c	2021-09-19 16:48:19.886009309 +0300
+@@ -34,6 +34,11 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
  
 +#ifdef __LIMBO__
 +int gui_refresh_interval_default = 30;
++int gui_refresh_interval_idle = 300;
 +#endif //__LIMBO__
 +
  typedef struct TextAttributes {
