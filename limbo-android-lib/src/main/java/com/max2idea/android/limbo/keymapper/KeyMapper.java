@@ -18,14 +18,10 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.keymapper;
 
-import android.content.Context;
 import android.view.KeyEvent;
-
-import com.max2idea.android.limbo.main.Config;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
 
 /** Definition of the Key mapper. It supports a 2d set of keys where col = 2 * rows. The keys are
  * then split to 2 sets aligned to the left and right of the screen.
@@ -60,148 +56,45 @@ public class KeyMapper implements Serializable {
 
     public static class KeyMapping implements Serializable {
 
-        public final static int maxKeysButtons = 4;
+        public final static int MAX_KEY_MOUSE_BTNS = 6;
         private static final long serialVersionUID = 7937229682428314497L;
 
-        public ArrayList<Integer> keyCodes = new ArrayList<>();
-        public ArrayList<Integer> mouseButtons = new ArrayList<>();
-        public ArrayList<Integer> unicodeChars = new ArrayList<>();
-        public int x, y;
-        public boolean repeat;
+        private ArrayList<Integer> keyCodes = new ArrayList<>();
+        private ArrayList<Integer> mouseButtons = new ArrayList<>();
+        private ArrayList<Integer> unicodeChars = new ArrayList<>();
+        private int x, y;
+        private boolean repeat;
+        private boolean modifiableKeys;
 
         public KeyMapping(int x, int y) {
             this.x = x;
             this.y = y;
         }
 
-        /**
-         * Get the string representation of the KeyMapping to be used as a Button Label
-         * on the SurfaceView
-         *
-         * @return The String describing a short description of the Key and Mouse Button events
-         * defined by the user
-         */
-        public String getText() {
-            StringBuilder stringBuilder = new StringBuilder("");
-            if (keyCodes != null) {
-                Iterator<Integer> iter = keyCodes.iterator();
-                Iterator<Integer> iterChar = unicodeChars.iterator();
-                while (iter.hasNext()) {
-                    int keyCode = iter.next();
-                    int unicodeChar = iterChar.next();
-                    if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
-                            || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
-                        continue;
-                    if (!stringBuilder.toString().equals(""))
-                        stringBuilder.append("+");
-                    stringBuilder.append(translateCode(keyCode, unicodeChar));
-                }
-            }
-            if (mouseButtons != null) {
-                for (int button : mouseButtons) {
-                    if (!stringBuilder.toString().equals(""))
-                        stringBuilder.append("+");
-                    if (button == Config.SDL_MOUSE_LEFT)
-                        stringBuilder.append("MBL");
-                    else if (button == Config.SDL_MOUSE_MIDDLE)
-                        stringBuilder.append("MBM");
-                    else if (button == Config.SDL_MOUSE_RIGHT)
-                        stringBuilder.append("MBR");
-                }
-            }
-            return stringBuilder.toString();
+
+        public static boolean isKeyMeta(int keyCode) {
+            return keyCode == KeyEvent.KEYCODE_CTRL_LEFT
+                    || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
+                    || keyCode == KeyEvent.KEYCODE_ALT_LEFT
+                    || keyCode == KeyEvent.KEYCODE_ALT_RIGHT
+                    || keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
+                    || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT;
         }
 
-        /**
-         * Retrieves the keyboard character from KeyEvents and translates Special Keys to
-         * short abbreviations
-         *
-         * @param keycode     Android KeyEvent keyCode
-         * @param unicodeChar Unicode Character if exists
-         * @return The string represented by the keyCode
-         */
-        private String translateCode(int keycode, int unicodeChar) {
-            String text;
-            if (keycode == KeyEvent.KEYCODE_DPAD_UP)
-                text = ((char) 0x21E7) + "";
-            else if (keycode == KeyEvent.KEYCODE_DPAD_DOWN)
-                text = ((char) 0x21E9) + "";
-            else if (keycode == KeyEvent.KEYCODE_DPAD_RIGHT)
-                text = ((char) 0x21E8) + "";
-            else if (keycode == KeyEvent.KEYCODE_DPAD_LEFT)
-                text = ((char) 0x21E6) + "";
-            else if (keycode == KeyEvent.KEYCODE_ESCAPE)
-                text = "ESC";
-            else if (keycode == KeyEvent.KEYCODE_ENTER)
-                text = ((char) 0x23CE) + "";
-            else if (keycode == KeyEvent.KEYCODE_TAB)
-                text = "TAB";
-            else if (keycode == KeyEvent.KEYCODE_CTRL_LEFT)
-                text = "Ctrl";
-            else if (keycode == KeyEvent.KEYCODE_CTRL_RIGHT)
-                text = "Ctrl";
-            else if (keycode == KeyEvent.KEYCODE_ALT_LEFT)
-                text = "Alt";
-            else if (keycode == KeyEvent.KEYCODE_ALT_RIGHT)
-                text = "Alt";
-            else if (keycode == KeyEvent.KEYCODE_DEL)
-                text = "BKS";
-            else if (keycode == KeyEvent.KEYCODE_FORWARD_DEL)
-                text = "DEL";
-            else if (keycode == KeyEvent.KEYCODE_INSERT)
-                text = "INS";
-            else if (keycode == KeyEvent.KEYCODE_MOVE_END)
-                text = "END";
-            else if (keycode == KeyEvent.KEYCODE_SYSRQ)
-                text = "SYRQ";
-            else if (keycode == KeyEvent.KEYCODE_MOVE_HOME)
-                text = "HOME";
-            else if (keycode == KeyEvent.KEYCODE_SPACE)
-                text = "SPC";
-            else if (keycode == KeyEvent.KEYCODE_PAGE_UP)
-                text = "PGUP";
-            else if (keycode == KeyEvent.KEYCODE_PAGE_DOWN)
-                text = "PGDN";
-            else if (keycode == KeyEvent.KEYCODE_F1)
-                text = "F1";
-            else if (keycode == KeyEvent.KEYCODE_F2)
-                text = "F2";
-            else if (keycode == KeyEvent.KEYCODE_F3)
-                text = "F3";
-            else if (keycode == KeyEvent.KEYCODE_F4)
-                text = "F4";
-            else if (keycode == KeyEvent.KEYCODE_F5)
-                text = "F5";
-            else if (keycode == KeyEvent.KEYCODE_F6)
-                text = "F6";
-            else if (keycode == KeyEvent.KEYCODE_F7)
-                text = "F7";
-            else if (keycode == KeyEvent.KEYCODE_F8)
-                text = "F8";
-            else if (keycode == KeyEvent.KEYCODE_F9)
-                text = "F9";
-            else if (keycode == KeyEvent.KEYCODE_F10)
-                text = "F10";
-            else if (keycode == KeyEvent.KEYCODE_F11)
-                text = "F11";
-            else if (keycode == KeyEvent.KEYCODE_F12)
-                text = "F12";
-            else if (keycode == KeyEvent.KEYCODE_BREAK)
-                text = "BRK";
-            else if (keycode == KeyEvent.KEYCODE_SCROLL_LOCK)
-                text = "SCRL";
-            else if (keycode == KeyEvent.KEYCODE_NUM_LOCK)
-                text = "NUML";
-            else if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT)
-                text = "SHFT";
-            else if (keycode == KeyEvent.KEYCODE_SHIFT_RIGHT)
-                text = "SHFT";
-            else
-                return ((char) unicodeChar) + "";
-            return text;
-        }
-
-        public void addKeyCode(int keyCode, int unicodeChar) {
+        public void addKeyCode(int keyCode, KeyEvent event) {
+            int unicodeChar = -1;
+            if(event!=null) {
+                unicodeChar = event.getUnicodeChar();
+                if (keyCodes.contains(KeyEvent.KEYCODE_SHIFT_LEFT)
+                        || keyCodes.contains(KeyEvent.KEYCODE_SHIFT_RIGHT)
+                ) {
+                    int newUnicodeChar = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
+                    if (newUnicodeChar != event.getUnicodeChar()) {
+                        modifiableKeys = true;
+                        unicodeChar = newUnicodeChar;
+                    }
+                }
+            }
             if (!availKeysButtons())
                 return;
             if (keyCodes.contains(keyCode))
@@ -219,17 +112,46 @@ public class KeyMapper implements Serializable {
         }
 
         private boolean availKeysButtons() {
-            return keyCodes.size() + mouseButtons.size() < maxKeysButtons;
+            return keyCodes.size() + mouseButtons.size() < MAX_KEY_MOUSE_BTNS;
         }
 
         public void clear() {
             keyCodes.clear();
             unicodeChars.clear();
             mouseButtons.clear();
+            modifiableKeys = false;
         }
 
         public void toggleRepeat() {
             repeat = !repeat;
+        }
+
+        public boolean hasModifiableKeys() {
+            return modifiableKeys;
+        }
+
+        public ArrayList<Integer> getKeyCodes() {
+            return new ArrayList<>(keyCodes);
+        }
+
+        public boolean isRepeat() {
+            return repeat;
+        }
+
+        public ArrayList<Integer> getMouseButtons() {
+            return new ArrayList<>(mouseButtons);
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public ArrayList<Integer>  getUnicodeChars() {
+            return new ArrayList<>(unicodeChars);
         }
     }
 }

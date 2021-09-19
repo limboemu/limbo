@@ -25,6 +25,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -32,8 +34,13 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import com.max2idea.android.limbo.main.Config;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,6 +65,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     Paint mPaintKeyEmpty = new Paint();
 
     Paint mPaintText = new Paint();
+    Paint mPaintTextSmall = new Paint();
     ExecutorService repeaterExecutor = Executors.newFixedThreadPool(1);
 
     private SurfaceHolder surfaceHolder;
@@ -67,6 +75,8 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     private int buttonSize;
     private int minRowLeft = -1;
     private int minRowRight = -1;
+    private int vertFontOffset;
+    private int horizFontOffset;
 
     public KeySurfaceView(Context context) {
         super(context);
@@ -117,7 +127,18 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
         mPaintText.setColor(Color.BLACK);
         mPaintText.setTextSize(36);
         mPaintText.setFakeBoldText(true);
-        mPaintText.setTextAlign(Paint.Align.CENTER);
+        mPaintText.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+
+        mPaintTextSmall.setColor(Color.BLACK);
+        mPaintTextSmall.setTextSize(24);
+        mPaintTextSmall.setFakeBoldText(true);
+        mPaintTextSmall.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+
+        //offsets
+        Rect result = new Rect();
+        mPaintText.getTextBounds("O", 0, 1, result);
+        vertFontOffset = result.height();
+        horizFontOffset = result.width();
     }
 
     private void setupSurfaceHolder() {
@@ -237,7 +258,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
             }
             if (!this.pointers.containsKey(pointerId)) {
                 this.pointers.put(pointerId, keyMapping);
-                if (keyMapping.repeat) {
+                if (keyMapping.isRepeat()) {
                     startRepeater();
                 } else {
                     sendKeyEvents(keyMapping, true);
@@ -252,7 +273,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
             if (!keyMapManager.isEditMode() && prevKeyMapping != null) {
                 // XXX: if the key is repeating it should send the ACTION_UP when it stops
                 // otherwise if it's not repeating we send the action up here
-                if (!keyMapping.repeat) {
+                if (!keyMapping.isRepeat()) {
                     sendKeyEvents(prevKeyMapping, false);
                     sendMouseEvents(prevKeyMapping, false);
                 }
@@ -317,9 +338,9 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
         while (atLeastOneKey) {
             atLeastOneKey = false;
             for (KeyMapper.KeyMapping keyMapping : pointers.values()) {
-                if (!keyMapping.repeat)
+                if (!keyMapping.isRepeat())
                     continue;
-                if (keyMapping.keyCodes.size() == 0 && keyMapping.mouseButtons.size() == 0)
+                if (keyMapping.getKeyCodes().size() == 0 && keyMapping.getMouseButtons().size() == 0)
                     continue;
                 atLeastOneKey = true;
                 sendKeyEvents(keyMapping, true);
@@ -349,7 +370,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     private void sendMouseEvents(KeyMapper.KeyMapping keyMapping, boolean down) {
         if (keyMapManager.isEditMode())
             return;
-        for (int mouseButton : keyMapping.mouseButtons) {
+        for (int mouseButton : keyMapping.getMouseButtons()) {
             keyMapManager.sendMouseEvent(mouseButton, down);
         }
     }
@@ -363,7 +384,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     private void sendKeyEvents(KeyMapper.KeyMapping keyMapping, boolean down) {
         if (keyMapManager.isEditMode())
             return;
-        for (int keyCode : keyMapping.keyCodes) {
+        for (int keyCode : keyMapping.getKeyCodes()) {
             keyMapManager.sendKeyEvent(keyCode, down);
         }
     }
@@ -417,8 +438,8 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
         for (int row = 0; row < keyMapManager.keyMapper.rows; row++) {
             int cellsMissing = 0;
             for (int col = startCol; col < endCol; col++) {
-                if (keyMapManager.keyMapper.mapping[row][col].keyCodes.size() == 0
-                        && keyMapManager.keyMapper.mapping[row][col].mouseButtons.size() == 0) {
+                if (keyMapManager.keyMapper.mapping[row][col].getKeyCodes().size() == 0
+                        && keyMapManager.keyMapper.mapping[row][col].getMouseButtons().size() == 0) {
                     cellsMissing++;
                 } else {
                     break;
@@ -450,7 +471,7 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
                 canvas.drawColor(Color.parseColor("#00FFFFFF"), PorterDuff.Mode.CLEAR);
                 if (keyMapManager.keyMapper != null) {
                     for (KeyMapper.KeyMapping keyMapping : pointers.values()) {
-                        drawButton(canvas, keyMapping.x, keyMapping.y, true, keyMapping.repeat);
+                        drawButton(canvas, keyMapping.getX(), keyMapping.getY(), true, keyMapping.isRepeat());
                     }
                     drawButtons(canvas);
                 }
@@ -474,8 +495,8 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
             mPaint = repeat ? mPaintKeyRepeat : mPaintKey;
         }
 
-        if (mapping[row][col].keyCodes != null && mapping[row][col].mouseButtons != null
-                && (mapping[row][col].keyCodes.size() > 0 || mapping[row][col].mouseButtons.size() > 0
+        if (mapping[row][col].getKeyCodes() != null && mapping[row][col].getMouseButtons() != null
+                && (mapping[row][col].getKeyCodes().size() > 0 || mapping[row][col].getMouseButtons().size() > 0
                 || keyMapManager.isEditMode())) {
             canvas.drawRect((float) (hOffset + col % (keyMapManager.keyMapper.cols / 2) * buttonSize + KEY_CELL_PADDING),
                     (float) (vOffset + row * buttonSize + KEY_CELL_PADDING),
@@ -489,9 +510,9 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
         for (int row = 0; row < keyMapManager.keyMapper.rows; row++) {
             for (int col = 0; col < keyMapManager.keyMapper.cols; col++) {
                 if (!pointers.containsValue(mapping[row][col]) && (keyMapManager.isEditMode()
-                        || mapping[row][col].keyCodes.size() > 0
-                        || mapping[row][col].mouseButtons.size() > 0)) {
-                    drawButton(canvas, row, col, false, mapping[row][col].repeat);
+                        || mapping[row][col].getKeyCodes().size() > 0
+                        || mapping[row][col].getMouseButtons().size() > 0)) {
+                    drawButton(canvas, row, col, false, mapping[row][col].isRepeat());
                 }
                 drawText(canvas, row, col);
             }
@@ -501,25 +522,68 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
     private void drawText(Canvas canvas, int row, int col) {
         int hOffset = col < keyMapManager.keyMapper.cols / 2 ? 0 : (this.getWidth() - buttonLayoutHeight);
         int vOffset = this.getHeight() - buttonLayoutHeight;
-        if (mapping[row][col].keyCodes != null && mapping[row][col].mouseButtons != null) {
-            if (mapping[row][col].keyCodes.size() > 0 || mapping[row][col].mouseButtons.size() > 0)
-                canvas.drawText(mapping[row][col].getText(),
-                        (float) (hOffset + (col % (keyMapManager.keyMapper.cols / 2)) * buttonSize + buttonSize / 2),
-                        (float) (vOffset + row * buttonSize + buttonSize / 2),
-                        mPaintText);
+        if (mapping[row][col].getKeyCodes() != null && mapping[row][col].getMouseButtons() != null) {
+            if (mapping[row][col].getKeyCodes().size() > 0 || mapping[row][col].getMouseButtons().size() > 0) {
+                String[] texts = getText(mapping[row][col]);
+                int count = 0;
+                for(String text : texts) {
+                    if(text!=null) {
+                        int vFontOffset = getVertFontOffset(count);
+                        int hFontOffset = getHorizFontOffset(count)*2;
+                        drawText(canvas, text, row, col, hOffset + hFontOffset, vOffset + vFontOffset,
+                                count == 0? mPaintText: mPaintTextSmall, getAlignPos(count));
+                    }
+                    count++;
+                }
+            }
         }
+    }
+
+    private int getHorizFontOffset(int count) {
+
+        if(count == 1 || count == 3) {
+            return -horizFontOffset;
+        } else if(count == 2 || count == 4) {
+            return horizFontOffset;
+        }
+        return 0;
+    }
+
+    private int getVertFontOffset(int count) {
+
+        if (count == 1 || count == 2)
+            return -vertFontOffset;
+        else if(count == 3 || count == 4)
+            return vertFontOffset;
+        return 0;
+    }
+
+    private Paint.Align getAlignPos(int pos) {
+//        switch(pos) {
+//            case 0:
+//                return Paint.Align.CENTER;
+//            case 1:
+//            case 3:
+//                return Paint.Align.RIGHT;
+//            case 2:
+//            case 4:
+//                return Paint.Align.LEFT;
+//        }
+        return Paint.Align.CENTER;
+    }
+
+    private void drawText(Canvas canvas, String text, int row, int col, int hOffset, int vOffset, Paint paint, Paint.Align align) {
+        paint.setTextAlign(align);
+        canvas.drawText(text,
+                (float) (hOffset + (col % (keyMapManager.keyMapper.cols / 2)) * buttonSize + buttonSize / 2),
+                (float) (vOffset + row * buttonSize + buttonSize / 2),
+                paint);
     }
 
     public void setKeyCode(KeyEvent event) {
         KeyEvent e = new KeyEvent(event.getAction(), event.getKeyCode());
         for (KeyMapper.KeyMapping keyMapping : pointers.values()) {
-
-            if (keyMapping.keyCodes.contains(KeyEvent.KEYCODE_SHIFT_LEFT)
-                    || keyMapping.keyCodes.contains(KeyEvent.KEYCODE_SHIFT_RIGHT)
-            ) {
-                keyMapping.addKeyCode(event.getKeyCode(), e.getUnicodeChar(KeyEvent.META_SHIFT_ON));
-            } else
-                keyMapping.addKeyCode(event.getKeyCode(), e.getUnicodeChar());
+            keyMapping.addKeyCode(event.getKeyCode(), event);
             break;
         }
         keyMapManager.saveKeyMappers();
@@ -532,4 +596,176 @@ public class KeySurfaceView extends SurfaceView implements SurfaceHolder.Callbac
         }
         keyMapManager.saveKeyMappers();
     }
+
+    /**
+     * Get the string representation of the KeyMapping to be used as a Button Label
+     * on the SurfaceView
+     *
+     * @return The Text Strings providing a short description of the Key and Mouse Button events
+     * defined by the user
+     * @param keyMapping
+     */
+    public String[] getText(KeyMapper.KeyMapping keyMapping) {
+        // cell center occupies 2 texts so we use maxKeysMouseButtons-1
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        LinkedHashSet<String> btns = new LinkedHashSet<>();
+        LinkedHashSet<String> meta = new LinkedHashSet<>();
+        if (keyMapping.getKeyCodes() != null) {
+
+            Iterator<Integer> iter = keyMapping.getKeyCodes().iterator();
+            Iterator<Integer> iterChar = keyMapping.getUnicodeChars().iterator();
+            while (iter.hasNext()) {
+                int keyCode = iter.next();
+                int unicodeChar = iterChar.next();
+                if (KeyMapper.KeyMapping.isKeyMeta(keyCode)) {
+                    if(keyMapping.hasModifiableKeys() && (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
+                            || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
+                    )
+                        continue;
+                    meta.add(translateCode(keyCode,-1));
+                    continue;
+                }
+                keys.add(translateCode(keyCode, unicodeChar));
+            }
+        }
+        if (keyMapping.getMouseButtons() != null) {
+            for (int button : keyMapping.getMouseButtons()) {
+                btns.add(traslateMouseBtn(button));
+            }
+        }
+
+        StringBuilder textCenter = new StringBuilder();
+        int centerKeys = 0;
+        centerKeys = moveTextToCenter(textCenter, new ArrayList<>(keys), keys, centerKeys);
+        centerKeys = moveTextToCenter(textCenter, new ArrayList<>(btns), btns, centerKeys);
+        moveTextToCenter(textCenter, new ArrayList<>(meta), meta, centerKeys);
+
+        // now start placing the texts around the square
+        String [] texts = new String[KeyMapper.KeyMapping.MAX_KEY_MOUSE_BTNS -1];
+        texts[0] = textCenter.toString();
+        int count = 1;
+        for(String metaText : meta)
+            texts[count++] = metaText;
+        for(String keyText : keys)
+            texts[count++] = "+" + keyText;
+        for(String btnText : btns)
+            texts[count++] = "+" + btnText;
+        return texts;
+    }
+
+    private String traslateMouseBtn(int button) {
+        switch (button) {
+            case Config.SDL_MOUSE_LEFT:
+                return "Mbl";
+            case Config.SDL_MOUSE_MIDDLE:
+                return "Mbm";
+            case Config.SDL_MOUSE_RIGHT:
+                return "Mbr";
+        }
+        return null;
+    }
+
+    private int moveTextToCenter(StringBuilder textCenter,
+                                 ArrayList<String> texts, HashSet<String> src, int centerKeys) {
+        for(String text : texts) {
+            if(centerKeys >= 2) // only 2 texts in the center
+                break;
+            if(!textCenter.toString().equals(""))
+                textCenter.insert(0, "+");
+            textCenter.insert(0, text);
+            src.remove(text);
+            centerKeys++;
+        }
+        return centerKeys;
+    }
+
+    /**
+     * Retrieves the keyboard character from KeyEvents and translates Special Keys to
+     * short abbreviations
+     *
+     * @param keycode     Android KeyEvent keyCode
+     * @param unicodeChar Unicode Character if exists
+     * @return The string represented by the keyCode
+     */
+    private String translateCode(int keycode, int unicodeChar) {
+        String text;
+        if (keycode == KeyEvent.KEYCODE_DPAD_UP)
+            text = ((char) 0x21E7) + "";
+        else if (keycode == KeyEvent.KEYCODE_DPAD_DOWN)
+            text = ((char) 0x21E9) + "";
+        else if (keycode == KeyEvent.KEYCODE_DPAD_RIGHT)
+            text = ((char) 0x21E8) + "";
+        else if (keycode == KeyEvent.KEYCODE_DPAD_LEFT)
+            text = ((char) 0x21E6) + "";
+        else if (keycode == KeyEvent.KEYCODE_ESCAPE)
+            text = "Esc";
+        else if (keycode == KeyEvent.KEYCODE_ENTER)
+            text = ((char) 0x23CE) + "";
+        else if (keycode == KeyEvent.KEYCODE_TAB)
+            text = "Tab";
+        else if (keycode == KeyEvent.KEYCODE_CTRL_LEFT)
+            text = "Ctrl";
+        else if (keycode == KeyEvent.KEYCODE_CTRL_RIGHT)
+            text = "Ctrl";
+        else if (keycode == KeyEvent.KEYCODE_ALT_LEFT)
+            text = "Alt";
+        else if (keycode == KeyEvent.KEYCODE_ALT_RIGHT)
+            text = "Alt";
+        else if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT)
+            text = "Shft";
+        else if (keycode == KeyEvent.KEYCODE_SHIFT_RIGHT)
+            text = "Shft";
+        else if (keycode == KeyEvent.KEYCODE_DEL)
+            text = "Bksp";
+        else if (keycode == KeyEvent.KEYCODE_FORWARD_DEL)
+            text = "Del";
+        else if (keycode == KeyEvent.KEYCODE_INSERT)
+            text = "Ins";
+        else if (keycode == KeyEvent.KEYCODE_MOVE_END)
+            text = "End";
+        else if (keycode == KeyEvent.KEYCODE_SYSRQ)
+            text = "Syrq";
+        else if (keycode == KeyEvent.KEYCODE_MOVE_HOME)
+            text = "Home";
+        else if (keycode == KeyEvent.KEYCODE_SPACE)
+            text = "Spc";
+        else if (keycode == KeyEvent.KEYCODE_PAGE_UP)
+            text = "PgUp";
+        else if (keycode == KeyEvent.KEYCODE_PAGE_DOWN)
+            text = "PgDn";
+        else if (keycode == KeyEvent.KEYCODE_BREAK)
+            text = "Brk";
+        else if (keycode == KeyEvent.KEYCODE_SCROLL_LOCK)
+            text = "Scrl";
+        else if (keycode == KeyEvent.KEYCODE_NUM_LOCK)
+            text = "NumL";
+        else if (keycode == KeyEvent.KEYCODE_F1)
+            text = "F1";
+        else if (keycode == KeyEvent.KEYCODE_F2)
+            text = "F2";
+        else if (keycode == KeyEvent.KEYCODE_F3)
+            text = "F3";
+        else if (keycode == KeyEvent.KEYCODE_F4)
+            text = "F4";
+        else if (keycode == KeyEvent.KEYCODE_F5)
+            text = "F5";
+        else if (keycode == KeyEvent.KEYCODE_F6)
+            text = "F6";
+        else if (keycode == KeyEvent.KEYCODE_F7)
+            text = "F7";
+        else if (keycode == KeyEvent.KEYCODE_F8)
+            text = "F8";
+        else if (keycode == KeyEvent.KEYCODE_F9)
+            text = "F9";
+        else if (keycode == KeyEvent.KEYCODE_F10)
+            text = "F10";
+        else if (keycode == KeyEvent.KEYCODE_F11)
+            text = "F11";
+        else if (keycode == KeyEvent.KEYCODE_F12)
+            text = "F12";
+        else
+            return ((char) unicodeChar) + "";
+        return text;
+    }
+
 }

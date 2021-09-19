@@ -380,7 +380,7 @@ public class KeyMapManager {
                     if (value)
                         selected++;
                 }
-                if (selected == KeyMapper.KeyMapping.maxKeysButtons)
+                if (selected == KeyMapper.KeyMapping.MAX_KEY_MOUSE_BTNS)
                     ToastUtils.toastShort(activity, activity.getString(R.string.TooManyKeysButtons));
                 itemsEnabled[i] = b;
             }
@@ -396,7 +396,7 @@ public class KeyMapManager {
                             // XXX: we should only have only button pressed under edit mode
                             for (KeyMapper.KeyMapping keyMapping : keySurfaceView.pointers.values()) {
                                 if (k < 7)
-                                    keyMapping.addKeyCode(itemsKeyCodes[k], -1);
+                                    keyMapping.addKeyCode(itemsKeyCodes[k], null);
                                 else
                                     keyMapping.addMouseButton(itemsKeyCodes[k]);
                                 break;
@@ -464,7 +464,7 @@ public class KeyMapManager {
         if (keySurfaceView != null) {
             for (KeyMapper.KeyMapping keyMapping : keySurfaceView.pointers.values()) {
                 keyMapping.toggleRepeat();
-                if (keyMapping.repeat)
+                if (keyMapping.isRepeat())
                     ToastUtils.toastShort(activity, activity.getString(R.string.SetKeyRepeat));
                 else
                     ToastUtils.toastShort(activity, activity.getString(R.string.RemovedKeyRepeat));
