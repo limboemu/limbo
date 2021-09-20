@@ -82,8 +82,7 @@ class VMExecutor extends MachineExecutor {
     //JNI Methods
     private native String start(String storage_dir, String base_dir,
                                 String lib_filename, String lib_path,
-                                int sdl_scale_hint, Object[] params, int paused,
-                                String save_state_name);
+                                int sdl_scale_hint, Object[] params);
 
     private native String stop(int restart);
 
@@ -737,7 +736,7 @@ class VMExecutor extends MachineExecutor {
             String libFilename = getQemuLibrary();
             res = start(Config.storagedir, LimboApplication.getBasefileDir(),
                     libFilename, FileUtils.getNativeLibDir(LimboApplication.getInstance()) + "/" + libFilename,
-                    Config.SDLHintScale, params, getMachine().getPaused(), getSaveStateName());
+                    Config.SDLHintScale, params);
         } catch (Exception ex) {
             ToastUtils.toastLong(LimboApplication.getInstance(), ex.getMessage());
             return res;

@@ -61,8 +61,10 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefr
 
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
-		jstring storage_dir, jstring base_dir,jstring lib_path, 
-        jint sdl_scale_hint, jobjectArray params);
+		jstring storage_dir, jstring base_dir,
+		jstring lib_filename, jstring lib_path,
+		jint sdl_scale_hint,
+		jobjectArray params);
         
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
 		JNIEnv* env, jobject thiz, jint jint_restart);
