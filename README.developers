@@ -21,7 +21,7 @@ https://github.com/limboemu/limbo
     Make sure you have the following packages installed, if not run:
     sudo apt-get install make autoconf automake git python binutils 
     sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
-    For developement you can use your own editors Geany is highly 
+    For development you can use your own editors Geany is highly
 	recommended for editing the native code
 
 ===============================================================================
@@ -38,7 +38,7 @@ https://github.com/limboemu/limbo
     In all other cases you have to look at the config files under:
     limbo-android-lib/src/main/jni/android-config/
     
-    For more information see the Buiding section.
+    For more information see the Building section.
     	
 
 5. Get and Compile external libraries
@@ -127,7 +127,7 @@ https://github.com/limboemu/limbo
 
     The rest of the configuration is for specifying the right QEMU version: USE_QEMU_VERSION
     the host architecture (android device): BUILD_HOST
-    and the emuator guest architecture: BUILD_GUEST
+    and the emulator guest architecture: BUILD_GUEST
     
     b. From Android Studio import BOTH the Android library limbo-android-lib AND the module for the guest
         architecture you need (x86,arm,ppc,sparc) ie limbo-android-x86.
@@ -154,7 +154,7 @@ https://github.com/limboemu/limbo
         If you want to remove ALL previously compiled native objects and libraries:
         make clean
 
-        If you're building apk for multiple host architectures you need to do in betweeen builds:
+        If you're building apk for multiple host architectures you need to do in between builds:
         make distclean
 
         If you're building apk for multiple guest architectures you can specify them with commas:
@@ -313,7 +313,7 @@ See limbo-android-lib/src/main/assets/CHANGELOG for release notes
 11. License
 
 Limbo PC Emulator is released under GPL v2 License.
-All icons unders /res are from Gnome Project (GPL v2 License)
+All icons under /res are from Gnome Project (GPL v2 License)
 See file COPYING under root directory
 and LICENSE under limbo-android-lib/src/main/assets
 
