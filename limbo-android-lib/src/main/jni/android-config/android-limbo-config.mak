@@ -6,7 +6,7 @@
 #NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
 #USE_GCC?=true
 # Or use r23 with clang 
-NDK_ROOT = /home/dev/tools/ndk/android-ndk-r23
+NDK_ROOT ?= /home/dev/tools/ndk/android-ndk-r23
 USE_GCC?=false
 
 ### the ndk api should be the same as the minSdkVersion in your AndroidManifest.xml 
@@ -26,16 +26,19 @@ USE_SECURITY ?= true
 
 # Uncomment if you use Linux x86, Linux 64bit, or macosx PC to compile
 # Compiling on Windows is no longer supported
-#NDK_ENV = linux-x86
-NDK_ENV = linux-x86_64
-#NDK_ENV = darwin-x86
+#NDK_ENV ?= linux-x86
+NDK_ENV ?= linux-x86_64
+#NDK_ENV ?= darwin-x86
 
 # Build threads (make -j ?) makes building faster
-BUILD_THREADS = 3
+BUILD_THREADS ?= 3
 
 ############## QEMU Host and Guest
-BUILD_HOST=arm64-v8a
-BUILD_GUEST=x86_64-softmmu
+BUILD_HOST?=arm64-v8a
+BUILD_GUEST?=x86_64-softmmu
+
+# QEMU Version
+USE_QEMU_VERSION ?= 5.1.0
 
 # If you want to use SDL interface
 USE_SDL ?= true

@@ -30,6 +30,7 @@ https://github.com/limboemu/limbo
     https://github.com/limboemu/limbo/issues
 
 ===============================================================================
+
 4. Update Configuration
 
     a. Update the path to the ndk directory in file limbo-android-lib/src/main/jni/android-limbo-config.mak
@@ -46,7 +47,7 @@ https://github.com/limboemu/limbo
     export PATH=$PATH:/home/dev/tools/ndk/android-ndk-r23
     	
 
-5. Get and Patch libraries
+5. Get libraries
 
     #Make sure you're under the jni directory
     cd ./limbo-android-lib/src/main/jni
@@ -93,6 +94,9 @@ https://github.com/limboemu/limbo
         qemu/
         SDL2/
 
+===============================================================================
+
+6. Apply patches
 
     ### Apply patch for QEMU:
     # example for 5.1.0:
@@ -123,7 +127,8 @@ https://github.com/limboemu/limbo
       and include it in android-qemu-config.mak
 
 ===============================================================================
-5. Build
+
+7. Build
 
     a. To build the NDK part of the app make sure you're under the jni directory:
         cd limbo-android-lib/src/main/jni
@@ -233,8 +238,11 @@ https://github.com/limboemu/limbo
 
         Important:
            From Android studio click Build> Rebuild Project and Run > Debug
-         
-    g. To debug the native code for a particular guest:
+
+===============================================================================
+
+8. Debugging
+        To debug the native code for a particular guest:
 
         # for x86 guest and ARM64 phone:
         export BUILD_HOST=arm64-v8a
@@ -261,7 +269,8 @@ https://github.com/limboemu/limbo
         To see stack (backtrace): bt
 
 ===============================================================================
-6. Development Notes
+
+9. Development Notes
 
     a. Codes Changes for Android compatibility are in patch files marked with __ANDROID__
 
@@ -286,7 +295,7 @@ https://github.com/limboemu/limbo
     f. Frontend UI options configuration see: Config.java
         
 ===============================================================================
-7. Run
+10. Run
 
     a. Installing a full Qwerty keyboard for Android like Hacker's keyboard 
         from the Google Android store. Make sure you use Transparent theme 
@@ -299,11 +308,11 @@ https://github.com/limboemu/limbo
     f. Have fun!
 
 ===============================================================================
-8. Changelog
+10. Changelog
 See limbo-android-lib/src/main/assets/CHANGELOG for release notes
 
 ===============================================================================
-9. License
+11. License
 
 Limbo PC Emulator is released under GPL v2 License.
 All icons unders /res are from Gnome Project (GPL v2 License)
@@ -311,7 +320,3 @@ See file COPYING under root directory
 and LICENSE under limbo-android-lib/src/main/assets
 
 Other source included are released under their own license please view Licenses under each subdirectory
-
-===============================================================================
-
-Endofdoc
