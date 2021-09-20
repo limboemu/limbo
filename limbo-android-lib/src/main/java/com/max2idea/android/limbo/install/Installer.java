@@ -55,7 +55,7 @@ public class Installer extends AsyncTask<Void, Void, Void> {
             ToastUtils.toastShort(context, context.getString(R.string.CouldNotOpenRawFile) +": " + ex);
         }
         String fileContents = stringBuilder.toString();
-        return fileContents.split("\\r\\n");
+        return fileContents.split("\\r\\n|\\n");
     }
 
     public static void installFiles(Activity activity, boolean force) {
