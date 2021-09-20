@@ -16,18 +16,28 @@ Copyright (C) Max Kastanas 2012
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef SDL_LIMBO_MOUSE_H
-#define SDL_LIMBO_MOUSE_H
 
-#include <jni.h>
-#include "video/android/SDL_androidvideo.h"
+#ifndef SDL_LIMBO_AUDIO_H
+#define SDL_LIMBO_AUDIO_H
 
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseEvent(
-        JNIEnv* env, jobject thiz, int button, int action, int relative, 
-        int x, int y);
+int isAaudioEnabled();
+        
+void createAAudioDevice(int sampleRate, int channelCount, int desiredBufferFrames);	
 
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
-        JNIEnv* env, jobject thiz,  int xmin, int xmax, int ymin, int ymax);
+void destroyAaudioDevice();
 
+void resampleAaudio() ;
+
+void writeAaudio() ;
+
+void writeAaudioStream();
+
+void writeAaudioQueue() ;
+
+void* getAaudioBuffer();
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeEnableAaudio(
+        JNIEnv* env, jobject thiz, int value);
+        
 #endif
 

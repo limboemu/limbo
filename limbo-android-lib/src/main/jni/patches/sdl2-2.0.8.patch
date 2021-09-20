@@ -1,0 +1,106 @@
+diff -ru --no-dereference /tmp/SDL2-2.0.8/Android.mk ./Android.mk
+--- /tmp/SDL2-2.0.8/Android.mk	2018-03-01 18:34:41.000000000 +0200
++++ ./Android.mk	2021-09-19 22:52:44.403970089 +0300
+@@ -51,6 +51,10 @@
+ LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES
+ LOCAL_LDLIBS := -ldl -lGLESv1_CM -lGLESv2 -llog -landroid
+ 
++# LIMBO: extend to our audio library
++LOCAL_C_INCLUDES += $(LOCAL_PATH)/../compat/sdl-addons
++LOCAL_SHARED_LIBRARIES += compat-SDL2-addons
++#LIMBO
+ cmd-strip := 
+ 
+ include $(BUILD_SHARED_LIBRARY)
+diff -ru --no-dereference /tmp/SDL2-2.0.8/src/core/android/SDL_android.c ./src/core/android/SDL_android.c
+--- /tmp/SDL2-2.0.8/src/core/android/SDL_android.c	2018-03-01 18:34:42.000000000 +0200
++++ ./src/core/android/SDL_android.c	2021-09-19 23:15:28.204809157 +0300
+@@ -1001,8 +1001,23 @@
+ static jboolean captureBuffer16Bit = JNI_FALSE;
+ static jobject captureBuffer = NULL;
+ 
++#if defined(__LIMBO__) && defined(__ENABLE_AAUDIO__)
++#include "SDL_limboaudio.h"
++extern int isAaudioEnabled();
++extern void createAAudioDevice(int sampleRate, int channelCount, int desiredBufferFrames);	
++extern void destroyAaudioDevice();
++extern void writeAaudio() ;
++extern void* getAaudioBuffer();
++#endif // LIMBO
++
+ int Android_JNI_OpenAudioDevice(int iscapture, int sampleRate, int is16Bit, int channelCount, int desiredBufferFrames)
+ {
++#if defined(__LIMBO__) && defined(__ENABLE_AAUDIO__)
++	if(isAaudioEnabled()) {
++        createAAudioDevice(sampleRate, channelCount, desiredBufferFrames);
++        return desiredBufferFrames;
++	}
++#endif
+     jboolean audioBufferStereo;
+     int audioBufferFrames;
+     jobject jbufobj = NULL;
+@@ -1119,11 +1134,28 @@
+ 
+ void * Android_JNI_GetAudioBuffer(void)
+ {
++#if defined(__LIMBO__) && defined(__ENABLE_AAUDIO__)
++    if(isAaudioEnabled())
++        return getAaudioBuffer();
++#endif
+     return audioBufferPinned;
+ }
+ 
+ void Android_JNI_WriteAudioBuffer(void)
+ {
++#if defined(__LIMBO__) && defined(__ENABLE_AAUDIO__)
++    if(isAaudioEnabled()) {
++        writeAaudio();
++        return;
++    }
++#endif
++
++#ifdef __LIMBO__
++    if(audioBufferPinned == NULL) {
++        printf("buffer not ready!\n");
++        return;
++    }
++#endif
+     JNIEnv *mAudioEnv = Android_JNI_GetEnv();
+ 
+     if (audioBuffer16Bit) {
+@@ -1203,6 +1235,9 @@
+             audioBufferPinned = NULL;
+         }
+     }
++#if defined(__LIMBO__) && defined(__ENABLE_AAUDIO__)
++     destroyAaudioDevice();
++#endif
+ }
+ 
+ /* Test for an exception and call SDL_SetError with its detail if one occurs */
+diff -ru --no-dereference /tmp/SDL2-2.0.8/src/events/SDL_mouse.c ./src/events/SDL_mouse.c
+--- /tmp/SDL2-2.0.8/src/events/SDL_mouse.c	2018-03-01 18:34:42.000000000 +0200
++++ ./src/events/SDL_mouse.c	2021-09-14 13:04:17.955954017 +0300
+@@ -655,6 +655,10 @@
+ void
+ SDL_WarpMouseInWindow(SDL_Window * window, int x, int y)
+ {
++#ifdef __LIMBO__
++    // LIMBO: we don't warp in limbo
++    return;
++#endif
+     SDL_Mouse *mouse = SDL_GetMouse();
+ 
+     if (window == NULL) {
+@@ -675,6 +679,11 @@
+ int
+ SDL_WarpMouseGlobal(int x, int y)
+ {
++#ifdef __LIMBO__
++    // LIMBO: we don't warp in limbo
++    printf("mouse global\n");
++    return 0;
++#endif
+     SDL_Mouse *mouse = SDL_GetMouse();
+ 
+     if (mouse->WarpMouseGlobal) {

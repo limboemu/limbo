@@ -1,4 +1,22 @@
+/*
+Copyright (C) Max Kastanas 2012
 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+#include <stdbool.h>
 #include "src/SDL_internal.h"
 #include "SDL_limbomouse.h"
 #include "SDL_events.h"
@@ -16,36 +34,50 @@
 #define BUTTON_BACK 8
 #define BUTTON_FORWARD 16
 
-int relativeMouseMode = 1;
+#define ORIENTATION_PORTRAIT 1
 
-JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_setrelativemousemode(
+extern SDL_Window *Android_Window;
+int x_min = 0, x_max = 0, y_min = 0, y_max = 0;
+bool checkBounds = false;
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseEvent(
         JNIEnv* env, jobject thiz,
-		int relative) {
-
-
-	if (!Android_Window) {
-            return -1;
-    }
-
-    printf("Set relative mouse mode: %d", relative);
-    relativeMouseMode = relative;
-
-    return 0;
-}
-
-JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
-        JNIEnv* env, jobject thiz,
-		int button, int action, int relative, float x, float y) {
+		int button, int action, int relative, int x, int y) {
 
     if (!Android_Window) {
-        return -1;
+        return;
+    }
+        
+    //XXX: If the guest input device is not usb-tablet (ps2/usb) QEMU overrides to relative mode
+    // in order to provide a workaround we force the mode. The user will still need to disable 
+    // mouse acceleration within the guest and calibrate the mouse in limbo.
+    SDL_bool relativeMouseMode = relative?SDL_TRUE:SDL_FALSE; 
+    if(SDL_GetRelativeMouseMode() != relativeMouseMode ) {
+    	SDL_SetRelativeMouseMode(relativeMouseMode);
     }
 
-    if(relativeMouseMode)
-        SDL_SetRelativeMouseMode(SDL_TRUE);
-    else
-        SDL_SetRelativeMouseMode(SDL_FALSE);
-
+	SDL_Mouse *mouse = SDL_GetMouse();
+	// Adjust x, y if go out of bounds
+	if(checkBounds) {
+		if(relative && mouse->x + x < x_min)
+			x = x_min -mouse->x;
+		if(relative && mouse->x + x > x_max)
+			x = x_max - mouse->x;
+		if(relative && mouse->y + y < y_min)
+			y = y_min -mouse->y;
+		if(relative && mouse->y + y > y_max)
+			y = y_max - mouse->y;
+		if(!relative && x < x_min)
+			x = x_min;
+		if(!relative && x > x_max)
+			x = x_max;
+		if(!relative && y < y_min)
+			y = y_min;
+		if(!relative && y > y_max)
+			y = y_max;			
+		
+	}
+	
     switch(action) {
         case ACTION_DOWN:
             if(!relative){
@@ -73,7 +105,14 @@ JNIEXPORT int JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_onmouse(
         default:
             break;
     }
-    return 0;
 }
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
+        JNIEnv* env, jobject thiz, int xmin, int xmax, int ymin, int ymax) {
+    checkBounds = true;
+    x_min = xmin;
+	x_max = xmax;
+	y_min = ymin;
+	y_max = ymax;     
+}
 

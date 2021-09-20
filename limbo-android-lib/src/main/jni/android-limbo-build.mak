@@ -3,14 +3,18 @@
 LIMBO_JNI_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 include $(LIMBO_JNI_ROOT)/android-config/android-limbo-config.mak
 
-# DO NOT MODIFY THIS FILE
-NDK_PLATFORM = platforms/$(APP_PLATFORM)
+# prepend the NDK_ROOT in the path so the ndk-build is the correct one
+PATH  := $(NDK_ROOT):$(PATH)
+SHELL := env PATH=$(PATH) /bin/bash
 
 #PLATFORM CONFIG
 # Ideally App platform used to compile should be equal or lower than the minSdkVersion in AndroidManifest.xml
+APP_PLATFORM = android-$(NDK_PLATFORM_API)
+NDK_PLATFORM = platforms/$(APP_PLATFORM)
 
 #SET/RESET vars
-ARCH_CFLAGS := -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ -DCONFIG_LINUX $(USE_NDK11) $(USE_PLATFORM21_FLAGS)
+ARCH_CFLAGS := -D__LIMBO__ -D__ANDROID__ -DANDROID -D__linux__ -DCONFIG_LINUX $(USE_NDK11) \
+	$(USE_PLATFORM21_FLAGS) $(USE_PLATFORM26_FLAGS)
 ARCH_LD_FLAGS=
 
 ifeq ($(BUILD_HOST), arm64-v8a)
@@ -64,13 +68,10 @@ TOOLCHAIN_PREFIX := $(TOOLCHAIN_DIR)/bin/$(HOST_PREFIX)-
 NDK_PROJECT_PATH := $(LIMBO_JNI_ROOT)/../
 TOOLCHAIN_CLANG_PREFIX := $(TOOLCHAIN_CLANG_DIR)/bin
 
-#$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
-
 ifneq ($(NDK_TOOLCHAIN_VERSION),clang)
     NDK_SYSROOT_ARCH_INC=-I$(NDK_ROOT)/sysroot/usr/include/$(HOST_PREFIX)
     NDK_SYSROOT=$(NDK_ROOT)/sysroot
 endif
-
 
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
     NDK_SYSROOT_INC=-I$(NDK_ROOT)/sysroot/usr/include
@@ -98,10 +99,6 @@ else
     STRIP=$(TOOLCHAIN_PREFIX)strip
 endif
 
-
-
-
-
 AR_FLAGS = crs
 ifeq ($(NDK_TOOLCHAIN_VERSION),clang)
     SYSROOT = $(TOOLCHAIN_CLANG_DIR)/sysroot
@@ -112,7 +109,6 @@ endif
 SYS_ROOT = --sysroot=$(SYSROOT)
 
 NDK_INCLUDE = $(NDK_ROOT)/$(NDK_PLATFORM)/arch-$(TARGET_ARCH)/usr/include
-
 
 # INCLUDE_FIXED contains overrides for include files found under the toolchain's /usr/include.
 # Currently we don't use, left here as a placeholder.
@@ -138,6 +134,11 @@ USE_PLATFORM21_FLAGS = -D__ANDROID_HAS_SIGNAL__ \
 	-D__ANDROID__HAS_PTHREAD_ATFORK_
 endif
 
+
+ifeq ($(USE_NDK_PLATFORM26),true)
+USE_PLATFORM26_FLAGS = -D__ANDROID_HAVE_STRCHRNUL__
+endif
+	
 # Needed for some c++ source code to compile some ARM 64 disas
 # We don't need them right now
 #STL port
@@ -167,3 +168,22 @@ SYSTEM_INCLUDE = \
     -include $(COMPATMACROS) \
     -include $(COMPATANDROID)
 
+#info
+$(warning VARIABLES)
+$(warning PATH = $(PATH))
+$(warning NDK_ROOT = $(NDK_ROOT))
+$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
+$(warning APP_PLATFORM = $(APP_PLATFORM))
+$(warning USE_NDK_PLATFORM21 = $(USE_NDK_PLATFORM21))
+$(warning USE_NDK_PLATFORM26 = $(USE_NDK_PLATFORM26))
+$(warning APP_ABI = $(APP_ABI))
+$(warning USE_OPTIMIZATION = $(USE_OPTIMIZATION))
+$(warning USE_SECURITY = $(USE_SECURITY))
+$(warning BUILD_THREADS = $(BUILD_THREADS))
+$(warning NDK_ENV = $(NDK_ENV))
+$(warning BUILD_HOST = $(BUILD_HOST))
+$(warning BUILD_GUEST= $(BUILD_GUEST))
+$(warning USE_SDL = $(USE_SDL))
+$(warning USE_SDL_AUDIO = $(USE_SDL_AUDIO))
+$(warning USE_AAUDIO = $(USE_AAUDIO))
+$(warning USE_KVM = $(USE_KVM))

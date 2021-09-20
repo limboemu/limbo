@@ -69,3 +69,6 @@ limbotest
 
 sync.sh
 gitsync.sh
+/limbo-android-lib/src/main/jni/qemu.5.1.0
+/limbo-android-lib/src/main/jni/qemu.2.9.1
+

@@ -64,7 +64,7 @@ static inline int limbo_fprintf(FILE *stream, const char *format, ...){
     va_list ap;
     va_start(ap, format);
     if(stream == stderr) res = __android_log_vprint(ANDROID_LOG_ERROR, TAG, format, ap);
-    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_VERBOSE, TAG,format, ap);
+    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_DEBUG, TAG,format, ap);
     else res = vfprintf(stream, format, ap);
     va_end(ap);
     return res;
@@ -74,7 +74,7 @@ static inline int limbo_fprintf(FILE *stream, const char *format, ...){
 static inline int limbo_vfprintf(FILE *stream, const char *format, va_list ap){
     int res = 0;
     if(stream == stderr) res = __android_log_vprint(ANDROID_LOG_ERROR, TAG, format, ap);
-    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_VERBOSE, TAG,format, ap);
+    else if(stream == stdout) res = __android_log_vprint(ANDROID_LOG_DEBUG, TAG,format, ap);
     else res = vfprintf(stream, format, ap);
     return res;
 }
@@ -82,8 +82,8 @@ static inline int limbo_vfprintf(FILE *stream, const char *format, va_list ap){
 
 
 //Generic
-#define printf(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-#define vprintf(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
+#define printf(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
+#define vprintf(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 #define perror(x) __android_log_print(ANDROID_LOG_ERROR, TAG, x)
 
 //QEMU Logging rerouting

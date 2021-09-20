@@ -16,18 +16,15 @@ Copyright (C) Max Kastanas 2012
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef SDL_LIMBO_MOUSE_H
-#define SDL_LIMBO_MOUSE_H
+#include <stdbool.h>
+#include "src/SDL_internal.h"
+#include "SDL_limboscreen.h"
+#include "core/android/SDL_android.h"
 
-#include <jni.h>
-#include "video/android/SDL_androidvideo.h"
+extern SDL_Window *Android_Window;
 
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseEvent(
-        JNIEnv* env, jobject thiz, int button, int action, int relative, 
-        int x, int y);
-
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
-        JNIEnv* env, jobject thiz,  int xmin, int xmax, int ymin, int ymax);
-
-#endif
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeFullscreen(
+        JNIEnv* env, jobject thiz) {
+    SDL_SetWindowFullscreen(Android_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+}
 

@@ -1,10 +1,4 @@
-.PHONY: limbo clean distclean clean-ndk createdirs clean-ffi clean-glib clean-qemu clean-pixman
-
 include android-limbo-build.mak
-
-# Important: Do not remove, this makes sure that other libraries (especially qemu) will append our
-#  optimization flags thus override any other settings
-#CFLAGS=$(ARCH_CFLAGS)
 
 ifeq ($(NDK_ENV), windows)
 	NDK_BUILD = ndk-build.cmd
@@ -116,6 +110,12 @@ ifneq ($(NDK_DEBUG),1)
 	STRIP_LIBS=$(STRIP) $(NDK_PROJECT_PATH)/libs/$(APP_ABI_DIR)/*.so
 endif
 
+# we disable for now some options so armv7 host can compile with gcc
+PIXMAN_DISABLE_OPTIONS=--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2  \
+	--disable-openmp  --disable-loongson-mmi  --disable-mmx    --disable-sse2   --disable-ssse3 \
+	--disable-vmx --disable-arm-simd   --disable-arm-neon   --disable-arm-iwmmxt   \
+	--disable-arm-iwmmxt2  --disable-mips-dspr2  --disable-gcc-inline-asm
+
 DEBUG =
 ifeq ($(NDK_DEBUG), 1)
 	LIBFFI_DEBUG = --enable-debug
@@ -129,6 +129,9 @@ endif
 
 export
 
+.PHONY: limbo clean distclean clean-ndk createdirs clean-ffi clean-glib clean-qemu clean-pixman
+
+default: limbo
 	
 createdirs:
 	$(CREATE_OBJDIR)
@@ -146,12 +149,12 @@ clean-ffi:
 	-cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) clean
 
-config-ffi: ndk
-	cd $(LIMBO_JNI_ROOT)/libffi && ./configure --host=$(GNU_HOST) $(LIBFFI_DEBUG) \
+config-ffi:
+	cd $(LIMBO_JNI_ROOT)/libffi && ./configure --host=$(GNU_HOST) $(LIBFFI_DEBUG) --enable-static --disable-shared \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
 
-ffi: ndk
+ffi:
 	cd $(LIMBO_JNI_ROOT)/libffi && $(MAKE) -j $(BUILD_THREADS) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) --sysroot=$(NDK_SYSROOT) $(NDK_SYSROOT_ARCH_INC) " \
 	LDFLAGS="$(ARCH_LD_FLAGS) $(SYS_ROOT) -nostdlib -fno-unwind-tables "
@@ -195,9 +198,12 @@ clean-glib:
 	-cd $(LIMBO_JNI_ROOT)/glib && $(MAKE) clean
 	-rm -rf $(LIMBO_JNI_ROOT)/glib/android.cache
 
+
 config-pixman: ndk
 	cd $(LIMBO_JNI_ROOT)/pixman && ./configure --host=$(GNU_HOST) --with-sysroot=$(SYSROOT) \
-	--disable-mmx --disable-arm-iwmmxt --disable-arm-iwmmxt2 $(LIBPIXMAN_DEBUG) \
+	--disable-libtool-lock \
+	$(PIXMAN_DISABLE_OPTIONS) \
+	$(LIBPIXMAN_DEBUG) \
 	CFLAGS="$(ARCH_CFLAGS) -I$(NDK_INCLUDE) \
 	$(NDK_SYSROOT_INC) \
 	$(NDK_SYSROOT_ARCH_INC) \
@@ -233,12 +239,19 @@ config-qemu: ndk
 clean-qemu:
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) distclean
 	-cd $(LIMBO_JNI_ROOT)/qemu && $(MAKE) clean
+	-rm $(NDK_PROJECT_PATH)/obj/local/arm64-v8a/libqemu-system-x86_64.a
+	-rm -rf ../assets/roms/* 
+	-rm -rf $(LIMBO_APP_X86)/assets/roms/*
+	-rm -rf $(LIMBO_APP_ARM)/assets/roms/*
+	-rm -rf $(LIMBO_APP_PPC)/assets/roms/*
+	-rm -rf $(LIMBO_APP_SPARC)/assets/roms/*
 
 config-deps: ndk config-ffi config-glib config-pixman
 
 deps: ndk ffi glib pixman 
 
-_build-qemu: ndk _qemu
+_build-qemu: ndk 
+	make _qemu
 	$(INSTALL_LIBS)
 	$(RENAME_TUNCTL)
 	$(RENAME_PARPROUTED)
@@ -246,7 +259,8 @@ _build-qemu: ndk _qemu
 	$(COPY_KEYMAPS)
 	$(COPY_RESOLV_CONF)
 
-qemu: ndk _build-qemu
+qemu: ndk
+	make _build-qemu
 	make install
 
 install-common:
@@ -278,8 +292,8 @@ EXPORT_GUEST_ALL=export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu,ppc64-softmmu
 
 #most common combinations
 all:
-	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=armeabi-v7a && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=arm64-v8a && make limbo
+	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=armeabi-v7a && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86 && make limbo
 	make distclean && $(EXPORT_GUEST_ALL) && export BUILD_HOST=x86_64 && make limbo
 
