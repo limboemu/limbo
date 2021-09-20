@@ -2711,6 +2711,15 @@ public class LimboActivity extends AppCompatActivity
             case MachineLoaded:
                 loadMachine();
                 break;
+            case MachineContinued:
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        invalidateOptionsMenu();
+                        changeStatus(MachineController.getInstance().getCurrStatus());
+                    }
+                }, 1000);
+                break;
             case MachinesImported:
                 onMachinesImported((ArrayList<Machine>) o);
                 break;

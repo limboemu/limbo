@@ -695,7 +695,7 @@ public class LimboSDLActivity extends SDLActivity
             @Override
             public void run() {
                 if (MachineController.getInstance().isPaused())
-                    notifyAction(MachineAction.CONTINUE_VM, null);
+                    notifyAction(MachineAction.CONTINUE_VM, 0);
             }
         }, 5000);
     }

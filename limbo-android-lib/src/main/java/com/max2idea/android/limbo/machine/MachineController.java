@@ -77,15 +77,21 @@ public class MachineController {
             return MachineController.MachineStatus.Stopped;
     }
 
-    void continueVM() {
+    void continueVM(final int delay) {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                if(delay > 0) {
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
                 machineExecutor.continueVM();
                 notifyEventListeners(Event.MachineContinued, null);
             }
         }).start();
-
     }
 
     public void addOnStatusChangeListener(OnMachineStatusChangeListener listener) {

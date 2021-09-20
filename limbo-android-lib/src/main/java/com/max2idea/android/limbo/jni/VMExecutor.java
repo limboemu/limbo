@@ -27,6 +27,7 @@ import android.view.Gravity;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.files.FileUtils;
+import com.max2idea.android.limbo.machine.MachineAction;
 import com.max2idea.android.limbo.machine.MachineController;
 import com.max2idea.android.limbo.machine.MachineExecutor;
 import com.max2idea.android.limbo.machine.MachineProperty;
@@ -764,18 +765,9 @@ class VMExecutor extends MachineExecutor {
         }).start();
     }
 
-    private void continueVM(final long delay) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                continueVM();
-            }
-        }).start();
+    private void continueVM(final int delay) {
+        // TODO: We shouldn't have to go through the view dispatcher
+        LimboApplication.getViewListener().onAction(MachineAction.CONTINUE_VM, delay);
     }
 
     public void stopvm(final int restart) {

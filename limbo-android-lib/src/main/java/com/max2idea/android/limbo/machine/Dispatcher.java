@@ -287,7 +287,7 @@ class Dispatcher implements ViewListener {
                 MachineController.getInstance().pausevm();
                 break;
             case CONTINUE_VM:
-                MachineController.getInstance().continueVM();
+                MachineController.getInstance().continueVM(convertInt(action, value));
                 break;
             case RESET_VM:
                 MachineController.getInstance().restartvm();

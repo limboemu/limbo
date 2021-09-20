@@ -74,7 +74,7 @@ public class LimboActivityCommon {
                             public void onClick(DialogInterface dialog, int which) {
                                 Thread t = new Thread(new Runnable() {
                                     public void run() {
-                                        viewListener.onAction(MachineAction.CONTINUE_VM, null);
+                                        viewListener.onAction(MachineAction.CONTINUE_VM, 0);
                                     }
                                 });
                                 t.start();
