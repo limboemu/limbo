@@ -90,8 +90,8 @@ public class Config {
     public static final boolean enableMouseOption = true;
 
     // Debug
-    public static final boolean debug = true;
-    public static final boolean debugQmp = true;
+    public static final boolean debug = false;
+    public static final boolean debugQmp = false;
     public static final boolean debugStrictMode = false;
 
     public static final int EXIT_SUCCESS = 1;
