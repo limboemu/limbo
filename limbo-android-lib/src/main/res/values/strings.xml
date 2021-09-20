@@ -108,6 +108,7 @@
     <string name="reconnect">Reconnect</string>
     <string name="calibrate_mouse">Calibrate (Fix) Mouse</string>
     <string name="isos_and_tools_descr">Do you want to view a list of Compatible OSes and Download Links?</string>
+    <string name="customOperatingSystem">Custom Operating System - use your own ISO and HDD images</string>
     <string name="toggle_key_mapper">Toggle Key Mapper</string>
     <string name="clear_key">Clear Key</string>
     <string name="repeat_key">Repeat Key</string>
@@ -115,7 +116,7 @@
     <string name="use_keymapper">Use Key Mapper</string>
     <string name="add_special_keys">Add Special Keys/Buttons</string>
     <string name="remove_key_mapper">Remove Key Mapper</string>
-    <string name="welcomeText">Welcome to Limbo Emulator, a port of QEMU for Android devices. Limbo can emulate light weight operating systems by loading and running virtual disks images. For Downloads, Guides, Help, ISO, and Virtual Disk images visit the Limbo Wiki. Make sure you always download isos and images only from websites you trust, generally use at your own risk."</string>
+    <string name="welcomeText">Welcome to Limbo Emulator, a port of QEMU for Android devices. Limbo can emulate several operating systems. For links to downloads, guides, and virtual disk images visit the Limbo Wiki. Download software and images only from trusted websites!"</string>
     <string name="checkForUpdates">Check for Updates on Startup</string>
     <string name="sdcardNotMounted">Error: SD card is not mounted</string>
     <string name="fixesMouseParen">(Fixes Mouse)</string>
@@ -310,7 +311,7 @@
     <string name="OkIUnderstand">OK, I understand</string>
     <string name="SendText">Send Text</string>
     <string name="Send">Send</string>
-    <string name="GoToWiki">Go To Wiki</string>
+    <string name="GoToWiki">Online Wiki</string>
     <string name="DoNotShowAgain">Do not Show Again</string>
     <string name="GenNewVersion">Get New Version</string>
     <string name="Cancel">Cancel</string>
@@ -356,7 +357,7 @@
     <string name="PreventMouseOutOfBounds">Prevent Mouse out of Bounds</string>
     <string name="PreventMouseDescr">Prevents some OSes from crashing when using \"usb-tablet\" mouse and the pointer is outside of screen bounds.\nWarning: This might create an invisible wall if the guest OS does not support \"usb-tablet\".</string>
     <string name="other">Other</string>
-    <string name="otherOperatingSystem">Other Operating System</string>
+    <string name="otherOperatingSystem">Other Operating Systems</string>
     <string name="DownloadISOAndVirtualHDDImages">Download ISO and Virtual HDD Images</string>
 
     <string name="keyPressDelay">Key Pressed Delay</string>

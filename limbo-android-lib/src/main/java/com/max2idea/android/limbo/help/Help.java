@@ -49,8 +49,6 @@ public class Help {
         LinearLayout mLayout = new LinearLayout(activity);
         mLayout.setOrientation(LinearLayout.VERTICAL);
         TextView textView = new TextView(activity);
-        textView.setBackgroundColor(Color.WHITE);
-        textView.setTextColor(Color.BLACK);
         textView.setTextSize(15);
         textView.setText(activity.getResources().getString(R.string.welcomeText));
         textView.setPadding(20, 20, 20, 20);

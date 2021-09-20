@@ -21,11 +21,11 @@ public class LimboEmuActivity extends LimboActivity {
             Config.enableMTTCG = false;
         Config.osImages.put(getString(R.string.SlaxLinux), new LinksManager.LinkInfo(getString(R.string.SlaxLinux),
                 getString(R.string.SlaxLinuxDescr),
-                "https://github.com/limboemu/limbo/wiki/Slax-linux",
+                "https://github.com/limboemu/limbo/wiki/Slax",
                 LinksManager.LinkType.ISO));
         Config.osImages.put(getString(R.string.SlitazLinux), new LinksManager.LinkInfo(getString(R.string.SlitazLinux),
                 getString(R.string.SlitazLinuxDescr),
-                "https://github.com/limboemu/limbo/wiki/Slitaz-linux",
+                "https://github.com/limboemu/limbo/wiki/Slitaz",
                 LinksManager.LinkType.ISO));
         Config.osImages.put(getString(R.string.DSLLinux), new LinksManager.LinkInfo(getString(R.string.DSLLinux),
                 getString(R.string.DSLLinuxDescr),

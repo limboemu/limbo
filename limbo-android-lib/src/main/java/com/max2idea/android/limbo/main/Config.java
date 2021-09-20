@@ -84,6 +84,7 @@ public class Config {
     public static final String faqLink = "https://github.com/limboemu/limbo/wiki/FAQ";
     public static final String toolsLink = "https://github.com/limboemu/limbo/wiki/Tools";
     public static final String newVersionLink = "https://raw.githubusercontent.com/limboemu/limbo/master/VERSION";
+    public static final String otherOSLink = "https://github.com/limboemu/limbo/wiki/OtherOperatingSystems";
 
     public static final boolean enableKeyboardLayoutOption = true;
     public static final boolean enableMouseOption = true;
