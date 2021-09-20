@@ -1,6 +1,8 @@
 * Limbo Legacy v6.0.0
-Rebasing with QEMU 2.9.1 for performance.
-This QEMU version is very old and behind many security patches so use at your own risk!
+Using QEMU 2.9.1 for better performance!
+WARNING: 
+    This is version much faster than 5.x but very old and behind many security patches! 
+    Make sure you trust the virtual images and any software you install within the vm!
 Changed minimum SDK version to 26 (Oreo and above).
 You can  still build with Android API 21 without Aaudio option.
 Added Android Aaudio native audio interface for lower latency, see settings.
