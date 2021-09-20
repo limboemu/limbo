@@ -40,7 +40,7 @@ public class Help {
     private static final String TAG = "Help";
 
     public static void showHelp(final Activity activity) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo(activity);
+        PackageInfo pInfo = LimboApplication.getPackageInfo();
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();

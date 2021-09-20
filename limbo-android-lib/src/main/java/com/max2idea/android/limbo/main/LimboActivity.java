@@ -865,6 +865,7 @@ public class LimboActivity extends AppCompatActivity
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupAppEnvironment();
         clearNotifications();
         setupStrictMode();
         setContentView(R.layout.limbo_main);
@@ -881,6 +882,10 @@ public class LimboActivity extends AppCompatActivity
         restore();
         setupListeners();
         addGenericOperatingSystems();
+    }
+
+    private void setupAppEnvironment() {
+        LimboApplication.setupPackageInfo(this);
     }
 
     private void setupController() {
@@ -1253,7 +1258,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void promptLicense() {
-        final PackageInfo finalPInfo = LimboApplication.getPackageInfo(this);
+        final PackageInfo finalPInfo = LimboApplication.getPackageInfo();
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
