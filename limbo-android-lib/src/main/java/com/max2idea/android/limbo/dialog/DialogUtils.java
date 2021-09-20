@@ -64,8 +64,6 @@ public class DialogUtils {
         textView.setText(body);
         if (textSize > 0)
             textView.setTextSize(textSize);
-        textView.setBackgroundColor(Color.WHITE);
-        textView.setTextColor(Color.BLACK);
         ScrollView view = new ScrollView(activity);
         view.addView(textView);
         alertDialog.setView(view);
