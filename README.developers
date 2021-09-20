@@ -291,6 +291,12 @@ https://github.com/limboemu/limbo
         limbo-android-lib/src/main/jni/android-qemu-build.mak
 
     f. Frontend UI options configuration see: Config.java
+    
+    g. When using git apply the following setting to your config file if you want to use 
+        return new lines for windows:
+    [core]
+        eol = true
+        autocrlf = input
         
 ===============================================================================
 10. Run
