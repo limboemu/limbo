@@ -16,13 +16,13 @@ https://github.com/limboemu/limbo
     Android SDK
     Android NDK: r14b/gcc or r23/clang
     Android Studio (3.1.1 prefered)
-    Android device with Android OS 5.0 (Lollipop) and above
+    Android device with Android OS 8.0 (Oreo) and above
     Linux Desktop pc (Ubuntu prefered)
     Make sure you have the following packages installed, if not run:
     sudo apt-get install make autoconf automake git python binutils 
     sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
     For developement you can use your own editors Geany is highly 
-	recommended for the native code
+	recommended for editing the native code
 
 ===============================================================================
 
@@ -33,25 +33,20 @@ https://github.com/limboemu/limbo
 
 4. Update Configuration
 
-    a. Update the path to the ndk directory in file limbo-android-lib/src/main/jni/android-limbo-config.mak
-    If you use gcc set:
-	USE_GCC ?= true
-    otherwise use:
-        USE_GCC ?= false
+    If you build the supported QEMU version then the only thing you need to do is edit file:
+    limbo-android-lib/src/main/jni/android-limbo-config.mak
+    In all other cases you have to look at the config files under:
+    limbo-android-lib/src/main/jni/android-config/
     
-    b. Add the NDK directory to your PATH variable so makefile can find ndk-build
-    Examples:
-    For bash if you use gcc:
-    export PATH=$PATH:/home/dev/tools/ndk/android-ndk-r14b
-    or if you use clang:
-    export PATH=$PATH:/home/dev/tools/ndk/android-ndk-r23
+    For more information see the Buiding section.
     	
 
-5. Get libraries
+5. Get and Compile external libraries
 
     #Make sure you're under the jni directory
     cd ./limbo-android-lib/src/main/jni
-
+    
+    # Now download the source code for the external libraries and unzip them under the jni directory
     #Note: if some of these file links don't download with wget use your browser to download them
 
     ##### Get QEMU
@@ -100,16 +95,8 @@ https://github.com/limboemu/limbo
 
     ### Apply patch for QEMU:
     # example for 5.1.0:
-    Make sure the following line is uncommented in android-qemu-config.mak
-    include android-qemu-config-5.1.0.mak
-    Apply the patch on the terminal:
     cd ./limbo-android-lib/src/main/jni/qemu/
     patch -p1 < ../patches/qemu-5.1.0.patch
-
-    # for QEMU versions 4 and above you can enable MTTCG on the ui
-    # this will only work if your android device is 64bit
-    modify Config.java:
-        set to true: public static boolean enableMTTCG = true;
 
     ### Apply glib patch for Limbo:
     cd ./limbo-android-lib/src/main/jni/glib/
@@ -120,7 +107,7 @@ https://github.com/limboemu/limbo
     patch -p1 < ../patches/sdl2-2.0.8.patch
 
     ### Other QEMU versions:
-    # If you want to distribute Limbo build with other QEMU versions, create your own patch like this:
+    # If you want to redistribute Limbo build with other QEMU versions, create your own patch like this:
     cd /limbo-android-lib/src/main/jni/qemu/
     diff -ru --no-dereference /tmp/qemu-x.x.x . | grep -v '^Only in' > ../patches/qemu-x.x.x.patch
     Don't forget to create your android-qemu-config-x.x.x.mak file
@@ -130,29 +117,40 @@ https://github.com/limboemu/limbo
 
 7. Build
 
-    a. To build the NDK part of the app make sure you're under the jni directory:
+    a. To build the native part of the app make sure you're under the jni directory:
         cd limbo-android-lib/src/main/jni
-
-    Make sure you update the android-config/android-limbo-config.mak file with the NDK path you have installed:
+        
+    Make sure you update file android-limbo-config.mak with the NDK folder to your installation folder
+    keep in mind the last NDK version  that supported gcc was r14b. The alternative is to use clang 
+    with ndk version r23. For example: 
     NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
 
+    The rest of the configuration is for specifying the right QEMU version: USE_QEMU_VERSION
+    the host architecture (android device): BUILD_HOST
+    and the emuator guest architecture: BUILD_GUEST
+    
     b. From Android Studio import BOTH the Android library limbo-android-lib AND the module for the guest
         architecture you need (x86,arm,ppc,sparc) ie limbo-android-x86.
         
     c. Build the native libraries:
-        cd limbo-android-lib/src/main/jni:
+        # Make sure you're still under the jni directory:
+        cd limbo-android-lib/src/main/jni
 
-        To build Limbo Emulator:
+        # Instead of editing android-limbo-config.mak you can also supply the variables on the command line.
+        # For example:
             export BUILD_HOST=<EABI>
             export BUILD_GUEST=<GUEST_ARCH>
             export NDK_DEBUG=<ENABLE_DEBUG>
-            make limbo
 
         where:
             EABI is the Android device type (host arch): armeabi-v7a, arm64-v8a, x86, x86_64
             GUEST_ARCH is the Emulator type: x86_64-softmmu,aarch64-softmmu,sparc64-softmmu,ppc64-softmmu
             ENABLE_DEBUG is 1 (optional)
 
+        # To start the build type on your terminal:
+            make limbo
+            
+        Notes:
         If you want to remove ALL previously compiled native objects and libraries:
         make clean
 
@@ -283,7 +281,7 @@ https://github.com/limboemu/limbo
         limbo-android-lib/src/main/jni/android-config/android-qemu-config.mak
 
     d. Advanced Device Configuration files:
-        limbo-android-lib/src/main/jni/android-config/android-device-config/*.mak
+        limbo-android-lib/src/main/jni/android-config/android-config/*.mak
 
     e. Important Makefiles:
         limbo-android-lib/src/main/jni/Makefile

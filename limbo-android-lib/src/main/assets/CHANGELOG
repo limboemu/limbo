@@ -1,3 +1,33 @@
+* Limbo Legacy v6.0.0
+Rebasing with QEMU 2.9.1 for performance.
+This QEMU version is very old and behind many security patches so use at your own risk!
+Changed minimum SDK version to 26 (Oreo and above).
+You can  still build with Android API 21 without Aaudio option.
+Added Android Aaudio native audio interface for lower latency, see settings.
+Using 22050 sample rate instead of 44199 for better audio with lesser clicking.
+Fixed crashing when resuming due to audio buffer writing.
+Fixed android notification not dismissing.
+Removed internal VNC client you should check the Wiki for alternative VNC clients.
+Fixed SDL resizing after rotating and resuming application.
+SDL user interface can now disconnect and resume.
+VNC Password and Allow External VNC clients are now under settings.
+Moved Screen options to settings.
+New Pause button for pausing when started VNC user interface.
+Machine architecture was not needed so it is now removed, use cpu instead.
+Added support for changin idle refresh rate for SDL.
+Created KeyMapper for mapping keys and mouse buttons for gaming, see Wiki for info.
+Mouse enhancements for Touchscreen and External Mouse.
+Absolute mouse devices support only guests that have usb-tablet drivers installed.
+Added new out of bounds prevention option for mouse.
+Added new Key and Mouse delay options.
+Removed Shared Folder because it is buggy.
+Internal redesign of the ui dispatching and interface with native code.
+Better build environment for development.
+Fixed clang support with ndk r23
+Upgraded libraries to ffi ver 3.3 and pixman ver 0.40.0
+Removed patch for QEMU 4.0.0 the only versions currently support are 2.9.1 and 5.1.0.
+
+
 * Limbo v5.1.0
 Fixed issue with importing machines
 No signalfd for better compatibility
