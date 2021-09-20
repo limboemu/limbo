@@ -26,7 +26,7 @@ USE_SECURITY ?= true
 
 # Uncomment to enable debugging
 # If you enable debugging you should turn off optimization as well
-#ENABLE_DEBUG=1
+#NDK_DEBUG=1
 
 # Uncomment if you use Linux x86, Linux 64bit, or macosx PC to compile
 # Compiling on Windows is no longer supported
