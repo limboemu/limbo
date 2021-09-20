@@ -28,7 +28,7 @@
 typedef struct Error Error;
 
 
-void * loadLib(const char * lib_path_str);
+void * loadLib(const char* lib_filename, const char * lib_path_str);
 
 void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir);
 

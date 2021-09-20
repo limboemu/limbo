@@ -80,7 +80,10 @@ class VMExecutor extends MachineExecutor {
     }
 
     //JNI Methods
-    private native String start(String storage_dir, String base_dir, String lib_path, int sdl_scale_hint, Object[] params, int paused, String save_state_name);
+    private native String start(String storage_dir, String base_dir,
+                                String lib_filename, String lib_path,
+                                int sdl_scale_hint, Object[] params, int paused,
+                                String save_state_name);
 
     private native String stop(int restart);
 
@@ -122,25 +125,27 @@ class VMExecutor extends MachineExecutor {
         return null;
     }
 
-    private String getQemuLibrary(Context context) {
-        if (LimboApplication.arch == Config.Arch.x86_64) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-x86_64.so";
-        } else if (LimboApplication.arch == Config.Arch.x86) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-i386.so";
-        } else if (LimboApplication.arch == Config.Arch.arm) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-arm.so";
-        } else if (LimboApplication.arch == Config.Arch.arm64) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-aarch64.so";
-        } else if (LimboApplication.arch == Config.Arch.ppc) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-ppc.so";
-        } else if (LimboApplication.arch == Config.Arch.ppc64) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-ppc64.so";
-        } else if (LimboApplication.arch == Config.Arch.sparc) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-sparc.so";
-        } else if (LimboApplication.arch == Config.Arch.sparc64) {
-            return FileUtils.getNativeLibDir(context) + "/libqemu-system-sparc64.so";
+    private String getQemuLibrary() {
+        switch (LimboApplication.arch) {
+            case x86_64:
+                return "libqemu-system-x86_64.so";
+            case x86:
+                return "libqemu-system-i386.so";
+            case arm:
+                return "/libqemu-system-arm.so";
+            case arm64:
+                return "libqemu-system-aarch64.so";
+            case ppc:
+                return "/libqemu-system-ppc.so";
+            case ppc64:
+                return "/libqemu-system-ppc64.so";
+            case sparc:
+                return "/libqemu-system-sparc.so";
+            case sparc64:
+                return "/libqemu-system-sparc64.so";
+            default:
+                throw new IllegalStateException("Unexpected value: " + LimboApplication.arch);
         }
-        return null;
     }
 
     private String getSaveStateName() {
@@ -150,7 +155,7 @@ class VMExecutor extends MachineExecutor {
 
     private String[] prepareParams(Context context) throws Exception {
         ArrayList<String> paramsList = new ArrayList<>();
-        paramsList.add(getQemuLibrary(context));
+        paramsList.add(getQemuLibrary());
         addUIOptions(context, paramsList);
         addCpuBoardOptions(paramsList);
         addDrives(paramsList);
@@ -729,8 +734,9 @@ class VMExecutor extends MachineExecutor {
                 changeVncPass(LimboApplication.getInstance(), 2000);
             }
             QmpClient.setExternal(LimboSettingsManager.getEnableExternalQMP(LimboApplication.getInstance()));
-
-            res = start(Config.storagedir, LimboApplication.getBasefileDir(), getQemuLibrary(LimboApplication.getInstance()),
+            String libFilename = getQemuLibrary();
+            res = start(Config.storagedir, LimboApplication.getBasefileDir(),
+                    libFilename, FileUtils.getNativeLibDir(LimboApplication.getInstance()) + "/" + libFilename,
                     Config.SDLHintScale, params, getMachine().getPaused(), getSaveStateName());
         } catch (Exception ex) {
             ToastUtils.toastLong(LimboApplication.getInstance(), ex.getMessage());
@@ -790,7 +796,7 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public int getSdlRefreshRate(boolean idle) {
-        if(idle)
+        if (idle)
             return getSDLRefreshRateIdle();
         else
             return getSDLRefreshRateDefault();
@@ -798,7 +804,7 @@ class VMExecutor extends MachineExecutor {
 
     @Override
     public void setSdlRefreshRate(int value, boolean idle) {
-        if(idle)
+        if (idle)
             setSDLRefreshRateIdle(value);
         else
             setSDLRefreshRateDefault(value);

@@ -37,12 +37,16 @@
 static int started = 0;
 void * handle = 0;
 
-void * loadLib(const char * lib_path_str) {
+void * loadLib(const char* lib_filename, const char * lib_path_str) {
 
 	char res_msg[MAX_STRING_LEN];
 	sprintf(res_msg, "Loading lib: %s", lib_path_str);
 	LOGV("%s", res_msg);
-	void *ldhandle = dlopen(lib_path_str, RTLD_LAZY);
+	void *ldhandle = dlopen(lib_filename, RTLD_LAZY);
+    if(ldhandle == NULL) {
+        // try with the lib path
+        ldhandle = dlopen(lib_path_str, RTLD_LAZY);
+    }
 	return ldhandle;
 
 }
@@ -150,7 +154,7 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefr
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
 		jstring storage_dir, jstring base_dir,
-		jstring lib_path,
+		jstring lib_filename, jstring lib_path,
 		jint sdl_scale_hint,
 		jobjectArray params) {
 	int res;
@@ -194,12 +198,15 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
     started = 1;
 
     //LOAD LIB
-	const char *lib_path_str = NULL;
-	if (lib_path != NULL)
-		lib_path_str = env->GetStringUTFChars(lib_path, 0);
+	const char *lib_filename_str = NULL;
+	if (lib_filename!= NULL)
+		lib_filename_str = env->GetStringUTFChars(lib_filename, 0);
+    const char *lib_path_str = NULL;
+    if (lib_path != NULL)
+        lib_path_str = env->GetStringUTFChars(lib_path, 0);
 
 	if (handle == NULL) {
-		handle = loadLib(lib_path_str);
+		handle = loadLib(lib_filename_str, lib_path_str);
 	}
 
 	if (!handle) {
