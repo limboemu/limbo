@@ -28,19 +28,16 @@ import java.util.concurrent.Executors;
  * controller preventing direct write access to the model. The Activities can be notified directly by
  * the model and update their views directly.
  */
-class Dispatcher implements ViewListener {
+public class Dispatcher implements ViewListener {
     private static final String TAG = "Dispatcher";
     private static Dispatcher sInstance;
     private final ExecutorService dispatcher = Executors.newFixedThreadPool(1);
 
-    static synchronized Dispatcher getInstance() {
-        return sInstance;
-    }
-
-    public static synchronized void initialize() {
+    public static synchronized Dispatcher getInstance() {
         if (sInstance == null) {
             sInstance = new Dispatcher();
         }
+        return sInstance;
     }
 
     private void setDriveValue(MachineProperty diskFileType, String drivePath) {

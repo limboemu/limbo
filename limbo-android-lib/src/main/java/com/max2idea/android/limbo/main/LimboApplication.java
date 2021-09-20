@@ -27,7 +27,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
-import com.max2idea.android.limbo.machine.DispatcherFactory;
+import com.max2idea.android.limbo.machine.Dispatcher;
 import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.MachineOpenHelper;
 
@@ -116,7 +116,7 @@ public class LimboApplication extends Application {
     }
 
     public static ViewListener getViewListener() {
-        return DispatcherFactory.create(DispatcherFactory.DispatcherType.QEMU);
+        return Dispatcher.getInstance();
     }
 
     public static String getBasefileDir() {
@@ -146,7 +146,6 @@ public class LimboApplication extends Application {
         }
         MachineOpenHelper.initialize(this);
         FavOpenHelper.initialize(this);
-        DispatcherFactory.initialize();
         setupFolders();
     }
 
