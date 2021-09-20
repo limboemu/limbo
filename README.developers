@@ -15,9 +15,9 @@ https://github.com/limboemu/limbo
 
     Android SDK
     Android NDK: r14b/gcc or r23/clang
-    Android Studio (3.1.1 prefered)
+    Android Studio (3.1.1 preferred)
     Android device with Android OS 8.0 (Oreo) and above
-    Linux Desktop pc (Ubuntu prefered)
+    Linux Desktop pc (Ubuntu preferred)
     Make sure you have the following packages installed, if not run:
     sudo apt-get install make autoconf automake git python binutils 
     sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
