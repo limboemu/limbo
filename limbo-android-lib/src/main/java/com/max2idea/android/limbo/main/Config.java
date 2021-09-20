@@ -103,9 +103,6 @@ public class Config {
     // stack size to remove an issue with SDL Audio
     public static long stackSize = 10 * 1024 * 1024;
 
-    // alternative to AudioTrack
-    public static boolean enableAaudio = true;
-
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
 

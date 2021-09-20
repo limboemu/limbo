@@ -293,7 +293,7 @@ public class LimboSettingsManager extends PreferenceActivity {
             addPreferencesFromResource(R.xml.software_updates);
         if(Config.enableImmersiveMode)
             addPreferencesFromResource(R.xml.immersive);
-        if(Config.enableAaudio)
+        if (Build.VERSION.SDK_INT >= 26)
             addPreferencesFromResource(R.xml.aaudio);
     }
 
