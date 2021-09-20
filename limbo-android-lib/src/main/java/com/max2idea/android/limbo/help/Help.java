@@ -44,7 +44,7 @@ public class Help {
 
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle(Config.APP_NAME + " v" + pInfo.versionName);
+        alertDialog.setTitle(Config.APP_NAME + " v" + pInfo.versionName + " (" + Config.emuVersion.name().replace("_", ".") + ")");
 
         LinearLayout mLayout = new LinearLayout(activity);
         mLayout.setOrientation(LinearLayout.VERTICAL);
