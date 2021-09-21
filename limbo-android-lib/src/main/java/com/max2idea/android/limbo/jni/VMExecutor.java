@@ -846,7 +846,17 @@ private String getQemuLibrary() {
     @Override
     public void setFullscreen() {
         nativeFullscreen();
-        nativeRefreshScreen(1);
+        //TODO: sparc doesn't not have vga so we need to
+        // see if we can apply similar call to the cg3
+        if(LimboApplication.arch == Config.Arch.x86
+                || LimboApplication.arch == Config.Arch.x86_64
+                || LimboApplication.arch == Config.Arch.arm
+                || LimboApplication.arch == Config.Arch.arm64
+                || LimboApplication.arch == Config.Arch.ppc
+                || LimboApplication.arch == Config.Arch.ppc64
+        ) {
+            nativeRefreshScreen(1);
+        }
     }
 
     @Override
