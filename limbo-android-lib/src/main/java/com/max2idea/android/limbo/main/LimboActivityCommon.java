@@ -23,6 +23,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -320,10 +321,22 @@ public class LimboActivityCommon {
 
     public static void showChangelog(Activity activity) {
         try {
-            DialogUtils.UIAlert(activity, activity.getString(R.string.CHANGELOG), FileUtils.LoadFile(activity, "CHANGELOG", false),
-                    0, false, activity.getString(android.R.string.ok), null, null, null, null, null);
+            AlertDialog alertDialog;
+            alertDialog = new AlertDialog.Builder(activity).create();
+            alertDialog.setTitle(activity.getString(R.string.CHANGELOG));
+            alertDialog.setCanceledOnTouchOutside(false);
+            TextView textView = new TextView(activity);
+            textView.setPadding(20, 20, 20, 20);
+            textView.setText(FileUtils.LoadFile(activity, "CHANGELOG", false));
+            textView.setBackgroundColor(Color.WHITE);
+            textView.setTextColor(Color.BLACK);
+            ScrollView view = new ScrollView(activity);
+            view.addView(textView);
+            alertDialog.setView(view);
+            alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, activity.getString(android.R.string.ok),
+                    (DialogInterface.OnClickListener) null);
+            alertDialog.show();
         } catch (IOException e) {
-
             e.printStackTrace();
         }
     }
