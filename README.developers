@@ -101,6 +101,8 @@ https://github.com/limboemu/limbo
     # example for 5.1.0:
     cd ./limbo-android-lib/src/main/jni/qemu/
     patch -p1 < ../patches/qemu-5.1.0.patch
+    # for 2.9.1:
+    patch -p1 < ../patches/qemu-2.9.1.patch
 
     ### Apply glib patch for Limbo:
     cd ./limbo-android-lib/src/main/jni/glib/
