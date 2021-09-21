@@ -30,7 +30,7 @@ public class LimboEmuActivity extends LimboActivity {
         super.onCreate(bundle);
         //TODO: change location to something that the user will have access outside of limbo
         //  like internal storage
-        Logger.setupLogFile(LimboApplication.getInstance().getCacheDir() + "/limbo/limbo-arm-log.txt");
+        Logger.setupLogFile("/limbo/limbo-arm-log.txt");
     }
 
     protected void loadQEMULib(){
