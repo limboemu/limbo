@@ -56,6 +56,10 @@ https://github.com/limboemu/limbo
     wget http://download.qemu-project.org/qemu-5.1.0.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-5.1.0.tar.xz
     mv qemu-5.1.0 qemu
+    # For QEMU version 2.9.1:
+    wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
+    tar -xJf /tmp/qemu-2.9.1.tar.xz
+    mv qemu-2.9.1 qemu
 
     ##### GET glib
     wget https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz -P /tmp/
