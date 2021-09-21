@@ -16,7 +16,7 @@ public class LimboEmuActivity extends LimboActivity {
         //  to have the qemu-system-sparc.so library compiled
         //  you can build the 32bit version with BUILD_GUEST=sparc64-softmmu from the ndk side
 
-        LimboApplication.arch = Config.Arch.sparc64;
+        LimboApplication.arch = Config.Arch.sparc;
         Config.clientClass = this.getClass();
         Config.enableKVM = false;
         //XXX: sparc emulators are not mttcg capable (yet)
