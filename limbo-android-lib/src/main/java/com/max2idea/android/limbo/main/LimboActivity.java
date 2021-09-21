@@ -2760,7 +2760,7 @@ public class LimboActivity extends AppCompatActivity
                 getString(R.string.otherOperatingSystem),
                 Config.otherOSLink,
                 LinksManager.LinkType.OTHER));
-                Config.osImages.put(getString(R.string.other), new LinksManager.LinkInfo("Custom",
+                Config.osImages.put(getString(R.string.custom), new LinksManager.LinkInfo("Custom",
                 getString(R.string.customOperatingSystem),
                 null,
                 LinksManager.LinkType.OTHER));

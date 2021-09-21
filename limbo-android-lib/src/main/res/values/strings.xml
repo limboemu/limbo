@@ -84,7 +84,6 @@
     <string name="scaling">Scaling</string>
     <string name="save_state">Pause VM</string>
     <string name="scaling_zoomable">Zoomable</string>
-    <!-- Send selected metakey -->
     <string name="send_button">Send</string>
     <string name="send_key_again">Send Key Again</string>
     <string name="shift_check">Shift</string>
@@ -200,11 +199,9 @@
     <string name="ExportFilenameCannotBeEmpty">Export filename cannot be empty</string>
     <string name="ChangeDirectory">Change Directory</string>
     <string name="Export">Export</string>
-
     <string name="threeBySix">3x6</string>
     <string name="fourByEight">4x8</string>
     <string name="fiveByTen">5x10</string>
-
     <string name="InstallRoms">Install Roms</string>
     <string name="CreateMachine">Create machine</string>
     <string name="DeleteMachine">Delete Machine</string>
@@ -357,9 +354,9 @@
     <string name="PreventMouseOutOfBounds">Prevent Mouse out of Bounds</string>
     <string name="PreventMouseDescr">Prevents some OSes from crashing when using \"usb-tablet\" mouse and the pointer is outside of screen bounds.\nWarning: This might create an invisible wall if the guest OS does not support \"usb-tablet\".</string>
     <string name="other">Other</string>
+    <string name="custom">Custom</string>
     <string name="otherOperatingSystem">Other Operating Systems</string>
     <string name="DownloadISOAndVirtualHDDImages">Download ISO and Virtual HDD Images</string>
-
     <string name="keyPressDelay">Key Pressed Delay</string>
     <string name="keyPressDelaySummary">Delay between keyboard keys pressed. Lower values have better performance but key events might be not be understood by the emulator so use higher values.</string>
     <string name="mouseButtonDelay">Mouse Button Click Delay</string>
@@ -367,5 +364,4 @@
     <string name="machineHeader">Machine:</string>
     <string name="EnableAaudio">Enable Aaudio</string>
     <string name="EnableAaudioSummary">Aaudio is an alternative native sound streamer library for better audio performance. Needs app restart!</string>
-
 </resources>
