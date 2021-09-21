@@ -160,6 +160,9 @@ public class Dispatcher implements ViewListener {
             case INITRD:
                 getMachine().setInitRd(convertString(property, value));
                 break;
+            case APPEND:
+                getMachine().setAppend(convertString(property, value));
+                break;
             case BOOT_CONFIG:
                 getMachine().setBootDevice(convertString(property, value));
                 break;
