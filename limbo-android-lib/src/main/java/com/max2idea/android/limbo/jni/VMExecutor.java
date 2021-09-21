@@ -125,24 +125,24 @@ class VMExecutor extends MachineExecutor {
         return null;
     }
 
-    private String getQemuLibrary() {
+private String getQemuLibrary() {
         switch (LimboApplication.arch) {
-            case x86_64:
-                return "libqemu-system-x86_64.so";
             case x86:
                 return "libqemu-system-i386.so";
+            case x86_64:
+                return "libqemu-system-x86_64.so";
             case arm:
-                return "/libqemu-system-arm.so";
+                return "libqemu-system-arm.so";
             case arm64:
                 return "libqemu-system-aarch64.so";
             case ppc:
-                return "/libqemu-system-ppc.so";
+                return "libqemu-system-ppc.so";
             case ppc64:
-                return "/libqemu-system-ppc64.so";
+                return "libqemu-system-ppc64.so";
             case sparc:
-                return "/libqemu-system-sparc.so";
+                return "libqemu-system-sparc.so";
             case sparc64:
-                return "/libqemu-system-sparc64.so";
+                return "libqemu-system-sparc64.so";
             default:
                 throw new IllegalStateException("Unexpected value: " + LimboApplication.arch);
         }
