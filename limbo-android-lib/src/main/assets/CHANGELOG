@@ -1,7 +1,3 @@
-* Limbo v6.0.1
-Use QEMU 5.1.0 for stability
-See 6.0.0 Release Notes for other features
-
 * Limbo Legacy v6.0.0
 Using QEMU 2.9.1 for better performance!
 WARNING: 
