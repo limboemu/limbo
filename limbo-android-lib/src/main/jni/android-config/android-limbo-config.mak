@@ -49,7 +49,7 @@ BUILD_GUEST?=x86_64-softmmu
 
 # QEMU Version
 # values: 2.9.1, 5.1.0
-USE_QEMU_VERSION ?= 2.9.1
+USE_QEMU_VERSION ?= 5.1.0
 
 # If you want to use SDL interface
 USE_SDL ?= true
