@@ -110,9 +110,9 @@ JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMous
 JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeMouseBounds(
         JNIEnv* env, jobject thiz, int xmin, int xmax, int ymin, int ymax) {
     checkBounds = true;
-    x_min = xmin;
-	x_max = xmax;
-	y_min = ymin;
-	y_max = ymax;     
+    x_min = xmin+1;
+	x_max = xmax-1;
+	y_min = ymin+1;
+	y_max = ymax-1;     
 }
 
