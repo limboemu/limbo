@@ -1,6 +1,6 @@
 diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
 --- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./accel/kvm/kvm-all.c	2021-09-20 13:04:04.425663294 +0300
++++ ./accel/kvm/kvm-all.c	2021-09-23 21:42:44.906990138 +0300
 @@ -2015,7 +2015,12 @@
      s->vmfd = -1;
      s->fd = qemu_open("/dev/kvm", O_RDWR);
@@ -16,7 +16,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-al
      }
 diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio.c ./audio/audio.c
 --- /tmp/qemu-5.1.0/audio/audio.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./audio/audio.c	2021-09-20 13:26:15.776197453 +0300
++++ ./audio/audio.c	2021-09-23 22:18:36.689307562 +0300
 @@ -2005,7 +2005,11 @@
  
      if (!pdo->has_frequency) {
@@ -31,7 +31,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio.c ./audio/audio.c
          pdo->has_channels = true;
 diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio_legacy.c ./audio/audio_legacy.c
 --- /tmp/qemu-5.1.0/audio/audio_legacy.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./audio/audio_legacy.c	2021-09-20 13:25:43.048526424 +0300
++++ ./audio/audio_legacy.c	2021-09-23 22:18:33.800642995 +0300
 @@ -105,7 +105,11 @@
  static uint32_t frames_to_usecs(uint32_t frames,
                                  AudiodevPerDirectionOptions *pdo)
@@ -46,7 +46,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio_legacy.c ./audio/audio_leg
  
 diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
 --- /tmp/qemu-5.1.0/configure	2020-08-11 22:17:15.000000000 +0300
-+++ ./configure	2021-09-20 13:04:04.429663315 +0300
++++ ./configure	2021-09-23 21:42:44.914990138 +0300
 @@ -2501,7 +2501,8 @@
  # pkg-config probe
  
@@ -173,7 +173,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  # checks for sanitizers
 diff -ru --no-dereference /tmp/qemu-5.1.0/hw/display/vga.c ./hw/display/vga.c
 --- /tmp/qemu-5.1.0/hw/display/vga.c	2020-08-11 22:17:14.000000000 +0300
-+++ ./hw/display/vga.c	2021-09-20 15:01:40.680915173 +0300
++++ ./hw/display/vga.c	2021-09-23 21:42:44.918990138 +0300
 @@ -1458,6 +1458,12 @@
      memory_region_set_log(&s->vram, false, DIRTY_MEMORY_VGA);
  }
@@ -211,7 +211,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/hw/display/vga.c ./hw/display/vga.c
      memset(s->invalidated_y_table, 0, sizeof(s->invalidated_y_table));
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/osdep.h
 --- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 22:17:15.000000000 +0300
-+++ ./include/qemu/osdep.h	2021-09-20 13:04:04.433663335 +0300
++++ ./include/qemu/osdep.h	2021-09-23 21:42:44.918990138 +0300
 @@ -36,6 +36,10 @@
  
  #include "qemu/compiler.h"
@@ -225,7 +225,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/os
   * that system header.
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/console.h
 --- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 22:17:14.000000000 +0300
-+++ ./include/ui/console.h	2021-09-20 13:31:45.612676664 +0300
++++ ./include/ui/console.h	2021-09-23 21:42:44.918990138 +0300
 @@ -26,8 +26,16 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
@@ -245,7 +245,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/cons
  enum qemu_color_names {
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
 --- /tmp/qemu-5.1.0/Makefile	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile	2021-09-20 13:04:04.437663356 +0300
++++ ./Makefile	2021-09-23 21:42:44.918990138 +0300
 @@ -338,7 +338,8 @@
  vhost-user-json-y =
  HELPERS-y = $(HELPERS)
@@ -278,7 +278,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
  
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
 --- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile.target	2021-09-20 13:04:04.437663356 +0300
++++ ./Makefile.target	2021-09-23 21:42:44.922990138 +0300
 @@ -18,6 +18,12 @@
  
  QEMU_CFLAGS+=-iquote $(SRC_PATH)/include
@@ -307,7 +307,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
  	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
 diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
 --- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./monitor/misc.c	2021-09-20 13:04:04.437663356 +0300
++++ ./monitor/misc.c	2021-09-23 21:42:44.922990138 +0300
 @@ -1299,6 +1299,14 @@
  {
      mon_fd_t *monfd;
@@ -325,7 +325,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
          int fd;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
 --- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/console.c	2021-09-20 15:30:03.249218610 +0300
++++ ./ui/console.c	2021-09-23 21:42:44.926990138 +0300
 @@ -38,6 +38,11 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
@@ -340,7 +340,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
      uint8_t bgcol:4;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
 --- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2-2d.c	2021-09-20 13:04:04.445663397 +0300
++++ ./ui/sdl2-2d.c	2021-09-23 21:42:44.926990138 +0300
 @@ -125,6 +125,12 @@
                                        surface_width(new_surface),
                                        surface_height(new_surface));
@@ -356,7 +356,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
 --- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2.c	2021-09-20 13:34:49.496562679 +0300
++++ ./ui/sdl2.c	2021-09-23 22:21:35.930146392 +0300
 @@ -89,7 +89,16 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -375,7 +375,21 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
      if (scon->opengl) {
          scon->winctx = SDL_GL_GetCurrentContext();
      }
-@@ -627,6 +636,10 @@
+@@ -272,6 +281,13 @@
+     };
+     static uint32_t prev_state;
+ 
++#ifdef __LIMBO__
++// LIMBO: the console can be NULL when the mouse moves outside of the window 
++// and it crashes the app
++    if(scon==NULL)
++        return;
++#endif
++
+     if (prev_state != state) {
+         qemu_input_update_buttons(scon->dcl.con, bmap, prev_state, state);
+         prev_state = state;
+@@ -627,6 +643,10 @@
      }
  
      while (SDL_PollEvent(ev)) {
@@ -386,7 +400,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
          switch (ev->type) {
          case SDL_KEYDOWN:
              idle = 0;
-@@ -789,6 +802,10 @@
+@@ -789,6 +809,10 @@
      }
  }
  
@@ -397,7 +411,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
  static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
  {
      uint8_t data = 0;
-@@ -798,6 +815,7 @@
+@@ -798,6 +822,7 @@
  
      assert(o->type == DISPLAY_TYPE_SDL);
  
@@ -405,7 +419,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -810,6 +828,12 @@
+@@ -810,6 +835,12 @@
       */
      g_setenv("SDL_VIDEODRIVER", "x11", 0);
  #endif
@@ -420,7 +434,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
          fprintf(stderr, "Could not initialize SDL(%s) - exiting\n",
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
 --- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/vnc.c	2021-09-20 13:04:04.445663397 +0300
++++ ./ui/vnc.c	2021-09-23 21:42:44.930990139 +0300
 @@ -51,8 +51,19 @@
  #include "qemu/cutils.h"
  #include "io/dns-resolver.h"
@@ -508,7 +522,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
          do_key_event(vs, down, keycode, sym);
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.objs
 --- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/Makefile.objs	2021-09-20 13:04:04.449663418 +0300
++++ ./util/Makefile.objs	2021-09-23 21:42:44.934990139 +0300
 @@ -39,7 +39,8 @@
  util-obj-y += range.o
  util-obj-y += stats64.o
@@ -521,7 +535,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.obj
  dbus.o-cflags = $(GIO_CFLAGS)
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpty.c
 --- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/qemu-openpty.c	2021-09-20 13:04:04.449663418 +0300
++++ ./util/qemu-openpty.c	2021-09-23 21:42:44.934990139 +0300
 @@ -111,6 +111,9 @@
  }
  #endif
