@@ -29,10 +29,12 @@ import com.max2idea.android.limbo.main.LimboSettingsManager;
  */
 public class ScreenUtils {
     private static final String TAG = "ScreenUtils";
-    public static void updateOrientation(Activity activity) {
+    public static void updateOrientation(Activity activity, int lastOrientation) {
         int orientation = LimboSettingsManager.getOrientationSetting(activity);
         switch (orientation) {
             case 0:
+                if(lastOrientation >= 0)
+                    activity.setRequestedOrientation(lastOrientation);
                 activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
                 break;
             case 1:

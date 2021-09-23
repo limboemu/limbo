@@ -320,7 +320,7 @@ public class LimboSDLActivity extends SDLActivity
 
     protected void setTrackpadMode() {
         try {
-            ScreenUtils.updateOrientation(this);
+            ScreenUtils.updateOrientation(this, -1);
             mouseMode = MouseMode.Trackpad;
             invalidateOptionsMenu();
             ((LimboSDLSurface) mSurface).refreshSurfaceView();
@@ -485,7 +485,7 @@ public class LimboSDLActivity extends SDLActivity
         setupListeners();
         setupToolBar();
         showHints();
-        ScreenUtils.updateOrientation(this);
+        ScreenUtils.updateOrientation(this, -1);
         checkPendingActions();
         setupUserInterface();
         setupAudio();
@@ -559,9 +559,6 @@ public class LimboSDLActivity extends SDLActivity
             //XXX: force portrait when key mapper is on edit mode
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             toggleKeyboardFlag = KeyboardUtils.showKeyboard(LimboSDLActivity.this, false, mSurface);
-        } else {
-            // restore
-            ScreenUtils.updateOrientation(this);
         }
     }
 
