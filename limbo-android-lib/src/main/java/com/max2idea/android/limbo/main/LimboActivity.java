@@ -27,6 +27,7 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -1101,7 +1102,8 @@ public class LimboActivity extends AppCompatActivity
 
         // SDL library
         if (Config.enable_SDL) {
-            System.loadLibrary("compat-SDL2-addons");
+            if (Build.VERSION.SDK_INT >= 26)
+                System.loadLibrary("compat-SDL2-addons");
             System.loadLibrary("SDL2");
         }
 

@@ -103,7 +103,7 @@ class VMExecutor extends MachineExecutor {
 
     public native void nativeRefreshScreen(int value);
 
-    public native void nativeEnableAaudio(int value);
+    public native void nativeEnableAaudio(int value, String aaudioLibName, String aaudioLibPath);
 
     /**
      * Prints parameters in qemu format
@@ -861,7 +861,9 @@ private String getQemuLibrary() {
 
     @Override
     public void enableAaudio(int value) {
-        nativeEnableAaudio(value);
+        nativeEnableAaudio(value, Config.aaudioLibName,
+                FileUtils.getNativeLibDir(LimboApplication.getInstance())
+                        + "/" + Config.aaudioLibName);
     }
 
     //TODO: re-enable getting status from the vm

@@ -45,6 +45,7 @@ void * loadLib(const char* lib_filename, const char * lib_path_str) {
 	void *ldhandle = dlopen(lib_filename, RTLD_LAZY);
     if(ldhandle == NULL) {
         // try with the lib path
+        printf("trying loading with full path: %s\n", lib_path_str);
         ldhandle = dlopen(lib_path_str, RTLD_LAZY);
     }
 	return ldhandle;

@@ -30,7 +30,7 @@ public class Config {
     public enum EMU_VERSION {
         QEMUv2_9_1, QEMUv5_1_0
     }
-    public static final EMU_VERSION emuVersion = EMU_VERSION.QEMUv5_1_0;
+    public static final EMU_VERSION emuVersion = EMU_VERSION.QEMUv2_9_1;
 
     // Constants
     public static final int SDL_MOUSE_LEFT = 1;
@@ -102,6 +102,8 @@ public class Config {
 
     // stack size to remove an issue with SDL Audio
     public static long stackSize = 10 * 1024 * 1024;
+    // native alternative to audio track
+    public static String aaudioLibName = "libcompat-SDL2-addons.so";
 
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
