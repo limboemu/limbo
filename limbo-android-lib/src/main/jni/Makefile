@@ -86,6 +86,7 @@ COPY_ROMS=-mkdir -p ../assets/roms && cp -rf ./qemu/pc-bios/*.rom \
 ../assets/roms/
 
 COPY_KEYMAPS=cp -rf ./qemu/pc-bios/keymaps ../assets/roms/
+COPY_QEMU_VERSION=cp -f ./qemu/VERSION ../assets/QEMU_VERSION
 COPY_RESOLV_CONF=mkdir -p ../assets/roms/etc/ && printf "nameserver 8.8.8.8\n\n" > ../assets/roms/etc/resolv.conf
 
 COPY_ASSETS_X86=mkdir -p ../../../../limbo-android-x86/src/main/assets/ && \
@@ -257,6 +258,7 @@ _build-qemu: ndk
 	$(RENAME_PARPROUTED)
 	$(COPY_ROMS)
 	$(COPY_KEYMAPS)
+	$(COPY_QEMU_VERSION)
 	$(COPY_RESOLV_CONF)
 
 qemu: ndk
