@@ -1,37 +1,28 @@
-* Limbo v6.0.1
-Use QEMU 5.1.0 for stability
-See 6.0.0 Release Notes for other features
-
 * Limbo Legacy v6.0.0
-Using QEMU 2.9.1 for better performance!
-WARNING: 
-    This is version much faster than 5.x but very old and behind many security patches! 
-    Make sure you trust the virtual images and any software you install within the vm!
-Changed minimum SDK version to 26 (Oreo and above).
-You can  still build with Android API 21 without Aaudio option.
-Added Android Aaudio native audio interface for lower latency, see settings.
-Using 22050 sample rate instead of 44199 for better audio with lesser clicking.
-Fixed crashing when resuming due to audio buffer writing.
-Fixed android notification not dismissing.
-Removed internal VNC client you should check the Wiki for alternative VNC clients.
+Built both variants for QEMU 5.1.0 for stability and 2.9.1 for better performance.
+WARNING:  QEMU 2.9.1 version is much faster than 5.1.0 but very old and 
+behind many security patches! Install only virtual images and software you trust!
 Fixed SDL resizing after rotating and resuming application.
 SDL user interface can now disconnect and resume.
-VNC Password and Allow External VNC clients are now under settings.
-Moved Screen options to settings.
-New Pause button for pausing when started VNC user interface.
-Machine architecture was not needed so it is now removed, use cpu instead.
 Added support for changin idle refresh rate for SDL.
 Created KeyMapper for mapping keys and mouse buttons for gaming, see Wiki for info.
+Removed internal VNC client you should check the Wiki for alternative VNC clients.
+VNC Password and Allow External VNC clients are now under settings.
+New Pause button for pausing when started VNC user interface.
 Mouse enhancements for Touchscreen and External Mouse.
 Absolute mouse devices support only guests that have usb-tablet drivers installed.
 Added new out of bounds prevention option for mouse.
 Added new Key and Mouse delay options.
+Global screen options are now moved to Menu Settings.
+Machine architecture was not needed so it is now removed.
 Removed Shared Folder because it is buggy.
-Internal redesign of the ui dispatching and interface with native code.
+Added Android Aaudio native audio interface for lower latency (Oreo and above only).
+Using 22050 sample rate instead of 44199 for better audio with lesser clicking.
+Fixed crashing when resuming due to audio buffer writing.
+Internal redesign of the Android user interface.
 Better build environment for development.
-Fixed clang support with ndk r23
-Upgraded libraries to ffi ver 3.3 and pixman ver 0.40.0
-Removed patch for QEMU 4.0.0 the only versions currently support are 2.9.1 and 5.1.0.
+Building with ndk r23 clang by default, r14b gcc is also supported.
+Upgraded libraries: ffi 3.3 and pixman 0.40.0
 
 
 * Limbo v5.1.0
