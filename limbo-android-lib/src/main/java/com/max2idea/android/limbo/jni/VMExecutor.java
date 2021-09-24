@@ -284,7 +284,7 @@ private String getQemuLibrary() {
             paramsList.add(Config.tbSize); //Don't increase it crashes
         }
 
-        if (Config.emuVersion.ordinal() <= Config.EMU_VERSION.QEMUv2_9_1.ordinal()) {
+        if (LimboApplication.getQemuVersion() == 20901) {
             paramsList.add("-realtime");
             paramsList.add("mlock=off");
         } else {

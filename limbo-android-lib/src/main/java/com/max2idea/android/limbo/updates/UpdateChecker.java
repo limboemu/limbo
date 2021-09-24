@@ -50,9 +50,8 @@ public class UpdateChecker {
             float version = Float.parseFloat(versionStr);
             String versionName = getVersionName(versionStr);
 
-            PackageInfo pInfo = LimboApplication.getPackageInfo();
             int versionCheck = (int) (version * 100);
-            if (versionCheck > pInfo.versionCode) {
+            if (versionCheck > LimboApplication.getLimboVersion()) {
                 final String finalVersionName = versionName;
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override

@@ -370,18 +370,18 @@ public class FileUtils {
         t.start();
     }
 
-    public static String LoadFile(Activity activity, String fileName, boolean loadFromRawFolder) throws IOException {
+    public static String LoadFile(Context context, String fileName, boolean loadFromRawFolder) throws IOException {
         // Create a InputStream to read the file into
         InputStream iS;
         if (loadFromRawFolder) {
             // get the resource id from the file name
-            int rID = activity.getResources().getIdentifier(activity.getClass().getPackage().getName() + ":raw/" + fileName,
+            int rID = context.getResources().getIdentifier(LimboApplication.getInstance().getClass().getPackage().getName() + ":raw/" + fileName,
                     null, null);
             // get the file as a stream
-            iS = activity.getResources().openRawResource(rID);
+            iS = context.getResources().openRawResource(rID);
         } else {
             // get the file as a stream
-            iS = activity.getResources().getAssets().open(fileName);
+            iS = context.getResources().getAssets().open(fileName);
         }
 
         ByteArrayOutputStream oS = new ByteArrayOutputStream();

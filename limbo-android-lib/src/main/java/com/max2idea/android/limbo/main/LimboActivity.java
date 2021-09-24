@@ -886,7 +886,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupAppEnvironment() {
-        LimboApplication.setupPackageInfo(this);
+        LimboApplication.setupEnv(this);
     }
 
     private void setupController() {
@@ -1260,13 +1260,13 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void promptLicense() {
-        final PackageInfo finalPInfo = LimboApplication.getPackageInfo();
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    LimboActivityCommon.promptLicense(LimboActivity.this, Config.APP_NAME + " v" + finalPInfo.versionName
-                            + " (" + Config.emuVersion.name().replace("_", ".") + ")",
+                    LimboActivityCommon.promptLicense(LimboActivity.this,
+                            Config.APP_NAME + " " + LimboApplication.getLimboVersionString()
+                            + " " + "QEMU" + " " + LimboApplication.getQemuVersionString() ,
                             FileUtils.LoadFile(LimboActivity.this, "LICENSE", false));
                 } catch (IOException e) {
 

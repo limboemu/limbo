@@ -173,16 +173,14 @@ public class LimboSettingsManager extends PreferenceActivity {
     }
 
     public static boolean isFirstLaunch(Context context) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo();
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getBoolean("firstTime" + pInfo.versionName, true);
+        return prefs.getBoolean("firstTime" + LimboApplication.getLimboVersionString(), true);
     }
 
     public static void setFirstLaunch(Context context) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo();
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
-        edit.putBoolean("firstTime" + pInfo.versionName, false);
+        edit.putBoolean("firstTime" + LimboApplication.getLimboVersionString(), false);
         edit.apply();
     }
 
