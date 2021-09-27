@@ -577,13 +577,16 @@ private String getQemuLibrary() {
             paramsList.add("-drive"); //empty
             String driveParams = "index=3";
             driveParams += ",media=disk";
+            driveParams += ",snapshot=on";
             if (Config.enableIDEInterface) {
                 driveParams += ",if=";
                 driveParams += Config.ideInterfaceType;
             }
             driveParams += ",format=raw";
             driveParams += ",file=fat:";
-            driveParams += "rw:"; //Always Read/Write
+            // Mounting shared folder as read-only
+            // while allowing temporary writes with "snapshot=on"
+            //driveParams += "rw:"; //Always Read/Write
             driveParams += sharedFolderPath;
             paramsList.add(driveParams);
         }
