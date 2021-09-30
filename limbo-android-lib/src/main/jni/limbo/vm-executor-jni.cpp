@@ -152,6 +152,14 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefr
     return res;
 }
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeIgnoreBreakpointInvalidate(
+		JNIEnv* env, jobject thiz, jint jvalue) {
+    if(handle == NULL) {
+    	return;
+    }
+    set_qemu_var(env, thiz, "limbo_ignore_breakpoint_invalidate", jvalue);
+}
+
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
 		jstring storage_dir, jstring base_dir,

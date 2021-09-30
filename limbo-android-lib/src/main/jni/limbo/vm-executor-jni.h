@@ -59,6 +59,9 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getSDLRefr
 JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefreshrate(
 		JNIEnv* env, jobject thiz);
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeIgnoreBreakpointInvalidate(
+		JNIEnv* env, jobject thiz, jint jvalue);
+        
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
 		jstring storage_dir, jstring base_dir,
