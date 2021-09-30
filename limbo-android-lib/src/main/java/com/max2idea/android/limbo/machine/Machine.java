@@ -50,6 +50,12 @@ public class Machine extends Observable {
     private String hdbImagePath;
     private String hdcImagePath;
     private String hddImagePath;
+    // HDD interface
+    private String hdaInterface = "ide";
+    private String hdbInterface = "ide";
+    private String hdcInterface = "ide";
+    private String hddInterface = "ide";
+
     private String sharedFolderPath;
     //Removable devices
     private boolean enableCDROM;
@@ -60,6 +66,7 @@ public class Machine extends Observable {
     private String fdaImagePath;
     private String fdbImagePath;
     private String sdImagePath;
+    private String cdInterface = "ide";
     // Default Settings
     private String bootDevice = "Default";
     private String kernel;
@@ -278,6 +285,54 @@ public class Machine extends Observable {
 
     }
 
+    public String getHdaInterface() {
+        return hdaInterface;
+    }
+
+    void setHdaInterface(String hdInterface) {
+        if (this.hdaInterface == null || !this.hdaInterface.equals(hdInterface)) {
+            this.hdaInterface = hdInterface;
+            setChanged();
+            notifyChanged(MachineProperty.HDA_INTERFACE, hdInterface);
+        }
+    }
+
+    public String getHdbInterface() {
+        return hdbInterface;
+    }
+
+    void setHdbInterface(String hdInterface) {
+        if (this.hdbInterface == null || !this.hdbInterface.equals(hdInterface)) {
+            this.hdbInterface = hdInterface;
+            setChanged();
+            notifyChanged(MachineProperty.HDB_INTERFACE, hdInterface);
+        }
+    }
+
+    public String getHdcInterface() {
+        return hdcInterface;
+    }
+
+    void setHdcInterface(String hdInterface) {
+        if (this.hdcInterface == null || !this.hdcInterface.equals(hdInterface)) {
+            this.hdcInterface = hdInterface;
+            setChanged();
+            notifyChanged(MachineProperty.HDC_INTERFACE, hdInterface);
+        }
+    }
+
+    public String getHddInterface() {
+        return hddInterface;
+    }
+
+    void setHddInterface(String hdInterface) {
+        if (this.hddInterface == null || !this.hddInterface.equals(hdInterface)) {
+            this.hddInterface = hdInterface;
+            setChanged();
+            notifyChanged(MachineProperty.HDD_INTERFACE, hdInterface);
+        }
+    }
+
     public String getSharedFolderPath() {
         return sharedFolderPath;
     }
@@ -391,6 +446,18 @@ public class Machine extends Observable {
             notifyChanged(MachineProperty.SD, sdImagePath);
         }
 
+    }
+
+    public String getCDInterface() {
+        return cdInterface;
+    }
+
+    void setCdInterface(String mediaInterface) {
+        if (this.cdInterface == null || !this.cdInterface.equals(mediaInterface)) {
+            this.cdInterface = mediaInterface;
+            setChanged();
+            notifyChanged(MachineProperty.CDROM_INTERFACE, mediaInterface);
+        }
     }
 
     public String getBootDevice() {

@@ -134,6 +134,22 @@ public class MachineImporter {
                                 mach.setSdImagePath(machineAttr[i].replace("\"", ""));
                                 break;
 
+                            case "HDA_INTERFACE":
+                                mach.setHdaInterface(machineAttr[i].replace("\"", ""));
+                                break;
+                            case "HDB_INTERFACE":
+                                mach.setHdbInterface(machineAttr[i].replace("\"", ""));
+                                break;
+                            case "HDC_INTERFACE":
+                                mach.setHdcInterface(machineAttr[i].replace("\"", ""));
+                                break;
+                            case "HDD_INTERFACE":
+                                mach.setHddInterface(machineAttr[i].replace("\"", ""));
+                                break;
+                            case "CDROM_INTERFACE":
+                                mach.setCdInterface(machineAttr[i].replace("\"", ""));
+                                break;
+
                             // Misc
                             case "VGA":
                                 mach.setVga(machineAttr[i].replace("\"", ""));

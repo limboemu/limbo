@@ -24,7 +24,6 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Build;
@@ -133,9 +132,13 @@ public class LimboActivity extends AppCompatActivity
     private Spinner mKernel;
     private Spinner mInitrd;
     // HDD
+    private ImageView mHDAOptions;
     private Spinner mHDA;
+    private ImageView mHDBOptions;
     private Spinner mHDB;
+    private ImageView mHDCOptions;
     private Spinner mHDC;
+    private ImageView mHDDOptions;
     private Spinner mHDD;
     private Spinner mSharedFolder;
 
@@ -148,6 +151,7 @@ public class LimboActivity extends AppCompatActivity
     private CheckBox mFDAenable;
     private CheckBox mFDBenable;
     private CheckBox mSDenable;
+    private ImageView mCDOptions;
 
     // misc
     private Spinner mRamSize;
@@ -275,13 +279,14 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void enableRemovableDiskListeners() {
-        enableRemovableDiskListener(mCD, mCDenable, MachineProperty.CDROM, FileType.CDROM);
-        enableRemovableDiskListener(mFDA, mFDAenable, MachineProperty.FDA, FileType.FDA);
-        enableRemovableDiskListener(mFDB, mFDBenable, MachineProperty.FDB, FileType.FDB);
-        enableRemovableDiskListener(mSD, mSDenable, MachineProperty.SD, FileType.SD);
+        enableRemovableDiskListener(mCD, mCDenable, mCDOptions, MachineProperty.CDROM, FileType.CDROM);
+        enableRemovableDiskListener(mFDA, mFDAenable, null, MachineProperty.FDA, FileType.FDA);
+        enableRemovableDiskListener(mFDB, mFDBenable, null, MachineProperty.FDB, FileType.FDB);
+        enableRemovableDiskListener(mSD, mSDenable, null, MachineProperty.SD, FileType.SD);
     }
 
     private void enableRemovableDiskListener(final Spinner spinner, final CheckBox driveEnable,
+                                             final ImageView driveOptions,
                                              final MachineProperty driveName,
                                              final FileType fileType) {
         spinner.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -311,6 +316,15 @@ public class LimboActivity extends AppCompatActivity
 
                 }
         );
+        if(driveOptions!=null) {
+            driveOptions.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if(driveEnable.isChecked())
+                        promptDriveInterface(driveName);
+                }
+            });
+        }
     }
 
 
@@ -747,14 +761,14 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupNonRemovableDiskListeners() {
-        setupNonRemovableDiskListener(mHDA, MachineProperty.HDA, FileType.HDA);
-        setupNonRemovableDiskListener(mHDB, MachineProperty.HDB, FileType.HDB);
-        setupNonRemovableDiskListener(mHDC, MachineProperty.HDC, FileType.HDC);
-        setupNonRemovableDiskListener(mHDD, MachineProperty.HDD, FileType.HDD);
+        setupNonRemovableDiskListener(mHDA, mHDAOptions, MachineProperty.HDA, FileType.HDA);
+        setupNonRemovableDiskListener(mHDB, mHDBOptions, MachineProperty.HDB, FileType.HDB);
+        setupNonRemovableDiskListener(mHDC, mHDCOptions, MachineProperty.HDC, FileType.HDC);
+        setupNonRemovableDiskListener(mHDD, mHDDOptions, MachineProperty.HDD, FileType.HDD);
         setupSharedFolderDisk();
     }
 
-    private void setupNonRemovableDiskListener(final Spinner diskSpinner,
+    private void setupNonRemovableDiskListener(final Spinner diskSpinner, final ImageView diskImage,
                                                final MachineProperty machineDriveName,
                                                final FileType diskFileType) {
         diskSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -778,8 +792,60 @@ public class LimboActivity extends AppCompatActivity
             public void onNothingSelected(AdapterView<?> parentView) {
             }
         });
+
+        diskImage.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptDriveInterface(machineDriveName);
+            }
+        });
     }
 
+    private void promptDriveInterface(final MachineProperty machineDriveName) {
+        final String[] items = {
+                "ide",
+                "scsi",
+                "virtio"
+        };
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle(machineDriveName + " " + getString(R.string.Interface));
+        int driveInterface = getMachineInterface(machineDriveName, items);
+        mBuilder.setSingleChoiceItems(items, driveInterface, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                notifyFieldChange(MachineProperty.MEDIA_INTERFACE, new Object[] {machineDriveName, items[i]});
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+    }
+
+    private int getMachineInterface(MachineProperty machineDriveName, String[] items) {
+        String hdInterfaceStr = null;
+        switch(machineDriveName) {
+            case HDA:
+                hdInterfaceStr = getMachine().getHdaInterface();
+                break;
+            case HDB:
+                hdInterfaceStr = getMachine().getHdbInterface();
+                break;
+            case HDC:
+                hdInterfaceStr = getMachine().getHdcInterface();
+                break;
+            case HDD:
+                hdInterfaceStr = getMachine().getHddInterface();
+                break;
+            case CDROM:
+                hdInterfaceStr = getMachine().getCDInterface();
+                break;
+        }
+        for(int i=0; i<items.length; i++) {
+            if(items[i].equals(hdInterfaceStr))
+                return i;
+        }
+        return 0;
+    }
 
     public void setupSharedFolderDisk() {
         mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -1292,7 +1358,6 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void enableRemovableDeviceOptions(boolean flag) {
-
         unlockRemovableDevices(flag);
         enableRemovableDiskValues(flag);
     }
@@ -1323,9 +1388,13 @@ public class LimboActivity extends AppCompatActivity
 
         //drives
         mHDA.setEnabled(flag);
+        mHDAOptions.setEnabled(flag);
         mHDB.setEnabled(flag);
+        mHDBOptions.setEnabled(flag);
         mHDC.setEnabled(flag);
+        mHDCOptions.setEnabled(flag);
         mHDD.setEnabled(flag);
+        mHDDOptions.setEnabled(flag);
         mSharedFolder.setEnabled(flag);
 
         //boot
@@ -1518,10 +1587,14 @@ public class LimboActivity extends AppCompatActivity
         mDisableTSC = findViewById(R.id.tscval);
 
         //disks
-        mHDA = findViewById(R.id.hdimgval);
+        mHDA = findViewById(R.id.hdaimgval);
+        mHDAOptions = findViewById(R.id.hdaoptions);
         mHDB = findViewById(R.id.hdbimgval);
+        mHDBOptions = findViewById(R.id.hdboptions);
         mHDC = findViewById(R.id.hdcimgval);
+        mHDCOptions = findViewById(R.id.hdcoptions);
         mHDD = findViewById(R.id.hddimgval);
+        mHDDOptions = findViewById(R.id.hddoptions);
 
         LinearLayout sharedFolderLayout = findViewById(R.id.sharedfolderl);
         if (!Config.enableSharedFolder)
@@ -1532,6 +1605,7 @@ public class LimboActivity extends AppCompatActivity
         mCD = findViewById(R.id.cdromimgval);
         mFDA = findViewById(R.id.floppyimgval);
         mFDB = findViewById(R.id.floppybimgval);
+        mCDOptions = findViewById(R.id.cdromoptions);
         if (!Config.enableEmulatedFloppy) {
             LinearLayout mFDALayout = findViewById(R.id.floppyimgl);
             mFDALayout.setVisibility(View.GONE);
@@ -2644,6 +2718,8 @@ public class LimboActivity extends AppCompatActivity
             @Override
             public void run() {
                 updateValues();
+                if(libLoaded)
+                    notifyAction(MachineAction.IGNORE_BREAKPOINT_INVALIDATION, LimboSettingsManager.getIgnoreBreakpointInvalidation(LimboActivity.this));
             }
         }, 1000);
 

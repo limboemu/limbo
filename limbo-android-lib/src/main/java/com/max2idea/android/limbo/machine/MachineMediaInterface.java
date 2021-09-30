@@ -18,8 +18,6 @@ Copyright (C) Max Kastanas 2012
  */
 package com.max2idea.android.limbo.machine;
 
-public enum MachineAction {
-    STOP_VM, IMPORT_VMS, LOAD_VM, CONTINUE_VM, RESET_VM, START_VM, SET_SDL_REFRESH_RATE,
-    SEND_MOUSE_EVENT, PAUSE_VM, DELETE_VM, INSERT_FAV, UPDATE_NOTIFICATION, DISPLAY_CHANGED,
-    FULLSCREEN, ENABLE_AAUDIO, IGNORE_BREAKPOINT_INVALIDATION, CREATE_VM
+public enum MachineMediaInterface {
+    IDE, SCSI, VIRTIO
 }

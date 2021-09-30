@@ -260,6 +260,11 @@ public class LimboSettingsManager extends PreferenceActivity {
         return prefs.getBoolean("enableAaudio", false);
     }
 
+    public static String getDiskCache(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString("diskCachePref", null);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -381,6 +386,11 @@ public class LimboSettingsManager extends PreferenceActivity {
     public static boolean getPreventMouseOutOfBounds(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         return prefs.getBoolean("preventMouseOutOfBounds", false);
+    }
+
+    public static boolean getIgnoreBreakpointInvalidation(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getBoolean("ignoreBreakpointInvalidation", false);
     }
 
 }

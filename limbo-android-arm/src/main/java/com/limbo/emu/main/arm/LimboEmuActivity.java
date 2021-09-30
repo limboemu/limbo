@@ -26,7 +26,6 @@ public class LimboEmuActivity extends LimboActivity {
                 getString(R.string.DebianArmLinuxDescr),
                 "https://github.com/limboemu/limbo/wiki/Debian-ARM-Linux",
                 LinksManager.LinkType.ISO));
-        Config.ideInterfaceType = "scsi";
         super.onCreate(bundle);
         //TODO: change location to something that the user will have access outside of limbo
         //  like internal storage

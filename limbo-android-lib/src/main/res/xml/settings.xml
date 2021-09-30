@@ -107,4 +107,20 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Disk">
+        <ListPreference
+            android:entries="@array/diskCacheLabels"
+            android:entryValues="@array/diskCacheValues"
+            android:key="diskCachePref"
+            android:summary="@string/diskCacheSummary"
+            android:title="@string/diskCache" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Fixes">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="ignoreBreakpointInvalidation"
+            android:summary="@string/IgnoreBreakpointInvalidationSummary"
+            android:title="@string/IgnoreBreakpointInvalidation" />
+    </PreferenceCategory>
 </PreferenceScreen>

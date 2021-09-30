@@ -174,12 +174,6 @@ public class Config {
 
     public static LinkedHashMap<String, LinksManager.LinkInfo> osImages = new LinkedHashMap<>();
     public static boolean processMouseHistoricalEvents = false;
-    //specify hd interface, alternative we don't need it right now
-    public static boolean enableIDEInterface = false;
-    public static String ideInterfaceType = "ide";
-    // specify virtio, you can always add it in the extra params
-    public static boolean enableVirtioInterface = false;
-    public static String virtioInterfaceType = "virtio";
 
     //Change to true in prod if you want to be notified by default for new versions
     public static boolean defaultCheckNewVersion = true;

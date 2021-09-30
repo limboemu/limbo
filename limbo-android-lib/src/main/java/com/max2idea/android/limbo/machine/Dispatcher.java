@@ -142,6 +142,8 @@ public class Dispatcher implements ViewListener {
             case REMOVABLE_DRIVE:
                 setDrive(value);
                 break;
+            case MEDIA_INTERFACE:
+                setDriveMediaInterface(value);
             case SOUNDCARD:
                 getMachine().setSoundCard(convertString(property, value));
                 break;
@@ -215,6 +217,29 @@ public class Dispatcher implements ViewListener {
                 getMachine().setExtraParams(convertString(property,value));
             default:
                 throw new RuntimeException("Umapped UI field: " + property);
+        }
+    }
+
+    private void setDriveMediaInterface(Object value) {
+        Object[] params = (Object[]) value;
+        MachineProperty driveName = (MachineProperty) params[0];
+        String driveInterface = (String) params[1];
+        switch(driveName) {
+            case HDA:
+                getMachine().setHdaInterface(driveInterface);
+                break;
+            case HDB:
+                getMachine().setHdbInterface(driveInterface);
+                break;
+            case HDC:
+                getMachine().setHdcInterface(driveInterface);
+                break;
+            case HDD:
+                getMachine().setHddInterface(driveInterface);
+                break;
+            case CDROM:
+                getMachine().setCdInterface(driveInterface);
+                break;
         }
     }
 
@@ -319,6 +344,9 @@ public class Dispatcher implements ViewListener {
                 break;
             case FULLSCREEN:
                 MachineController.getInstance().setFullscreen();
+                break;
+            case IGNORE_BREAKPOINT_INVALIDATION:
+                MachineController.getInstance().ignoreBreakpointInvalidation(convertBoolean(action, value));
                 break;
         }
     }

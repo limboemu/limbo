@@ -20,7 +20,6 @@ public class LimboEmuActivity extends LimboActivity {
         else
             Config.enableMTTCG = false;
         Config.enableEmulatedSDCard = false;
-        Config.ideInterfaceType = "scsi";
         Config.machineFolder = Config.machineFolder + "other/ppc_machines/";
         Config.osImages.put(getString(R.string.DebianPowerPCLinux), new LinksManager.LinkInfo(getString(R.string.DebianPowerPCLinux),
                 getString(R.string.DebianPowerPCLinuxDescr),
