@@ -167,6 +167,7 @@ private String getQemuLibrary() {
         addGenericOptions(context, paramsList);
         addStateOptions(paramsList);
         addAdvancedOptions(paramsList);
+        addAccelOptions(paramsList);
         return paramsList.toArray(new String[0]);
     }
 
@@ -346,7 +347,12 @@ private String getQemuLibrary() {
 
         paramsList.add("-m");
         paramsList.add(getMachine().getMemory() + "");
+    }
 
+    private void addAccelOptions(ArrayList<String> paramsList) {
+        //
+        //Set KVM or TCG accelerators options
+        //
         if (getMachine().getEnableKVM() != 0) {
             paramsList.add("-enable-kvm");
         } else {
