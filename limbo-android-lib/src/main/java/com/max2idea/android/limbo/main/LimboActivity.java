@@ -802,6 +802,9 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void promptDriveInterface(final MachineProperty machineDriveName) {
+        if(getMachine() == null)
+            return;
+
         final String[] items = {
                 "ide",
                 "scsi",
