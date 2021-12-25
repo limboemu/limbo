@@ -65,7 +65,7 @@ public class Help {
                 LimboSettingsManager.setPromptUpdateVersion(activity, b);
             }
         });
-        checkUpdates.setChecked(true);
+        checkUpdates.setChecked(LimboSettingsManager.getPromptUpdateVersion(activity));
         mLayout.addView(checkUpdates);
         alertDialog.setView(mLayout);
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, activity.getString(R.string.GoToWiki),
