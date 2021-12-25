@@ -169,6 +169,7 @@ private String getQemuLibrary() {
         addGenericOptions(context, paramsList);
         addStateOptions(paramsList);
         addAdvancedOptions(paramsList);
+        addAccelerationOptions(paramsList);
         return paramsList.toArray(new String[0]);
     }
 
@@ -348,7 +349,14 @@ private String getQemuLibrary() {
 
         paramsList.add("-m");
         paramsList.add(getMachine().getMemory() + "");
+    }
 
+
+    private void addAccelerationOptions(ArrayList<String> paramsList) {
+
+        // XXX: we add the acceleration options after the extra params
+        // this is due to QEMU applying the first instance of this option
+        // so the extra params cannot override it.
         if (getMachine().getEnableKVM() != 0) {
             paramsList.add("-enable-kvm");
         } else {
