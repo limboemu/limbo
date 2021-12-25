@@ -702,7 +702,7 @@ public class Machine extends Observable {
         CDROM, FDA, FDB, SD,
         HDA, HDB, HDC, HDD, SHARED_DIR,
         KERNEL, INITRD,
-        EXPORT_DIR, IMAGE_DIR, LOG_DIR, IMPORT_FILE
+        EXPORT_DIR, IMAGE_DIR, LOG_DIR, IMPORT_FILE, IMPORT_BIOS_FILE
     }
 
 }

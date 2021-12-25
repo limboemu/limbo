@@ -370,4 +370,6 @@
     <string name="diskCacheSummary">Disk Cache</string>
     <string name="IgnoreBreakpointInvalidation">Ignore Breakpoint Invalidation</string>
     <string name="IgnoreBreakpointInvalidationSummary">Ignore Breakpoint Invalidation</string>
+    <string name="ImportBIOSFile">Import BIOS</string>
+    <string name="importBIOSInstructions">Select a BIOS file (bin, rom, etc..) to import.</string>
 </resources>

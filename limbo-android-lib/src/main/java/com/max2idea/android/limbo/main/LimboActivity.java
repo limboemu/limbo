@@ -68,6 +68,7 @@ import com.max2idea.android.limbo.keyboard.KeyboardUtils;
 import com.max2idea.android.limbo.links.LinksManager;
 import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.machine.ArchDefinitions;
+import com.max2idea.android.limbo.machine.BIOSImporter;
 import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.Machine.FileType;
 import com.max2idea.android.limbo.machine.MachineAction;
@@ -109,6 +110,7 @@ public class LimboActivity extends AppCompatActivity
     private static final int DISCARD_VM_STATE = 11;
     private static final int SETTINGS = 13;
     private static final int TOOLS = 14;
+    private static final int IMPORT_BIOS_FILE = 15;
 
     // disk mapping
     private static final Hashtable<FileType, DiskInfo> diskMapping = new Hashtable<>();
@@ -1328,6 +1330,7 @@ public class LimboActivity extends AppCompatActivity
         notifyAction(MachineAction.IMPORT_VMS, importFilePath);
     }
 
+
     private void promptLicense() {
         runOnUiThread(new Runnable() {
             @Override
@@ -2357,8 +2360,16 @@ public class LimboActivity extends AppCompatActivity
             if (file != null) {
                 FileUtils.saveLogToFile(LimboActivity.this, file);
             }
+        } else if (requestCode == Config.OPEN_IMPORT_BIOS_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE) {
+            String file;
+            if (requestCode == Config.OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, false);
+            } else {
+                file = FileUtils.getFilePathFromIntent(this, data);
+            }
+            if (file != null)
+                BIOSImporter.importBIOSFile(this, file);
         }
-
     }
 
     private void updateDrive(FileType fileType, String diskValue) {
@@ -2620,6 +2631,7 @@ public class LimboActivity extends AppCompatActivity
             menu.add(0, EXPORT, 0, R.string.ExportMachines).setIcon(R.drawable.exportvms);
             menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
         }
+        menu.add(0, IMPORT_BIOS_FILE, 0, R.string.ImportBIOSFile).setIcon(R.drawable.importvms);
         menu.add(0, SETTINGS, 0, R.string.Settings).setIcon(R.drawable.settings);
         menu.add(0, TOOLS, 0, R.string.advancedTools).setIcon(R.drawable.advanced);
         menu.add(0, VIEWLOG, 0, R.string.ViewLog).setIcon(android.R.drawable.ic_menu_view);
@@ -2654,6 +2666,8 @@ public class LimboActivity extends AppCompatActivity
             MachineExporter.promptExport(this);
         } else if (item.getItemId() == IMPORT) {
             MachineImporter.promptImportMachines(this);
+        } else if (item.getItemId() == IMPORT_BIOS_FILE) {
+            BIOSImporter.promptImportBIOSFile(this);
         } else if (item.getItemId() == HELP) {
             Help.showHelp(this);
         } else if (item.getItemId() == VIEWLOG) {

@@ -580,7 +580,6 @@ private String getQemuLibrary() {
         }
     }
 
-
     public void addSharedFolder(ArrayList<String> paramsList, String sharedFolderPath) {
         if (Config.enableSharedFolder && sharedFolderPath != null) {
             //XXX; We use hdd to mount any virtual fat drives

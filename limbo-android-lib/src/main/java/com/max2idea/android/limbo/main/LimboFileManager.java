@@ -146,6 +146,8 @@ public class LimboFileManager extends ListActivity {
                 return Config.OPEN_EXPORT_DIR_ASF_REQUEST_CODE;
             case Config.OPEN_IMPORT_FILE_REQUEST_CODE:
                 return Config.OPEN_IMPORT_FILE_ASF_REQUEST_CODE;
+            case Config.OPEN_IMPORT_BIOS_FILE_REQUEST_CODE:
+                return Config.OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE;
             case Config.OPEN_LOG_FILE_DIR_REQUEST_CODE:
                 return Config.OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE;
             default:
