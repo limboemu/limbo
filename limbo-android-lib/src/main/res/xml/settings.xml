@@ -109,6 +109,7 @@
 
     <PreferenceCategory android:title="Disk">
         <ListPreference
+            android:defaultValue="@string/Default"
             android:entries="@array/diskCacheLabels"
             android:entryValues="@array/diskCacheValues"
             android:key="diskCachePref"

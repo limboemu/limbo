@@ -73,6 +73,7 @@
     </string-array>
 
     <string-array name="diskCacheLabels">
+        <item>default</item>
         <item>none</item>
         <item>writethrough</item>
         <item>writeback</item>
@@ -80,6 +81,7 @@
         <item>unsafe</item>
     </string-array>
     <string-array name="diskCacheValues">
+        <item>default</item>
         <item>none</item>
         <item>writethrough</item>
         <item>writeback</item>

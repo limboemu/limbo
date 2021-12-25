@@ -262,7 +262,7 @@ public class LimboSettingsManager extends PreferenceActivity {
 
     public static String getDiskCache(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getString("diskCachePref", null);
+        return prefs.getString("diskCachePref", context.getString(R.string.Default));
     }
 
     @Override

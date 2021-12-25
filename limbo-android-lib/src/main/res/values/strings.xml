@@ -96,6 +96,7 @@
     <string name="help">Help</string>
     <string name="drives">Drives</string>
     <string name="volume">Volume</string>
+    <string name="Default" translatable="false">default</string>
     <string name="hide_toolbar">Hide Toolbar</string>
     <string name="view_log">View Log</string>
     <string name="display_refresh_rate">Display Refresh Rate</string>

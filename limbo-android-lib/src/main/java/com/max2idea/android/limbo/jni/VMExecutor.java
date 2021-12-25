@@ -573,7 +573,7 @@ private String getQemuLibrary() {
                     param += ",file=" + imagePath;
                 }
                 String cache = LimboSettingsManager.getDiskCache(LimboApplication.getInstance());
-                if(cache != null)
+                if(cache != null && !cache.equals("default"))
                     param += ",cache=" + cache;
                 paramsList.add(param);
             }
