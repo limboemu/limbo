@@ -27,7 +27,6 @@ ARCH_LD_FLAGS += -lc -lm -llog
 # add aaudio
 ifeq ($(USE_AAUDIO),true)
 	ARCH_CFLAGS += -D__ENABLE_AAUDIO__
-	ARCH_LD_FLAGS += -laaudio
 endif
 
 # Suppress some warnings

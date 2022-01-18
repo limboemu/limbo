@@ -13,12 +13,8 @@ else
 endif
 
 #Don't remove this
-APP_CFLAGS += $(ARCH_CFLAGS)
-APP_CFLAGS += $(ARCH_EXTRA_CFLAGS)
-APP_LDFLAGS += $(ARCH_LD_FLAGS)
-
-#FIXME: we should use memmove for the utils also
-#APP_CFLAGS += -include $(FIXUTILS)
+APP_CFLAGS += -include $(LOGUTILS)
+APP_LDFLAGS += -llog
 
 APP_ARM_MODE=$(ARM_MODE)
 

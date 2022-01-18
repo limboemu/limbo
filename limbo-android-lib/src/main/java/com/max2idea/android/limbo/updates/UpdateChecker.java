@@ -30,6 +30,7 @@ import android.widget.TextView;
 
 import com.limbo.emu.lib.R;
 import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboApplication;
 import com.max2idea.android.limbo.main.LimboSettingsManager;
 import com.max2idea.android.limbo.network.NetworkUtils;
 
@@ -49,10 +50,8 @@ public class UpdateChecker {
             float version = Float.parseFloat(versionStr);
             String versionName = getVersionName(versionStr);
 
-            PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(),
-                    PackageManager.GET_META_DATA);
             int versionCheck = (int) (version * 100);
-            if (versionCheck > pInfo.versionCode) {
+            if (versionCheck > LimboApplication.getLimboVersion()) {
                 final String finalVersionName = versionName;
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override

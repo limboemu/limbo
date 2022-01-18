@@ -60,6 +60,7 @@ gradle
 /gradlew.bat
 obj/
 jniLibs/
+QEMU_VERSION
 
 jnilibs
 limbotest
