@@ -1442,6 +1442,9 @@ public class LimboActivity extends AppCompatActivity
             ToastUtils.toastShort(LimboActivity.this, getString(R.string.SelectOrCreateVirtualMachineFirst));
             return;
         }
+        // focus out of edit texts to make sure they are applied to the db
+        mStart.requestFocus();
+
         if (!validateFiles()) {
             return;
         }
