@@ -190,6 +190,7 @@ public class FileUtils {
                 return false;
         } else {
             File file = new File(path);
+            file.setWritable(true);
             return file.exists();
         }
         return true;

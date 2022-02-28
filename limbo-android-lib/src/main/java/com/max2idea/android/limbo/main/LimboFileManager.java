@@ -73,21 +73,21 @@ public class LimboFileManager extends ListActivity {
     private final int SELECT_DIR = 1;
     private final int CREATE_DIR = 2;
     private final int CANCEL = 3;
-    public Comparator<String> comparator = new Comparator<String>() {
+    public Comparator<File> comparator = new Comparator<File>() {
 
-        public int compare(String object1, String object2) {
-            if (object1.startsWith(".."))
+        public int compare(File object1, File object2) {
+            if (object1.getName().startsWith(".."))
                 return -1;
-            else if (object2.startsWith(".."))
+            else if (object2.getName().startsWith(".."))
                 return 1;
-            else if (object1.endsWith("/") && !object2.endsWith("/"))
+            else if (object1.getName().endsWith("/") && !object2.getName().endsWith("/"))
                 return -1;
-            else if (!object1.endsWith("/") && object2.endsWith("/"))
+            else if (!object1.getName().endsWith("/") && object2.getName().endsWith("/"))
                 return 1;
             return object1.toString().compareToIgnoreCase(object2.toString());
         }
     };
-    private ArrayList<String> items = null;
+    private ArrayList<File> items = null;
     private File currdir = new File(Environment.getExternalStorageDirectory().getAbsolutePath());
     private File file;
     private TextView currentDir;
@@ -344,18 +344,16 @@ public class LimboFileManager extends ListActivity {
 
 
         items = new ArrayList<>();
-        items.add(".. (Parent Directory)");
+        items.add(new File(".. (Parent Directory)"));
 
         if (files != null) {
             for (File file1 : files) {
                 if (file1 != null) {
-                    String filename = file1.getName();
-                    if (filename != null && file1.isFile()
-                            && filter(file1)
+                    if (file1.isFile() && filter(file1)
                     ) {
-                        items.add(filename);
-                    } else if (filename != null && file1.isDirectory()) {
-                        items.add(filename + "/");
+                        items.add(file1);
+                    } else if (file1.isDirectory()) {
+                        items.add(file1);
                     }
                 }
             }
@@ -376,7 +374,7 @@ public class LimboFileManager extends ListActivity {
             fillWithParent();
         } else {
 
-            file = new File(currdir.getPath() + "/" + items.get(selectionRowID));
+            file = items.get(selectionRowID);
             if (file == null) {
                 ToastUtils.toastShort(this, getString(R.string.AccessDeniedCannotRetrieveDirectory));
             } else if (!file.isDirectory() && selectionMode == SelectionMode.DIRECTORY) {
@@ -506,11 +504,11 @@ public class LimboFileManager extends ListActivity {
         FILE
     }
 
-    public class FileAdapter extends ArrayAdapter<String> {
+    public static class FileAdapter extends ArrayAdapter<File> {
         private final Context context;
-        private final ArrayList<String> files;
+        private final ArrayList<File> files;
 
-        public FileAdapter(Context context, int layout, ArrayList<String> files) {
+        public FileAdapter(Context context, int layout, ArrayList<File> files) {
             super(context, layout, files);
             this.context = context;
             this.files = files;
@@ -524,13 +522,13 @@ public class LimboFileManager extends ListActivity {
             View rowView = inflater.inflate(R.layout.dir_row, parent, false);
             TextView textView = (TextView) rowView.findViewById(R.id.FILE_NAME);
             ImageView imageView = (ImageView) rowView.findViewById(R.id.FILE_ICON);
-            textView.setText(files.get(position));
+            textView.setText(files.get(position).getName());
 
             int iconRes = 0;
-            if (files.get(position).startsWith("..") || files.get(position).endsWith("/"))
+            if (files.get(position).getName().startsWith("..") || files.get(position).isDirectory())
                 imageView.setImageResource(R.drawable.folder);
             else {
-                iconRes = FileUtils.getIconForFile(files.get(position));
+                iconRes = FileUtils.getIconForFile(files.get(position).getName());
                 imageView.setImageResource(iconRes);
             }
             return rowView;

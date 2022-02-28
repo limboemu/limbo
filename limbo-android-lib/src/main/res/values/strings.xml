@@ -367,7 +367,7 @@
     <string name="EnableAaudioSummary">Aaudio is an alternative native sound streamer library for better audio performance. Needs app restart!</string>
     <string name="Interface">Interface</string>
     <string name="diskCache">Disk Cache</string>
-    <string name="diskCacheSummary">Disk Cache</string>
+    <string name="diskCacheSummary">Disk Cache might not work with Legacy Manager! If you encounter issues set to Default</string>
     <string name="IgnoreBreakpointInvalidation">Ignore Breakpoint Invalidation</string>
     <string name="IgnoreBreakpointInvalidationSummary">Ignore Breakpoint Invalidation</string>
     <string name="ImportBIOSFile">Import BIOS</string>
