@@ -20,7 +20,7 @@ https://github.com/limboemu/limbo
     Linux Desktop pc (Ubuntu preferred)
     Make sure you have the following packages installed, if not run:
     sudo apt-get install make autoconf automake git python binutils 
-    sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
+    sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo rsync
     For development you can use your own editors Geany is highly
 	recommended for editing the native code
 
@@ -203,6 +203,16 @@ https://github.com/limboemu/limbo
             export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
             make limbo
 
+		8) To build limbo for older devices with gcc set the following options:
+			export NDK_ROOT=/home/dev/tools/ndk/android-ndk-r14b
+			export USE_GCC=true
+			export BUILD_HOST=armeabi-v7a
+			export BUILD_GUEST=x86_64-softmmu
+			export USE_QEMU_VERSION=2.9.1
+			export USE_AAUDIO=false
+
+		For more options see android-limbo-config.mak
+		
        You should now have the following libraries in these 2 folders:
 
        limbo-android-lib/src/main/jniLibs/<EABI>/
@@ -303,6 +313,7 @@ https://github.com/limboemu/limbo
     [core]
         eol = true
         autocrlf = input
+        fileMode = false
         
 ===============================================================================
 10. Run
