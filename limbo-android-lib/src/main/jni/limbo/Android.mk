@@ -5,7 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE:= $(APP_ARM_MODE)
 
 LOCAL_SRC_FILES :=			\
-	vm-executor-jni.cpp
+	vm-executor-jni.c
 
 LOCAL_MODULE := limbo
 

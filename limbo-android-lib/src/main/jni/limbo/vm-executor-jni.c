@@ -58,46 +58,39 @@ void setup_jni(JNIEnv* env, jobject thiz, jstring storage_dir, jstring base_dir)
     const char *storage_dir_str = NULL;
 
     if (base_dir != NULL)
-		base_dir_str = env->GetStringUTFChars(base_dir, 0);
+		base_dir_str = (*env)->GetStringUTFChars(env, base_dir, 0);
 
     if (storage_dir != NULL)
-		storage_dir_str = env->GetStringUTFChars(storage_dir, 0);
+		storage_dir_str = (*env)->GetStringUTFChars(env, storage_dir, 0);
 
-	jclass c = env->GetObjectClass(thiz);
+	jclass c = (*env)->GetObjectClass(env, thiz);
 	set_jni(env, thiz, c, storage_dir_str, base_dir_str);
 }
 
 int get_qemu_var(JNIEnv* env, jobject thiz, const char * var) {
     char res_msg[MSG_BUFSIZE + 1] = { 0 };
-
+    
 	dlerror();
-
     void * obj = dlsym (handle, var);
     const char *dlsym_error = dlerror();
     if (dlsym_error) {
         LOGE("Cannot load symbol %s: %s\n", var, dlsym_error);
     	return -1;
     }
-
     int * var_ptr = (int *) obj;
-    //LOGD("Set Var %s: %s, %d\n", var, dlsym_error, *var_ptr);
-
     return *var_ptr;
 }
 
 void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue){
+	int value_int = (jint) jvalue;
 
 	dlerror();
-
-	int value_int = (jint) jvalue;
-	//LOGI("change var: %s = %d\n", var, value_int);
     void * obj = dlsym (handle, var);
     int * var_ptr = (int *) obj;
     *var_ptr = value_int;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
-	printf("* JNI_OnLoad called\n");
 	return JNI_VERSION_1_2;
 }
 
@@ -172,7 +165,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (started) {
 		sprintf(res_msg, "VM Already started");
 		LOGV("%s", res_msg);
-		return env->NewStringUTF(res_msg);
+		return (*env)->NewStringUTF(env, res_msg);
 	}
 
 	LOGV("Processing params");
@@ -181,38 +174,32 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	int argc = 0;
 	char ** argv;
 
-	//params
-	argc = env->GetArrayLength(params);
-    //LOGV("Params = %d", argc);
+	argc = (*env)->GetArrayLength(env, params);
 
 	argv = (char **) malloc((argc + 1) * sizeof(*argv));
 
 	for (int i = 0; i < argc; i++) {
-        jstring string = (jstring)(env->GetObjectArrayElement(params, i));
-		const char *param_str = env->GetStringUTFChars(string, 0);
+        jstring string = (jstring)((*env)->GetObjectArrayElement(env, params, i));
+		const char *param_str = (*env)->GetStringUTFChars(env, string, 0);
 		int length = strlen(param_str)+1;
         argv[i] = (char *) malloc(length * sizeof(char));
 		strcpy(argv[i], param_str);
-		env->ReleaseStringUTFChars(string, param_str);
+		(*env)->ReleaseStringUTFChars(env, string, param_str);
 	}
 
 	//XXX: Do not remove
 	argv[argc] = NULL;
 
-	for (int k = 0; k < argc; k++) {
-		//LOGV("param[%d]=%s", k, argv[k]);
-	}
-
-	printf("Starting VM...");
+	printf("Starting VM");
     started = 1;
 
     //LOAD LIB
 	const char *lib_filename_str = NULL;
 	if (lib_filename!= NULL)
-		lib_filename_str = env->GetStringUTFChars(lib_filename, 0);
+		lib_filename_str = (*env)->GetStringUTFChars(env, lib_filename, 0);
     const char *lib_path_str = NULL;
     if (lib_path != NULL)
-        lib_path_str = env->GetStringUTFChars(lib_path, 0);
+        lib_path_str = (*env)->GetStringUTFChars(env, lib_path, 0);
 
 	if (handle == NULL) {
 		handle = loadLib(lib_filename_str, lib_path_str);
@@ -221,14 +208,12 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	if (!handle) {
 		sprintf(res_msg, "Error opening lib: %s :%s", lib_path_str, dlerror());
 		LOGV("%s", res_msg);
-		return env->NewStringUTF(res_msg);
+		return (*env)->NewStringUTF(env, res_msg);
 	}
 
 	setup_jni(env, thiz, storage_dir, base_dir);
-
     set_qemu_var(env, thiz, "limbo_sdl_scale_hint", sdl_scale_hint);
 
-	LOGV("Loading symbol main...\n");
 	typedef void (*main_t)(int argc, char **argv, char **envp);
     typedef void (*qemu_main_loop_t)();
 	typedef void (*qemu_cleanup_t)();
@@ -236,7 +221,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
     qemu_main_loop_t qemu_main_loop = NULL;
     qemu_cleanup_t qemu_cleanup = NULL;
 
-	// reset errors
 	dlerror();
 	main_t qemu_main = (main_t) dlsym(handle, "qemu_init");
 	const char *dlsym_error = dlerror();
@@ -248,7 +232,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         	LOGE("Cannot find qemu symbol 'qemu_init' or 'main': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
-        	return env->NewStringUTF(dlsym_error);
+        	return (*env)->NewStringUTF(env, dlsym_error);
         }
         qemu_main(argc, argv, NULL);
     } else { // new versions of qemu
@@ -258,7 +242,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         	LOGE("Cannot find qemu symbol 'qemu_main_loop': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
-        	return env->NewStringUTF(dlsym_error);
+        	return (*env)->NewStringUTF(env, dlsym_error);
         }
 
         qemu_cleanup = (qemu_cleanup_t) dlsym(handle, "qemu_cleanup");
@@ -267,7 +251,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         	LOGE("Cannot find qemu symbol 'qemu_cleanup': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
-        	return env->NewStringUTF(dlsym_error);
+        	return (*env)->NewStringUTF(env, dlsym_error);
         }
 
         qemu_main(argc, argv, NULL);
@@ -275,18 +259,17 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         qemu_cleanup();
 	}
 
-	//UNLOAD LIB
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
 	LOGV("%s", res_msg);
 	dlclose(handle);
 	handle = NULL;
 	started = 0;
 
-    env->ReleaseStringUTFChars(lib_path, lib_path_str);
+    (*env)->ReleaseStringUTFChars(env, lib_path, lib_path_str);
 
 	sprintf(res_msg, "VM shutdown");
 	LOGV("%s", res_msg);
-    return env->NewStringUTF(res_msg);
+    return (*env)->NewStringUTF(env, res_msg);
 }
 
 
@@ -303,7 +286,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
         const char *dlsym_error = dlerror();
         if (dlsym_error) {
             LOGE("Cannot load symbol 'qemu_system_reset_request': %s\n", dlsym_error);
-            return env->NewStringUTF(res_msg);
+            return (*env)->NewStringUTF(env, res_msg);
         }
         qemu_system_reset_request(6); //SHUTDOWN_CAUSE_GUEST_RESET
         sprintf(res_msg, "VM Restart Request");
@@ -314,7 +297,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
         const char *dlsym_error = dlerror();
         if (dlsym_error) {
             LOGE("Cannot load symbol 'qemu_system_shutdown_request': %s\n", dlsym_error);
-            return env->NewStringUTF(res_msg);
+            return (*env)->NewStringUTF(env, res_msg);
         }
         qemu_system_shutdown_request(3); //SHUTDOWN_CAUSE_HOST_SIGNAL
         sprintf(res_msg, "VM Stop Request");
@@ -324,7 +307,7 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
 
 	started = restart_int;
 
-	return env->NewStringUTF(res_msg);
+	return (*env)->NewStringUTF(env, res_msg);
 }
 
 // JNI End
