@@ -1,12 +1,11 @@
 diff -ru --no-dereference /tmp/SDL2-2.0.8/Android.mk ./Android.mk
---- /tmp/SDL2-2.0.8/Android.mk	2018-03-01 18:34:41.000000000 +0200
-+++ ./Android.mk	2021-09-23 11:43:15.306255105 +0300
-@@ -51,6 +51,15 @@
+--- /tmp/SDL2-2.0.8/Android.mk	2018-03-01 11:34:41.000000000 -0500
++++ ./Android.mk	2022-03-03 05:05:48.223192739 -0500
+@@ -51,6 +51,14 @@
  LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES
  LOCAL_LDLIBS := -ldl -lGLESv1_CM -lGLESv2 -llog -landroid
  
-+# LIMBO: 
-+LOCAL_C_INCLUDES += -include $(LOGUTILS)
++# LIMBO:
 +LOCAL_CFLAGS += -D__LIMBO__
 +ifeq ($(USE_AAUDIO),true)
 +  LOCAL_CFLAGS += -D__ENABLE_AAUDIO__
@@ -18,8 +17,8 @@ diff -ru --no-dereference /tmp/SDL2-2.0.8/Android.mk ./Android.mk
  
  include $(BUILD_SHARED_LIBRARY)
 diff -ru --no-dereference /tmp/SDL2-2.0.8/src/core/android/SDL_android.c ./src/core/android/SDL_android.c
---- /tmp/SDL2-2.0.8/src/core/android/SDL_android.c	2018-03-01 18:34:42.000000000 +0200
-+++ ./src/core/android/SDL_android.c	2021-09-23 12:52:26.527811318 +0300
+--- /tmp/SDL2-2.0.8/src/core/android/SDL_android.c	2018-03-01 11:34:42.000000000 -0500
++++ ./src/core/android/SDL_android.c	2022-03-02 17:18:20.593569237 -0500
 @@ -1001,8 +1001,86 @@
  static jboolean captureBuffer16Bit = JNI_FALSE;
  static jobject captureBuffer = NULL;
@@ -148,8 +147,8 @@ diff -ru --no-dereference /tmp/SDL2-2.0.8/src/core/android/SDL_android.c ./src/c
  
  /* Test for an exception and call SDL_SetError with its detail if one occurs */
 diff -ru --no-dereference /tmp/SDL2-2.0.8/src/events/SDL_mouse.c ./src/events/SDL_mouse.c
---- /tmp/SDL2-2.0.8/src/events/SDL_mouse.c	2018-03-01 18:34:42.000000000 +0200
-+++ ./src/events/SDL_mouse.c	2021-09-22 14:05:10.041839835 +0300
+--- /tmp/SDL2-2.0.8/src/events/SDL_mouse.c	2018-03-01 11:34:42.000000000 -0500
++++ ./src/events/SDL_mouse.c	2022-03-02 17:18:20.597569238 -0500
 @@ -655,6 +655,10 @@
  void
  SDL_WarpMouseInWindow(SDL_Window * window, int x, int y)
