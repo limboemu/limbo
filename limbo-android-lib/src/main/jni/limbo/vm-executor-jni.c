@@ -86,6 +86,11 @@ void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue){
 
 	dlerror();
     void * obj = dlsym (handle, var);
+    const char *dlsym_error = dlerror();
+    if (dlsym_error) {
+        LOGE("Cannot load symbol %s: %s\n", var, dlsym_error);
+    	return;
+    }
     int * var_ptr = (int *) obj;
     *var_ptr = value_int;
 }
