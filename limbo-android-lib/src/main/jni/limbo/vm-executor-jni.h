@@ -36,8 +36,6 @@ int get_qemu_var(JNIEnv* env, jobject thiz, const char * var);
 
 void set_qemu_var(JNIEnv* env, jobject thiz, const char * var, jint jvalue);
 
-extern "C" {
-    
 JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeRefreshScreen(
                 JNIEnv* env, jobject thiz, jint jvalue);
                 
@@ -59,6 +57,9 @@ JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getSDLRefr
 JNIEXPORT jint JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_getvncrefreshrate(
 		JNIEnv* env, jobject thiz);
 
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeIgnoreBreakpointInvalidate(
+		JNIEnv* env, jobject thiz, jint jvalue);
+        
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         JNIEnv* env, jobject thiz,
 		jstring storage_dir, jstring base_dir,
@@ -68,8 +69,6 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         
 JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_stop(
 		JNIEnv* env, jobject thiz, jint jint_restart);
-
-}
 
 #endif
 

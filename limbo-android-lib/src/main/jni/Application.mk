@@ -15,6 +15,9 @@ endif
 #Don't remove this
 APP_CFLAGS += -include $(LOGUTILS)
 APP_LDFLAGS += -llog
+ifeq ($(USE_GCC),true)
+	APP_CFLAGS +=-std=gnu99
+endif
 
 APP_ARM_MODE=$(ARM_MODE)
 
