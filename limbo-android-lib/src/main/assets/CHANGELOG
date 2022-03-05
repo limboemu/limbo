@@ -1,3 +1,15 @@
+* Limbo Legacy v6.0.1
+Added qemu disk cache option
+Added qemu hdd interfaces (tap on the disk icon)
+Added ignore breakpoint tb invalidation option
+Apply acceleration option after extra params
+Added option for importing custom BIOS
+Fixed update checker dialog box
+Fixed crash when no machine is loaded
+Fixed problem not saving edit text when machine starts
+Fixed legacy file manager
+Fixed old ndk/gcc support
+
 * Limbo Legacy v6.0.0
 Built both variants for QEMU 5.1.0 for stability and 2.9.1 for better performance.
 WARNING:  QEMU 2.9.1 version is much faster than 5.1.0 but very old and 
