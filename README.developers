@@ -14,7 +14,7 @@ https://github.com/limboemu/limbo
 2. Requirements:
 
     Android SDK
-    Android NDK: r14b/gcc or r23/clang
+    Android NDK: r14b/gcc or r23b/clang
     Android Studio (3.1.1 preferred)
     Android device with Android OS 8.0 (Oreo) and above
     Linux Desktop pc (Ubuntu preferred)
