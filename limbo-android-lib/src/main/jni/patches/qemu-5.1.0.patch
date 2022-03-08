@@ -1,0 +1,553 @@
+diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
+--- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 22:17:15.000000000 +0300
++++ ./accel/kvm/kvm-all.c	2021-09-23 21:42:44.906990138 +0300
+@@ -2015,7 +2015,12 @@
+     s->vmfd = -1;
+     s->fd = qemu_open("/dev/kvm", O_RDWR);
+     if (s->fd == -1) {
++#ifdef __LIMBO__
++         //no m specifier in android
++        fprintf(stderr, "Could not access KVM kernel module: /dev/kvm\n");
++#else
+         fprintf(stderr, "Could not access KVM kernel module: %m\n");
++#endif
+         ret = -errno;
+         goto err;
+     }
+diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio.c ./audio/audio.c
+--- /tmp/qemu-5.1.0/audio/audio.c	2020-08-11 22:17:15.000000000 +0300
++++ ./audio/audio.c	2021-09-23 22:18:36.689307562 +0300
+@@ -2005,7 +2005,11 @@
+ 
+     if (!pdo->has_frequency) {
+         pdo->has_frequency = true;
++#ifdef __LIMBO__
++        pdo->frequency = 22050;
++#else
+         pdo->frequency = 44100;
++#endif
+     }
+     if (!pdo->has_channels) {
+         pdo->has_channels = true;
+diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio_legacy.c ./audio/audio_legacy.c
+--- /tmp/qemu-5.1.0/audio/audio_legacy.c	2020-08-11 22:17:15.000000000 +0300
++++ ./audio/audio_legacy.c	2021-09-23 22:18:33.800642995 +0300
+@@ -105,7 +105,11 @@
+ static uint32_t frames_to_usecs(uint32_t frames,
+                                 AudiodevPerDirectionOptions *pdo)
+ {
++#ifdef __LIMBO__
++    uint32_t freq = pdo->has_frequency ? pdo->frequency : 22050;
++#else
+     uint32_t freq = pdo->has_frequency ? pdo->frequency : 44100;
++#endif
+     return (frames * 1000000 + freq / 2) / freq;
+ }
+ 
+diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
+--- /tmp/qemu-5.1.0/configure	2020-08-11 22:17:15.000000000 +0300
++++ ./configure	2021-09-23 21:42:44.914990138 +0300
+@@ -2501,7 +2501,8 @@
+ # pkg-config probe
+ 
+ if ! has "$pkg_config_exe"; then
+-  error_exit "pkg-config binary '$pkg_config_exe' not found"
++  #error_exit "pkg-config binary '$pkg_config_exe' not found"
++  echo Limbo: ignoring pkg-config
+ fi
+ 
+ ##########################################
+@@ -3283,16 +3284,21 @@
+     sdlversion=$($sdlconfig --version)
+   else
+     if test "$sdl" = "yes" ; then
+-      feature_not_found "sdl" "Install SDL2-devel"
++      #feature_not_found "sdl" "Install SDL2-devel"
++      echo Limbo: ignoring SDL2-devel
+     fi
+-    sdl=no
++    #Limbo: force sdl
++    #sdl=no
+     # no need to do the rest
+-    return
++    #return
+   fi
+   if test -n "$cross_prefix" && test "$(basename "$sdlconfig")" = sdl2-config; then
+     echo warning: using "\"$sdlconfig\"" to detect cross-compiled sdl >&2
+   fi
+ 
++#Limbo: force sdl after bypassing probe
++sdl=yes
++
+   cat > $TMPC << EOF
+ #include <SDL.h>
+ #undef main /* We don't want SDL to override our main() */
+@@ -3924,7 +3930,8 @@
+ # glib support probe
+ 
+ glib_req_ver=2.48
+-glib_modules=gthread-2.0
++# Limbo: no need for gthread
++#glib_modules=gthread-2.0
+ if test "$modules" = yes; then
+     glib_modules="$glib_modules gmodule-export-2.0"
+ fi
+@@ -4072,8 +4079,9 @@
+   pixman_cflags=$($pkg_config --cflags pixman-1)
+   pixman_libs=$($pkg_config --libs pixman-1)
+ else
+-  error_exit "pixman >= 0.21.8 not present." \
++  #error_exit "pixman >= 0.21.8 not present." \
+       "Please install the pixman devel package."
++  echo Limbo: ignoring pixman devel 
+ fi
+ 
+ ##########################################
+@@ -4366,7 +4374,8 @@
+ EOF
+ preadv=no
+ if compile_prog "" "" ; then
+-  preadv=yes
++  # Limbo: no copy_file_range for Android
++  preadv=no
+ fi
+ 
+ ##########################################
+@@ -4757,6 +4766,11 @@
+   signalfd=yes
+ fi
+ 
++#Limbo: Android x86_64 devices (at least emulator images)
++# have the headers but don't support SYS_signalfd
++# fortunately there is qemu_compat_signalfd
++signalfd=no
++
+ # check if optreset global is declared by <getopt.h>
+ optreset="no"
+ cat > $TMPC << EOF
+@@ -4795,6 +4809,8 @@
+ if compile_prog "" "" ; then
+   memfd=yes
+ fi
++# Limbo: memfd is not present for clang until api 30
++memfd=no
+ 
+ # check for usbfs
+ have_usbfs=no
+@@ -5526,7 +5542,8 @@
+ int main(void) { return strchrnul(haystack, 'x') != &haystack[6]; }
+ EOF
+ if compile_prog "" "" ; then
+-    strchrnul=yes
++    echo Limbo: disabling strchrnul 
++    strchrnul=no
+ fi
+ 
+ #########################################
+@@ -6066,6 +6083,7 @@
+ ###############################################
+ # Check if copy_file_range is provided by glibc
+ have_copy_file_range=no
++
+ cat > $TMPC << EOF
+ #include <unistd.h>
+ int main(void) {
+@@ -6074,7 +6092,8 @@
+ }
+ EOF
+ if compile_prog "" "" ; then
+-    have_copy_file_range=yes
++    #Limbo: no copy_file_range for Android
++    have_copy_file_range=no
+ fi
+ 
+ ##########################################
+@@ -6285,6 +6304,8 @@
+ if compile_prog "" "" ; then
+     have_getrandom=yes
+ fi
++# Limbo: getrandom is not present with clang
++have_getrandom=no
+ 
+ ##########################################
+ # checks for sanitizers
+diff -ru --no-dereference /tmp/qemu-5.1.0/hw/display/vga.c ./hw/display/vga.c
+--- /tmp/qemu-5.1.0/hw/display/vga.c	2020-08-11 22:17:14.000000000 +0300
++++ ./hw/display/vga.c	2021-09-23 21:42:44.918990138 +0300
+@@ -1458,6 +1458,12 @@
+     memory_region_set_log(&s->vram, false, DIRTY_MEMORY_VGA);
+ }
+ 
++#ifdef __LIMBO__
++// LIMBO: we need to do a full screen refresh to align we can't do this via the SDL
++// layer so we pick the lesser evil and do it within the vga
++int limbo_vga_full_update;
++#endif
++
+ /*
+  * graphic modes
+  */
+@@ -1674,7 +1680,11 @@
+         if (!(s->cr[VGA_CRTC_MODE] & 2)) {
+             addr = (addr & ~0x8000) | ((y1 & 2) << 14);
+         }
++#ifdef __LIMBO__
++        update = full_update || limbo_vga_full_update;
++#else
+         update = full_update;
++#endif
+         page0 = addr & s->vbe_size_mask;
+         page1 = (addr + bwidth - 1) & s->vbe_size_mask;
+         if (full_update) {
+@@ -1726,6 +1736,9 @@
+         /* flush to display */
+         dpy_gfx_update(s->con, 0, y_start,
+                        disp_width, y - y_start);
++#ifdef __LIMBO__
++        limbo_vga_full_update = 0;
++#endif        
+     }
+     g_free(snap);
+     memset(s->invalidated_y_table, 0, sizeof(s->invalidated_y_table));
+diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/osdep.h
+--- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 22:17:15.000000000 +0300
++++ ./include/qemu/osdep.h	2021-09-23 21:42:44.918990138 +0300
+@@ -36,6 +36,10 @@
+ 
+ #include "qemu/compiler.h"
+ 
++#ifdef __ANDROID__
++#include <linux/mman.h>
++#endif
++
+ /* Older versions of C++ don't get definitions of various macros from
+  * stdlib.h unless we define these macros before first inclusion of
+  * that system header.
+diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/console.h
+--- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 22:17:14.000000000 +0300
++++ ./include/ui/console.h	2021-09-23 21:42:44.918990138 +0300
+@@ -26,8 +26,16 @@
+ #define QEMU_CAPS_LOCK_LED   (1 << 2)
+ 
+ /* in ms */
++#ifdef __LIMBO__
++extern int limbo_sdl_scale_hint;
++extern int gui_refresh_interval_default;
++extern int gui_refresh_interval_idle;
++#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
++#define GUI_REFRESH_INTERVAL_IDLE gui_refresh_interval_idle
++#else
+ #define GUI_REFRESH_INTERVAL_DEFAULT    30
+ #define GUI_REFRESH_INTERVAL_IDLE     3000
++#endif //__LIMBO__
+ 
+ /* Color number is match to standard vga palette */
+ enum qemu_color_names {
+diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
+--- /tmp/qemu-5.1.0/Makefile	2020-08-11 22:17:15.000000000 +0300
++++ ./Makefile	2021-09-23 21:42:44.918990138 +0300
+@@ -338,7 +338,8 @@
+ vhost-user-json-y =
+ HELPERS-y = $(HELPERS)
+ 
+-HELPERS-$(call land,$(CONFIG_SOFTMMU),$(CONFIG_LINUX)) += qemu-bridge-helper$(EXESUF)
++#Limbo: no need for this
++#HELPERS-$(call land,$(CONFIG_SOFTMMU),$(CONFIG_LINUX)) += qemu-bridge-helper$(EXESUF)
+ 
+ ifeq ($(CONFIG_LINUX)$(CONFIG_VIRGL)$(CONFIG_GBM)$(CONFIG_TOOLS),yyyy)
+ HELPERS-y += vhost-user-gpu$(EXESUF)
+@@ -477,7 +478,8 @@
+                 common-obj-m \
+                 trace-obj-y)
+ 
+-include $(SRC_PATH)/tests/Makefile.include
++#Limbo: ignore
++#include $(SRC_PATH)/tests/Makefile.include
+ 
+ all: $(DOCS) $(if $(BUILD_DOCS),sphinxdocs) $(TOOLS) $(HELPERS-y) recurse-all modules $(vhost-user-json-y)
+ 
+@@ -603,7 +605,8 @@
+ qemu-io$(EXESUF): qemu-io.o $(authz-obj-y) $(block-obj-y) $(crypto-obj-y) $(io-obj-y) $(qom-obj-y) $(COMMON_LDADDS)
+ qemu-storage-daemon$(EXESUF): qemu-storage-daemon.o $(authz-obj-y) $(block-obj-y) $(crypto-obj-y) $(chardev-obj-y) $(io-obj-y) $(qom-obj-y) $(storage-daemon-obj-y) $(COMMON_LDADDS)
+ 
+-qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
++# Limbo: no need for this
++#qemu-bridge-helper$(EXESUF): qemu-bridge-helper.o $(COMMON_LDADDS)
+ 
+ qemu-keymap$(EXESUF): qemu-keymap.o ui/input-keymap.o $(COMMON_LDADDS)
+ 
+diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
+--- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 22:17:15.000000000 +0300
++++ ./Makefile.target	2021-09-23 21:42:44.922990138 +0300
+@@ -18,6 +18,12 @@
+ 
+ QEMU_CFLAGS+=-iquote $(SRC_PATH)/include
+ 
++# Limbo: we need to force the linux headers for some additional definitions for ARM
++# since the ndk that has support for gcc doesn't have these so we get them from qemu
++ifeq ($(USE_KVM),true)
++QEMU_CFLAGS+= -include $(LIMBO_JNI_ROOT)/qemu/linux-headers/asm/kvm.h
++endif
++
+ ifdef CONFIG_USER_ONLY
+ # user emulator name
+ QEMU_PROG=qemu-$(TARGET_NAME)
+@@ -215,8 +221,10 @@
+ COMMON_LDADDS = ../libqemuutil.a
+ 
+ # build either PROG or PROGW
+-$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS) $(softmmu-main-y)
+-	$(call LINK, $(filter-out %.mak, $^))
++#$(QEMU_PROG_BUILD): $(all-obj-y) $(COMMON_LDADDS) $(softmmu-main-y)
++#	$(call LINK, $(filter-out %.mak, $^))
++include ../../android-qemu-build.mak
++
+ ifdef CONFIG_DARWIN
+ 	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
+ 	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
+diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
+--- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 22:17:15.000000000 +0300
++++ ./monitor/misc.c	2021-09-23 21:42:44.922990138 +0300
+@@ -1299,6 +1299,14 @@
+ {
+     mon_fd_t *monfd;
+ 
++
++#ifdef __LIMBO__
++        //FIXME: The lookup for the fd fails below
++        //  so for now we treat the fdname as the actual fd
++        int fd_tmp = atoi(fdname);
++        return fd_tmp;
++#endif //__LIMBO__
++
+     qemu_mutex_lock(&mon->mon_lock);
+     QLIST_FOREACH(monfd, &mon->fds, next) {
+         int fd;
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
+--- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/console.c	2021-09-23 21:42:44.926990138 +0300
+@@ -38,6 +38,11 @@
+ #define DEFAULT_BACKSCROLL 512
+ #define CONSOLE_CURSOR_PERIOD 500
+ 
++#ifdef __LIMBO__
++int gui_refresh_interval_default = 30;
++int gui_refresh_interval_idle = 300;
++#endif //__LIMBO__
++
+ typedef struct TextAttributes {
+     uint8_t fgcol:4;
+     uint8_t bgcol:4;
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
+--- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/sdl2-2d.c	2021-09-23 21:42:44.926990138 +0300
+@@ -125,6 +125,12 @@
+                                       surface_width(new_surface),
+                                       surface_height(new_surface));
+     sdl2_2d_redraw(scon);
++
++#ifdef __LIMBO__
++    //TODO: Need to send the resolution to Limbo
++    Android_JNI_SetVMResolution(surface_width(new_surface), surface_height(new_surface));
++#endif //__ANDROID__
++
+ }
+ 
+ void sdl2_2d_refresh(DisplayChangeListener *dcl)
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
+--- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/sdl2.c	2021-09-23 22:21:35.930146392 +0300
+@@ -89,7 +89,16 @@
+                                          surface_width(scon->surface),
+                                          surface_height(scon->surface),
+                                          flags);
+-    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
++
++#if defined(__LIMBO_SDL_FORCE_SOFTWARE_RENDERING__)
++    //LIMBO: We can force SOFTWARE rendering when some devices don't have HARDWARE acceleration
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_SOFTWARE);
++#elif defined(__LIMBO_SDL_FORCE_HARDWARE_RENDERING__)
++    scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, SDL_RENDERER_ACCELERATED);
++#else
++     scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
++#endif
++
+     if (scon->opengl) {
+         scon->winctx = SDL_GL_GetCurrentContext();
+     }
+@@ -272,6 +281,13 @@
+     };
+     static uint32_t prev_state;
+ 
++#ifdef __LIMBO__
++// LIMBO: the console can be NULL when the mouse moves outside of the window 
++// and it crashes the app
++    if(scon==NULL)
++        return;
++#endif
++
+     if (prev_state != state) {
+         qemu_input_update_buttons(scon->dcl.con, bmap, prev_state, state);
+         prev_state = state;
+@@ -627,6 +643,10 @@
+     }
+ 
+     while (SDL_PollEvent(ev)) {
++#ifdef __LIMBO__
++        if(!ev)
++            continue;
++#endif
+         switch (ev->type) {
+         case SDL_KEYDOWN:
+             idle = 0;
+@@ -789,6 +809,10 @@
+     }
+ }
+ 
++#ifdef __LIMBO__
++int limbo_sdl_scale_hint = -1;
++#endif
++
+ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
+ {
+     uint8_t data = 0;
+@@ -798,6 +822,7 @@
+ 
+     assert(o->type == DISPLAY_TYPE_SDL);
+ 
++#ifndef __ANDROID__
+ #ifdef __linux__
+     /* on Linux, SDL may use fbcon|directfb|svgalib when run without
+      * accessible $DISPLAY to open X11 window.  This is often the case
+@@ -810,6 +835,12 @@
+      */
+     g_setenv("SDL_VIDEODRIVER", "x11", 0);
+ #endif
++#else
++    if(limbo_sdl_scale_hint == 1) {
++        SDL_bool res = SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
++        LOGI("Setting SDL_HINT_RENDER_SCALE_QUALITY to %d, code = %d", limbo_sdl_scale_hint, res);
++    }
++#endif
+ 
+     if (SDL_Init(SDL_INIT_VIDEO)) {
+         fprintf(stderr, "Could not initialize SDL(%s) - exiting\n",
+diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
+--- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 22:17:15.000000000 +0300
++++ ./ui/vnc.c	2021-09-23 21:42:44.930990139 +0300
+@@ -51,8 +51,19 @@
+ #include "qemu/cutils.h"
+ #include "io/dns-resolver.h"
+ 
++//LIMBO: we can override the refresh rate for VNC here
++#ifdef __LIMBO__
++int vnc_refresh_interval_base = 30;
++#define VNC_REFRESH_INTERVAL_BASE vnc_refresh_interval_base
++
++int vnc_refresh_interval_inc = 30;
++#define VNC_REFRESH_INTERVAL_INC vnc_refresh_interval_inc
++#else
++
+ #define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
+ #define VNC_REFRESH_INTERVAL_INC  50
++#endif //__LIMBO__
++
+ #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
+ static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
+ static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
+@@ -1962,6 +1973,40 @@
+     return QKeyCode_str(qemu_input_key_number_to_qcode(keycode));
+ }
+ 
++// LIMBO: some keys from android keyboards need SHIFT
++#ifdef __ANDROID__
++static bool keyNeedsShift(VncState *vs, int down,
++                          uint32_t sym, uint16_t keycode) {
++	int meta_sym = 0;	
++	int meta_keycode = 0;
++	
++	if ((sym >= 123 && sym <= 126)
++	|| (sym >= 33 && sym <= 38)
++	|| (sym >= 40 && sym <= 44)
++	|| (sym >= 62 && sym <= 64)
++	|| (sym >= 94 && sym <= 95)
++	|| sym == 58 || sym == 60) {
++		meta_sym = 65505;
++		meta_keycode = 42;
++		if(sym == 60) {
++			sym = 44;
++			keycode = 51;
++		}
++	} else {
++		return false;
++	}
++	
++	if(down)
++		do_key_event(vs, down, meta_keycode, meta_sym);		
++	do_key_event(vs, down, keycode, sym);
++	if(!down)
++		do_key_event(vs, down, meta_keycode, meta_sym);
++			
++	return true;
++}
++#endif
++//LIMBO
++
+ static void key_event(VncState *vs, int down, uint32_t sym)
+ {
+     int keycode;
+@@ -1970,10 +2015,13 @@
+     if (lsym >= 'A' && lsym <= 'Z' && qemu_console_is_graphic(NULL)) {
+         lsym = lsym - 'A' + 'a';
+     }
+-
+     keycode = keysym2scancode(vs->vd->kbd_layout, lsym & 0xFFFF,
+                               vs->vd->kbd, down) & SCANCODE_KEYMASK;
+     trace_vnc_key_event_map(down, sym, keycode, code2name(keycode));
++#ifdef __ANDROID__
++	if(keyNeedsShift(vs, down, sym, keycode))
++		return;
++#endif     
+     do_key_event(vs, down, keycode, sym);
+ }
+ 
+@@ -1982,7 +2030,7 @@
+ {
+     /* if the user specifies a keyboard layout, always use it */
+     if (keyboard_layout) {
+-        key_event(vs, down, sym);
++    	key_event(vs, down, sym);
+     } else {
+         trace_vnc_key_event_ext(down, sym, keycode, code2name(keycode));
+         do_key_event(vs, down, keycode, sym);
+diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.objs
+--- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 22:17:15.000000000 +0300
++++ ./util/Makefile.objs	2021-09-23 21:42:44.934990139 +0300
+@@ -39,7 +39,8 @@
+ util-obj-y += range.o
+ util-obj-y += stats64.o
+ util-obj-y += systemd.o
+-util-obj-$(CONFIG_POSIX) += drm.o
++#Limbo: exclude
++#util-obj-$(CONFIG_POSIX) += drm.o
+ util-obj-y += guest-random.o
+ util-obj-$(CONFIG_GIO) += dbus.o
+ dbus.o-cflags = $(GIO_CFLAGS)
+diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpty.c
+--- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 22:17:15.000000000 +0300
++++ ./util/qemu-openpty.c	2021-09-23 21:42:44.934990139 +0300
+@@ -111,6 +111,9 @@
+ }
+ #endif
+ 
++#ifdef __ANDROID__
++int qemu_openpty_raw(int *aslave, char *pty_name){return -1;}
++#else
+ int qemu_openpty_raw(int *aslave, char *pty_name)
+ {
+     int amaster;
+@@ -138,3 +141,4 @@
+ 
+     return amaster;
+ }
++#endif

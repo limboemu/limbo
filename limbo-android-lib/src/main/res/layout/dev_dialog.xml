@@ -3,124 +3,129 @@
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:theme="@style/Theme.AppCompat"
-    android:padding="2dip" >
+    android:padding="2dip"
+    android:theme="@style/Theme.AppCompat">
 
-    <LinearLayout
-        android:id="@+id/cdromimgl"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dip" >
+    <ScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/cdromimgstr"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:text="CDROM (CD): "
-            android:textSize="15dip" />
+            android:orientation="vertical">
 
-        <Spinner
-            android:id="@+id/cdromimgval"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="start"
-            android:singleLine="true"
-            android:text=""
-            android:textSize="15dip" />
-    </LinearLayout>
+            <LinearLayout
+                android:id="@+id/cdromimgl"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="10dip">
 
-    <LinearLayout
-        android:id="@+id/floppyimgl"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="10dip" >
 
-        <TextView
-            android:id="@+id/floppyimgstr"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:text="Floppy Drive (FDA): "
-            android:textSize="15dip" />
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:paddingRight="5dp"
+                    android:src="@drawable/cdrom" />
 
-        <Spinner
-            android:id="@+id/floppyimgval"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:text=""
-            android:textSize="15dip" />
-    </LinearLayout>
+                <Spinner
+                    android:id="@+id/cdromimgval"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:ellipsize="start"
+                    android:gravity="right"
+                    android:singleLine="true"
+                    android:text=""
+                    android:textSize="15dip" />
+            </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/floppybimgl"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="10dip" >
+            <LinearLayout
+                android:id="@+id/floppyimgl"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="10dip">
 
-        <TextView
-            android:id="@+id/floppybimgstr"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:text="Floppy Drive (FDB): "
-            android:textSize="15dip" />
 
-        <Spinner
-            android:id="@+id/floppybimgval"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:text=""
-            android:textSize="15dip" />
-    </LinearLayout>
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:paddingRight="5dp"
+                    android:src="@drawable/floppy" />
 
-    <LinearLayout
-        android:id="@+id/sdimgl"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dip" >
+                <Spinner
+                    android:id="@+id/floppyimgval"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:ellipsize="start"
+                    android:gravity="right"
+                    android:singleLine="true"
+                    android:text=""
+                    android:textSize="15dip" />
+            </LinearLayout>
 
-        <TextView
-            android:id="@+id/sdimgstr"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:text="SD Card: "
-            android:textSize="15dip" />
+            <LinearLayout
+                android:id="@+id/floppybimgl"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="10dip">
 
-        <Spinner
-            android:id="@+id/sdimgval"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="start"
-            android:singleLine="true"
-            android:text=""
-            android:textSize="15dip" />
-    </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/okl"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="10dip" >
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:paddingRight="5dp"
+                    android:src="@drawable/floppy" />
 
-        <Button
-            android:id="@+id/okButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:text="OK"
-            android:textSize="15dip" />
-    </LinearLayout>
 
+                <Spinner
+                    android:id="@+id/floppybimgval"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:ellipsize="start"
+                    android:gravity="right"
+                    android:singleLine="true"
+                    android:text=""
+                    android:textSize="15dip" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/sdimgl"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="10dip">
+
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:paddingRight="5dp"
+                    android:src="@drawable/sdcard" />
+
+                <Spinner
+                    android:id="@+id/sdimgval"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:ellipsize="start"
+                    android:gravity="right"
+                    android:singleLine="true"
+                    android:text=""
+                    android:textSize="15dip" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>

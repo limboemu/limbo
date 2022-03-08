@@ -58,9 +58,18 @@ roms
 gradle
 /gradlew
 /gradlew.bat
+obj/
+jniLibs/
+QEMU_VERSION
 
 jnilibs
 limbotest
 /limbo-android-lib/src/main/jni/qemu-patches/qemu-2.10.0.patch
 /limbo-android-lib/src/main/jni/qemu-patches/qemu-2.9.0.patch
 /limbo-android-lib/src/main/jni/qemu-patches/qemu-2.11.0.patch
+
+sync.sh
+gitsync.sh
+/limbo-android-lib/src/main/jni/qemu.5.1.0
+/limbo-android-lib/src/main/jni/qemu.2.9.1
+

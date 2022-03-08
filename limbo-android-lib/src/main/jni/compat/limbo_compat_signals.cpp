@@ -29,7 +29,7 @@
  */
 #include <signal.h>
 #include "limbo_compat_signals.h"
-#include "syscall.h"
+#include "sys/syscall.h"
 #include "unistd.h"
 
 typedef union {

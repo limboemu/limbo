@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:keepScreenOn="true"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary" />
+
+    <LinearLayout
+        android:id="@+id/scroll_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scroll_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fadeScrollbars="false">
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:orientation="vertical"
+                android:padding="15dp">
+
+                <include layout="@layout/machine_layout" />
+
+                <include layout="@layout/status_layout" />
+
+                <include layout="@layout/controls_layout" />
+
+                <include layout="@layout/userinterface_layout" />
+
+                <include layout="@layout/board_layout" />
+
+                <include layout="@layout/storage_layout" />
+
+                <include layout="@layout/removable_storage_layout" />
+
+                <include layout="@layout/boot_layout" />
+
+                <include layout="@layout/graphics_layout" />
+
+                <include layout="@layout/audio_layout" />
+
+                <include layout="@layout/network_layout" />
+
+                <include layout="@layout/advanced_layout" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+
+</LinearLayout>

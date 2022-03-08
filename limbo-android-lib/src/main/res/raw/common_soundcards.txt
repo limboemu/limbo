@@ -1,0 +1,9 @@
+sb16
+ac97
+adlib
+cs4231a
+gus
+es1370
+hda
+pcspk
+all

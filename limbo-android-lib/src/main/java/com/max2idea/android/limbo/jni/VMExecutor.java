@@ -18,1041 +18,1031 @@
  */
 package com.max2idea.android.limbo.jni;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Arrays;
-
-import com.max2idea.android.limbo.main.Config;
-import com.max2idea.android.limbo.main.LimboActivity;
-import com.max2idea.android.limbo.main.LimboSDLActivity;
-import com.max2idea.android.limbo.main.LimboService;
-import com.max2idea.android.limbo.utils.FileUtils;
-import com.max2idea.android.limbo.utils.Machine;
-import com.max2idea.android.limbo.utils.QmpClient;
-import com.max2idea.android.limbo.utils.UIUtils;
-import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.MotionEvent;
+import android.view.Gravity;
+
+import com.limbo.emu.lib.R;
+import com.max2idea.android.limbo.files.FileUtils;
+import com.max2idea.android.limbo.machine.MachineAction;
+import com.max2idea.android.limbo.machine.MachineController;
+import com.max2idea.android.limbo.machine.MachineExecutor;
+import com.max2idea.android.limbo.machine.MachineProperty;
+import com.max2idea.android.limbo.main.Config;
+import com.max2idea.android.limbo.main.LimboApplication;
+import com.max2idea.android.limbo.main.LimboSDLActivity;
+import com.max2idea.android.limbo.main.LimboSettingsManager;
+import com.max2idea.android.limbo.qmp.QmpClient;
+import com.max2idea.android.limbo.toast.ToastUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.libsdl.app.SDLActivity;
 
-public class VMExecutor {
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 
-	private static Notification mNotification;
-	private static Context context;
-	private static final String TAG = "VMExecutor";
-	public int paused;
-	public String cd_iso_path;
-	public String fda_img_path;
-	public String fdb_img_path;
-	public String sd_img_path;
-	public int aiomaxthreads = 1;
-	public String sound_card;
-	public String snapshot_name = "limbo";
-	public String save_state_name = null;
-	public int fd_save_state;
-								// positioning
-	public int enableqmp;
-	public int enablekvm;
-	public int enablevnc;
-	public String vnc_passwd = null;
-	public int vnc_allow_external = 0;
-	public int enable_mttcg = Config.enableMTTCG?1:0;
-	public String base_dir ;
-	public String dns_addr;
-	public String append = "";
-	public boolean busy = false;
-	public boolean libLoaded = false;
-	public String name;
-	public int enablespice = 0;
-	public String keyboard_layout = Config.defaultKeyboardLayout;
-    public int mouse_conf = 0;
-	public String shared_folder_path;
-	public int shared_folder_readonly = 1;
-	String [] params =null;
-	// HDD
-	private String hda_img_path;
-	private String hdb_img_path;
-	private String hdc_img_path;
-	private String hdd_img_path;
-	private String cpu;
-	private String kernel;
-	private String initrd;
-	// Default Settings
-	private int memory = 128;
-	private int cpuNum = 128;
-	private String bootdevice = null;
-	// net
-	private String net_cfg = "None";
-	private String hostfwd = null;
-	private String guestfwd = null;
-	private int nic_num = 1;
-	private String vga_type = "std";
-	private String hd_cache = "default";
-	private String nic_driver = null;
-	private String liblimbo = "limbo";
-	private String libqemu = null;
-	private String libglib = null;
-	private int restart = 0;
-	private int disableacpi = 0;
-	private int disablehpet = 0;
-	private int disablefdbootchk = 0;
-	private int usbmouse = 0; // for -usb -usbdevice tablet - fixes mouse
-	private int width;
-	private int height;
-	private String arch = "x86";
-	private String machine_type;
-	private String save_dir;
-	private String qmp_server;
-	private int qmp_port;
-	private String extra_params;
 
-	public int current_fd= 0;
+/**
+ * Class is used to start and stop the qemu process and communicate file descriptions, mouse,
+ * and keyboard events.
+ */
+class VMExecutor extends MachineExecutor {
+    private static final String TAG = "VMExecutor";
 
-	/**
-	 * @throws Exception
-	 */
-	public VMExecutor(Machine machine, Context context) throws Exception {
+    private static final String cdDeviceName = "ide1-cd0";
+    private static final String fdaDeviceName = "floppy0";
+    private static final String fdbDeviceName = "floppy1";
+    private static final String sdDeviceName = "sd0";
+    private static int vm_width;
+    private static int vm_height;
+    //TODO: make this a proper singleton but the views should not be able to access it
+    private static VMExecutor mInstance;
 
-		name = machine.machinename;
-		base_dir = Config.getBasefileDir(context);
-		save_dir = Config.getMachineDir(context) + name;
-		save_state_name = save_dir + "/" + Config.state_filename;
-		this.context = context;
-		this.memory = machine.memory;
-		this.cpuNum = machine.cpuNum;
-		this.vga_type = machine.vga_type;
-		this.hd_cache = machine.hd_cache;
-		this.snapshot_name = machine.snapshot_name;
-		this.disableacpi = machine.disableacpi;
-		this.disablehpet = machine.disablehpet;
-		this.disablefdbootchk = machine.disablefdbootchk;
-		this.enableqmp = machine.enableqmp;
-		this.qmp_server = Config.QMPServer;
-		this.qmp_port = Config.QMPPort;
-		this.enablevnc = machine.enablevnc;
-		this.enablevnc = machine.enablespice;
-		if (Config.enable_SDL_sound)
-			if (!machine.soundcard.equals("none"))
-				this.sound_card = machine.soundcard;
-		this.kernel = machine.kernel;
-		this.initrd = machine.initrd;
+    VMExecutor(MachineController machineController) {
+        super(machineController);
+        mInstance = this;
+    }
 
-		this.cpu = machine.cpu;
-		this.libglib = FileUtils.getDataDir() + "/lib/libglib-2.0.so";
+    /**
+     * This function is called when the machine resolution changes. This is called from SDL compat
+     * extensions, see folder jni/compat/sdl-extensions
+     *
+     * @param width  Width
+     * @param height Height
+     */
+    public static void onVMResolutionChanged(int width, int height) {
+        vm_width = width;
+        vm_height = height;
+        mInstance.onResolutionChanged(vm_width, vm_height);
+    }
 
-		if (machine.arch.endsWith("ARM") || machine.arch.endsWith("ARM64")) {
-            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-aarch64.so";
-            File libFile = new File(libqemu);
-            if (!libFile.exists()) {
-                this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-arm.so";
-                libFile = new File(libqemu);
+    //JNI Methods
+    private native String start(String storage_dir, String base_dir,
+                                String lib_filename, String lib_path,
+                                int sdl_scale_hint, Object[] params);
+
+    private native String stop(int restart);
+
+    public native void setSDLRefreshRateDefault(int value);
+
+    public native void setSDLRefreshRateIdle(int value);
+
+    public native int getSDLRefreshRateDefault();
+
+    public native int getSDLRefreshRateIdle();
+
+    public native void nativeMouseEvent(int button, int action, int relative, int x, int y);
+
+    public native void nativeMouseBounds(int xmin, int xmax, int ymin, int ymax);
+
+    public native void nativeFullscreen();
+
+    public native void nativeRefreshScreen(int value);
+
+    public native void nativeEnableAaudio(int value, String aaudioLibName, String aaudioLibPath);
+
+    /**
+     * Prints parameters in qemu format
+     *
+     * @param params Parameters to be printed
+     */
+    public void printParams(String[] params) {
+        Log.d(TAG, "Params:");
+        for (int i = 0; i < params.length; i++) {
+            Log.d(TAG, i + ": " + params[i]);
+        }
+    }
+
+    // Translate to QEMU format
+    private String getSoundCard() {
+        if (Config.enableSDLSound && getMachine().getSoundCard() != null
+                && !getMachine().getSoundCard().toLowerCase().equals("none"))
+            return getMachine().getSoundCard();
+        return null;
+    }
+
+private String getQemuLibrary() {
+        switch (LimboApplication.arch) {
+            case x86:
+                return "libqemu-system-i386.so";
+            case x86_64:
+                return "libqemu-system-x86_64.so";
+            case arm:
+                return "libqemu-system-arm.so";
+            case arm64:
+                return "libqemu-system-aarch64.so";
+            case ppc:
+                return "libqemu-system-ppc.so";
+            case ppc64:
+                return "libqemu-system-ppc64.so";
+            case sparc:
+                return "libqemu-system-sparc.so";
+            case sparc64:
+                return "libqemu-system-sparc64.so";
+            default:
+                throw new IllegalStateException("Unexpected value: " + LimboApplication.arch);
+        }
+    }
+
+    private String getSaveStateName() {
+        String machineSaveDirectory = MachineController.getInstance().getMachineSaveDir();
+        return machineSaveDirectory + "/" + Config.stateFilename;
+    }
+
+    private String[] prepareParams(Context context) throws Exception {
+        ArrayList<String> paramsList = new ArrayList<>();
+        paramsList.add(getQemuLibrary());
+        addUIOptions(context, paramsList);
+        addCpuBoardOptions(paramsList);
+        addDrives(paramsList);
+        addRemovableDrives(paramsList);
+        addBootOptions(paramsList);
+        addGraphicsOptions(paramsList);
+        addAudioOptions(paramsList);
+        addNetworkOptions(paramsList);
+        addGenericOptions(context, paramsList);
+        addStateOptions(paramsList);
+        addAdvancedOptions(paramsList);
+        return paramsList.toArray(new String[0]);
+    }
+
+    /**
+     * Adds the vm state file description to the qemu parameters for resuming the vm
+     *
+     * @param paramsList Existing parameter list to be passed to qemu
+     */
+    private void addStateOptions(ArrayList<String> paramsList) {
+        if (MachineController.getInstance().isPaused() && !getSaveStateName().equals("")) {
+            int fd_tmp = FileUtils.get_fd(getSaveStateName());
+            if (fd_tmp < 0) {
+                Log.e(TAG, "Error while getting fd for: " + getSaveStateName());
+            } else {
+                Log.d(TAG, "Retrieved fd: " + fd_tmp + " for: " + getSaveStateName());
+                paramsList.add("-incoming");
+                paramsList.add("fd:" + fd_tmp);
             }
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "arm";
-			this.machine_type = machine.machine_type.split(" ")[0];
-			this.disablehpet = 0;
-			this.disableacpi = 0;
-			this.disablefdbootchk = 0;
-		} else if (machine.arch.endsWith("x64")) {
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "x86_64";
-			if (machine.machine_type == null)
-				this.machine_type = "pc";
-			else
-				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("x86")) {
-			this.cpu = machine.cpu;
-            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-x86_64.so";
-			File libFile = new File(libqemu);
-			if (!libFile.exists()) {
-                this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-i386.so";
-				libFile = new File(libqemu);
-//				if (!libFile.exists()) {
-//					throw new Exception ("Could not find QEMU library: " + libFile.getAbsolutePath());
-//				}
-			}
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "x86";
-			if (machine.machine_type == null)
-				this.machine_type = "pc";
-			else
-				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("MIPS")) {
-			this.cpu = machine.cpu;
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-mips.so";
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "mips";
-			if (machine.machine_type == null)
-				this.machine_type = "malta";
-			else
-				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("PPC")) {
-			this.cpu = machine.cpu;
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc.so";
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "ppc";
-			if (machine.machine_type == null || machine.machine_type.equals("Default"))
-				this.machine_type = null;
-			else
-				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("PPC64")) {
-            this.cpu = machine.cpu;
-            this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-ppc64.so";
-            this.cpu = machine.cpu.split(" ")[0];
-            this.arch = "ppc64";
-            if (machine.machine_type == null || machine.machine_type.equals("Default"))
-                this.machine_type = null;
-            else
-                this.machine_type = machine.machine_type;
-        } else if (machine.arch.endsWith("m68k")) {
-			this.cpu = machine.cpu;
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-m68k.so";
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "m68k";
-			if (machine.machine_type == null)
-				this.machine_type = "Default";
-			else
-				this.machine_type = machine.machine_type;
-		} else if (machine.arch.endsWith("SPARC")) {
-			this.cpu = machine.cpu;
-			this.libqemu = FileUtils.getDataDir() + "/lib/libqemu-system-sparc.so";
-			this.cpu = machine.cpu.split(" ")[0];
-			this.arch = "SPARC";
-			if (machine.machine_type == null || machine.machine_type.equals("Default"))
-				this.machine_type = null;
-			else
-				this.machine_type = machine.machine_type;
+        }
+    }
 
-			//override vga
-			this.vga_type ="cg3";
-		}
-
-		if (machine.cd_iso_path == null || machine.cd_iso_path.equals("None")) {
-			this.cd_iso_path = null;
-		} else {
-			this.cd_iso_path = machine.cd_iso_path;
-		}
-		if (machine.hda_img_path == null || machine.hda_img_path.equals("None")) {
-			this.hda_img_path = null;
-		} else {
-
-			this.hda_img_path = machine.hda_img_path;
-		}
-
-		if (machine.hdb_img_path == null || machine.hdb_img_path.equals("None")) {
-			this.hdb_img_path = null;
-		} else {
-
-			this.hdb_img_path = machine.hdb_img_path;
-		}
-
-		// Check if CD is set
-		if (machine.hdc_img_path != null || machine.hdc_img_path == null || machine.hdc_img_path.equals("None")) {
-			this.hdc_img_path = null;
-		} else {
-
-			this.hdc_img_path = machine.hdc_img_path;
-		}
-
-		if (machine.hdd_img_path == null || machine.hdd_img_path.equals("None")) {
-			this.hdd_img_path = null;
-		} else {
-			this.hdd_img_path = machine.hdd_img_path;
-		}
-
-		if (machine.fda_img_path == null || machine.fda_img_path.equals("None")) {
-			this.fda_img_path = null;
-		} else {
-
-			this.fda_img_path = machine.fda_img_path;
-		}
-
-		if (machine.fdb_img_path == null || machine.fdb_img_path.equals("None")) {
-			this.fdb_img_path = null;
-		} else {
-
-			this.fdb_img_path = machine.fdb_img_path;
-		}
-
-		if (Config.enableFlashMemoryImages) {
-			if (machine.sd_img_path == null || machine.sd_img_path.equals("None")) {
-				this.sd_img_path = null;
-			} else {
-				this.sd_img_path = machine.sd_img_path;
-			}
-		}
-
-		if (this.arch.equals("arm")) {
-			this.bootdevice = null;
-		} else if (machine.bootdevice.equals("Default")) {
-			this.bootdevice = null;
-		} else if (machine.bootdevice.equals("CD Rom")) {
-			this.bootdevice = "d";
-		} else if (machine.bootdevice.equals("Floppy")) {
-			this.bootdevice = "a";
-		} else if (machine.bootdevice.equals("Hard Disk")) {
-			this.bootdevice = "c";
-		}
-
-		if (machine.net_cfg == null || machine.net_cfg.equals("None")) {
-			this.net_cfg = "none";
-			this.nic_driver = null;
-		} else if (machine.net_cfg.equals("User")) {
-			this.net_cfg = "user";
-			this.nic_driver = machine.nic_driver;
-			this.guestfwd = machine.guestfwd;
-			if (machine.hostfwd != null && !machine.hostfwd.equals(""))
-				this.hostfwd = machine.hostfwd;
-			else
-				this.hostfwd = null;
-		} else if (machine.net_cfg.equals("TAP")) {
-			this.net_cfg = "tap";
-			this.nic_driver = machine.nic_driver;
-		}
-
-		if (machine.soundcard != null && machine.soundcard.equals("None")) {
-			this.sound_card = null;
-		}
-
-		// Shared folder
-		if (machine.shared_folder != null && !machine.shared_folder.trim().equals("")) {
-			shared_folder_path = machine.shared_folder;
-			if (machine.shared_folder_mode == 0)
-				shared_folder_readonly = 1;
-			else if (machine.shared_folder_mode == 1)
-				shared_folder_readonly = 0;
-		} else
-			shared_folder_path = null;
-
-		// Extra Params
-		if (machine.extra_params != null) {
-			this.extra_params = machine.extra_params;
-		}
-		this.prepPaths();
-	}
-
-	public void loadNativeLibs() {
-		libLoaded = true;
-	}
-
-	// Load the shared lib
-	private void loadNativeLib(String lib, String destDir) {
-		if (true) {
-			String libLocation = destDir + "/" + lib;
-			try {
-				System.load(libLocation);
-			} catch (Exception ex) {
-				Log.e("JNIExample", "failed to load native library: " + ex);
-			}
-		}
-
-	}
-
-	public void print(String [] params) {
-		Log.d(TAG, "Params:");
-		for(int i=0;i<params.length; i++){
-			Log.d(TAG, i +": " + params[i]);
-		}
-
-	}
-	
-	public String startvm() {
-
-		String res = null;
-		try {
-			prepareParams();
-		}catch (Exception ex) {
-			UIUtils.toastLong(context, ex.getMessage());
-			return res;
-		}
-
-
-
-//		Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-//			@Override
-//			public void uncaughtException(Thread thread, Throwable e) {
-//				e.printStackTrace();
-//				Log.e(TAG, "Limbo Uncaught Exception: " + e.toString());
-//			}
-//		});
-
-		//set the exit code
-		FileUtils.setExitCode(context, 2);
-
-		try {
-			res = start(Config.storagedir, this.base_dir, this.libqemu, params, this.paused, this.save_state_name);
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			Log.e(TAG, "Limbo Exception: " + ex.toString());
-		}
-		return res;
-	}
-	
-	public void prepareParams() throws FileNotFoundException {
-
-		params = null;
-		ArrayList<String> paramsList  = new ArrayList<String>();	
-		
-		paramsList.add(libqemu);
-
-		if (this.kernel != null && !this.kernel.equals("")) {
-			paramsList.add("-kernel");
-			paramsList.add(this.kernel);
-		}
-
-		if (initrd != null && !initrd.equals("")) {
-			paramsList.add("-initrd");
-			paramsList.add(initrd);
-		}
-
-		if (append != null && !append.equals("")) {
-			paramsList.add("-append");
-			paramsList.add(append);
-		}
-
-		if (this.cpu != null && !cpu.equals("Default")) {
-			paramsList.add("-cpu");
-			paramsList.add(cpu);
-		}
-
-		paramsList.add("-m");
-		paramsList.add(this.memory+"");
-
-		paramsList.add("-L");
-		paramsList.add(base_dir);
-
-		addDrives(paramsList);
-
-		if (vga_type != null) {
-		    if(vga_type.equals("Default")) {
-		        //do nothing
-            }else if(vga_type.equals("virtio-gpu-pci")){
-                paramsList.add("-device");
-                paramsList.add(vga_type);
-            }else if (vga_type.equals("nographic")){
-                paramsList.add("-nographic");
-            }else {
-                paramsList.add("-vga");
-                paramsList.add(vga_type);
+    private void addUIOptions(Context context, ArrayList<String> paramsList) {
+        if (MachineController.getInstance().isVNCEnabled()) {
+            paramsList.add("-vnc");
+            String vncParam = "";
+            if (LimboSettingsManager.getVNCEnablePassword(context)) {
+                //TODO: Allow connections from External
+                // Use with x509 auth and TLS for encryption
+                vncParam += ":1";
+            } else {
+                // Allow connections only from localhost using localsocket without
+                // a password
+                vncParam += Config.defaultVNCHost + ":" + Config.defaultVNCPort;
             }
-		}
+            if (LimboSettingsManager.getVNCEnablePassword(context))
+                vncParam += ",password";
 
-		if (this.bootdevice != null) {
-			paramsList.add("-boot");
-			paramsList.add(bootdevice);
-		}
+            paramsList.add(vncParam);
 
-		if (this.net_cfg != null) {
-			paramsList.add("-net");
-			if (net_cfg.equals("user")) {
-				String netParams = net_cfg;
-				if (hostfwd != null) {
-					netParams+= ",";
-					netParams+= hostfwd; // example forward ssh: "hostfwd=tcp:127.0.0.1:2222-:22"
-				}
-				if (guestfwd != null) {
-					netParams+=  ",";
-					netParams+= guestfwd;
-				}
-				paramsList.add(netParams);	
-			} else if (net_cfg.equals("tap")) {
-				paramsList.add("tap,vlan=0,ifname=tap0,script=no");
-			} else if (net_cfg.equals("none")) {
-				paramsList.add("none");
-			} else {
-				//Unknown interface
-				paramsList.add("none");
-			}
-		}
+            //Allow monitor console though it's only supported for VNC, SDL for android doesn't support
+            // more than 1 window
+            paramsList.add("-monitor");
+            paramsList.add("vc");
 
-		if (nic_driver != null) {
-			paramsList.add("-net");
-			if (net_cfg.equals("user")) {
-				String nicParams = "nic,model="+nic_driver;
-				paramsList.add(nicParams);
-			} else if (net_cfg.equals("tap")) {
-				String nicParams = "nic,vlan=0,model=" + nic_driver;
-				paramsList.add(nicParams);
-			}
-		}
+        } else {
+            //XXX: monitor, serial, and parallel display crashes cause SDL doesn't support more than 1 window
+            paramsList.add("-monitor");
+            paramsList.add("none");
 
-		if (sound_card != null && !sound_card.equals("None") ) {
-			paramsList.add("-soundhw");
-			paramsList.add(sound_card);
-		}
+            paramsList.add("-serial");
+            paramsList.add("none");
 
-		//XXX: Snapshots not working currently, use migrate/incoming instead
-		if (snapshot_name != null && !snapshot_name.equals("")) {
-			paramsList.add("-loadvm");
-			paramsList.add(snapshot_name);
-		}
+            paramsList.add("-parallel");
+            paramsList.add("none");
+        }
 
-		if (this.usbmouse!=0) {
-			paramsList.add("-usb");
-			paramsList.add("-usbdevice");
-			paramsList.add("tablet");
-		}
-		if (disableacpi!=0) {
-			paramsList.add("-no-acpi"); //disable ACPI
-		}
-		if (disablehpet!=0) {
-			paramsList.add("-no-hpet"); //        disable HPET
-		}
+        if (getMachine().getKeyboard() != null) {
+            paramsList.add("-k");
+            paramsList.add(getMachine().getKeyboard());
+        }
 
-		if (disablefdbootchk!=0) {
-			paramsList.add("-no-fd-bootchk"); //        disable FD Boot Check
-		}
-
-		if (enableqmp!=0) {
-
-			paramsList.add("-qmp");
-			String qmpParams = "tcp:";
-			if(qmp_server!=null && !Config.enable_QMP_External)
-				qmpParams+=qmp_server;
-
-			qmpParams+=(":"+this.qmp_port);
-			qmpParams+=",server,nowait";
-			paramsList.add(qmpParams);
-		}
-
-		//XXX: Extra options
-		//    argv.add("-D");
-		//    argv.add("/sdcard/limbo/log.txt");
-		//    argv.add("-win2k-hack");     //use it when installing Windows 2000 to avoid a disk full bug
-		//    argv.add("--trace");
-		//    argv.add("events=/sdcard/limbo/tmp/events");
-		//    argv.add("--trace");
-		//    argv.add("file=/sdcard/limbo/tmp/trace");
-		//    argv.add("-nographic"); //DO NOT USE //      disable graphical output and redirect serial I/Os to console
-
-
-
-		if (enablekvm!=0) {
-			paramsList.add("-enable-kvm");
-		} else if (this.enable_mttcg!=0) {
-            //XXX: not working right now, we should only do this for 64bit hosts
-            // #ifdef __LP64__
-			paramsList.add("-accel");
-			String tcgParams = "tcg";
-			if(cpuNum > 1)
-				tcgParams+=",thread=multi";
-			else
-				tcgParams+=",thread=single";
-            paramsList.add(tcgParams);
-            //#endif
-		}
-
-		if (enablevnc!=0) {
-			Log.v(TAG,"Enable VNC server");
-			paramsList.add("-vnc");
-			if (vnc_allow_external!=0) {
-				paramsList.add(":1,password");
-				//TODO: Allow connections from External
-				//this is still not secure we prompt the user from the UI
-				// Use with x509 auth and TLS for encryption
-			} else
-				paramsList.add("localhost:1"); // Allow only connections from localhost without password
-
-			//Allow monitor console only for VNC,
-			// SDL for android doesn't support more
-			// than 1 window
-			paramsList.add("-monitor");
-			paramsList.add("vc");
-
-		} else if (enablespice!=0) {
-			//Not working right now
-			Log.v(TAG,"Enable SPICE server");
-			paramsList.add("-spice");
-			String spiceParams = "port=5902";
-
-			if (vnc_allow_external!=0 && vnc_passwd != null) {
-				spiceParams+= ",password=";
-				spiceParams+= vnc_passwd;
-			} else
-				spiceParams+=",addr=localhost"; // Allow only connections from localhost without password
-
-				spiceParams+=",disable-ticketing";
-			//argv.add("-chardev");
-			//argv.add("spicevm");
-		} else {
-			//SDL needs explicit keyboard layout
-			Log.v(TAG,"Disabling VNC server, using SDL instead");
-			if (keyboard_layout == null) {
-				paramsList.add("-k");
-				paramsList.add("en-us");
-			}
-
-			//XXX: monitor, serial, and parallel display crashes cause SDL doesn't support more than 1 window
-			paramsList.add("-monitor");
-			paramsList.add("none");
-
-			paramsList.add("-serial");
-			paramsList.add("none");
-
-			paramsList.add("-parallel");
-			paramsList.add("none");
-		}
-
-		if (keyboard_layout != null) {
-			paramsList.add("-k");
-			paramsList.add(keyboard_layout);
-		}
-
-        if (mouse_conf > 0) {
+        if (getMachine().getMouse() != null && !getMachine().getMouse().equals("ps2")) {
             paramsList.add("-usb");
             paramsList.add("-device");
-            if(mouse_conf == 1)
-                paramsList.add("usb-mouse");
-            if(mouse_conf == 2)
-                paramsList.add("usb-tablet");
+            paramsList.add(getMachine().getMouse());
         }
+    }
+
+    private void addAdvancedOptions(ArrayList<String> paramsList) {
+
+        if (getMachine().getExtraParams() != null && !getMachine().getExtraParams().trim().equals("")) {
+            String[] paramsTmp = getMachine().getExtraParams().split(" ");
+            paramsList.addAll(Arrays.asList(paramsTmp));
+        }
+    }
+
+    private void addAudioOptions(ArrayList<String> paramsList) {
+        if (getSoundCard() != null) {
+            paramsList.add("-soundhw");
+            paramsList.add(getSoundCard());
+        }
+    }
+
+    private void addGenericOptions(Context context, ArrayList<String> paramsList) {
+        paramsList.add("-L");
+        paramsList.add(LimboApplication.getBasefileDir());
+        if (LimboSettingsManager.getEnableQmp(context)) {
+            paramsList.add("-qmp");
+            if (getQMPAllowExternal()) {
+                String qmpParams = "tcp:";
+                qmpParams += (":" + Config.QMPPort);
+                qmpParams += ",server,nowait";
+                paramsList.add(qmpParams);
+            } else {
+                //Specify a unix local domain as localhost to limit to local connections only
+                String qmpParams = "unix:";
+                qmpParams += LimboApplication.getLocalQMPSocketPath();
+                qmpParams += ",server,nowait";
+                paramsList.add(qmpParams);
+            }
+        }
+
+        //Enable Tracing log
+        if (Config.enableTracingLog) {
+            paramsList.add("-D");
+            paramsList.add(Config.traceLogFile);
+            paramsList.add("--trace");
+            paramsList.add("events=" + Config.traceEventsFile);
+            paramsList.add("--trace");
+            paramsList.add("file=" + Config.traceDir);
+        }
+
+        if (Config.overrideTbSize) {
+            paramsList.add("-tb-size");
+            paramsList.add(Config.tbSize); //Don't increase it crashes
+        }
+
+        if (LimboApplication.getQemuVersion() == 20901) {
+            paramsList.add("-realtime");
+            paramsList.add("mlock=off");
+        } else {
+            paramsList.add("-overcommit");
+            paramsList.add("mem-lock=off");
+        }
+
+        paramsList.add("-rtc");
+        paramsList.add("base=localtime");
+
+        if (!Config.enableDefaultDevices)
+            paramsList.add("-nodefaults");
+    }
+
+    private void addCpuBoardOptions(ArrayList<String> paramsList) {
 
         //XXX: SMP is not working correctly for some guest OSes
         //so we enable multi core only under KVM
         // anyway regular emulation is not gaining any benefit unless mttcg is enabled but that
         // doesn't work for x86 guests yet
-        if(enablekvm == 1 || !Config.enableSMPOnlyOnKVM) {
+        if (getMachine().getCpuNum() > 1) {
             paramsList.add("-smp");
-            paramsList.add(this.cpuNum + "");
+            paramsList.add(getMachine().getCpuNum() + "");
+        }
+        if (getMachineType() != null && !getMachineType().equals("Default")) {
+            paramsList.add("-M");
+            paramsList.add(getMachineType());
         }
 
-		if (machine_type != null) {
-			paramsList.add("-M");
-			paramsList.add(machine_type);
-		}
-//		LOGV("Setting tb memory");
-//		argv.add("-tb-size");
-//		argv.add("32M"); //Don't increase it crashes
+        //FIXME: something is wrong with quoting that doesn't let sparc qemu find the cpu def
+        // for now we remove the cpu drop downlist items for sparc
+        String cpu = getMachine().getCpu();
+        if (getMachine().getCpu() != null && getMachine().getCpu().contains(" "))
+            cpu = "'" + getMachine().getCpu() + "'"; // XXX: needed for sparc cpu names
 
-		paramsList.add("-realtime");
-		paramsList.add("mlock=off");
+        //XXX: we disable tsc feature for x86 since some guests are kernel panicking
+        // if the cpu has not specified by user we use the internal qemu32/64
+        if (getMachine().getDisableTSC() == 1 && (LimboApplication.arch == Config.Arch.x86 || LimboApplication.arch == Config.Arch.x86_64)) {
+            if (cpu == null || cpu.equals("Default")) {
+                if (LimboApplication.arch == Config.Arch.x86)
+                    cpu = "qemu32";
+                else if (LimboApplication.arch == Config.Arch.x86_64)
+                    cpu = "qemu64";
+            }
+            cpu += ",-tsc";
+        }
 
-		paramsList.add("-rtc");
-		paramsList.add("base=localtime");
+        if (getMachine().getDisableAcpi() != 0) {
+            paramsList.add("-no-acpi"); //disable ACPI
+        }
+        if (getMachine().getDisableHPET() != 0) {
+            paramsList.add("-no-hpet"); //        disable HPET
+        }
 
-		//XXX: deprecated
-		//This should already be set by the rtc option above, though it shouldn't hurt if we add again
-		//paramsList.add("-localtime");
+        if (cpu != null && !cpu.equals("Default")) {
+            paramsList.add("-cpu");
+            paramsList.add(cpu);
+        }
 
-		paramsList.add("-nodefaults");
+        paramsList.add("-m");
+        paramsList.add(getMachine().getMemory() + "");
+
+        if (getMachine().getEnableKVM() != 0) {
+            paramsList.add("-enable-kvm");
+        } else {
+            paramsList.add("-accel");
+            String tcgParams = "tcg";
+            if (getMachine().getEnableMTTCG() != 0) {
+                tcgParams += ",thread=multi";
+            } else {
+                tcgParams += ",thread=single";
+            }
+            paramsList.add(tcgParams);
+        }
+    }
+
+    private String getMachineType() {
+        String machineType = getMachine().getMachineType();
+        if ((LimboApplication.arch == Config.Arch.x86 || LimboApplication.arch == Config.Arch.x86_64)
+                && machineType == null) {
+            machineType = "pc";
+        } else if ((LimboApplication.arch == Config.Arch.ppc || LimboApplication.arch == Config.Arch.ppc64)
+                && machineType.equals("Default")) {
+            machineType = null;
+        } else if ((LimboApplication.arch == Config.Arch.sparc || LimboApplication.arch == Config.Arch.sparc64)
+                && machineType.equals("Default")) {
+            machineType = null;
+        }
+        return machineType;
+    }
+
+    private void addNetworkOptions(ArrayList<String> paramsList) throws Exception {
+
+        String network = getNetCfg();
+        if (network != null) {
+            paramsList.add("-net");
+            if (network.equals("user")) {
+                String netParams = network;
+                String hostFwd = getHostFwd();
+                if (hostFwd != null) {
+
+                    //hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport{,hostfwd=...}
+                    // example forward ssh from guest port 2222 to guest port 22:
+                    // hostfwd=tcp::2222-:22
+                    if (hostFwd.startsWith("hostfwd")) {
+                        throw new Exception("Invalid format for Host Forward, should be: tcp:hostport1:guestport1,udp:hostport2:questport2,...");
+                    }
+                    String[] hostFwdParams = hostFwd.split(",");
+                    for (int i = 0; i < hostFwdParams.length; i++) {
+                        netParams += ",";
+                        String[] hostfwdparam = hostFwdParams[i].split(":");
+                        netParams += ("hostfwd=" + hostfwdparam[0] + "::" + hostfwdparam[1] + "-:" + hostfwdparam[2]);
+                    }
+                }
+                paramsList.add(netParams);
+            } else if (network.equals("tap")) {
+                paramsList.add("tap,vlan=0,ifname=tap0,script=no");
+            } else if (network.equals("none")) {
+                paramsList.add("none");
+            } else {
+                //Unknown interface
+                paramsList.add("none");
+            }
+        }
+
+        String networkCard = getNicCard();
+        if (networkCard != null) {
+            paramsList.add("-net");
+            String nicParams = "nic";
+            if (network.equals("tap"))
+                nicParams += ",vlan=0";
+            if (!networkCard.equals("Default"))
+                nicParams += (",model=" + networkCard);
+            paramsList.add(nicParams);
+        }
+    }
+
+    private String getHostFwd() {
+        if (getMachine().getNetwork().equals("User")) {
+            if (getMachine().getHostFwd() != null && !getMachine().getHostFwd().equals(""))
+                return getMachine().getHostFwd();
+        }
+        return null;
+    }
+
+    private String getNicCard() {
+        if (getMachine().getNetwork() == null || getMachine().getNetwork().equals("None")) {
+            return null;
+        } else if (getMachine().getNetwork().equals("User")) {
+            return getMachine().getNetworkCard();
+        } else if (getMachine().getNetwork().equals("TAP")) {
+            return getMachine().getNetworkCard();
+        }
+        return null;
+    }
+
+    private String getNetCfg() {
+        if (getMachine().getNetwork() == null || getMachine().getNetwork().equals("None")) {
+            return "none";
+        } else if (getMachine().getNetwork().equals("User")) {
+            return "user";
+        } else if (getMachine().getNetwork().equals("TAP")) {
+            return "tap";
+        }
+        return null;
+    }
+
+    private void addGraphicsOptions(ArrayList<String> paramsList) {
+        if (getMachine().getVga() != null) {
+            if (getMachine().getVga().equals("Default")) {
+                //do nothing
+            } else if (getMachine().getVga().equals("virtio-gpu-pci")) {
+                paramsList.add("-device");
+                paramsList.add(getMachine().getVga());
+            } else if (getMachine().getVga().equals("nographic")) {
+                paramsList.add("-nographic");
+            } else {
+                paramsList.add("-vga");
+                paramsList.add(getMachine().getVga());
+            }
+        }
+    }
+
+    private void addBootOptions(ArrayList<String> paramsList) {
+        if (getBootDevice() != null) {
+            paramsList.add("-boot");
+            paramsList.add(getBootDevice());
+        }
+
+        String kernel = getKernel();
+        if (kernel != null && !kernel.equals("")) {
+            paramsList.add("-kernel");
+            paramsList.add(kernel);
+        }
+
+        String initrd = getInitRd();
+        if (initrd != null && !initrd.equals("")) {
+            paramsList.add("-initrd");
+            paramsList.add(initrd);
+        }
+
+        if (getMachine().getAppend() != null && !getMachine().getAppend().equals("")) {
+            paramsList.add("-append");
+            paramsList.add(getMachine().getAppend());
+        }
+    }
+
+    private String getBootDevice() {
+        if (LimboApplication.arch == Config.Arch.arm || LimboApplication.arch == Config.Arch.arm64) {
+            return null;
+        } else if (getMachine().getBootDevice().equals("Default")) {
+            return null;
+        } else if (getMachine().getBootDevice().equals("CDROM")) {
+            return "d";
+        } else if (getMachine().getBootDevice().equals("Floppy")) {
+            return "a";
+        } else if (getMachine().getBootDevice().equals("Hard Disk")) {
+            return "c";
+        }
+        return null;
+    }
+
+    private String getInitRd() {
+        return FileUtils.encodeDocumentFilePath(getMachine().getInitRd());
+    }
+
+    private String getKernel() {
+        return FileUtils.encodeDocumentFilePath(getMachine().getKernel());
+    }
+
+    public String getDriveFilePath(String driveFilePath) {
+        String imgPath = driveFilePath;
+        if (imgPath == null || imgPath.equals("None"))
+            return null;
+        imgPath = FileUtils.encodeDocumentFilePath(imgPath);
+        return imgPath;
+    }
+
+    public void addDrives(ArrayList<String> paramsList) {
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdaImagePath()), 0);
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdbImagePath()), 1);
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdcImagePath()), 2);
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHddImagePath()), 3);
+        addSharedFolder(paramsList, getDriveFilePath(getMachine().getSharedFolderPath()));
+    }
+
+    public void addHardDisk(ArrayList<String> paramsList, String imagePath, int index) {
+        if (imagePath != null && !imagePath.trim().equals("")) {
+            if (Config.legacyDrives) {
+                switch (index) {
+                    case 0:
+                        paramsList.add("-hda");
+                        break;
+                    case 1:
+                        paramsList.add("-hdb");
+                        break;
+                    case 2:
+                        paramsList.add("-hdc");
+                        break;
+                    case 3:
+                        paramsList.add("-hdd");
+                        break;
+                }
+                paramsList.add(imagePath);
+            } else {
+                paramsList.add("-drive");
+                String param = "index=" + index;
+                if (Config.enableIDEInterface) {
+                    param += ",if=";
+                    param += Config.ideInterfaceType;
+                } else if (Config.enableVirtioInterface && index > 0) {
+                    param += ",if=";
+                    param += Config.virtioInterfaceType;
+                }
+                param += ",media=disk";
+                if (!imagePath.equals("")) {
+                    param += ",file=" + imagePath;
+                }
+                paramsList.add(param);
+            }
 
 
-		//XXX: Usb redir not working under User mode
-		//Redirect ports (SSH)
-		//	argv.add("-redir");
-		//	argv.add("5555::22");
-
-		//TODO:Extra options
-		if(extra_params!=null && !extra_params.trim().equals("")) {
-			String[] paramsTmp = extra_params.split(" ");
-			paramsList.addAll(Arrays.asList(paramsTmp));
-		}
-
-		//TODO: resume incoming option seems not to accept the fd we get from java
-		//  for now we do this at the c side
-		if(paused == 1 && this.save_state_name != null && !save_state_name.equals("")) {
-			int fd_tmp = FileUtils.get_fd(context, save_state_name);
-			if (fd_tmp < 0) {
-				Log.e(TAG,"Error while getting fd for: " + save_state_name);
-			} else {
-				//Log.i(TAG, "Got new fd "+fd_tmp + " for: " +save_state_name);
-				paramsList.add("-incoming");
-				paramsList.add("fd:"+fd_tmp);
-			}
-		}
-
-		params = (String[]) paramsList.toArray(new String[paramsList.size()]);
-
-		print(params);
-
-	}
-
-	public void addDrives(ArrayList<String> paramsList) {
-		if (hda_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=0";
-			if(Config.enable_hd_if) {
-				param +=",if=";
-				param += Config.hd_if_type;
-			}
-			param +=",media=disk";
-			if (!hda_img_path .equals("")) {
-				param += ",file="+hda_img_path ;
-			}
-			paramsList.add(param);
-		}
-
-		if (hdb_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=1";
-			if(Config.enable_hd_if) {
-				param +=",if=";
-				param += Config.hd_if_type;
-			}
-			param +=",media=disk";
-			if (!hdb_img_path .equals("")) {
-				param += ",file="+hdb_img_path ;
-			}
-			paramsList.add(param);
-		}
-
-		if (hdc_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=2";
-			if(Config.enable_hd_if) {
-				param +=",if=";
-				param += Config.hd_if_type;
-			}
-			param +=",media=disk";
-			if (!hdc_img_path .equals("")) {
-				param += ",file="+hdc_img_path ;
-			}
-			paramsList.add(param);
-		}
-
-		if (hdd_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=3";
-			if(Config.enable_hd_if) {
-				param +=",if=";
-				param += Config.hd_if_type;
-			}
-			param +=",media=disk";
-			if (!hdd_img_path .equals("")) {
-				param += ",file="+hdd_img_path ;
-			}
-			paramsList.add(param);
-		}
-
-		if (cd_iso_path!= null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=2";
-			if(Config.enable_hd_if) {
-				param +=",if=";
-				param += Config.hd_if_type;
-			}
-			param +=",media=cdrom";
-			if (!cd_iso_path.equals("")) {
-				param += ",file="+cd_iso_path;
-			}
-			paramsList.add(param);
-		}
-
-		if (fda_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=0,if=floppy";
-			if (!fda_img_path.equals("")) {
-				param += ",file="+fda_img_path;
-			}
-			paramsList.add(param);
-		}
-
-		if (fdb_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=1,if=floppy";
-			if (!fdb_img_path.equals("")) {
-				param += ",file="+fdb_img_path;
-			}
-			paramsList.add(param);
-		}
-
-		if (sd_img_path != null) {
-			paramsList.add("-drive"); //empty
-			String param = "index=0,if=sd";
-			if (!sd_img_path.equals("")) {
-				param += ",file="+sd_img_path;
-			}
-			paramsList.add(param);
-		}
-
-		if (shared_folder_path != null) { //We use hdd to mount any virtual fat drives
-			paramsList.add("-drive"); //empty
-			String driveParams = "index=3";
-			driveParams += ",media=disk";
-			if(Config.enable_hd_if) {
-				driveParams +=",if=";
-				driveParams += Config.hd_if_type;
-			}
-			driveParams+=",format=raw";
-			driveParams+=",file=fat:";
-			driveParams+="rw:"; //Always Read/Write
-			driveParams+=shared_folder_path;
-			paramsList.add(driveParams);
-		}
-
-	}
-
-	//JNI Methods
-	public native String start(String storage_dir, String base_dir, String lib_path, Object [] params, int paused, String save_state_name);
-	public native String stop(int restart);
-    public native void setsdlrefreshrate(int value);
-    public native void setvncrefreshrate(int value);
-    public native int getsdlrefreshrate();
-    public native int getvncrefreshrate();
-	private native int onmouse(int button, int action, int relative, float x, float y);
-	private native int setrelativemousemode(int relativemousemode);
+        }
+    }
 
 
-	protected void vncchangepassword(String vnc_passwd){
-		String res = QmpClient.sendCommand(QmpClient.changevncpasswd(vnc_passwd));
-		String desc = null;
-		if(res!=null && !res.equals("")) {
-			try {
-				JSONObject resObj = new JSONObject(res);
-				if(resObj != null && !resObj.equals("")) {
-					String resInfo = resObj.getString("error");
-					if(resInfo!=null && !resInfo.equals("")) {
-						JSONObject resInfoObj = new JSONObject(resInfo);
-						desc = resInfoObj.getString("desc");
-						UIUtils.toastLong(context, "Could not set VNC Password: " + desc);
-						Log.e(TAG, desc);
-					}
-				}
+    public void addSharedFolder(ArrayList<String> paramsList, String sharedFolderPath) {
+        if (Config.enableSharedFolder && sharedFolderPath != null) {
+            //XXX; We use hdd to mount any virtual fat drives
+            paramsList.add("-drive"); //empty
+            String driveParams = "index=3";
+            driveParams += ",media=disk";
+            if (Config.enableIDEInterface) {
+                driveParams += ",if=";
+                driveParams += Config.ideInterfaceType;
+            }
+            driveParams += ",format=raw";
+            driveParams += ",file=fat:";
+            driveParams += "rw:"; //Always Read/Write
+            driveParams += sharedFolderPath;
+            paramsList.add(driveParams);
+        }
+
+    }
+
+    public void addRemovableDrives(ArrayList<String> paramsList) {
+        String cdImagePath = getDriveFilePath(getMachine().getCdImagePath());
+        if (cdImagePath != null) {
+            if (Config.legacyDrives) {
+                paramsList.add("-cdrom");
+                paramsList.add(cdImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=2";
+                if (Config.enableIDEInterface) {
+                    param += ",if=";
+                    param += Config.ideInterfaceType;
+                }
+                param += ",media=cdrom";
+                if (!cdImagePath.equals("")) {
+                    param += ",file=" + cdImagePath;
+                }
+                paramsList.add(param);
+            }
+        }
+
+        String fdaImagePath = getDriveFilePath(getMachine().getFdaImagePath());
+        if (Config.enableEmulatedFloppy && fdaImagePath != null) {
+            if (Config.legacyDrives) {
+                paramsList.add("-fda");
+                paramsList.add(fdaImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=0,if=floppy";
+                if (!fdaImagePath.equals("")) {
+                    param += ",file=" + fdaImagePath;
+                }
+                paramsList.add(param);
+            }
+        }
+
+        String fdbImagePath = getDriveFilePath(getMachine().getFdbImagePath());
+        if (Config.enableEmulatedFloppy && fdbImagePath != null) {
+            if (Config.legacyDrives) {
+                paramsList.add("-fdb");
+                paramsList.add(fdbImagePath);
+            } else {
+                paramsList.add("-drive"); //empty
+                String param = "index=1,if=floppy";
+                if (!fdbImagePath.equals("")) {
+                    param += ",file=" + fdbImagePath;
+                }
+                paramsList.add(param);
+            }
+        }
+
+        String sdImagePath = getDriveFilePath(getMachine().getSdImagePath());
+        if (Config.enableEmulatedSDCard && sdImagePath != null) {
+            if (Config.legacyDrives) {
+                paramsList.add("-sd");
+                paramsList.add(sdImagePath);
+            } else {
+                paramsList.add("-device");
+                paramsList.add("sd-card,drive=sd0,bus=sd-bus");
+                paramsList.add("-drive");
+                String param = "if=none,id=sd0";
+                if (!sdImagePath.equals("")) {
+                    param += ",file=" + sdImagePath;
+                }
+                paramsList.add(param);
+            }
+        }
+
+    }
 
 
-			} catch (JSONException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	protected String changedev(String dev, String dev_value){
-		QmpClient.sendCommand(QmpClient.changedev(dev, dev_value));
-		return "Changed device: " + dev + " to " + dev_value;
-	}
-	protected String ejectdev(String dev) {
-		QmpClient.sendCommand(QmpClient.ejectdev(dev));
-		return "Ejected device: " + dev ;
-	}
-
-	public String startvm(Context context, int ui) {
-		LimboService.executor = this;
-		Intent i = new Intent(Config.ACTION_START, null, context, LimboService.class);
-		Bundle b = new Bundle();
-		// b.putString("machine_type", this.machine_type);
-        b.putInt("ui", ui);
-		i.putExtras(b);
-		context.startService(i);
-		Log.v(TAG, "start VM service");
-		return "startVMService";
-
-	}
-
-	public void stopvm(final int restart) {
-		Log.v(TAG, "Stopping the VM");
-		this.restart = restart;
-
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				doStopVM(restart);
-			}
-		}).start();
-	}
-
-	public void doStopVM(final int restart) {
-
-				if(restart==0) {
-					LimboService.stopService();
-
-					//XXX: Wait till service goes down
-					try {
-						Thread.sleep(2000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-
-				if(restart != 0){
-					QmpClient.sendCommand(QmpClient.reset());
-				} else {
-					//XXX: Qmp command only halts the VM but doesn't exit
-					//  so we use force close
-					//QmpClient.sendCommand(QmpClient.powerDown());
-					stop(restart);
-				}
-	}
-
-	public String savevm(String statename) {
-		// Set to delete previous snapshots after vm resumed
-		Log.v(TAG, "Save Snapshot");
-		this.snapshot_name = statename;
-
-		String res = null;
-		//TODO:
-		//res = QmpClient.sendCommand(QmpClient.saveSnapshot());
-		return res;
-	}
-
-	public String resumevm() {
-		// Set to delete previous snapshots after vm resumed
-		Log.v(TAG, "Resume the VM");
-        String res = startvm();
-        Log.d(TAG, res);
-        return res;
-	}
-
-	public void change_vnc_password() {
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-				vncchangepassword(vnc_passwd);
-			}
-		});
-		thread.start();
-	}
-
-	public String get_state() {
-		String res = QmpClient.sendCommand(QmpClient.getState());
-		String state = "";
-		if(res!=null && !res.equals("")) {
-			try {
-				JSONObject resObj = new JSONObject(res);
-				String resInfo = resObj.getString("return");
-				JSONObject resInfoObj = new JSONObject(resInfo);
-				state = resInfoObj.getString("status");
-			} catch (JSONException e) {
-				e.printStackTrace();
-			}
-		}
-		return state;
-	}
-
-	public void change_dev(final String dev, final String image_path) {
-
-        Thread thread = new Thread(new Runnable() {
-            public void run() {
-                if (image_path == null || image_path.trim().equals("")) {
-                    VMExecutor.this.busy = true;
-                    String res = VMExecutor.this.ejectdev(dev);
-                    UIUtils.toastShort(context, res);
-                    VMExecutor.this.busy = false;
-                } else if (FileUtils.fileValid(context, image_path)){
-                    VMExecutor.this.busy = true;
-                    String res = VMExecutor.this.changedev(dev, image_path);
-                    UIUtils.toastShort(context, res);
-                    VMExecutor.this.busy = false;
-                } else {
-                    UIUtils.toastShort(context, "File does not exist");
+    /**
+     * change the vnc password before we connect
+     * The user is also prompted to create a certificate
+     *
+     * @param vncPassword The VNC password to be send to QEMU
+     */
+    protected void vncchangepassword(String vncPassword) throws Exception {
+        String res = QmpClient.sendCommand(QmpClient.getChangeVncPasswdCommand(vncPassword));
+        String desc = null;
+        if (res != null && !res.equals("")) {
+            JSONObject resObj = new JSONObject(res);
+            if (resObj != null && !resObj.equals("") && res.contains("error")) {
+                String resInfo = resObj.getString("error");
+                if (resInfo != null && !resInfo.equals("")) {
+                    JSONObject resInfoObj = new JSONObject(resInfo);
+                    desc = resInfoObj.getString("desc");
+                    Log.e(TAG, desc);
                 }
             }
-        });
-        thread.setPriority(Thread.MIN_PRIORITY);
-        thread.start();
+        }
+    }
+
+    protected String changedev(String dev, String value) {
+        String response = QmpClient.sendCommand(QmpClient.getChangeDeviceCommand(dev, value));
+        String displayDevValue = FileUtils.getFullPathFromDocumentFilePath(value);
+        if (Config.debug)
+            ToastUtils.toastLong(LimboApplication.getInstance(), Gravity.BOTTOM,
+                    LimboApplication.getInstance().getString(R.string.ChangedDevice) + ": "
+                            + dev + ": " + displayDevValue);
+        return response;
+    }
+
+    protected String ejectdev(String dev) {
+        String response = QmpClient.sendCommand(QmpClient.getEjectDeviceCommand(dev));
+        if (Config.debug)
+            ToastUtils.toastLong(LimboApplication.getInstance(), Gravity.BOTTOM,
+                    LimboApplication.getInstance().getString(R.string.EjectedDevice) + ": " + dev);
+        return response;
+    }
 
 
-	}
+    /**
+     * Starts the service that will later start the qemu process
+     */
+    public void startService() {
+        Intent i = new Intent(Config.ACTION_START, null, LimboApplication.getInstance(),
+                MachineController.getInstance().getServiceClass());
+        Bundle b = new Bundle();
+        i.putExtras(b);
+        Log.d(TAG, "Starting VM service");
+        LimboApplication.getInstance().startService(i);
+    }
 
-	public int get_fd(String path) {
-		int fd = FileUtils.get_fd(context, path);
-		return fd;
+    /**
+     * Starts the native process. This should be called from a background thread from a
+     * foreground service in order to prevent the process from being killed
+     *
+     * @return String from the native code vm-executor-jni.cpp
+     */
+    public String start() {
+        String res = null;
+        try {
+            String[] params = prepareParams(LimboApplication.getInstance());
+            printParams(params);
+            // XXX: for VNC we need to resume manually after a reasonable amount of time
+            if (getMachine().getPaused() == 1 && MachineController.getInstance().isVNCEnabled()) {
+                continueVM(5000);
+            }
 
-	}
+            if (MachineController.getInstance().isVNCEnabled() && LimboSettingsManager.getVNCEnablePassword(LimboApplication.getInstance())) {
+                changeVncPass(LimboApplication.getInstance(), 2000);
+            }
+            QmpClient.setExternal(LimboSettingsManager.getEnableExternalQMP(LimboApplication.getInstance()));
+            String libFilename = getQemuLibrary();
+            res = start(Config.storagedir, LimboApplication.getBasefileDir(),
+                    libFilename, FileUtils.getNativeLibDir(LimboApplication.getInstance()) + "/" + libFilename,
+                    Config.SDLHintScale, params);
+        } catch (Exception ex) {
+            ToastUtils.toastLong(LimboApplication.getInstance(), ex.getMessage());
+            return res;
+        }
+        return res;
+    }
 
-	public int close_fd(int fd) {
-		int res = FileUtils.close_fd(fd);
-		return res;
+    private void changeVncPass(final Context context, final long delay) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    vncchangepassword(LimboSettingsManager.getVNCPass(context));
+                } catch (Exception e) {
+                    ToastUtils.toastLong(LimboApplication.getInstance(),
+                            context.getString(R.string.CouldNotSetVNCPass) + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
 
-	}
+    private void continueVM(final int delay) {
+        // TODO: We shouldn't have to go through the view dispatcher
+        LimboApplication.getViewListener().onAction(MachineAction.CONTINUE_VM, delay);
+    }
 
-	public void prepPaths() {
-		File destDir = new File(save_dir);
-		if (!destDir.exists()) {
-			destDir.mkdirs();
-		}
+    public void stopvm(final int restart) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (restart != 0) {
+                    QmpClient.sendCommand(QmpClient.getResetCommand());
+                } else {
+                    //XXX: Qmp command only halts the VM but doesn't exit so we use force close
+//            QmpClient.sendCommand(QmpClient.powerDown());
+                    stop(restart);
+                }
+            }
+        }).start();
+    }
 
-		// Protect the paths from qemu thinking they contain a protocol in the
-		// string
-		if (this.kernel != null && this.kernel.startsWith("content:")) {
-			this.kernel = ("/" + this.kernel).replace(":", "");
-		}
+    @Override
+    public int getSdlRefreshRate(boolean idle) {
+        if (idle)
+            return getSDLRefreshRateIdle();
+        else
+            return getSDLRefreshRateDefault();
+    }
 
-		if (this.initrd != null && this.initrd.startsWith("content:")) {
-			this.initrd = ("/" + this.initrd).replace(":", "");
-		}
+    @Override
+    public void setSdlRefreshRate(int value, boolean idle) {
+        if (idle)
+            setSDLRefreshRateIdle(value);
+        else
+            setSDLRefreshRateDefault(value);
+    }
 
-		// Non Removable Disks
-		if (this.hda_img_path != null) {
-			if (this.hda_img_path.startsWith("content:"))
-				this.hda_img_path = ("/" + this.hda_img_path).replace(":", "");
-			if (hda_img_path.equals("")) {
-				hda_img_path = null;
-			}
-		}
+    @Override
+    public String getDeviceName(MachineProperty driveProperty) {
+        switch (driveProperty) {
+            case CDROM:
+                return cdDeviceName;
+            case FDA:
+                return fdaDeviceName;
+            case FDB:
+                return fdbDeviceName;
+            case SD:
+                return sdDeviceName;
+        }
+        return null;
+    }
 
-		if (this.hdb_img_path != null) {
-			if (this.hdb_img_path.startsWith("content:"))
-				this.hdb_img_path = ("/" + this.hdb_img_path).replace(":", "");
-			if (hdb_img_path.equals("")) {
-				hdb_img_path = null;
-			}
-		}
+    @Override
+    public synchronized void updateDisplay(int width, int height, int orientation) {
+        if (!LimboSettingsManager.getPreventMouseOutOfBounds(LimboApplication.getInstance())) {
+            return;
+        }
+        String mouse = getMachine().getMouse();
+        // If we use absolute pointer devices in the guest os (usb-tablet) we need to prevent
+        // the mouse from going out of bounds. This case happens when we use trackpad and when the
+        // guest display doesn't fit inside the Android Surface which is pretty much all the time.
+        // we could use SurfaceHolder.setFixedSize() to bound the surfaceview but it creates
+        // problems with refreshing the surfaceview plus we would still need this fix for trackpad
+        if (mouse != null && mouse.equals("usb-tablet")) {
+            int xmin = 0;
+            int xmax = width;
+            int ymin = 0;
+            int ymax = height;
+            if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+                ymin = (int) (height - width * vm_height / (float) vm_width) / 2;
+                ymax = (int) (height + width * vm_height / (float) vm_width) / 2;
+            } else {
+                xmin = (int) (width - height * vm_width / (float) vm_height) / 2;
+                xmax = (int) (width + height * vm_width / (float) vm_height) / 2;
+            }
+            nativeMouseBounds(xmin, xmax, ymin, ymax);
+        }
+    }
 
-		if (this.hdc_img_path != null) {
+    @Override
+    public void setFullscreen() {
+        nativeFullscreen();
+        //TODO: sparc doesn't not have vga so we need to
+        // see if we can apply similar call to the cg3
+        if(LimboApplication.arch == Config.Arch.x86
+                || LimboApplication.arch == Config.Arch.x86_64
+                || LimboApplication.arch == Config.Arch.arm
+                || LimboApplication.arch == Config.Arch.arm64
+                || LimboApplication.arch == Config.Arch.ppc
+                || LimboApplication.arch == Config.Arch.ppc64
+        ) {
+            nativeRefreshScreen(1);
+        }
+    }
 
-			if (this.hdc_img_path.startsWith("content:"))
-				this.hdc_img_path = ("/" + this.hdc_img_path).replace(":", "");
-			if (hdc_img_path.equals("")) {
-				hdc_img_path = null;
-			}
+    @Override
+    public void enableAaudio(int value) {
+        nativeEnableAaudio(value, Config.aaudioLibName,
+                FileUtils.getNativeLibDir(LimboApplication.getInstance())
+                        + "/" + Config.aaudioLibName);
+    }
 
-		}
+    //TODO: re-enable getting status from the vm
+    public String getVmState() {
+        String res = QmpClient.sendCommand(QmpClient.getStateCommand());
+        String state = "";
+        if (res != null && !res.equals("")) {
+            try {
+                JSONObject resObj = new JSONObject(res);
+                String resInfo = resObj.getString("return");
+                JSONObject resInfoObj = new JSONObject(resInfo);
+                state = resInfoObj.getString("status");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return state;
+    }
 
-		if (this.hdd_img_path != null) {
-			if (this.hdd_img_path.startsWith("content:"))
-				this.hdd_img_path = ("/" + this.hdd_img_path).replace(":", "");
-			if (hdd_img_path.equals("")) {
-				hdd_img_path = null;
-			}
-		}
+    /**
+     * Function sends a command via qmp to change or eject the removable device
+     *
+     * @param drive     The device to be changed
+     * @param imagePath If its null it ejects the drive otherwise it uses the disk file at that path
+     */
+    public boolean changeRemovableDevice(final MachineProperty drive, final String imagePath) {
+        if (!LimboSettingsManager.getEnableQmp(LimboApplication.getInstance())) {
+            ToastUtils.toastShort(LimboApplication.getInstance(), LimboApplication.getInstance().getString(R.string.EnableQMPForChangingDrives));
+            return false;
+        }
+        String dev = getDeviceName(drive);
 
-		// Removable disks
-		if (this.cd_iso_path != null && this.cd_iso_path.startsWith("content:")) {
-			this.cd_iso_path = ("/" + this.cd_iso_path).replace(":", "");
-		}
-		if (this.fda_img_path != null && this.fda_img_path.startsWith("content:")) {
-			this.fda_img_path = ("/" + this.fda_img_path).replace(":", "");
-		}
-		if (this.fdb_img_path != null && this.fdb_img_path.startsWith("content:")) {
-			this.fdb_img_path = ("/" + this.fdb_img_path).replace(":", "");
-		}
-		if (this.sd_img_path != null && this.sd_img_path.startsWith("content:")) {
-			this.sd_img_path = ("/" + this.sd_img_path).replace(":", "");
-		}
+        //XXX: first we eject any previous media
+        String response = VMExecutor.this.ejectdev(dev);
 
-	}
+        // if there is no media there is nothing else to do
+        if (imagePath == null || imagePath.trim().equals("")) {
+            return true;
+        }
 
-	public static void onVMResolutionChanged(int width, int height) {
+        //XXX: we encode some characters from the document file path so it's processed
+        // correctly by qemu
+        String imagePathConverted = FileUtils.encodeDocumentFilePath(imagePath);
 
-		if(LimboSDLActivity.mIsSurfaceReady)
-			LimboSDLActivity.onVMResolutionChanged(width,height);
-	}
+        if (!FileUtils.fileValid(imagePathConverted)) {
+            String msg = LimboApplication.getInstance().getString(R.string.CouldNotOpenDocFile) + " "
+                    + FileUtils.getFullPathFromDocumentFilePath(imagePathConverted)
+                    + "\n" + LimboApplication.getInstance().getString(R.string.PleaseReassingYourDiskFiles);
+            ToastUtils.toastLong(LimboApplication.getInstance(), msg);
+            return false;
+        }
+        response = VMExecutor.this.changedev(dev, imagePathConverted);
+        if (response == null)
+            return false;
 
-	public int setRelativeMouseMode(int relative) {
-		return setrelativemousemode(relative);
-	}
-	public int onLimboMouse(int button, int action, int relative, float x, float y) {
-		//XXX: Make sure that mouse motion is not triggering crashes in SDL while resizing
-		if(!LimboSDLActivity.mIsSurfaceReady || LimboSDLActivity.isResizing) {
-//				Log.w(TAG, "onLimboMouse: Ignoring mouse event surface not ready");
-				return -1;
-		}
+        return true;
+    }
 
-		//XXX: Check boundaries, perhaps not necessary since SDL is also doing the same thing
-		if(relative==1
-				|| (x>=0 && x<=LimboSDLActivity.vm_width && y>=0 && y<= LimboSDLActivity.vm_height)
-				|| (action == MotionEvent.ACTION_SCROLL)) {
-//			Log.d(TAG, "onLimboMouse: B: " + button + ", A: " + action + ", R: " + relative + ", X: " + x + ", Y: " + y);
-			return onmouse(button, action, relative, x, y);
-		}
-		return -1;
-	}
+    /**
+     * Fuction is a pass thru from the c get_fd() function called from native code
+     * This is bridged to the java code because it's the only way to open a file descriptor
+     * from the native code
+     *
+     * @param path File path
+     * @return Return value of FileUtils.get_fd()
+     */
+    public int get_fd(String path) {
+        return FileUtils.get_fd(path);
+    }
+
+    /**
+     * Fuction is a pass thru from the c close_fd() function called from native code
+     * This is similar to the above get_fd but perhaps not needed.
+     *
+     * @param fd File Descriptor to be closed
+     * @return Return value of FileUtils.close_fd()
+     */
+    public int close_fd(int fd) {
+        return FileUtils.close_fd(fd);
+    }
+
+    @Override
+    public String saveVM() {
+
+        // Delete any previous state file
+        File file = new File(getSaveStateName());
+        if (file.exists()) {
+            if (!file.delete()) {
+                return LimboApplication.getInstance().getString(R.string.CannotDeletePreviousStateFile);
+            }
+        }
+
+        if (Config.showToast)
+            ToastUtils.toastShort(LimboApplication.getInstance(), LimboApplication.getInstance().getString(R.string.PleaseWaitSavingVMState));
+
+        int currentFd = get_fd(getSaveStateName());
+        String uri = "fd:" + currentFd;
+        String command = QmpClient.getStopVMCommand();
+        String msg = QmpClient.sendCommand(command);
+        command = QmpClient.getMigrateCommand(false, false, uri);
+        msg = QmpClient.sendCommand(command);
+        if (msg != null) {
+            return processMigrationResponse(msg);
+        }
+        return null;
+    }
+
+    @Override
+    public void continueVM() {
+        String command = QmpClient.getContinueVMCommand();
+        QmpClient.sendCommand(command);
+    }
+
+    @Override
+    public MachineController.MachineStatus getSaveVMStatus() {
+        String pauseState = "";
+        String command = QmpClient.getQueryMigrationCommand();
+        String res = QmpClient.sendCommand(command);
+
+        if (res != null && !res.equals("")) {
+            try {
+                JSONObject resObj = new JSONObject(res);
+                String resInfo = resObj.getString("return");
+                JSONObject resInfoObj = new JSONObject(resInfo);
+                pauseState = resInfoObj.getString("status");
+            } catch (JSONException e) {
+                if (Config.debug)
+                    Log.e(TAG, "Error while checking saving vm: " + e.getMessage());
+            }
+            if (pauseState.toUpperCase().equals("FAILED")) {
+                Log.e(TAG, "Error: " + res);
+            }
+        }
+        if (pauseState.toUpperCase().equals("ACTIVE")) {
+            return MachineController.MachineStatus.Saving;
+        } else if (pauseState.toUpperCase().equals("COMPLETED")) {
+            return MachineController.MachineStatus.SaveCompleted;
+        } else if (pauseState.toUpperCase().equals("FAILED")) {
+            return MachineController.MachineStatus.SaveFailed;
+        }
+        //TODO: proper error handling with user messages
+        return MachineController.MachineStatus.Unknown;
+    }
+
+    private String processMigrationResponse(String response) {
+        String errorStr = null;
+        try {
+            JSONObject object = new JSONObject(response);
+            errorStr = object.getString("error");
+        } catch (Exception ex) {
+            if (Config.debug)
+                ex.printStackTrace();
+        }
+        if (errorStr != null) {
+            String descStr = null;
+
+            try {
+                JSONObject descObj = new JSONObject(errorStr);
+                descStr = descObj.getString("desc");
+            } catch (Exception ex) {
+                if (Config.debug)
+                    ex.printStackTrace();
+            }
+            return descStr;
+        }
+        return null;
+    }
+
+    public void sendMouseEvent(int button, int action, int relative, float x, float y) {
+        //XXX: Make sure that mouse motion is not triggering crashes in SDL while resizing
+        if (LimboSDLActivity.isResizing) {
+            return;
+        }
+
+        nativeMouseEvent(button, action, relative, (int) x, (int) y);
+    }
+
+    public boolean getQMPAllowExternal() {
+        return LimboSettingsManager.getEnableExternalQMP(LimboApplication.getInstance());
+    }
 }
 
