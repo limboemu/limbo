@@ -6,17 +6,17 @@
 #NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
 #USE_GCC?=true
 # Or use r23 with clang 
-NDK_ROOT ?= /home/dev/tools/ndk/android-ndk-r23
+NDK_ROOT ?= /home/dev/tools/ndk/android-ndk-r23b
 USE_GCC?=false
 
 ### the ndk api should be the same as the minSdkVersion in your AndroidManifest.xml 
-NDK_PLATFORM_API=26
+NDK_PLATFORM_API=21
 
 # Set to true if you use platform-21 or above
 USE_NDK_PLATFORM21 ?= true
 
 # Set to true if you use platform-26 or above
-USE_NDK_PLATFORM26 ?= true
+USE_NDK_PLATFORM26 ?= false
 
 # Optimization, generally it is better set to false when debugging
 USE_OPTIMIZATION ?= true
@@ -49,7 +49,7 @@ BUILD_GUEST?=x86_64-softmmu
 
 # QEMU Version
 # values: 2.9.1, 5.1.0
-USE_QEMU_VERSION ?= 2.9.1
+USE_QEMU_VERSION ?= 5.1.0
 
 # If you want to use SDL interface
 USE_SDL ?= true

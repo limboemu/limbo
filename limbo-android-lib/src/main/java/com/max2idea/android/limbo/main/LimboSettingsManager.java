@@ -173,16 +173,14 @@ public class LimboSettingsManager extends PreferenceActivity {
     }
 
     public static boolean isFirstLaunch(Context context) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo();
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getBoolean("firstTime" + pInfo.versionName, true);
+        return prefs.getBoolean("firstTime" + LimboApplication.getLimboVersionString(), true);
     }
 
     public static void setFirstLaunch(Context context) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo();
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
-        edit.putBoolean("firstTime" + pInfo.versionName, false);
+        edit.putBoolean("firstTime" + LimboApplication.getLimboVersionString(), false);
         edit.apply();
     }
 
@@ -260,6 +258,11 @@ public class LimboSettingsManager extends PreferenceActivity {
     public static boolean getEnableAaudio(Context activity) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
         return prefs.getBoolean("enableAaudio", false);
+    }
+
+    public static String getDiskCache(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString("diskCachePref", context.getString(R.string.Default));
     }
 
     @Override
@@ -383,6 +386,11 @@ public class LimboSettingsManager extends PreferenceActivity {
     public static boolean getPreventMouseOutOfBounds(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         return prefs.getBoolean("preventMouseOutOfBounds", false);
+    }
+
+    public static boolean getIgnoreBreakpointInvalidation(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getBoolean("ignoreBreakpointInvalidation", false);
     }
 
 }

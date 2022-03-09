@@ -24,9 +24,9 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -68,6 +68,7 @@ import com.max2idea.android.limbo.keyboard.KeyboardUtils;
 import com.max2idea.android.limbo.links.LinksManager;
 import com.max2idea.android.limbo.log.Logger;
 import com.max2idea.android.limbo.machine.ArchDefinitions;
+import com.max2idea.android.limbo.machine.BIOSImporter;
 import com.max2idea.android.limbo.machine.Machine;
 import com.max2idea.android.limbo.machine.Machine.FileType;
 import com.max2idea.android.limbo.machine.MachineAction;
@@ -109,6 +110,7 @@ public class LimboActivity extends AppCompatActivity
     private static final int DISCARD_VM_STATE = 11;
     private static final int SETTINGS = 13;
     private static final int TOOLS = 14;
+    private static final int IMPORT_BIOS_FILE = 15;
 
     // disk mapping
     private static final Hashtable<FileType, DiskInfo> diskMapping = new Hashtable<>();
@@ -132,9 +134,13 @@ public class LimboActivity extends AppCompatActivity
     private Spinner mKernel;
     private Spinner mInitrd;
     // HDD
+    private ImageView mHDAOptions;
     private Spinner mHDA;
+    private ImageView mHDBOptions;
     private Spinner mHDB;
+    private ImageView mHDCOptions;
     private Spinner mHDC;
+    private ImageView mHDDOptions;
     private Spinner mHDD;
     private Spinner mSharedFolder;
 
@@ -147,6 +153,7 @@ public class LimboActivity extends AppCompatActivity
     private CheckBox mFDAenable;
     private CheckBox mFDBenable;
     private CheckBox mSDenable;
+    private ImageView mCDOptions;
 
     // misc
     private Spinner mRamSize;
@@ -274,13 +281,14 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void enableRemovableDiskListeners() {
-        enableRemovableDiskListener(mCD, mCDenable, MachineProperty.CDROM, FileType.CDROM);
-        enableRemovableDiskListener(mFDA, mFDAenable, MachineProperty.FDA, FileType.FDA);
-        enableRemovableDiskListener(mFDB, mFDBenable, MachineProperty.FDB, FileType.FDB);
-        enableRemovableDiskListener(mSD, mSDenable, MachineProperty.SD, FileType.SD);
+        enableRemovableDiskListener(mCD, mCDenable, mCDOptions, MachineProperty.CDROM, FileType.CDROM);
+        enableRemovableDiskListener(mFDA, mFDAenable, null, MachineProperty.FDA, FileType.FDA);
+        enableRemovableDiskListener(mFDB, mFDBenable, null, MachineProperty.FDB, FileType.FDB);
+        enableRemovableDiskListener(mSD, mSDenable, null, MachineProperty.SD, FileType.SD);
     }
 
     private void enableRemovableDiskListener(final Spinner spinner, final CheckBox driveEnable,
+                                             final ImageView driveOptions,
                                              final MachineProperty driveName,
                                              final FileType fileType) {
         spinner.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -310,6 +318,15 @@ public class LimboActivity extends AppCompatActivity
 
                 }
         );
+        if(driveOptions!=null) {
+            driveOptions.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if(driveEnable.isChecked())
+                        promptDriveInterface(driveName);
+                }
+            });
+        }
     }
 
 
@@ -746,14 +763,14 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupNonRemovableDiskListeners() {
-        setupNonRemovableDiskListener(mHDA, MachineProperty.HDA, FileType.HDA);
-        setupNonRemovableDiskListener(mHDB, MachineProperty.HDB, FileType.HDB);
-        setupNonRemovableDiskListener(mHDC, MachineProperty.HDC, FileType.HDC);
-        setupNonRemovableDiskListener(mHDD, MachineProperty.HDD, FileType.HDD);
+        setupNonRemovableDiskListener(mHDA, mHDAOptions, MachineProperty.HDA, FileType.HDA);
+        setupNonRemovableDiskListener(mHDB, mHDBOptions, MachineProperty.HDB, FileType.HDB);
+        setupNonRemovableDiskListener(mHDC, mHDCOptions, MachineProperty.HDC, FileType.HDC);
+        setupNonRemovableDiskListener(mHDD, mHDDOptions, MachineProperty.HDD, FileType.HDD);
         setupSharedFolderDisk();
     }
 
-    private void setupNonRemovableDiskListener(final Spinner diskSpinner,
+    private void setupNonRemovableDiskListener(final Spinner diskSpinner, final ImageView diskImage,
                                                final MachineProperty machineDriveName,
                                                final FileType diskFileType) {
         diskSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -777,8 +794,63 @@ public class LimboActivity extends AppCompatActivity
             public void onNothingSelected(AdapterView<?> parentView) {
             }
         });
+
+        diskImage.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptDriveInterface(machineDriveName);
+            }
+        });
     }
 
+    private void promptDriveInterface(final MachineProperty machineDriveName) {
+        if(getMachine() == null)
+            return;
+
+        final String[] items = {
+                "ide",
+                "scsi",
+                "virtio"
+        };
+        final AlertDialog.Builder mBuilder = new AlertDialog.Builder(this);
+        mBuilder.setTitle(machineDriveName + " " + getString(R.string.Interface));
+        int driveInterface = getMachineInterface(machineDriveName, items);
+        mBuilder.setSingleChoiceItems(items, driveInterface, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int i) {
+                notifyFieldChange(MachineProperty.MEDIA_INTERFACE, new Object[] {machineDriveName, items[i]});
+                dialog.dismiss();
+            }
+        });
+        final AlertDialog alertDialog = mBuilder.create();
+        alertDialog.show();
+    }
+
+    private int getMachineInterface(MachineProperty machineDriveName, String[] items) {
+        String hdInterfaceStr = null;
+        switch(machineDriveName) {
+            case HDA:
+                hdInterfaceStr = getMachine().getHdaInterface();
+                break;
+            case HDB:
+                hdInterfaceStr = getMachine().getHdbInterface();
+                break;
+            case HDC:
+                hdInterfaceStr = getMachine().getHdcInterface();
+                break;
+            case HDD:
+                hdInterfaceStr = getMachine().getHddInterface();
+                break;
+            case CDROM:
+                hdInterfaceStr = getMachine().getCDInterface();
+                break;
+        }
+        for(int i=0; i<items.length; i++) {
+            if(items[i].equals(hdInterfaceStr))
+                return i;
+        }
+        return 0;
+    }
 
     public void setupSharedFolderDisk() {
         mSharedFolder.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -885,7 +957,7 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void setupAppEnvironment() {
-        LimboApplication.setupPackageInfo(this);
+        LimboApplication.setupEnv(this);
     }
 
     private void setupController() {
@@ -1101,7 +1173,8 @@ public class LimboActivity extends AppCompatActivity
 
         // SDL library
         if (Config.enable_SDL) {
-            System.loadLibrary("compat-SDL2-addons");
+            if (Build.VERSION.SDK_INT >= 26)
+                System.loadLibrary("compat-SDL2-addons");
             System.loadLibrary("SDL2");
         }
 
@@ -1257,14 +1330,15 @@ public class LimboActivity extends AppCompatActivity
         notifyAction(MachineAction.IMPORT_VMS, importFilePath);
     }
 
+
     private void promptLicense() {
-        final PackageInfo finalPInfo = LimboApplication.getPackageInfo();
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    LimboActivityCommon.promptLicense(LimboActivity.this, Config.APP_NAME + " v" + finalPInfo.versionName
-                            + " (" + Config.emuVersion.name().replace("_", ".") + ")",
+                    LimboActivityCommon.promptLicense(LimboActivity.this,
+                            Config.APP_NAME + " " + LimboApplication.getLimboVersionString()
+                            + " " + "QEMU" + " " + LimboApplication.getQemuVersionString() ,
                             FileUtils.LoadFile(LimboActivity.this, "LICENSE", false));
                 } catch (IOException e) {
 
@@ -1290,7 +1364,6 @@ public class LimboActivity extends AppCompatActivity
     }
 
     private void enableRemovableDeviceOptions(boolean flag) {
-
         unlockRemovableDevices(flag);
         enableRemovableDiskValues(flag);
     }
@@ -1321,9 +1394,13 @@ public class LimboActivity extends AppCompatActivity
 
         //drives
         mHDA.setEnabled(flag);
+        mHDAOptions.setEnabled(flag);
         mHDB.setEnabled(flag);
+        mHDBOptions.setEnabled(flag);
         mHDC.setEnabled(flag);
+        mHDCOptions.setEnabled(flag);
         mHDD.setEnabled(flag);
+        mHDDOptions.setEnabled(flag);
         mSharedFolder.setEnabled(flag);
 
         //boot
@@ -1365,6 +1442,9 @@ public class LimboActivity extends AppCompatActivity
             ToastUtils.toastShort(LimboActivity.this, getString(R.string.SelectOrCreateVirtualMachineFirst));
             return;
         }
+        // focus out of edit texts to make sure they are applied to the db
+        mStart.requestFocus();
+
         if (!validateFiles()) {
             return;
         }
@@ -1516,10 +1596,14 @@ public class LimboActivity extends AppCompatActivity
         mDisableTSC = findViewById(R.id.tscval);
 
         //disks
-        mHDA = findViewById(R.id.hdimgval);
+        mHDA = findViewById(R.id.hdaimgval);
+        mHDAOptions = findViewById(R.id.hdaoptions);
         mHDB = findViewById(R.id.hdbimgval);
+        mHDBOptions = findViewById(R.id.hdboptions);
         mHDC = findViewById(R.id.hdcimgval);
+        mHDCOptions = findViewById(R.id.hdcoptions);
         mHDD = findViewById(R.id.hddimgval);
+        mHDDOptions = findViewById(R.id.hddoptions);
 
         LinearLayout sharedFolderLayout = findViewById(R.id.sharedfolderl);
         if (!Config.enableSharedFolder)
@@ -1530,6 +1614,7 @@ public class LimboActivity extends AppCompatActivity
         mCD = findViewById(R.id.cdromimgval);
         mFDA = findViewById(R.id.floppyimgval);
         mFDB = findViewById(R.id.floppybimgval);
+        mCDOptions = findViewById(R.id.cdromoptions);
         if (!Config.enableEmulatedFloppy) {
             LinearLayout mFDALayout = findViewById(R.id.floppyimgl);
             mFDALayout.setVisibility(View.GONE);
@@ -2278,8 +2363,16 @@ public class LimboActivity extends AppCompatActivity
             if (file != null) {
                 FileUtils.saveLogToFile(LimboActivity.this, file);
             }
+        } else if (requestCode == Config.OPEN_IMPORT_BIOS_FILE_REQUEST_CODE || requestCode == Config.OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE) {
+            String file;
+            if (requestCode == Config.OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE) {
+                file = FileUtils.getFileUriFromIntent(this, data, false);
+            } else {
+                file = FileUtils.getFilePathFromIntent(this, data);
+            }
+            if (file != null)
+                BIOSImporter.importBIOSFile(this, file);
         }
-
     }
 
     private void updateDrive(FileType fileType, String diskValue) {
@@ -2541,6 +2634,7 @@ public class LimboActivity extends AppCompatActivity
             menu.add(0, EXPORT, 0, R.string.ExportMachines).setIcon(R.drawable.exportvms);
             menu.add(0, IMPORT, 0, R.string.ImportMachines).setIcon(R.drawable.importvms);
         }
+        menu.add(0, IMPORT_BIOS_FILE, 0, R.string.ImportBIOSFile).setIcon(R.drawable.importvms);
         menu.add(0, SETTINGS, 0, R.string.Settings).setIcon(R.drawable.settings);
         menu.add(0, TOOLS, 0, R.string.advancedTools).setIcon(R.drawable.advanced);
         menu.add(0, VIEWLOG, 0, R.string.ViewLog).setIcon(android.R.drawable.ic_menu_view);
@@ -2575,6 +2669,8 @@ public class LimboActivity extends AppCompatActivity
             MachineExporter.promptExport(this);
         } else if (item.getItemId() == IMPORT) {
             MachineImporter.promptImportMachines(this);
+        } else if (item.getItemId() == IMPORT_BIOS_FILE) {
+            BIOSImporter.promptImportBIOSFile(this);
         } else if (item.getItemId() == HELP) {
             Help.showHelp(this);
         } else if (item.getItemId() == VIEWLOG) {
@@ -2642,6 +2738,8 @@ public class LimboActivity extends AppCompatActivity
             @Override
             public void run() {
                 updateValues();
+                if(libLoaded)
+                    notifyAction(MachineAction.IGNORE_BREAKPOINT_INVALIDATION, LimboSettingsManager.getIgnoreBreakpointInvalidation(LimboActivity.this));
             }
         }, 1000);
 

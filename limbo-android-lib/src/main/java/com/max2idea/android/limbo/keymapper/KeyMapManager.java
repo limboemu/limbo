@@ -88,6 +88,7 @@ public class KeyMapManager {
     private SimpleAdapter keyMapperAdapter;
     private EditText mKeyMapperName;
     private HashMap<String, Object> selectedMap;
+    private int lastOrientation = -1;
 
     public KeyMapManager(Activity activity, View view, int rows, int cols) throws Exception {
         this.activity = activity;
@@ -125,10 +126,12 @@ public class KeyMapManager {
             mapperEditLayout.setVisibility(View.GONE);
             mapperButtons.setVisibility(View.GONE);
             clearKeyMapper();
+            ScreenUtils.updateOrientation(activity, lastOrientation);
             shown = false;
         } else {
             mapperEditLayout.setVisibility(View.VISIBLE);
             mapperButtons.setVisibility(View.VISIBLE);
+            lastOrientation = activity.getResources().getConfiguration().orientation;
             shown = true;
         }
         return shown;
@@ -481,7 +484,7 @@ public class KeyMapManager {
         KeyboardUtils.hideKeyboard(activity, view);
         mapperEditLayout.setVisibility(View.GONE);
         mapperButtons.setVisibility(View.VISIBLE);
-        ScreenUtils.updateOrientation(activity);
+        ScreenUtils.updateOrientation(activity, lastOrientation);
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {

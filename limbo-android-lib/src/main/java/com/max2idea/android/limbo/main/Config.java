@@ -27,11 +27,6 @@ import java.util.LinkedHashMap;
  */
 public class Config {
 
-    public enum EMU_VERSION {
-        QEMUv2_9_1, QEMUv5_1_0
-    }
-    public static final EMU_VERSION emuVersion = EMU_VERSION.QEMUv2_9_1;
-
     // Constants
     public static final int SDL_MOUSE_LEFT = 1;
     public static final int SDL_MOUSE_MIDDLE = 2;
@@ -59,6 +54,9 @@ public class Config {
 
     public static final int OPEN_LOG_FILE_DIR_REQUEST_CODE = 2011;
     public static final int OPEN_LOG_FILE_DIR_ASF_REQUEST_CODE = 2012;
+
+    public static final int OPEN_IMPORT_BIOS_FILE_REQUEST_CODE = 2013;
+    public static final int OPEN_IMPORT_BIOS_FILE_ASF_REQUEST_CODE = 2014;
 
     public static final int STATUS_NULL = -1;
     public static final int STATUS_CREATED = 1000;
@@ -102,6 +100,8 @@ public class Config {
 
     // stack size to remove an issue with SDL Audio
     public static long stackSize = 10 * 1024 * 1024;
+    // native alternative to audio track
+    public static String aaudioLibName = "libcompat-SDL2-addons.so";
 
     // if you don't want to enable software updates set to false
     public static boolean enableSoftwareUpdates = true;
@@ -172,15 +172,9 @@ public class Config {
 
     public static LinkedHashMap<String, LinksManager.LinkInfo> osImages = new LinkedHashMap<>();
     public static boolean processMouseHistoricalEvents = false;
-    //specify hd interface, alternative we don't need it right now
-    public static boolean enableIDEInterface = false;
-    public static String ideInterfaceType = "ide";
-    // specify virtio, you can always add it in the extra params
-    public static boolean enableVirtioInterface = false;
-    public static String virtioInterfaceType = "virtio";
 
     //Change to true in prod if you want to be notified by default for new versions
-    public static boolean defaultCheckNewVersion = true;
+    public static boolean defaultCheckNewVersion = false;
 
     //enable tracing
     // make sure you have access to the dir/files below

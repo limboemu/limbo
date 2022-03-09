@@ -1,7 +1,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <PreferenceCategory android:title="Updates">
         <CheckBoxPreference
-            android:defaultValue="true"
+            android:defaultValue="false"
             android:key="updateVersionPrompt"
             android:summary="@string/CheckSoftwareUpdatesSummary"
             android:title="@string/CheckSoftwareUpdates" />

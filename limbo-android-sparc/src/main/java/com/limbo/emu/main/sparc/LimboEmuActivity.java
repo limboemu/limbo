@@ -21,7 +21,6 @@ public class LimboEmuActivity extends LimboActivity {
         Config.enableKVM = false;
         //XXX: sparc emulators are not mttcg capable (yet)
         Config.enableMTTCG = false;
-        Config.ideInterfaceType = "scsi";
         Config.enableSDLSound = false;
         Config.enableEmulatedSDCard = false;
         Config.machineFolder = Config.machineFolder + "other/sparc_machines/";

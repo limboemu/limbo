@@ -40,7 +40,7 @@ import java.util.Observer;
 public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatabase, Observer {
     private static final String TAG = "MachineOpenHelper";
 
-    private static final int DATABASE_VERSION = 15;
+    private static final int DATABASE_VERSION = 16;
     private static final String DATABASE_NAME = "LIMBO";
     private static final String MACHINE_TABLE_NAME = "machines";
 
@@ -54,7 +54,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
             + " INTEGER, " + MachineProperty.MACHINETYPE.name() + " TEXT, " + MachineProperty.DISABLE_FD_BOOT_CHK.name() + " INTEGER, " + MachineProperty.SD.name() + " TEXT, " + MachineProperty.PAUSED.name()
             + " INTEGER, " + MachineProperty.SHARED_FOLDER.name() + " TEXT, " + MachineProperty.SHARED_FOLDER_MODE.name() + " INTEGER, " + MachineProperty.EXTRA_PARAMS.name() + " TEXT, "
             + MachineProperty.HOSTFWD.name() + " TEXT, " + MachineProperty.GUESTFWD.name() + " TEXT, " + MachineProperty.UI.name() + " TEXT, " + MachineProperty.DISABLE_TSC.name() + " INTEGER, "
-            + MachineProperty.MOUSE.name() + " TEXT, " + MachineProperty.KEYBOARD.name() + " TEXT, " + MachineProperty.ENABLE_MTTCG.name() + " INTEGER, " + MachineProperty.ENABLE_KVM.name() + " INTEGER "
+            + MachineProperty.MOUSE.name() + " TEXT, " + MachineProperty.KEYBOARD.name() + " TEXT, " + MachineProperty.ENABLE_MTTCG.name() + " INTEGER, " + MachineProperty.ENABLE_KVM.name() + " INTEGER , "
+            + MachineProperty.HDA_INTERFACE.name() + " TEXT, " + MachineProperty.HDB_INTERFACE.name() + " TEXT, " + MachineProperty.HDC_INTERFACE.name() + " TEXT, " + MachineProperty.HDD_INTERFACE.name() + " TEXT , "
+            + MachineProperty.CDROM_INTERFACE.name() + " TEXT "
             + ");";
 
     private static MachineOpenHelper sInstance;
@@ -149,6 +151,14 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
             db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.ENABLE_MTTCG + " INTEGER;");
             db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.ENABLE_KVM + " INTEGER;");
         }
+
+        if (newVersion >= 16 && oldVersion <= 15) {
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.HDA_INTERFACE + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.HDB_INTERFACE + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.HDC_INTERFACE + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.HDD_INTERFACE + " TEXT;");
+            db.execSQL("ALTER TABLE " + MACHINE_TABLE_NAME + " ADD COLUMN " + MachineProperty.CDROM_INTERFACE + " TEXT;");
+        }
     }
 
     public synchronized int insertMachine(Machine machine) {
@@ -162,10 +172,15 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
         stateValues.put(MachineProperty.CPUNUM.name(), machine.getCpuNum());
         stateValues.put(MachineProperty.MEMORY.name(), machine.getMemory());
         stateValues.put(MachineProperty.HDA.name(), machine.getHdaImagePath());
+        stateValues.put(MachineProperty.HDA_INTERFACE.name(), machine.getHdaInterface());
         stateValues.put(MachineProperty.HDB.name(), machine.getHdbImagePath());
+        stateValues.put(MachineProperty.HDB_INTERFACE.name(), machine.getHdbInterface());
         stateValues.put(MachineProperty.HDC.name(), machine.getHdcImagePath());
+        stateValues.put(MachineProperty.HDC_INTERFACE.name(), machine.getHdcInterface());
         stateValues.put(MachineProperty.HDD.name(), machine.getHddImagePath());
+        stateValues.put(MachineProperty.HDD_INTERFACE.name(), machine.getHddInterface());
         stateValues.put(MachineProperty.CDROM.name(), machine.getCdImagePath());
+        stateValues.put(MachineProperty.CDROM_INTERFACE.name(), machine.getCDInterface());
         stateValues.put(MachineProperty.FDA.name(), machine.getFdaImagePath());
         stateValues.put(MachineProperty.FDB.name(), machine.getFdbImagePath());
         stateValues.put(MachineProperty.SHARED_FOLDER.name(), machine.getSharedFolderPath());
@@ -250,7 +265,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
                 + MachineProperty.DISABLE_FD_BOOT_CHK + " , " + MachineProperty.ARCH + " , " + MachineProperty.PAUSED + " , " + MachineProperty.SD + " , "
                 + MachineProperty.SHARED_FOLDER + " , " + MachineProperty.SHARED_FOLDER_MODE + " , " + MachineProperty.EXTRA_PARAMS + " , "
                 + MachineProperty.HOSTFWD + " , " + MachineProperty.GUESTFWD + " , " + MachineProperty.UI + ", " + MachineProperty.DISABLE_TSC + ", "
-                + MachineProperty.MOUSE + ", " + MachineProperty.KEYBOARD + ", " + MachineProperty.ENABLE_MTTCG + ", " + MachineProperty.ENABLE_KVM
+                + MachineProperty.MOUSE + ", " + MachineProperty.KEYBOARD + ", " + MachineProperty.ENABLE_MTTCG + ", " + MachineProperty.ENABLE_KVM + ", "
+                + MachineProperty.HDA_INTERFACE + ", " + MachineProperty.HDB_INTERFACE + ", " + MachineProperty.HDC_INTERFACE + ", " + MachineProperty.HDD_INTERFACE + ", "
+                + MachineProperty.CDROM_INTERFACE + " "
                 + " from " + MACHINE_TABLE_NAME
                 + " where " + MachineProperty.STATUS + " in ( " + Config.STATUS_CREATED + " , " + Config.STATUS_PAUSED + " "
                 + " ) " + " and " + MachineProperty.MACHINE_NAME + "=\"" + machine + "\"" + ";";
@@ -313,6 +330,11 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
             myMachine.setKeyboard(cur.getString(37));
             myMachine.setEnableMTTCG(cur.getInt(38));
             myMachine.setEnableKVM(cur.getInt(39));
+            myMachine.setHdaInterface(cur.getString(40));
+            myMachine.setHdbInterface(cur.getString(41));
+            myMachine.setHdcInterface(cur.getString(42));
+            myMachine.setHddInterface(cur.getString(43));
+            myMachine.setCdInterface(cur.getString(44));
         }
         cur.close();
 
@@ -360,7 +382,9 @@ public class MachineOpenHelper extends SQLiteOpenHelper implements IMachineDatab
                 + MachineProperty.DISABLE_FD_BOOT_CHK + " , " + MachineProperty.ARCH + " , " + MachineProperty.PAUSED + " , " + MachineProperty.SD + " , "
                 + MachineProperty.SHARED_FOLDER + " , " + MachineProperty.SHARED_FOLDER_MODE + " , " + MachineProperty.EXTRA_PARAMS + " , "
                 + MachineProperty.HOSTFWD + " , " + MachineProperty.GUESTFWD + " , " + MachineProperty.UI + ", " + MachineProperty.DISABLE_TSC + ", "
-                + MachineProperty.MOUSE + ", " + MachineProperty.KEYBOARD + ", " + MachineProperty.ENABLE_MTTCG + ", " + MachineProperty.ENABLE_KVM
+                + MachineProperty.MOUSE + ", " + MachineProperty.KEYBOARD + ", " + MachineProperty.ENABLE_MTTCG + ", " + MachineProperty.ENABLE_KVM +", "
+                + MachineProperty.HDA_INTERFACE + ", " + MachineProperty.HDB_INTERFACE + ", " + MachineProperty.HDC_INTERFACE + ", " + MachineProperty.HDD_INTERFACE + " "
+                + MachineProperty.CDROM_INTERFACE +" "
                 // Table
                 + " from " + MACHINE_TABLE_NAME + " order by 1; ";
 

@@ -17,8 +17,6 @@ Copyright (C) Max Kastanas 2012
  *
  */
 
-// Requires minSdkVersion 26+
-#if defined(__ENABLE_AAUDIO__)
 #include <jni.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -35,8 +33,6 @@ int enableAaudioResample = 0;
 float aaudioResampleRate = 22050.0;
 // we drop the frames you can use 0 to do a median filter instead
 int aaudioDropFrames = 1;
-
-int enableAaudio = 0;
 
 // FIXME: buggy
 int enableAaudioHighPriority = 0;
@@ -67,10 +63,6 @@ int aaudioResampleStep = 0;
 int aaudioResampleFrames = 0;
 
 sem_t mutex;
-
-int isAaudioEnabled() {
-    return enableAaudio;
-}
 
 // FIXME: this is buggy, though since the aaudio write function is
 // fast enough we don't bother for now
@@ -309,12 +301,3 @@ void writeAaudioQueue() {
 void* getAaudioBuffer() {
     return aaudioMidBuffer;
 }
-
-JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeEnableAaudio(
-        JNIEnv* env, jobject thiz, 
-        int value) {
-            printf("set enable aaudio: %d\n", value);
-    enableAaudio = value;
-}
-
-#endif

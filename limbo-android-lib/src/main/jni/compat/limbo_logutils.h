@@ -19,10 +19,6 @@
 #ifndef _LIMBO_LOGUTILS_H
 #define	_LIMBO_LOGUTILS_H
 
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <android/log.h>
@@ -121,10 +117,6 @@ static inline int limbo_vfprintf(FILE *stream, const char *format, va_list ap){
 #endif
 
 #endif //end DEBUG_OUTPUT
-
-#ifdef	__cplusplus
-	}
-#endif
 
 #endif	/* _LIMBO_LOGUTILS_H */
 

@@ -29,9 +29,11 @@ import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
@@ -320,7 +322,7 @@ public class LimboSDLActivity extends SDLActivity
 
     protected void setTrackpadMode() {
         try {
-            ScreenUtils.updateOrientation(this);
+            ScreenUtils.updateOrientation(this, -1);
             mouseMode = MouseMode.Trackpad;
             invalidateOptionsMenu();
             ((LimboSDLSurface) mSurface).refreshSurfaceView();
@@ -485,7 +487,7 @@ public class LimboSDLActivity extends SDLActivity
         setupListeners();
         setupToolBar();
         showHints();
-        ScreenUtils.updateOrientation(this);
+        ScreenUtils.updateOrientation(this, -1);
         checkPendingActions();
         setupUserInterface();
         setupAudio();
@@ -500,6 +502,11 @@ public class LimboSDLActivity extends SDLActivity
         if (LimboSettingsManager.getFullscreen(this)) {
             getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                     WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+        PowerManager pm = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            if(pm.isSustainedPerformanceModeSupported())
+                getWindow().setSustainedPerformanceMode(true);
         }
     }
 
@@ -559,9 +566,6 @@ public class LimboSDLActivity extends SDLActivity
             //XXX: force portrait when key mapper is on edit mode
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             toggleKeyboardFlag = KeyboardUtils.showKeyboard(LimboSDLActivity.this, false, mSurface);
-        } else {
-            // restore
-            ScreenUtils.updateOrientation(this);
         }
     }
 

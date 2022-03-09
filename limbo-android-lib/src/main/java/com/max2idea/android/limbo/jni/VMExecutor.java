@@ -95,6 +95,8 @@ class VMExecutor extends MachineExecutor {
 
     public native int getSDLRefreshRateIdle();
 
+    public native void nativeIgnoreBreakpointInvalidate(int value);
+
     public native void nativeMouseEvent(int button, int action, int relative, int x, int y);
 
     public native void nativeMouseBounds(int xmin, int xmax, int ymin, int ymax);
@@ -103,7 +105,7 @@ class VMExecutor extends MachineExecutor {
 
     public native void nativeRefreshScreen(int value);
 
-    public native void nativeEnableAaudio(int value);
+    public native void nativeEnableAaudio(int value, String aaudioLibName, String aaudioLibPath);
 
     /**
      * Prints parameters in qemu format
@@ -167,6 +169,7 @@ private String getQemuLibrary() {
         addGenericOptions(context, paramsList);
         addStateOptions(paramsList);
         addAdvancedOptions(paramsList);
+        addAccelerationOptions(paramsList);
         return paramsList.toArray(new String[0]);
     }
 
@@ -284,7 +287,7 @@ private String getQemuLibrary() {
             paramsList.add(Config.tbSize); //Don't increase it crashes
         }
 
-        if (Config.emuVersion.ordinal() <= Config.EMU_VERSION.QEMUv2_9_1.ordinal()) {
+        if (LimboApplication.getQemuVersion() == 20901) {
             paramsList.add("-realtime");
             paramsList.add("mlock=off");
         } else {
@@ -346,7 +349,14 @@ private String getQemuLibrary() {
 
         paramsList.add("-m");
         paramsList.add(getMachine().getMemory() + "");
+    }
 
+
+    private void addAccelerationOptions(ArrayList<String> paramsList) {
+
+        // XXX: we add the acceleration options after the extra params
+        // this is due to QEMU applying the first instance of this option
+        // so the extra params cannot override it.
         if (getMachine().getEnableKVM() != 0) {
             paramsList.add("-enable-kvm");
         } else {
@@ -524,14 +534,18 @@ private String getQemuLibrary() {
     }
 
     public void addDrives(ArrayList<String> paramsList) {
-        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdaImagePath()), 0);
-        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdbImagePath()), 1);
-        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdcImagePath()), 2);
-        addHardDisk(paramsList, getDriveFilePath(getMachine().getHddImagePath()), 3);
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdaImagePath()),
+                0, getMachine().getHdaInterface());
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdbImagePath()),
+                1, getMachine().getHdbInterface());
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHdcImagePath()),
+                2, getMachine().getHdcInterface());
+        addHardDisk(paramsList, getDriveFilePath(getMachine().getHddImagePath()),
+                3, getMachine().getHddInterface());
         addSharedFolder(paramsList, getDriveFilePath(getMachine().getSharedFolderPath()));
     }
 
-    public void addHardDisk(ArrayList<String> paramsList, String imagePath, int index) {
+    public void addHardDisk(ArrayList<String> paramsList, String imagePath, int index, String hdInterface) {
         if (imagePath != null && !imagePath.trim().equals("")) {
             if (Config.legacyDrives) {
                 switch (index) {
@@ -552,24 +566,19 @@ private String getQemuLibrary() {
             } else {
                 paramsList.add("-drive");
                 String param = "index=" + index;
-                if (Config.enableIDEInterface) {
-                    param += ",if=";
-                    param += Config.ideInterfaceType;
-                } else if (Config.enableVirtioInterface && index > 0) {
-                    param += ",if=";
-                    param += Config.virtioInterfaceType;
-                }
+                param += ",if=";
+                param += hdInterface;
                 param += ",media=disk";
                 if (!imagePath.equals("")) {
                     param += ",file=" + imagePath;
                 }
+                String cache = LimboSettingsManager.getDiskCache(LimboApplication.getInstance());
+                if(cache != null && !cache.equals("default"))
+                    param += ",cache=" + cache;
                 paramsList.add(param);
             }
-
-
         }
     }
-
 
     public void addSharedFolder(ArrayList<String> paramsList, String sharedFolderPath) {
         if (Config.enableSharedFolder && sharedFolderPath != null) {
@@ -577,10 +586,7 @@ private String getQemuLibrary() {
             paramsList.add("-drive"); //empty
             String driveParams = "index=3";
             driveParams += ",media=disk";
-            if (Config.enableIDEInterface) {
-                driveParams += ",if=";
-                driveParams += Config.ideInterfaceType;
-            }
+            driveParams += ",if=ide";
             driveParams += ",format=raw";
             driveParams += ",file=fat:";
             driveParams += "rw:"; //Always Read/Write
@@ -599,10 +605,8 @@ private String getQemuLibrary() {
             } else {
                 paramsList.add("-drive"); //empty
                 String param = "index=2";
-                if (Config.enableIDEInterface) {
-                    param += ",if=";
-                    param += Config.ideInterfaceType;
-                }
+                param += ",if=";
+                param += getMachine().getCDInterface();
                 param += ",media=cdrom";
                 if (!cdImagePath.equals("")) {
                     param += ",file=" + cdImagePath;
@@ -733,6 +737,8 @@ private String getQemuLibrary() {
             if (MachineController.getInstance().isVNCEnabled() && LimboSettingsManager.getVNCEnablePassword(LimboApplication.getInstance())) {
                 changeVncPass(LimboApplication.getInstance(), 2000);
             }
+
+            ignoreBreakpointInvalidation(LimboSettingsManager.getIgnoreBreakpointInvalidation(LimboApplication.getInstance())?1:0, 2000);
             QmpClient.setExternal(LimboSettingsManager.getEnableExternalQMP(LimboApplication.getInstance()));
             String libFilename = getQemuLibrary();
             res = start(Config.storagedir, LimboApplication.getBasefileDir(),
@@ -861,7 +867,28 @@ private String getQemuLibrary() {
 
     @Override
     public void enableAaudio(int value) {
-        nativeEnableAaudio(value);
+        nativeEnableAaudio(value, Config.aaudioLibName,
+                FileUtils.getNativeLibDir(LimboApplication.getInstance())
+                        + "/" + Config.aaudioLibName);
+    }
+
+    @Override
+    public void ignoreBreakpointInvalidation(int value){
+        ignoreBreakpointInvalidation(value, 0);
+    }
+
+    private void ignoreBreakpointInvalidation(final int value, final long delay) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                nativeIgnoreBreakpointInvalidate(value);
+            }
+        }).start();
     }
 
     //TODO: re-enable getting status from the vm

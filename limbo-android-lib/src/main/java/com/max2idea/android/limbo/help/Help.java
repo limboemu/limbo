@@ -40,11 +40,10 @@ public class Help {
     private static final String TAG = "Help";
 
     public static void showHelp(final Activity activity) {
-        PackageInfo pInfo = LimboApplication.getPackageInfo();
-
         final AlertDialog alertDialog;
         alertDialog = new AlertDialog.Builder(activity).create();
-        alertDialog.setTitle(Config.APP_NAME + " v" + pInfo.versionName + " (" + Config.emuVersion.name().replace("_", ".") + ")");
+        alertDialog.setTitle(Config.APP_NAME + " " + LimboApplication.getLimboVersionString()
+                + " " + "QEMU" + " " + LimboApplication.getQemuVersionString() );
 
         LinearLayout mLayout = new LinearLayout(activity);
         mLayout.setOrientation(LinearLayout.VERTICAL);
@@ -66,7 +65,7 @@ public class Help {
                 LimboSettingsManager.setPromptUpdateVersion(activity, b);
             }
         });
-        checkUpdates.setChecked(true);
+        checkUpdates.setChecked(LimboSettingsManager.getPromptUpdateVersion(activity));
         mLayout.addView(checkUpdates);
         alertDialog.setView(mLayout);
         alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, activity.getString(R.string.GoToWiki),

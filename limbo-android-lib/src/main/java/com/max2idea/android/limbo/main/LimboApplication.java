@@ -27,11 +27,14 @@ import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
+import com.max2idea.android.limbo.files.FileUtils;
 import com.max2idea.android.limbo.machine.Dispatcher;
 import com.max2idea.android.limbo.machine.FavOpenHelper;
 import com.max2idea.android.limbo.machine.MachineOpenHelper;
+import com.max2idea.android.limbo.toast.ToastUtils;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * We use the application context for the initiliazation of some of the Storage and
@@ -42,22 +45,34 @@ public class LimboApplication extends Application {
     //Do not update these directly, see inherited project java files
     public static Config.Arch arch;
     private static Context sInstance;
-    private static PackageInfo packageInfo;
+    private static String qemuVersionString;
+    private static int qemuVersion;
+    private static String limboVersionString;
+    private static int limboVersion;
 
     public static Context getInstance() {
         return sInstance;
     }
 
-    public static PackageInfo getPackageInfo() {
-        return packageInfo;
-    }
-
-    public static void setupPackageInfo(Context context) {
+    public static void setupEnv(Context context) {
         try {
-            packageInfo = context.getPackageManager().getPackageInfo(context.getClass().getPackage().getName(),
+            PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getClass().getPackage().getName(),
                     PackageManager.GET_META_DATA);
-        } catch (PackageManager.NameNotFoundException e) {
+            limboVersion = packageInfo.versionCode;
+            limboVersionString = packageInfo.versionName;
+            Log.d(TAG, "Limbo Version: " + limboVersion);
+            Log.d(TAG, "Limbo Version Code: " + limboVersionString);
+
+            qemuVersionString = FileUtils.LoadFile(context, "QEMU_VERSION", false);
+            String [] qemuVersionParts = qemuVersionString.trim().split("\\.");
+            qemuVersion = Integer.parseInt(qemuVersionParts[0]) * 10000
+                    + Integer.parseInt(qemuVersionParts[1]) * 100
+                    + Integer.parseInt(qemuVersionParts[2]);
+            Log.d(TAG, "Qemu Version: " + qemuVersionString);
+            Log.d(TAG, "Qemu Version Number: " + qemuVersion);
+        } catch (Exception e) {
             e.printStackTrace();
+            ToastUtils.toastShort(context, "Could not load version information: " + e);
         }
     }
 
@@ -133,6 +148,22 @@ public class LimboApplication extends Application {
 
     public static String getLocalQMPSocketPath() {
         return getInstance().getCacheDir() + "/qmpsocket";
+    }
+
+    public static String getQemuVersionString() {
+        return qemuVersionString;
+    }
+
+    public static int getQemuVersion() {
+        return qemuVersion;
+    }
+
+    public static String getLimboVersionString() {
+        return limboVersionString;
+    }
+
+    public static int getLimboVersion() {
+        return limboVersion;
     }
 
     @Override

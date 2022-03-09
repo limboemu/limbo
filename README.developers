@@ -14,13 +14,13 @@ https://github.com/limboemu/limbo
 2. Requirements:
 
     Android SDK
-    Android NDK: r14b/gcc or r23/clang
+    Android NDK: r14b/gcc or r23b/clang
     Android Studio (3.1.1 preferred)
     Android device with Android OS 8.0 (Oreo) and above
     Linux Desktop pc (Ubuntu preferred)
     Make sure you have the following packages installed, if not run:
     sudo apt-get install make autoconf automake git python binutils 
-    sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo
+    sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo rsync
     For development you can use your own editors Geany is highly
 	recommended for editing the native code
 
@@ -56,6 +56,10 @@ https://github.com/limboemu/limbo
     wget http://download.qemu-project.org/qemu-5.1.0.tar.xz -P /tmp/
     tar -xJf /tmp/qemu-5.1.0.tar.xz
     mv qemu-5.1.0 qemu
+    # For QEMU version 2.9.1:
+    wget http://download.qemu-project.org/qemu-2.9.1.tar.xz -P /tmp/
+    tar -xJf /tmp/qemu-2.9.1.tar.xz
+    mv qemu-2.9.1 qemu
 
     ##### GET glib
     wget https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz -P /tmp/
@@ -97,6 +101,8 @@ https://github.com/limboemu/limbo
     # example for 5.1.0:
     cd ./limbo-android-lib/src/main/jni/qemu/
     patch -p1 < ../patches/qemu-5.1.0.patch
+    # for 2.9.1:
+    patch -p1 < ../patches/qemu-2.9.1.patch
 
     ### Apply glib patch for Limbo:
     cd ./limbo-android-lib/src/main/jni/glib/
@@ -197,6 +203,16 @@ https://github.com/limboemu/limbo
             export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
             make limbo
 
+		8) To build limbo for older devices with gcc set the following options:
+			export NDK_ROOT=/home/dev/tools/ndk/android-ndk-r14b
+			export USE_GCC=true
+			export BUILD_HOST=armeabi-v7a
+			export BUILD_GUEST=x86_64-softmmu
+			export USE_QEMU_VERSION=2.9.1
+			export USE_AAUDIO=false
+
+		For more options see android-limbo-config.mak
+		
        You should now have the following libraries in these 2 folders:
 
        limbo-android-lib/src/main/jniLibs/<EABI>/
@@ -297,6 +313,7 @@ https://github.com/limboemu/limbo
     [core]
         eol = true
         autocrlf = input
+        fileMode = false
         
 ===============================================================================
 10. Run
