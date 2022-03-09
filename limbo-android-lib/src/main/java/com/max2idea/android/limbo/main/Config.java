@@ -174,7 +174,7 @@ public class Config {
     public static boolean processMouseHistoricalEvents = false;
 
     //Change to true in prod if you want to be notified by default for new versions
-    public static boolean defaultCheckNewVersion = true;
+    public static boolean defaultCheckNewVersion = false;
 
     //enable tracing
     // make sure you have access to the dir/files below
