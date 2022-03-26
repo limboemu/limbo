@@ -132,6 +132,7 @@ public class LimboActivity extends AppCompatActivity
     private Spinner mMachineType;
     private Spinner mCPUNum;
     private Spinner mKernel;
+    private Spinner mDTB;
     private Spinner mInitrd;
     // HDD
     private ImageView mHDAOptions;
@@ -433,6 +434,26 @@ public class LimboActivity extends AppCompatActivity
                     mInitrd.setSelection(0);
                 } else if (position > 1) {
                     notifyFieldChange(MachineProperty.INITRD, initrd);
+                }
+            }
+
+            public void onNothingSelected(AdapterView<?> parentView) {
+            }
+        });
+
+        mDTB.setOnItemSelectedListener(new OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                if (getMachine() == null)
+                    return;
+                String initrd = (String) ((ArrayAdapter<?>) mDTB.getAdapter()).getItem(position);
+                if (position == 0) {
+                    notifyFieldChange(MachineProperty.DTB, initrd);
+                } else if (position == 1) {
+                    browseFileType = FileType.DTB;
+                    LimboFileManager.browse(LimboActivity.this, browseFileType, Config.OPEN_IMAGE_FILE_REQUEST_CODE);
+                    mDTB.setSelection(0);
+                } else if (position > 1) {
+                    notifyFieldChange(MachineProperty.DTB, initrd);
                 }
             }
 
@@ -921,6 +942,7 @@ public class LimboActivity extends AppCompatActivity
         mBootDevices.setOnItemSelectedListener(null);
         mKernel.setOnItemSelectedListener(null);
         mInitrd.setOnItemSelectedListener(null);
+        mDTB.setOnItemSelectedListener(null);
         mAppend.setOnFocusChangeListener(null);
         mVGAConfig.setOnItemSelectedListener(null);
         mSoundCard.setOnItemSelectedListener(null);
@@ -1017,6 +1039,7 @@ public class LimboActivity extends AppCompatActivity
 
         addDiskMapping(FileType.KERNEL, mKernel, null, MachineProperty.KERNEL);
         addDiskMapping(FileType.INITRD, mInitrd, null, MachineProperty.INITRD);
+        addDiskMapping(FileType.DTB, mDTB, null, MachineProperty.DTB);
     }
 
     private void addDiskMapping(FileType fileType, Spinner spinner,
@@ -1263,6 +1286,7 @@ public class LimboActivity extends AppCompatActivity
         //boot
         populateDiskAdapter(mKernel, FileType.KERNEL, false);
         populateDiskAdapter(mInitrd, FileType.INITRD, false);
+        populateDiskAdapter(mDTB, FileType.DTB, false);
 
     }
 
@@ -1407,6 +1431,7 @@ public class LimboActivity extends AppCompatActivity
         mBootDevices.setEnabled(flag);
         mKernel.setEnabled(flag);
         mInitrd.setEnabled(flag);
+        mDTB.setEnabled(flag);
         mAppend.setEnabled(flag);
 
         //graphics
@@ -1635,9 +1660,10 @@ public class LimboActivity extends AppCompatActivity
         mBootDevices = findViewById(R.id.bootfromval);
         mKernel = findViewById(R.id.kernelval);
         mInitrd = findViewById(R.id.initrdval);
+        mDTB = findViewById(R.id.DTBval);
         mAppend = findViewById(R.id.appendval);
 
-        //display
+        //displayDTB
         mVGAConfig = findViewById(R.id.vgacfgval);
 
         //sound
@@ -2851,6 +2877,7 @@ public class LimboActivity extends AppCompatActivity
         mSD.getAdapter().getCount();
         mKernel.getAdapter().getCount();
         mInitrd.getAdapter().getCount();
+        mDTB.getAdapter().getCount();
     }
 
     private void addGenericOperatingSystems() {

@@ -701,7 +701,7 @@ public class Machine extends Observable {
     public enum FileType {
         CDROM, FDA, FDB, SD,
         HDA, HDB, HDC, HDD, SHARED_DIR,
-        KERNEL, INITRD,
+        KERNEL, INITRD, DTB,
         EXPORT_DIR, IMAGE_DIR, LOG_DIR, IMPORT_FILE, IMPORT_BIOS_FILE
     }
 
