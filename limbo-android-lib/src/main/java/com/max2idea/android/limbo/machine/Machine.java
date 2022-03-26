@@ -71,6 +71,7 @@ public class Machine extends Observable {
     private String bootDevice = "Default";
     private String kernel;
     private String initRd;
+    private String dtb;
     private String append;
     // net
     private String network = null;
@@ -494,6 +495,19 @@ public class Machine extends Observable {
             this.initRd = initRd;
             setChanged();
             notifyChanged(MachineProperty.INITRD, initRd);
+        }
+
+    }
+
+    public String getDTB() {
+        return dtb;
+    }
+
+    void setDTB(String DTB) {
+        if (this.dtb == null || !this.dtb.equals(DTB)) {
+            this.dtb = DTB;
+            setChanged();
+            notifyChanged(MachineProperty.DTB, DTB);
         }
 
     }

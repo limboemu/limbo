@@ -496,6 +496,12 @@ private String getQemuLibrary() {
             paramsList.add(initrd);
         }
 
+        String dtb = getDTB();
+        if (dtb != null && !dtb.equals("")) {
+            paramsList.add("-dtb");
+            paramsList.add(dtb);
+        }
+
         if (getMachine().getAppend() != null && !getMachine().getAppend().equals("")) {
             paramsList.add("-append");
             paramsList.add(getMachine().getAppend());
@@ -519,6 +525,10 @@ private String getQemuLibrary() {
 
     private String getInitRd() {
         return FileUtils.encodeDocumentFilePath(getMachine().getInitRd());
+    }
+
+    private String getDTB() {
+        return FileUtils.encodeDocumentFilePath(getMachine().getDTB());
     }
 
     private String getKernel() {
