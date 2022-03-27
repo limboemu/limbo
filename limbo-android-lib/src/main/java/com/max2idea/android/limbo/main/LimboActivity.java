@@ -1949,6 +1949,7 @@ public class LimboActivity extends AppCompatActivity
             String text = "Boot from: " + getMachine().getBootDevice();
             text = appendDriveFilename(getMachine().getKernel(), text, "kernel", false);
             text = appendDriveFilename(getMachine().getInitRd(), text, "initrd", false);
+            text = appendDriveFilename(getMachine().getDTB(), text, "DTB", false);
             text = appendDriveFilename(getMachine().getAppend(), text, "append", false);
             mBootSectionSummary.setText(text);
         }
