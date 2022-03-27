@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.limbo.emu.main.arm"
     android:versionCode="60001"
-    android:versionName="6.0.1-arm">
+    android:versionName="6.0.1-arm-dev">
 
     <application
         tools:replace="android:label"

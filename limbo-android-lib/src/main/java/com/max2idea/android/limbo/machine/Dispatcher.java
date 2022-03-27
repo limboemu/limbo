@@ -137,8 +137,6 @@ public class Dispatcher implements ViewListener {
                 setDriveEnabled(value);
                 break;
             case NON_REMOVABLE_DRIVE:
-                setDrive(value);
-                break;
             case REMOVABLE_DRIVE:
                 setDrive(value);
                 break;
@@ -161,6 +159,9 @@ public class Dispatcher implements ViewListener {
                 break;
             case INITRD:
                 getMachine().setInitRd(convertString(property, value));
+                break;
+            case DTB:
+                getMachine().setDTB(convertString(property, value));
                 break;
             case APPEND:
                 getMachine().setAppend(convertString(property, value));

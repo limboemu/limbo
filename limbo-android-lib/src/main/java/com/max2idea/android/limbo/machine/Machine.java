@@ -71,6 +71,7 @@ public class Machine extends Observable {
     private String bootDevice = "Default";
     private String kernel;
     private String initRd;
+    private String dtb;
     private String append;
     // net
     private String network = null;
@@ -498,6 +499,19 @@ public class Machine extends Observable {
 
     }
 
+    public String getDTB() {
+        return dtb;
+    }
+
+    void setDTB(String DTB) {
+        if (this.dtb == null || !this.dtb.equals(DTB)) {
+            this.dtb = DTB;
+            setChanged();
+            notifyChanged(MachineProperty.DTB, DTB);
+        }
+
+    }
+
     public String getAppend() {
         return append;
     }
@@ -701,7 +715,7 @@ public class Machine extends Observable {
     public enum FileType {
         CDROM, FDA, FDB, SD,
         HDA, HDB, HDC, HDD, SHARED_DIR,
-        KERNEL, INITRD,
+        KERNEL, INITRD, DTB,
         EXPORT_DIR, IMAGE_DIR, LOG_DIR, IMPORT_FILE, IMPORT_BIOS_FILE
     }
 
