@@ -1,67 +1,79 @@
-<menu xmlns:android="http://schemas.android.com/apk/res/android" 
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context=".LimboSDLActivity">
 
     <item
         android:id="@+id/itemKeyboard"
         android:icon="@drawable/keyboard"
-        android:title="@string/showkbd_label"/>
+        android:title="@string/showkbd_label" />
     <item
         android:id="@+id/itemMouse"
         android:icon="@drawable/mouse"
-        android:title="@string/center_mouse"/>
+        android:title="@string/center_mouse" />
     <item
         android:id="@+id/itemDrives"
         android:icon="@drawable/drives"
-        android:title="@string/drives">
-    </item>
+        android:title="@string/drives"></item>
 
     <item
         android:id="@+id/itemDisplay"
         android:icon="@drawable/screen"
-        android:title="@string/display"/>
+        android:title="@string/display" />
 
     <item
         android:id="@+id/itemVolume"
         android:icon="@drawable/audiocard"
-        android:title="@string/volume">
-    </item>
+        android:title="@string/volume"></item>
 
     <item
         android:id="@+id/itemMonitor"
         android:icon="@drawable/terminal"
-        android:title="@string/monitor">
-    </item>
+        android:title="@string/monitor"></item>
 
     <item
         android:id="@+id/itemHideToolbar"
         android:icon="@drawable/pan"
-        android:title="@string/hide_toolbar"/>
+        android:title="@string/hide_toolbar" />
+
+    <item
+        android:id="@+id/itemKeyboardMapper"
+        android:icon="@drawable/keyboard"
+        android:title="@string/toggle_key_mapper" />
+
+    <item
+        android:id="@+id/itemSendText"
+        android:icon="@drawable/keyboard"
+        android:title="@string/button_send_text" />
 
     <item
         android:id="@+id/itemSaveState"
         android:icon="@drawable/pause"
-        android:title="@string/save_state"/>
+        android:title="@string/save_state" />
 
     <item
         android:id="@+id/itemReset"
         android:icon="@drawable/reset"
-        android:title="@string/reset"/>
+        android:title="@string/reset" />
     <item
         android:id="@+id/itemShutdown"
         android:icon="@drawable/shutdown"
-        android:title="@string/shutdown"/>
+        android:title="@string/shutdown" />
+
+    <item
+        android:id="@+id/itemDisconnet"
+        android:icon="@drawable/disconnect"
+        android:title="@string/disconnect" />
 
 
     <item
         android:id="@+id/itemViewLog"
         android:icon="@android:drawable/ic_menu_info_details"
-        android:title="@string/view_log"/>
+        android:title="@string/view_log" />
 
     <item
         android:id="@+id/itemHelp"
         android:icon="@drawable/help"
-        android:title="@string/help"/>
+        android:title="@string/help" />
 
     <!--XXXX: Not needed-->
     <item
@@ -71,22 +83,22 @@
         <menu>
             <group
                 android:id="@+id/groupScaling"
-                android:checkableBehavior="single" >
+                android:checkableBehavior="single">
                 <item
                     android:id="@+id/itemOneToOne"
-                    android:title="@string/one_to_one"/>
+                    android:title="@string/one_to_one" />
                 <item
                     android:id="@+id/itemZoomIn"
-                    android:title="@string/zoom_in"/>
+                    android:title="@string/zoom_in" />
                 <item
                     android:id="@+id/itemZoomOut"
-                    android:title="@string/zoom_out"/>
+                    android:title="@string/zoom_out" />
                 <item
                     android:id="@+id/itemFitToScreen"
-                    android:title="@string/fit_to_screen"/>
+                    android:title="@string/fit_to_screen" />
                 <item
                     android:id="@+id/itemStretchToScreen"
-                    android:title="@string/stretch_to_screen"/>
+                    android:title="@string/stretch_to_screen" />
             </group>
         </menu>
     </item>
@@ -94,22 +106,16 @@
     <item
         android:id="@+id/itemExternalMouse"
         android:icon="@drawable/mouse"
-        android:title="@string/external_mouse">
-    </item>
-
-    <item
-        android:id="@+id/itemSaveSnapshot"
-        android:icon="@drawable/snapshot"
-        android:title="@string/save_snapshot"/>
+        android:title="@string/external_mouse"></item>
 
     <item
         android:id="@+id/itemCtrlC"
         android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/ctrl_c"/>
+        android:title="@string/ctrl_c" />
     <item
         android:id="@+id/itemCtrlAltDel"
         android:icon="@android:drawable/ic_menu_share"
-        android:title="@string/ctrl_alt_del"/>
+        android:title="@string/ctrl_alt_del" />
 
 
 </menu>

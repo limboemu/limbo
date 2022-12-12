@@ -13,20 +13,21 @@ else
 endif
 
 #Don't remove this
-APP_CFLAGS += $(ARCH_CFLAGS)
-
-#FIXME: we should use memmove for the utils also
-#APP_CFLAGS += -include $(FIXUTILS)
+APP_CFLAGS += -include $(LOGUTILS)
+APP_LDFLAGS += -llog
+ifeq ($(USE_GCC),true)
+	APP_CFLAGS +=-std=gnu99
+endif
 
 APP_ARM_MODE=$(ARM_MODE)
 
-#$(warning NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
-#$(warning NDK_DEBUG = $(NDK_DEBUG))
-#$(warning APP_ARM_MODE = $(APP_ARM_MODE))
-#$(warning APP_ARM_NEON = $(APP_ARM_NEON))
-#$(warning APP_OPTIM = $(APP_OPTIM))
-#$(warning APP_ABI = $(APP_ABI))
-#$(warning APP_PLATFORM = $(APP_PLATFORM))
-#$(warning NDK_PROJECT_PATH = $(NDK_PROJECT_PATH))
-#$(warning ARCH_CFLAGS = $(ARCH_CFLAGS))
-#$(warning APP_CFLAGS = $(APP_CFLAGS))
+$(info NDK_TOOLCHAIN_VERSION = $(NDK_TOOLCHAIN_VERSION))
+$(info NDK_DEBUG = $(NDK_DEBUG))
+$(info APP_ARM_MODE = $(APP_ARM_MODE))
+$(info APP_ARM_NEON = $(APP_ARM_NEON))
+$(info APP_OPTIM = $(APP_OPTIM))
+$(info APP_ABI = $(APP_ABI))
+$(info APP_PLATFORM = $(APP_PLATFORM))
+$(info NDK_PROJECT_PATH = $(NDK_PROJECT_PATH))
+$(info ARCH_CFLAGS = $(ARCH_CFLAGS))
+$(info APP_CFLAGS = $(APP_CFLAGS))

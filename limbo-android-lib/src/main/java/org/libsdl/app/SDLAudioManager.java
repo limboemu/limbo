@@ -7,8 +7,10 @@ public class SDLAudioManager
 {
     protected static final String TAG = "SDLAudio";
 
-    protected static AudioTrack mAudioTrack;
-    protected static AudioRecord mAudioRecord;
+    //LIMBO:
+    public static AudioTrack mAudioTrack;
+    public static AudioRecord mAudioRecord;
+    //LIMBO
 
     public static void initialize() {
         mAudioTrack = null;
@@ -21,6 +23,13 @@ public class SDLAudioManager
      * This method is called by SDL using JNI.
      */
     public static int audioOpen(int sampleRate, boolean is16Bit, boolean isStereo, int desiredFrames) {
+        // LIMBO: a small delay seems to fix a weird issue with StackOverflowError
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        // LIMBO
         int channelConfig = isStereo ? AudioFormat.CHANNEL_CONFIGURATION_STEREO : AudioFormat.CHANNEL_CONFIGURATION_MONO;
         int audioFormat = is16Bit ? AudioFormat.ENCODING_PCM_16BIT : AudioFormat.ENCODING_PCM_8BIT;
         int frameSize = (isStereo ? 2 : 1) * (is16Bit ? 2 : 1);

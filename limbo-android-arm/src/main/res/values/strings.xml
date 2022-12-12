@@ -3,5 +3,7 @@
 
     <string name="app_name">Limbo ARM Emulator</string>
     <string name="app_short_name">Limbo ARM</string>
-    
+    <string name="DebianArmLinux">Debian ARM Linux</string>
+    <string name="DebianArmLinuxDescr">A Linux-based light weight OS with Desktop Manager, network, and package manager</string>
+
 </resources>
