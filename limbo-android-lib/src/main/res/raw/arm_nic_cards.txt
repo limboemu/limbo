@@ -1,0 +1,6 @@
+smc91c111
+xgmac
+lan9118
+cadence_gem
+allwinner-emac
+mv88w8618

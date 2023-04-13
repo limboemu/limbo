@@ -3,5 +3,7 @@
 
     <string name="app_name">Limbo PowerPC Emulator</string>
     <string name="app_short_name">Limbo</string>
-    
+    <string name="DebianPowerPCLinux">Debian PowerPC Linux</string>
+    <string name="DebianPowerPCLinuxDescr">A Linux-based light weight OS with Desktop Manager, network, and package manager</string>
+
 </resources>

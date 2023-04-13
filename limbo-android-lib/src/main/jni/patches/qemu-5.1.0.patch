@@ -1,6 +1,6 @@
 diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-all.c
---- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./accel/kvm/kvm-all.c	2021-08-16 18:33:40.744081668 +0300
+--- /tmp/qemu-5.1.0/accel/kvm/kvm-all.c	2020-08-11 15:17:15.000000000 -0400
++++ ./accel/kvm/kvm-all.c	2022-03-05 17:53:47.698530009 -0500
 @@ -2015,7 +2015,12 @@
      s->vmfd = -1;
      s->fd = qemu_open("/dev/kvm", O_RDWR);
@@ -14,9 +14,39 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/accel/kvm/kvm-all.c ./accel/kvm/kvm-al
          ret = -errno;
          goto err;
      }
+diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio.c ./audio/audio.c
+--- /tmp/qemu-5.1.0/audio/audio.c	2020-08-11 15:17:15.000000000 -0400
++++ ./audio/audio.c	2022-03-05 17:53:47.718530383 -0500
+@@ -2005,7 +2005,11 @@
+ 
+     if (!pdo->has_frequency) {
+         pdo->has_frequency = true;
++#ifdef __LIMBO__
++        pdo->frequency = 22050;
++#else
+         pdo->frequency = 44100;
++#endif
+     }
+     if (!pdo->has_channels) {
+         pdo->has_channels = true;
+diff -ru --no-dereference /tmp/qemu-5.1.0/audio/audio_legacy.c ./audio/audio_legacy.c
+--- /tmp/qemu-5.1.0/audio/audio_legacy.c	2020-08-11 15:17:15.000000000 -0400
++++ ./audio/audio_legacy.c	2022-03-05 17:53:47.718530383 -0500
+@@ -105,7 +105,11 @@
+ static uint32_t frames_to_usecs(uint32_t frames,
+                                 AudiodevPerDirectionOptions *pdo)
+ {
++#ifdef __LIMBO__
++    uint32_t freq = pdo->has_frequency ? pdo->frequency : 22050;
++#else
+     uint32_t freq = pdo->has_frequency ? pdo->frequency : 44100;
++#endif
+     return (frames * 1000000 + freq / 2) / freq;
+ }
+ 
 diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
---- /tmp/qemu-5.1.0/configure	2020-08-11 22:17:15.000000000 +0300
-+++ ./configure	2021-08-16 18:33:40.768081667 +0300
+--- /tmp/qemu-5.1.0/configure	2020-08-11 15:17:15.000000000 -0400
++++ ./configure	2022-03-05 17:53:47.746530904 -0500
 @@ -2501,7 +2501,8 @@
  # pkg-config probe
  
@@ -141,9 +171,70 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/configure ./configure
  
  ##########################################
  # checks for sanitizers
+diff -ru --no-dereference /tmp/qemu-5.1.0/exec.c ./exec.c
+--- /tmp/qemu-5.1.0/exec.c	2022-03-05 15:50:10.824886801 -0500
++++ ./exec.c	2022-03-05 17:56:20.141302931 -0500
+@@ -1003,6 +1003,9 @@
+     tb_invalidate_phys_page_range(ram_addr, ram_addr + 1);
+ }
+ 
++#ifdef __LIMBO__
++int limbo_ignore_breakpoint_invalidate = 0;
++#endif
+ static void breakpoint_invalidate(CPUState *cpu, target_ulong pc)
+ {
+     /*
+@@ -1011,6 +1014,9 @@
+      * Flush the whole TB cache to force re-translation of such TBs.
+      * This is heavyweight, but we're debugging anyway.
+      */
++#ifdef __LIMBO__
++    if(!limbo_ignore_breakpoint_invalidate)
++#endif
+     tb_flush(cpu);
+ }
+ #endif
+diff -ru --no-dereference /tmp/qemu-5.1.0/hw/display/vga.c ./hw/display/vga.c
+--- /tmp/qemu-5.1.0/hw/display/vga.c	2020-08-11 15:17:14.000000000 -0400
++++ ./hw/display/vga.c	2022-03-05 17:53:47.774531425 -0500
+@@ -1458,6 +1458,12 @@
+     memory_region_set_log(&s->vram, false, DIRTY_MEMORY_VGA);
+ }
+ 
++#ifdef __LIMBO__
++// LIMBO: we need to do a full screen refresh to align we can't do this via the SDL
++// layer so we pick the lesser evil and do it within the vga
++int limbo_vga_full_update;
++#endif
++
+ /*
+  * graphic modes
+  */
+@@ -1674,7 +1680,11 @@
+         if (!(s->cr[VGA_CRTC_MODE] & 2)) {
+             addr = (addr & ~0x8000) | ((y1 & 2) << 14);
+         }
++#ifdef __LIMBO__
++        update = full_update || limbo_vga_full_update;
++#else
+         update = full_update;
++#endif
+         page0 = addr & s->vbe_size_mask;
+         page1 = (addr + bwidth - 1) & s->vbe_size_mask;
+         if (full_update) {
+@@ -1726,6 +1736,9 @@
+         /* flush to display */
+         dpy_gfx_update(s->con, 0, y_start,
+                        disp_width, y - y_start);
++#ifdef __LIMBO__
++        limbo_vga_full_update = 0;
++#endif        
+     }
+     g_free(snap);
+     memset(s->invalidated_y_table, 0, sizeof(s->invalidated_y_table));
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/osdep.h
---- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 22:17:15.000000000 +0300
-+++ ./include/qemu/osdep.h	2021-08-16 18:33:40.780081667 +0300
+--- /tmp/qemu-5.1.0/include/qemu/osdep.h	2020-08-11 15:17:15.000000000 -0400
++++ ./include/qemu/osdep.h	2022-03-05 17:53:47.790531723 -0500
 @@ -36,6 +36,10 @@
  
  #include "qemu/compiler.h"
@@ -156,25 +247,28 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/include/qemu/osdep.h ./include/qemu/os
   * stdlib.h unless we define these macros before first inclusion of
   * that system header.
 diff -ru --no-dereference /tmp/qemu-5.1.0/include/ui/console.h ./include/ui/console.h
---- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 22:17:14.000000000 +0300
-+++ ./include/ui/console.h	2021-09-05 11:00:29.000925684 +0300
-@@ -26,7 +26,13 @@
+--- /tmp/qemu-5.1.0/include/ui/console.h	2020-08-11 15:17:14.000000000 -0400
++++ ./include/ui/console.h	2022-03-05 17:53:47.806532021 -0500
+@@ -26,8 +26,16 @@
  #define QEMU_CAPS_LOCK_LED   (1 << 2)
  
  /* in ms */
 +#ifdef __LIMBO__
 +extern int limbo_sdl_scale_hint;
 +extern int gui_refresh_interval_default;
++extern int gui_refresh_interval_idle;
 +#define GUI_REFRESH_INTERVAL_DEFAULT gui_refresh_interval_default
++#define GUI_REFRESH_INTERVAL_IDLE gui_refresh_interval_idle
 +#else
  #define GUI_REFRESH_INTERVAL_DEFAULT    30
-+#endif //__LIMBO__
  #define GUI_REFRESH_INTERVAL_IDLE     3000
++#endif //__LIMBO__
  
  /* Color number is match to standard vga palette */
+ enum qemu_color_names {
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
---- /tmp/qemu-5.1.0/Makefile	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile	2021-08-16 18:33:40.796081667 +0300
+--- /tmp/qemu-5.1.0/Makefile	2020-08-11 15:17:15.000000000 -0400
++++ ./Makefile	2022-03-05 17:53:47.822532318 -0500
 @@ -338,7 +338,8 @@
  vhost-user-json-y =
  HELPERS-y = $(HELPERS)
@@ -206,8 +300,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile ./Makefile
  qemu-keymap$(EXESUF): qemu-keymap.o ui/input-keymap.o $(COMMON_LDADDS)
  
 diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
---- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 22:17:15.000000000 +0300
-+++ ./Makefile.target	2021-08-16 18:33:40.812081666 +0300
+--- /tmp/qemu-5.1.0/Makefile.target	2020-08-11 15:17:15.000000000 -0400
++++ ./Makefile.target	2022-03-05 17:53:47.830532468 -0500
 @@ -18,6 +18,12 @@
  
  QEMU_CFLAGS+=-iquote $(SRC_PATH)/include
@@ -235,8 +329,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/Makefile.target ./Makefile.target
  	$(call quiet-command,Rez -append $(SRC_PATH)/pc-bios/qemu.rsrc -o $@,"REZ","$(TARGET_DIR)$@")
  	$(call quiet-command,SetFile -a C $@,"SETFILE","$(TARGET_DIR)$@")
 diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
---- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./monitor/misc.c	2021-08-16 18:33:40.836081666 +0300
+--- /tmp/qemu-5.1.0/monitor/misc.c	2020-08-11 15:17:15.000000000 -0400
++++ ./monitor/misc.c	2022-03-05 17:53:47.838532616 -0500
 @@ -1299,6 +1299,14 @@
  {
      mon_fd_t *monfd;
@@ -253,22 +347,23 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/monitor/misc.c ./monitor/misc.c
      QLIST_FOREACH(monfd, &mon->fds, next) {
          int fd;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/console.c ./ui/console.c
---- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/console.c	2021-08-16 18:33:40.848081666 +0300
-@@ -38,6 +38,10 @@
+--- /tmp/qemu-5.1.0/ui/console.c	2020-08-11 15:17:15.000000000 -0400
++++ ./ui/console.c	2022-03-05 17:53:47.854532914 -0500
+@@ -38,6 +38,11 @@
  #define DEFAULT_BACKSCROLL 512
  #define CONSOLE_CURSOR_PERIOD 500
  
 +#ifdef __LIMBO__
 +int gui_refresh_interval_default = 30;
++int gui_refresh_interval_idle = 300;
 +#endif //__LIMBO__
 +
  typedef struct TextAttributes {
      uint8_t fgcol:4;
      uint8_t bgcol:4;
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
---- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2-2d.c	2021-08-16 18:33:40.848081666 +0300
+--- /tmp/qemu-5.1.0/ui/sdl2-2d.c	2020-08-11 15:17:15.000000000 -0400
++++ ./ui/sdl2-2d.c	2022-03-05 17:53:47.862533063 -0500
 @@ -125,6 +125,12 @@
                                        surface_width(new_surface),
                                        surface_height(new_surface));
@@ -283,8 +378,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2-2d.c ./ui/sdl2-2d.c
  
  void sdl2_2d_refresh(DisplayChangeListener *dcl)
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
---- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/sdl2.c	2021-09-06 00:42:21.782631272 +0300
+--- /tmp/qemu-5.1.0/ui/sdl2.c	2020-08-11 15:17:15.000000000 -0400
++++ ./ui/sdl2.c	2022-03-05 17:53:47.878533361 -0500
 @@ -89,7 +89,16 @@
                                           surface_width(scon->surface),
                                           surface_height(scon->surface),
@@ -303,7 +398,32 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
      if (scon->opengl) {
          scon->winctx = SDL_GL_GetCurrentContext();
      }
-@@ -789,6 +798,10 @@
+@@ -272,6 +281,13 @@
+     };
+     static uint32_t prev_state;
+ 
++#ifdef __LIMBO__
++// LIMBO: the console can be NULL when the mouse moves outside of the window 
++// and it crashes the app
++    if(scon==NULL)
++        return;
++#endif
++
+     if (prev_state != state) {
+         qemu_input_update_buttons(scon->dcl.con, bmap, prev_state, state);
+         prev_state = state;
+@@ -627,6 +643,10 @@
+     }
+ 
+     while (SDL_PollEvent(ev)) {
++#ifdef __LIMBO__
++        if(!ev)
++            continue;
++#endif
+         switch (ev->type) {
+         case SDL_KEYDOWN:
+             idle = 0;
+@@ -789,6 +809,10 @@
      }
  }
  
@@ -314,7 +434,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
  static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
  {
      uint8_t data = 0;
-@@ -798,6 +811,7 @@
+@@ -798,6 +822,7 @@
  
      assert(o->type == DISPLAY_TYPE_SDL);
  
@@ -322,7 +442,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
  #ifdef __linux__
      /* on Linux, SDL may use fbcon|directfb|svgalib when run without
       * accessible $DISPLAY to open X11 window.  This is often the case
-@@ -810,6 +824,12 @@
+@@ -810,6 +835,12 @@
       */
      g_setenv("SDL_VIDEODRIVER", "x11", 0);
  #endif
@@ -336,8 +456,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/sdl2.c ./ui/sdl2.c
      if (SDL_Init(SDL_INIT_VIDEO)) {
          fprintf(stderr, "Could not initialize SDL(%s) - exiting\n",
 diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
---- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./ui/vnc.c	2021-09-06 15:34:42.656266952 +0300
+--- /tmp/qemu-5.1.0/ui/vnc.c	2020-08-11 15:17:15.000000000 -0400
++++ ./ui/vnc.c	2022-03-05 17:53:47.882533435 -0500
 @@ -51,8 +51,19 @@
  #include "qemu/cutils.h"
  #include "io/dns-resolver.h"
@@ -371,7 +491,7 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
 +	
 +	if ((sym >= 123 && sym <= 126)
 +	|| (sym >= 33 && sym <= 38)
-+	|| (sym >= 40 && sym <= 44)
++	|| (sym >= 40 && sym < 44)
 +	|| (sym >= 62 && sym <= 64)
 +	|| (sym >= 94 && sym <= 95)
 +	|| sym == 58 || sym == 60) {
@@ -424,8 +544,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/ui/vnc.c ./ui/vnc.c
          trace_vnc_key_event_ext(down, sym, keycode, code2name(keycode));
          do_key_event(vs, down, keycode, sym);
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.objs
---- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/Makefile.objs	2021-08-16 18:33:40.900081665 +0300
+--- /tmp/qemu-5.1.0/util/Makefile.objs	2020-08-11 15:17:15.000000000 -0400
++++ ./util/Makefile.objs	2022-03-05 17:53:47.894533659 -0500
 @@ -39,7 +39,8 @@
  util-obj-y += range.o
  util-obj-y += stats64.o
@@ -437,8 +557,8 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/util/Makefile.objs ./util/Makefile.obj
  util-obj-$(CONFIG_GIO) += dbus.o
  dbus.o-cflags = $(GIO_CFLAGS)
 diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpty.c
---- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 22:17:15.000000000 +0300
-+++ ./util/qemu-openpty.c	2021-08-16 18:33:40.908081665 +0300
+--- /tmp/qemu-5.1.0/util/qemu-openpty.c	2020-08-11 15:17:15.000000000 -0400
++++ ./util/qemu-openpty.c	2022-03-05 17:53:47.902533807 -0500
 @@ -111,6 +111,9 @@
  }
  #endif

@@ -1,16 +1,17 @@
-# Development specific settings
-
+#### DO NOT CHANGE
 QEMU_TARGET_LIST = $(BUILD_GUEST)
-
-#### QEMU version-spcific options
-
 QEMU_CONFIG_DIR=$(LIMBO_JNI_ROOT)/android-config
 
-include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
-#include $(QEMU_CONFIG_DIR)/android-qemu-config-4.0.0.mak
-#include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
 
-##### QEMU advance options
+ifeq ($(USE_QEMU_VERSION),2.9.1)
+include $(QEMU_CONFIG_DIR)/android-qemu-config-2.9.1.mak
+else ifeq ($(USE_QEMU_VERSION),5.1.0)
+include $(QEMU_CONFIG_DIR)/android-qemu-config-5.1.0.mak
+else
+$(error Unsupported QEMU version = $(USE_QEMU_VERSION))
+endif
+
+##### QEMU generic configuration
 
 #use coroutine
 #ucontext is deprecated and also not avail in Bionic
