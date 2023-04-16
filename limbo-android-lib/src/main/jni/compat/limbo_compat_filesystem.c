@@ -204,7 +204,7 @@ int android_mkstemp(char * path){
     strcat(lpath, path);
     int res = mkstemp(lpath);
     //printf("mkstemp limbo file: %s", path);
-    if(res)
+    if(-1 == res)
         LOGW("Could not create file: %s", lpath);
     return res;
 
