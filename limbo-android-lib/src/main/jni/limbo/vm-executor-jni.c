@@ -227,21 +227,19 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
     qemu_cleanup_t qemu_cleanup = NULL;
 
 	dlerror();
-	main_t qemu_main = (main_t) dlsym(handle, "qemu_init");
+	main_t qemu_main = (main_t) dlsym(handle, "main");
 	const char *dlsym_error = dlerror();
-	if (dlsym_error) { //older versions of qemu
-		LOGE("Cannot find qemu symbol 'qemu_init' trying 'main': %s\n", dlsym_error);
-	    qemu_main = (main_t) dlsym(handle, "main");
+	if (dlsym_error) { // QEMU built without "main"
+	    LOGE("Cannot find qemu symbol 'main' trying 'qemu_init': %s\n", dlsym_error);
+	    qemu_main = (main_t) dlsym(handle, "qemu_init");
 	    dlsym_error = dlerror();
 	    if (dlsym_error) {
         	LOGE("Cannot find qemu symbol 'qemu_init' or 'main': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
         	return (*env)->NewStringUTF(env, dlsym_error);
-        }
-        qemu_main(argc, argv, NULL);
-    } else { // new versions of qemu
-        qemu_main_loop = (qemu_main_loop_t) dlsym(handle, "qemu_main_loop");
+	    }
+	    qemu_main_loop = (qemu_main_loop_t) dlsym(handle, "qemu_main_loop");
 	    dlsym_error = dlerror();
 	    if (dlsym_error) {
         	LOGE("Cannot find qemu symbol 'qemu_main_loop': %s\n", dlsym_error);
@@ -257,11 +255,12 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
         	dlclose(handle);
         	handle = NULL;
         	return (*env)->NewStringUTF(env, dlsym_error);
-        }
-
-        qemu_main(argc, argv, NULL);
-        qemu_main_loop();
-        qemu_cleanup();
+	    }
+	    qemu_main(argc, argv, NULL);
+	    qemu_main_loop();
+	    qemu_cleanup();
+	} else { // normal QEMU
+	    qemu_main(argc, argv, NULL);
 	}
 
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
