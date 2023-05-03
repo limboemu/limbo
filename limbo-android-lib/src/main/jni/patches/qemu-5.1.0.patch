@@ -574,3 +574,14 @@ diff -ru --no-dereference /tmp/qemu-5.1.0/util/qemu-openpty.c ./util/qemu-openpt
      return amaster;
  }
 +#endif
+diff -ru --no-dereference /tmp/qemu-5.1.0/softmmu/main.c ./softmmu/main.c
+--- /tmp/qemu-5.1.0/softmmu/main.c	2020-08-11 19:17:14.000000000 +0000
++++ ./softmmu/main.c	2023-05-04 00:09:58.595625144 +0000
+@@ -29,6 +29,7 @@
+ #ifdef CONFIG_SDL
+ #if defined(__APPLE__) || defined(main)
+ #include <SDL.h>
++#undef main
+ int main(int argc, char **argv)
+ {
+     return qemu_main(argc, argv, NULL);
