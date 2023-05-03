@@ -184,10 +184,10 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	argv = (char **) malloc((argc + 1) * sizeof(*argv));
 
 	for (int i = 0; i < argc; i++) {
-        jstring string = (jstring)((*env)->GetObjectArrayElement(env, params, i));
+		jstring string = (jstring)((*env)->GetObjectArrayElement(env, params, i));
 		const char *param_str = (*env)->GetStringUTFChars(env, string, 0);
 		int length = strlen(param_str)+1;
-        argv[i] = (char *) malloc(length * sizeof(char));
+		argv[i] = (char *) malloc(length * sizeof(char));
 		strcpy(argv[i], param_str);
 		(*env)->ReleaseStringUTFChars(env, string, param_str);
 	}
@@ -196,15 +196,15 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	argv[argc] = NULL;
 
 	printf("Starting VM");
-    started = 1;
+	started = 1;
 
-    //LOAD LIB
+	//LOAD LIB
 	const char *lib_filename_str = NULL;
 	if (lib_filename!= NULL)
 		lib_filename_str = (*env)->GetStringUTFChars(env, lib_filename, 0);
-    const char *lib_path_str = NULL;
-    if (lib_path != NULL)
-        lib_path_str = (*env)->GetStringUTFChars(env, lib_path, 0);
+	const char *lib_path_str = NULL;
+	if (lib_path != NULL)
+	    lib_path_str = (*env)->GetStringUTFChars(env, lib_path, 0);
 
 	if (handle == NULL) {
 		handle = loadLib(lib_filename_str, lib_path_str);
@@ -217,51 +217,50 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	}
 
 	setup_jni(env, thiz, storage_dir, base_dir);
-    set_qemu_var(env, thiz, "limbo_sdl_scale_hint", sdl_scale_hint);
+	set_qemu_var(env, thiz, "limbo_sdl_scale_hint", sdl_scale_hint);
 
 	typedef void (*main_t)(int argc, char **argv, char **envp);
-    typedef void (*qemu_main_loop_t)();
+	typedef void (*qemu_main_loop_t)();
 	typedef void (*qemu_cleanup_t)();
 
-    qemu_main_loop_t qemu_main_loop = NULL;
-    qemu_cleanup_t qemu_cleanup = NULL;
+	qemu_main_loop_t qemu_main_loop = NULL;
+	qemu_cleanup_t qemu_cleanup = NULL;
 
 	dlerror();
-	main_t qemu_main = (main_t) dlsym(handle, "qemu_init");
+	main_t qemu_main = (main_t) dlsym(handle, "main");
 	const char *dlsym_error = dlerror();
-	if (dlsym_error) { //older versions of qemu
-		LOGE("Cannot find qemu symbol 'qemu_init' trying 'main': %s\n", dlsym_error);
-	    qemu_main = (main_t) dlsym(handle, "main");
+	if (dlsym_error) { // QEMU built without "main"
+	    LOGE("Cannot find qemu symbol 'main' trying 'qemu_init': %s\n", dlsym_error);
+	    qemu_main = (main_t) dlsym(handle, "qemu_init");
 	    dlsym_error = dlerror();
 	    if (dlsym_error) {
         	LOGE("Cannot find qemu symbol 'qemu_init' or 'main': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
         	return (*env)->NewStringUTF(env, dlsym_error);
-        }
-        qemu_main(argc, argv, NULL);
-    } else { // new versions of qemu
-        qemu_main_loop = (qemu_main_loop_t) dlsym(handle, "qemu_main_loop");
+	    }
+	    qemu_main_loop = (qemu_main_loop_t) dlsym(handle, "qemu_main_loop");
 	    dlsym_error = dlerror();
 	    if (dlsym_error) {
         	LOGE("Cannot find qemu symbol 'qemu_main_loop': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
         	return (*env)->NewStringUTF(env, dlsym_error);
-        }
+	    }
 
-        qemu_cleanup = (qemu_cleanup_t) dlsym(handle, "qemu_cleanup");
+	    qemu_cleanup = (qemu_cleanup_t) dlsym(handle, "qemu_cleanup");
 	    dlsym_error = dlerror();
 	    if (dlsym_error) {
         	LOGE("Cannot find qemu symbol 'qemu_cleanup': %s\n", dlsym_error);
         	dlclose(handle);
         	handle = NULL;
         	return (*env)->NewStringUTF(env, dlsym_error);
-        }
-
-        qemu_main(argc, argv, NULL);
-        qemu_main_loop();
-        qemu_cleanup();
+	    }
+	    qemu_main(argc, argv, NULL);
+	    qemu_main_loop();
+	    qemu_cleanup();
+	} else { // normal QEMU
+	    qemu_main(argc, argv, NULL);
 	}
 
 	sprintf(res_msg, "Closing lib: %s", lib_path_str);
@@ -270,11 +269,11 @@ JNIEXPORT jstring JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_start(
 	handle = NULL;
 	started = 0;
 
-    (*env)->ReleaseStringUTFChars(env, lib_path, lib_path_str);
+	(*env)->ReleaseStringUTFChars(env, lib_path, lib_path_str);
 
 	sprintf(res_msg, "VM shutdown");
 	LOGV("%s", res_msg);
-    return (*env)->NewStringUTF(env, res_msg);
+	return (*env)->NewStringUTF(env, res_msg);
 }
 
 
