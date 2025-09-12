@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 36
     buildToolsVersion '29.0.3'
 
     defaultConfig {
         applicationId "com.limbo.emu.main"
         minSdkVersion 21
-        targetSdkVersion 29
+        targetSdkVersion 36
         ndk { abiFilters "armeabi-v7a","arm64-v8a", "x86", "x86_64" }
     }
     buildTypes {
@@ -38,5 +38,5 @@ dependencies {
 
     implementation 'androidx.appcompat:appcompat:1.1.0'
 
-    implementation project(':limbo-android-lib')
+    implementation project(':qemu-android-lib')
 }
