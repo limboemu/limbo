@@ -10,7 +10,7 @@
 .idea
 qemunew
 build
-# Built application files
+# Built application files.
 *.apk
 *.ap_
 
