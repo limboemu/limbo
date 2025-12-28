@@ -1,5 +1,18 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 include ':limbo-android-lib'
 include ':limbo-android-x86'
-include ':limbo-android-arm'
-include ':limbo-android-sparc'
-include ':limbo-android-ppc'

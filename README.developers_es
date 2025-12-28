@@ -1,0 +1,279 @@
+﻿Virtual Machine (QEMU) para Android
+================================================================================
+1. ¿Qué es Vitual Machine?
+Virtual Machine es un emulador basado en QEMU para Android. Actualmente es compatible con la emulación de PC para la arquitectura Intel x86.
+Para más información, instrucciones, guías, problemas conocidos y descargas, visita:
+https://github.com/limboemu/limbo
+===============================================================================
+2. Requisitos:
+* Android SDK
+* Android NDK: r14b/gcc o r23b/clang
+* Android Studio (se prefiere la versión 3.1.1)
+* Dispositivo Android con sistema operativo Android 8.0 (Oreo) o superior
+* PC de escritorio Linux (se prefiere Ubuntu)
+* Asegúrate de tener instalados los siguientes paquetes. Si no es así, ejecuta:
+   * sudo apt-get install make autoconf automake git python binutils
+   * sudo apt-get install libtool-bin pkg-config flex bison gettext texinfo rsync
+* Para el desarrollo, puedes usar tus propios editores. Geany es muy recomendable para editar el código nativo.
+===============================================================================
+3. Problemas Conocidos:
+https://github.com/limboemu/limbo/issues
+===============================================================================
+4. Actualizar Configuración
+* Si compilas la versión de QEMU compatible, lo único que tienes que hacer es editar el archivo:
+limbo-android-lib/src/main/jni/android-limbo-config.mak
+* En todos los demás casos, tienes que mirar los archivos de configuración en:
+limbo-android-lib/src/main/jni/android-config/
+Para más información, consulta la sección Compilación.
+5. Obtener y Compilar Librerías Externas
+# Asegúrate de estar en el directorio jni
+cd ./limbo-android-lib/src/main/jni
+
+# Ahora descarga el código fuente de las librerías externas y descomprímelas en el directorio jni
+# Nota: si alguno de estos enlaces no se descarga con wget, usa tu navegador para descargarlos
+
+##### Obtener QEMU
+# enlace de descarga: [http://download.qemu-project.org/qemu-x.x.x.tar.xz](http://download.qemu-project.org/qemu-x.x.x.tar.xz)
+# Versiones actuales compatibles con limbo: 5.1.0 y 2.9.1
+# ejemplo para la versión 5.1.0:
+wget [http://download.qemu-project.org/qemu-5.1.0.tar.xz](http://download.qemu-project.org/qemu-5.1.0.tar.xz) -P /tmp/
+tar -xJf /tmp/qemu-5.1.0.tar.xz
+mv qemu-5.1.0 qemu
+# Para la versión de QEMU 2.9.1:
+wget [http://download.qemu-project.org/qemu-2.9.1.tar.xz](http://download.qemu-project.org/qemu-2.9.1.tar.xz) -P /tmp/
+tar -xJf /tmp/qemu-2.9.1.tar.xz
+mv qemu-2.9.1 qemu
+
+##### OBTENER glib
+wget [https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz](https://ftp.gnome.org/pub/GNOME/sources/glib/2.56/glib-2.56.1.tar.xz) -P /tmp/
+tar -xJf /tmp/glib-2.56.1.tar.xz
+mv glib-2.56.1 glib
+
+##### OBTENER libffi
+wget [https://sourceware.org/pub/libffi/libffi-3.3.tar.gz](https://sourceware.org/pub/libffi/libffi-3.3.tar.gz) -P /tmp/
+tar -xzf /tmp/libffi-3.3.tar.gz
+mv libffi-3.3 libffi
+
+##### OBTENER pixman
+wget [https://www.cairographics.org/releases/pixman-0.40.0.tar.gz](https://www.cairographics.org/releases/pixman-0.40.0.tar.gz) -P /tmp/
+tar -xzf /tmp/pixman-0.40.0.tar.gz
+mv pixman-0.40.0 pixman
+
+##### OBTENER SDL2
+wget [https://www.libsdl.org/release/SDL2-2.0.8.tar.gz](https://www.libsdl.org/release/SDL2-2.0.8.tar.gz) -P /tmp/
+tar -xzf /tmp/SDL2-2.0.8.tar.gz
+mv SDL2-2.0.8 SDL2
+
+Ahora deberías tener esta estructura de directorios:
+jni/
+   android-config/
+   compat/
+   glib/
+   libffi/
+   limbo/
+   patches/
+   pixman/
+   qemu/
+   SDL2/
+
+===============================================================================
+6. Aplicar parches
+### Aplicar parche para QEMU:
+# ejemplo para 5.1.0:
+cd ./limbo-android-lib/src/main/jni/qemu/
+patch -p1 < ../patches/qemu-5.1.0.patch
+# para 2.9.1:
+patch -p1 < ../patches/qemu-2.9.1.patch
+
+### Aplicar parche glib para Limbo:
+cd ./limbo-android-lib/src/main/jni/glib/
+patch -p1 < ../patches/glib-2.56.1.patch
+
+### Aplicar parche SDL2 para Limbo:
+cd ./limbo-android-lib/src/main/jni/SDL2/
+patch -p1 < ../patches/sdl2-2.0.8.patch
+
+### Otras versiones de QEMU:
+# Si deseas redistribuir una compilación de Limbo con otras versiones de QEMU, crea tu propio parche de esta manera:
+cd /limbo-android-lib/src/main/jni/qemu/
+diff -ru --no-dereference /tmp/qemu-x.x.x . | grep -v '^Only in' > ../patches/qemu-x.x.x.patch
+# No olvides crear tu archivo android-qemu-config-x.x.x.mak
+# e incluirlo en android-qemu-config.mak
+
+===============================================================================
+7. Compilación
+a. Para compilar la parte nativa de la aplicación, asegúrate de estar en el directorio jni:
+cd limbo-android-lib/src/main/jni
+
+Asegúrate de actualizar el archivo android-limbo-config.mak con la ruta de la carpeta NDK a tu carpeta de instalación.
+Ten en cuenta que la última versión de NDK que admitía gcc fue r14b. La alternativa es usar clang con la versión r23 de ndk. Por ejemplo:
+NDK_ROOT = /home/dev/tools/ndk/android-ndk-r14b
+
+El resto de la configuración sirve para especificar la versión correcta de QEMU: USE_QEMU_VERSION, la arquitectura del host (dispositivo Android): BUILD_HOST, y la arquitectura guest del emulador: BUILD_GUEST.
+b. Desde Android Studio, importa TANTO la librería Android limbo-android-lib COMO el módulo para la arquitectura guest que necesites (x86, arm, ppc, sparc), por ejemplo, limbo-android-x86.
+c. Compila las librerías nativas:
+# Asegúrate de seguir en el directorio jni:
+cd limbo-android-lib/src/main/jni
+
+# En lugar de editar android-limbo-config.mak, también puedes proporcionar las variables en la línea de comandos.
+# Por ejemplo:
+export BUILD_HOST=<EABI>
+export BUILD_GUEST=<GUEST_ARCH>
+export NDK_DEBUG=<ENABLE_DEBUG>
+
+Donde:
+   * EABI es el tipo de dispositivo Android (arquitectura host): armeabi-v7a, arm64-v8a, x86, x86_64
+   * GUEST_ARCH es el tipo de emulador: x86_64-softmmu, aarch64-softmmu, sparc64-softmmu, ppc64-softmmu
+   * ENABLE_DEBUG es 1 (opcional)
+# Para iniciar la compilación, escribe en tu terminal:
+make limbo
+
+Notas:
+   * Si deseas eliminar TODOS los objetos y librerías nativas compiladas previamente:
+make clean
+   * Si estás compilando un apk para múltiples arquitecturas host, debes hacer lo siguiente entre compilaciones:
+make distclean
+   * Si estás compilando un apk para múltiples arquitecturas guest, puedes especificarlas separadas por comas:
+BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
+Ejemplos:
+      1. Para compilar Limbo x86 Emulator para teléfonos ARM64, escribe:
+export BUILD_HOST=arm64-v8a
+export BUILD_GUEST=x86_64-softmmu
+make limbo
+
+      2. Para compilar Limbo x86 Emulator para teléfonos ARM, escribe:
+export BUILD_HOST=armeabi-v7a
+export BUILD_GUEST=x86_64-softmmu
+make limbo
+
+      3. Para compilar Limbo ARM Emulator para teléfonos ARM64, escribe:
+export BUILD_HOST=arm64-v8a
+export BUILD_GUEST=aarch64-softmmu
+make limbo
+
+      4. Para compilar Limbo x86 Emulator para teléfonos/tabletas/PC Intel x86 de 32 bits, escribe:
+export BUILD_HOST=x86
+export BUILD_GUEST=x86_64-softmmu
+make limbo
+
+      5. Para compilar Limbo x86 Emulator para PC Intel x86 de 64 bits, escribe:
+export BUILD_HOST=x86_64
+export BUILD_GUEST=x86_64-softmmu
+make limbo
+
+      6. Para compilar Limbo ARM Emulator para teléfonos ARM64 con fines de depuración, escribe:
+export NDK_DEBUG=1
+export BUILD_HOST=arm64-v8a
+export BUILD_GUEST=aarch64-softmmu
+make limbo
+
+      7. Para compilar varios emuladores Limbo para teléfonos ARM, escribe:
+export BUILD_HOST=arm64-v8a
+export BUILD_GUEST=x86_64-softmmu,aarch64-softmmu
+make limbo
+
+      8. Para compilar Limbo para dispositivos más antiguos con gcc, establece las siguientes opciones:
+export NDK_ROOT=/home/dev/tools/ndk/android-ndk-r14b
+export USE_GCC=true
+export BUILD_HOST=armeabi-v7a
+export BUILD_GUEST=x86_64-softmmu
+export USE_QEMU_VERSION=2.9.1
+export USE_AAUDIO=false
+
+Para más opciones, consulta android-limbo-config.mak.
+Ahora deberías tener las siguientes librerías en estas 2 carpetas:
+limbo-android-lib/src/main/jniLibs/<EABI>/
+         * libcompat-iconv.so
+         * libcompat-intl.so
+         * libcompat-limbo.so
+         * libcompat-SDL2-ext.so
+         * libglib-2.0.so
+         * liblimbo.so
+         * libpixman-1.so
+         * libSDL2.so
+limbo-android-<GUEST_ARCH>/src/main/jniLibs/<EABI>/
+         * libqemu-system-xxx.so
+Nota:
+Cuando compilas el apk en Android Studio, contendrá las librerías de ambas carpetas, por lo que no necesitas copiar archivos manualmente.
+d. Compila el apk de Android para el guest correspondiente usando Android Studio.
+Asegúrate de que las librerías *.so estén comprimidas en el .apk final.
+e. Para compilar desde la línea de comandos en lugar de Android Studio:
+export ANDROID_SDK_ROOT=~/Android/Sdk
+gradle wrapper
+./gradlew assembleRelease
+
+f. Si deseas compilar la versión de depuración:
+         * Establece variables en Config.java:
+debug = true;
+         * Modifica android-config/android-limbo-config.mak y apunta a una configuración sin optimización:
+USE_OPTIMIZATION=false
+         * Sigue los pasos para compilar las librerías nativas como se describió anteriormente
+export NDK_DEBUG=1
+         * Importante:
+Desde Android Studio, haz clic en Build > Rebuild Project y luego Run > Debug.
+===============================================================================
+8. Depuración
+Para depurar el código nativo para un guest en particular:
+# para guest x86 y teléfono ARM64:
+export BUILD_HOST=arm64-v8a
+export BUILD_GUEST=x86_64-softmmu
+make ndk-gdb PKG_NAME=com.limbo.emu.main
+
+# para otros guests, usa respectivamente:
+make ndk-gdb PKG_NAME=com.limbo.emu.main.arm
+make ndk-gdb PKG_NAME=com.limbo.emu.main.sparc
+make ndk-gdb PKG_NAME=com.limbo.emu.main.ppc
+
+Nota: Es posible que desees deshabilitar el manejo de señales en gdb:
+handle all nostop noprint
+Para atrapar un SIGSEGV:
+handle 11 stop print
+Comandos útiles:
+            * Para establecer breakpoints: b <archivo.c>:<linea_de_codigo>
+            * Para avanzar una instrucción: s
+            * Para ir a la siguiente instrucción: n
+            * Para continuar: c
+            * Para detener (interrumpir): ctrl-c
+            * Para ver la pila (backtrace): bt
+===============================================================================
+9. Notas de Desarrollo
+a. Los cambios de código para la compatibilidad con Android están en archivos de parches marcados con __ANDROID__.
+b. Del mismo modo, los cambios de código para la funcionalidad de LIMBO están etiquetados con __LIMBO__.
+c. Archivos de configuración importantes (deberás actualizar la ruta de NDK en este archivo antes de compilar):
+limbo-android-lib/src/main/jni/android-config/android-limbo-config.mak
+d. Archivos de configuración avanzada de QEMU:
+limbo-android-lib/src/main/jni/android-config/android-qemu-config.mak
+d. Archivos de configuración avanzada de dispositivos:
+limbo-android-lib/src/main/jni/android-config/android-config/*.mak
+e. Archivos Makefile importantes:
+            * limbo-android-lib/src/main/jni/Makefile
+            * limbo-android-lib/src/main/jni/Android.mk
+            * limbo-android-lib/src/main/jni/Application.mk
+            * limbo-android-lib/src/main/jni/android-limbo-build.mak
+            * limbo-android-lib/src/main/jni/android-qemu-build.mak
+f. Para la configuración de las opciones de la interfaz de usuario de frontend, consulta: Config.java
+g. Cuando uses git, aplica la siguiente configuración a tu archivo de configuración si quieres usar retornos de nueva línea para windows:
+[core]
+   eol = true
+   autocrlf = input
+   fileMode = false
+
+===============================================================================
+10. Ejecución
+a. Instala un teclado Qwerty completo para Android, como Hacker's keyboard, desde la tienda Google Android. Asegúrate de usar el tema Transparente y Direct Draw que se encuentran en la configuración de Temas.
+b. Inicia la aplicación Limbo y elige CPU, Memoria (~8-64MB), etc.
+c. Elige una imagen de disco de arranque para CD-Rom, Floppy y una imagen de HDD.
+d. Inicia la máquina virtual.
+e. Para más instrucciones y guías, visita:
+https://github.com/limboemu/limbo
+f. ¡Diviértete!
+===============================================================================
+11. Historial de Cambios (Changelog)
+Consulta limbo-android-lib/src/main/assets/CHANGELOG para las notas de la versión.
+===============================================================================
+12. Licencia
+Limbo PC Emulator se publica bajo la Licencia GPL v2.
+Todos los iconos en /res son del Proyecto Gnome (Licencia GPL v2).
+Consulta el archivo COPYING en el directorio raíz
+y LICENSE en limbo-android-lib/src/main/assets.
+Otras fuentes incluidas se publican bajo su propia licencia; consulta las Licencias en cada subdirectorio.
