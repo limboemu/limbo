@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Limbo ARM Emulator</string>
-    <string name="app_short_name">Limbo ARM</string>
+    <string name="app_name">Virtual ARM Machine</string>
+    <string name="app_short_name">Machine ARM</string>
     <string name="DebianArmLinux">Debian ARM Linux</string>
     <string name="DebianArmLinuxDescr">A Linux-based light weight OS with Desktop Manager, network, and package manager</string>
 
