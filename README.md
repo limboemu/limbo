@@ -1,4 +1,4 @@
-# Virtual Machine (QEMU) for Android
+# Virtual Machine (QEMU) for Android It's a fork of the limbo emulator
 #
 # For APK Downloads, Guides, and Help visit:
 # https://virtualmachinery.weebly.com
