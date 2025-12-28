@@ -3,7 +3,7 @@
 # For APK Downloads, Guides, and Help visit:
 # https://virtualmachinery.weebly.com
 
-Limbo is a QEMU-based emulator for Android supports emulation for these architectures:
+Virtual is a QEMU-based emulator for Android supports emulation for these architectures:
 	x86/x86_64
 	ARM/ARM64
 
