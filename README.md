@@ -1,7 +1,4 @@
 # Virtual Machine (QEMU) for Android It's a fork of the limbo emulator
-#
-# For APK Downloads, Guides, and Help visit:
-# https://virtualmachinery.weebly.com
 
 Virtual is a QEMU-based emulator for Android supports emulation for these architectures:
 	x86/x86_64
