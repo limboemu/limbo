@@ -27,17 +27,11 @@ void *get_fd_thread(void *t);
 int create_thread_get_fd(const char * filepath);
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 FILE* android_fopen(const char *path, const char * mode);
 int android_open(const char *path, int flags, ...);
 //int android_close(int fd);
 int android_stat(const char*, struct stat*);
 int android_mkstemp(char * path);
 int lockf(int fd, int cmd, off_t len);
-#ifdef __cplusplus
-}
-#endif
 
 #endif

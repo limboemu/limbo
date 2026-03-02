@@ -8,12 +8,6 @@ typedef struct sdl_res_t {
 	int height;
 } sdl_res_t;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 void Android_JNI_SetVMResolution(int width, int height);
-#ifdef __cplusplus
-}
-#endif
 
 #endif

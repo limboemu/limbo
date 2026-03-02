@@ -5,7 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE:= $(APP_ARM_MODE)
 
 LOCAL_SRC_FILES :=			\
-	vm-executor-jni.cpp
+	vm-executor-jni.c
 
 LOCAL_MODULE := limbo
 
@@ -18,15 +18,22 @@ LOCAL_C_INCLUDES :=			\
 	$(LIMBO_JNI_ROOT)/glib \
 	$(LIMBO_JNI_ROOT)/glib/android
 
-LOCAL_SHARED_LIBRARIES := spice png glib-2.0
+LOCAL_SHARED_LIBRARIES := glib-2.0
+
+# additional libs we don't use right now
+#LOCAL_SHARED_LIBRARIES += spice png
 
 LOCAL_LDLIBS := -ldl -llog
 
-LOCAL_CFLAGS += $(ARCH_CFLAGS)
-LOCAL_CFLAGS += -fexceptions
-LOCAL_CFLAGS +=  -include $(LOGUTILS) -D__STDC_CONSTANT_MACROS
+#LOCAL_CFLAGS += $(ARCH_CFLAGS)
+LOCAL_CFLAGS += -include $(LOGUTILS)
+
+# for exceptions we don't use right now
+#LOCAL_CFLAGS += -fexceptions
+#LOCAL_CFLAGS += -D__STDC_CONSTANT_MACROS
+
 LOCAL_ARM_MODE := $(ARM_MODE)
 
-LOCAL_SHARED_LIBRARIES := compat-musl
+LOCAL_SHARED_LIBRARIES := compat-musl compat-limbo
 
 include $(BUILD_SHARED_LIBRARY)

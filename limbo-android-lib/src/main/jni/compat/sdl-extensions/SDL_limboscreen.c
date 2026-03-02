@@ -1,0 +1,30 @@
+/*
+Copyright (C) Max Kastanas 2012
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+#include <stdbool.h>
+#include "src/SDL_internal.h"
+#include "SDL_limboscreen.h"
+#include "core/android/SDL_android.h"
+
+extern SDL_Window *Android_Window;
+
+JNIEXPORT void JNICALL Java_com_max2idea_android_limbo_jni_VMExecutor_nativeFullscreen(
+        JNIEnv* env, jobject thiz) {
+    SDL_SetWindowFullscreen(Android_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+}
+

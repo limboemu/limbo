@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/networksectionl"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/border"
+    android:gravity="center|center_vertical"
+    android:orientation="vertical"
+    android:padding="15dp"
+    tools:showIn="@layout/limbo_main">
+
+
+    <LinearLayout
+        android:id="@+id/networkheaderl"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+
+        >
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/network" />
+
+        <TextView
+            android:id="@+id/networksectionStr"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center|center_vertical"
+            android:gravity="center|center_vertical"
+            android:padding="10dp"
+            android:text="Network"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+
+        <TextView
+            android:id="@+id/networksectionsummaryStr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="right"
+            android:maxLines="3"
+            android:minLines="2"
+            android:padding="10dp"
+            android:text=""
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/networksectionDetails"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <LinearLayout
+            android:id="@+id/netcfgl"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:paddingRight="5dp"
+                android:src="@drawable/network" />
+
+            <TextView
+                android:id="@+id/netcfgStr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="Network: "
+                android:textSize="15sp" />
+
+            <Spinner
+                android:id="@+id/netcfgval"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="right"
+                android:singleLine="true"
+                android:text=""
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/netDeviceslm"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:paddingRight="5dp"
+                android:src="@drawable/networkcard" />
+
+            <TextView
+                android:id="@+id/netDevicesStr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="Network Card: "
+                android:textSize="15sp" />
+
+            <Spinner
+                android:id="@+id/netDevicesVal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="right"
+                android:singleLine="true"
+                android:text=""
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/dnsl"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:paddingRight="5dp"
+                android:src="@drawable/dnsserver" />
+
+            <TextView
+                android:id="@+id/dnsStr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="DNS Server: "
+                android:textSize="15sp" />
+
+            <EditText
+                android:id="@+id/dnsval"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:digits="0123456789."
+                android:enabled="false"
+                android:gravity="right"
+                android:inputType="textFilter|textNoSuggestions"
+                android:singleLine="true"
+                android:text="8.8.8.8"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/hostfwdl"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/hostfwdStr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="Host Forward: "
+                android:textSize="15sp" />
+
+            <EditText
+                android:id="@+id/hostfwdval"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:gravity="right"
+                android:hint="tcp:hostport1:guestport1,udp:hostport2:questport2,..."
+                android:inputType="textFilter|textNoSuggestions"
+                android:singleLine="true"
+                android:text=""
+                android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
